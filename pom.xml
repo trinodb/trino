@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>409-SNAPSHOT</version>
+    <version>410-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -46,10 +46,12 @@
 
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
 
+        <dep.slice.version>0.45</dep.slice.version>
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.11.1</dep.antlr.version>
-        <dep.airlift.version>224</dep.airlift.version>
+        <!-- TODO remove after updating Airbase -->
+        <dep.airlift.version>225</dep.airlift.version>
         <dep.arrow.version>9.0.0</dep.arrow.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.261</dep.aws-sdk.version>
@@ -149,6 +151,7 @@
         <module>plugin/trino-hudi</module>
         <module>plugin/trino-iceberg</module>
         <module>plugin/trino-ignite</module>
+        <module>plugin/trino-influxdb</module>
         <module>plugin/trino-jmx</module>
         <module>plugin/trino-kafka</module>
         <module>plugin/trino-kinesis</module>
@@ -392,6 +395,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-ignite</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-influxdb</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -818,7 +827,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
-                <version>0.21</version>
+                <version>0.24</version>
             </dependency>
 
             <dependency>

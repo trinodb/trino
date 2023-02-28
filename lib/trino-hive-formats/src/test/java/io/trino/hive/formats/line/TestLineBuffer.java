@@ -14,23 +14,22 @@
 package io.trino.hive.formats.line;
 
 import com.google.common.primitives.Bytes;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 public class TestLineBuffer
 {
-    private static final int LINE_BUFFER_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LineBuffer.class).instanceSize());
+    private static final int LINE_BUFFER_INSTANCE_SIZE = instanceSize(LineBuffer.class);
 
     @Test
     public void testInvalidConstructorArgs()

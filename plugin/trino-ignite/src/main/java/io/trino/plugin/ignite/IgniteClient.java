@@ -38,6 +38,7 @@ import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementCount;
 import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
@@ -167,6 +168,7 @@ public class IgniteClient
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
+                        .add(new ImplementCountDistinct(bigintTypeHandle, true))
                         .build());
     }
 
@@ -184,8 +186,8 @@ public class IgniteClient
         return metadata.getTables(
                 null, // no catalogs in Ignite
                 // TODO: https://github.com/trinodb/trino/issues/8552 support user custom schemas.
-                schemaName.orElse(IGNITE_SCHEMA),
-                tableName.orElse(null),
+                escapeObjectNameForMetadataQuery(schemaName, metadata.getSearchStringEscape()).orElse(IGNITE_SCHEMA),
+                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 new String[] {"TABLE", "VIEW"});
     }
 
@@ -483,22 +485,20 @@ public class IgniteClient
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
+        String schemaName = requireNonNull(schemaTableName.getSchemaName(), "Ignite schema name can not be null").toUpperCase(ENGLISH);
         String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null").toUpperCase(ENGLISH);
-        String sql = "SELECT idx.CACHE_ID, " +
-                "(SELECT COLUMNS FROM sys.indexes WHERE SCHEMA_NAME = 'PUBLIC' AND TABLE_NAME = ? AND INDEX_NAME = '_key_PK') AS PKS," +
-                "(SELECT COLUMNS FROM sys.indexes WHERE SCHEMA_NAME = 'PUBLIC' AND TABLE_NAME = ? AND INDEX_NAME = 'AFFINITY_KEY') AS AFK FROM sys.indexes as idx " +
-                "JOIN sys.caches che ON idx.CACHE_ID = che.CACHE_ID WHERE idx.SCHEMA_NAME = 'PUBLIC' AND idx.TABLE_NAME = ? LIMIT 1";
+        // Get primary keys from 'sys.indexes' because DatabaseMetaData.getPrimaryKeys doesn't work well while table being concurrent modified
+        String sql = "SELECT COLUMNS FROM sys.indexes WHERE SCHEMA_NAME = ? AND TABLE_NAME = ? AND INDEX_NAME = '_key_PK' LIMIT 1";
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            preparedStatement.setString(1, tableName);
+            preparedStatement.setString(1, schemaName);
             preparedStatement.setString(2, tableName);
-            preparedStatement.setString(3, tableName);
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (!resultSet.next()) {
                     return ImmutableMap.of();
                 }
-                List<String> primaryKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("PKS"));
+                List<String> primaryKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("COLUMNS"));
                 checkArgument(!primaryKeys.isEmpty(), "Ignite table should has at least one primary key");
                 properties.put(PRIMARY_KEY_PROPERTY, primaryKeys);
             }

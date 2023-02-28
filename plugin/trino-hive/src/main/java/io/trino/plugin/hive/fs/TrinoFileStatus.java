@@ -15,6 +15,7 @@ package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.FileEntry.Block;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 
@@ -36,16 +37,15 @@ public class TrinoFileStatus
 
     public TrinoFileStatus(FileEntry entry)
     {
-        this(
-                entry.blockLocations()
-                        .orElseGet(() -> List.of(new FileEntry.BlockLocation(List.of(), 0, entry.length())))
+        this(entry.blocks()
+                        .orElseGet(() -> List.of(new Block(List.of(), 0, entry.length())))
                         .stream()
                         .map(BlockLocation::new)
                         .collect(toImmutableList()),
-                new Path(entry.path()),
+                new Path(entry.location()),
                 false,
                 entry.length(),
-                entry.lastModified());
+                entry.lastModified().toEpochMilli());
     }
 
     public TrinoFileStatus(LocatedFileStatus fileStatus)

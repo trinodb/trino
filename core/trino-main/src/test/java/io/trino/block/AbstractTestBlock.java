@@ -27,7 +27,6 @@ import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
 import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.block.TestingBlockEncodingSerde;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -41,6 +40,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -89,7 +89,7 @@ public abstract class AbstractTestBlock
 
     private void assertRetainedSize(Block block)
     {
-        long retainedSize = ClassLayout.parseClass(block.getClass()).instanceSize();
+        long retainedSize = instanceSize(block.getClass());
         Field[] fields = block.getClass().getDeclaredFields();
         try {
             for (Field field : fields) {
@@ -146,7 +146,7 @@ public abstract class AbstractTestBlock
                     retainedSize += sizeOf((short[]) field.get(block));
                 }
                 else if (type == DictionaryId.class) {
-                    retainedSize += ClassLayout.parseClass(DictionaryId.class).instanceSize();
+                    retainedSize += instanceSize(DictionaryId.class);
                 }
                 else if (type == MapHashTables.class) {
                     retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();

@@ -16,22 +16,21 @@ package io.trino.operator;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.Math.toIntExact;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class GroupByIdBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupByIdBlock.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(GroupByIdBlock.class);
 
     private final long groupCount;
     private final Block block;

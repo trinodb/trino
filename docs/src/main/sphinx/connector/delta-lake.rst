@@ -157,16 +157,6 @@ values. Typical usage does not require you to configure them.
     * - ``delta.register-table-procedure.enabled``
       - Enable to allow users to call the ``register_table`` procedure
       - ``false``
-    * - ``delta.default-reader-version``
-      - The default reader version used by new tables.
-        The value can be overridden for a specific table with the
-        ``reader_version`` table property.
-      - ``1``
-    * - ``delta.default-writer-version``
-      - The default writer version used by new tables.
-        The value can be overridden for a specific table with the
-        ``writer_version`` table property.
-      - ``2``
 
 The following table describes performance tuning catalog properties for the
 connector.
@@ -573,21 +563,15 @@ The following properties are available for use:
     - Set the checkpoint interval in seconds.
   * - ``change_data_feed_enabled``
     - Enables storing change data feed entries.
-  * - ``reader_version``
-    - Set reader version.
-  * - ``writer_version``
-    - Set writer version.
 
-The following example uses all six table properties::
+The following example uses all available table properties::
 
   CREATE TABLE example.default.example_partitioned_table
   WITH (
     location = 's3://my-bucket/a/path',
     partitioned_by = ARRAY['regionkey'],
     checkpoint_interval = 5,
-    change_data_feed_enabled = true,
-    reader_version = 2,
-    writer_version = 4
+    change_data_feed_enabled = true
   )
   AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 
@@ -641,6 +625,34 @@ Write operations are supported for tables stored on the following systems:
   detected when writing concurrently from other Delta Lake engines. You need to
   make sure that no concurrent data modifications are run to avoid data
   corruption.
+
+.. _delta-lake-vacuum:
+
+``VACUUM``
+^^^^^^^^^^
+
+The ``VACUUM`` procedure removes all old files that are not in the transaction
+log, as well as files that are not needed to read table snapshots newer than the
+current time minus the retention period defined by the ``retention period``
+parameter.
+
+Users with ``INSERT`` and ``DELETE`` permissions on a table can run ``VACUUM``
+as follows:
+
+.. code-block:: shell
+
+  CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
+
+All parameters are required, and must be presented in the following order:
+
+* Schema name
+* Table name
+* Retention period
+
+The ``delta.vacuum.min-retention`` config property provides a safety
+measure to ensure that files are retained as expected.  The minimum value for
+this property is ``0s``. There is a minimum retention session property as well,
+``vacuum_min_retention``.
 
 Metadata tables
 ---------------
@@ -819,34 +831,6 @@ important to take that into account when provisioning the coordinator.
 
 You need to decrease memory usage by keeping the number of active data files in
 table low by running ``OPTIMIZE`` and ``VACUUM`` in Delta Lake regularly.
-
-.. _delta-lake-vacuum:
-
-``VACUUM``
-""""""""""
-
-The ``VACUUM`` procedure removes all old files that are not in the transaction
-log, as well as files that are not needed to read table snapshots newer than the
-current time minus the retention period defined by the ``retention period``
-parameter.
-
-Users with ``INSERT`` and ``DELETE`` permissions on a table can run ``VACUUM``
-as follows:
-
-.. code-block:: shell
-
-  CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
-
-All parameters are required, and must be presented in the following order:
-
-* Schema name
-* Table name
-* Retention period
-
-The ``delta.vacuum.min-retention`` config property provides a safety
-measure to ensure that files are retained as expected.  The minimum value for
-this property is ``0s``. There is a minimum retention session property as well,
-``vacuum_min_retention``.
 
 Memory monitoring
 """""""""""""""""

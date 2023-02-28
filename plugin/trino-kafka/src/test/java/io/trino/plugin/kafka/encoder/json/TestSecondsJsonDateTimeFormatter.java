@@ -28,8 +28,8 @@ import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.SECONDS_S
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.time.ZoneOffset.UTC;
+import static org.testng.Assert.assertEquals;
 
 public class TestSecondsJsonDateTimeFormatter
 {

@@ -14,7 +14,6 @@
 package io.trino.filesystem.hdfs;
 
 import io.airlift.slice.Slice;
-import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.FSDataInputStreamTail;
@@ -34,12 +33,6 @@ class HdfsInput
     {
         this.stream = requireNonNull(stream, "stream is null");
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
-    }
-
-    @Override
-    public SeekableInputStream inputStream()
-    {
-        return new HdfsSeekableInputStream(stream);
     }
 
     @Override
@@ -69,58 +62,5 @@ class HdfsInput
     public String toString()
     {
         return inputFile.toString();
-    }
-
-    private static class HdfsSeekableInputStream
-            extends SeekableInputStream
-    {
-        private final FSDataInputStream stream;
-
-        private HdfsSeekableInputStream(FSDataInputStream stream)
-        {
-            this.stream = requireNonNull(stream, "stream is null");
-        }
-
-        @Override
-        public long getPosition()
-                throws IOException
-        {
-            return stream.getPos();
-        }
-
-        @Override
-        public void seek(long position)
-                throws IOException
-        {
-            stream.seek(position);
-        }
-
-        @Override
-        public int read()
-                throws IOException
-        {
-            return stream.read();
-        }
-
-        @Override
-        public int read(byte[] b)
-                throws IOException
-        {
-            return stream.read(b);
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len)
-                throws IOException
-        {
-            return stream.read(b, off, len);
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            stream.close();
-        }
     }
 }

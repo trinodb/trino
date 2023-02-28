@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
 import java.util.function.IntFunction;
@@ -31,6 +32,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.parquet.ParquetTypeUtils.paddingBigInteger;
 import static java.lang.Math.toIntExact;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class TestData
 {
@@ -168,6 +170,20 @@ public final class TestData
             data[i] = value;
         }
 
+        return data;
+    }
+
+    public static byte[][] randomUtf8(int size, int length)
+    {
+        Random random = new Random(Objects.hash(size, length));
+        byte[][] data = new byte[size][];
+        for (int i = 0; i < size; i++) {
+            StringBuilder builder = new StringBuilder();
+            for (int j = 0; j < length; j++) {
+                builder.append((char) random.nextInt(1 << 16));
+            }
+            data[i] = Arrays.copyOf(builder.toString().getBytes(UTF_8), length);
+        }
         return data;
     }
 

@@ -17,13 +17,12 @@ import io.trino.array.BigArrays;
 import io.trino.array.LongBigArray;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.HashCommon;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.LongBinaryOperator;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static it.unimi.dsi.fastutil.HashCommon.bigArraySize;
 import static it.unimi.dsi.fastutil.HashCommon.maxFill;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/) Long2LongOpenCustomHashMap
@@ -32,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class LongLong2LongOpenCustomBigHashMap
         implements Hash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongLong2LongOpenCustomBigHashMap.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LongLong2LongOpenCustomBigHashMap.class);
 
     public interface HashStrategy
     {

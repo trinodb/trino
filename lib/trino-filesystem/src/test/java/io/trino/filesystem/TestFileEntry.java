@@ -13,9 +13,10 @@
  */
 package io.trino.filesystem;
 
-import io.trino.filesystem.FileEntry.BlockLocation;
+import io.trino.filesystem.FileEntry.Block;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,73 +25,75 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFileEntry
 {
+    private static final Instant MODIFIED = Instant.ofEpochSecond(1234567890);
+
     @Test
-    public void testEmptyBlockLocations()
+    public void testEmptyBlocks()
     {
-        assertThat(new FileEntry("/test", 123, 456, Optional.empty()))
+        assertThat(new FileEntry("/test", 123, MODIFIED, Optional.empty()))
                 .satisfies(entry -> {
-                    assertThat(entry.path()).isEqualTo("/test");
+                    assertThat(entry.location()).isEqualTo("/test");
                     assertThat(entry.length()).isEqualTo(123);
-                    assertThat(entry.lastModified()).isEqualTo(456);
-                    assertThat(entry.blockLocations()).isEmpty();
+                    assertThat(entry.lastModified()).isEqualTo(MODIFIED);
+                    assertThat(entry.blocks()).isEmpty();
                 });
     }
 
     @Test
-    public void testPresentBlockLocations()
+    public void testPresentBlocks()
     {
-        List<BlockLocation> locations = List.of(
-                new BlockLocation(List.of(), 0, 50),
-                new BlockLocation(List.of(), 50, 70),
-                new BlockLocation(List.of(), 100, 150));
-        assertThat(new FileEntry("/test", 200, 0, Optional.of(locations)))
-                .satisfies(entry -> assertThat(entry.blockLocations()).contains(locations));
+        List<Block> locations = List.of(
+                new Block(List.of(), 0, 50),
+                new Block(List.of(), 50, 70),
+                new Block(List.of(), 100, 150));
+        assertThat(new FileEntry("/test", 200, MODIFIED, Optional.of(locations)))
+                .satisfies(entry -> assertThat(entry.blocks()).contains(locations));
     }
 
     @Test
-    public void testMissingBlockLocations()
+    public void testMissingBlocks()
     {
-        assertThatThrownBy(() -> new FileEntry("/test", 0, 456, Optional.of(List.of())))
+        assertThatThrownBy(() -> new FileEntry("/test", 0, MODIFIED, Optional.of(List.of())))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("blockLocations is empty");
+                .hasMessage("blocks is empty");
     }
 
     @Test
-    public void testBlockLocationsEmptyFile()
+    public void testBlocksEmptyFile()
     {
-        List<BlockLocation> locations = List.of(new BlockLocation(List.of(), 0, 0));
-        assertThat(new FileEntry("/test", 0, 0, Optional.of(locations)))
-                .satisfies(entry -> assertThat(entry.blockLocations()).contains(locations));
+        List<Block> locations = List.of(new Block(List.of(), 0, 0));
+        assertThat(new FileEntry("/test", 0, MODIFIED, Optional.of(locations)))
+                .satisfies(entry -> assertThat(entry.blocks()).contains(locations));
     }
 
     @Test
-    public void testBlockLocationsGapAtStart()
+    public void testBlocksGapAtStart()
     {
-        List<BlockLocation> locations = List.of(new BlockLocation(List.of(), 50, 50));
-        assertThatThrownBy(() -> new FileEntry("/test", 100, 0, Optional.of(locations)))
+        List<Block> locations = List.of(new Block(List.of(), 50, 50));
+        assertThatThrownBy(() -> new FileEntry("/test", 100, MODIFIED, Optional.of(locations)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("blockLocations has a gap");
+                .hasMessage("blocks have a gap");
     }
 
     @Test
-    public void testBlockLocationsGapInMiddle()
+    public void testBlocksGapInMiddle()
     {
-        List<BlockLocation> locations = List.of(
-                new BlockLocation(List.of(), 0, 50),
-                new BlockLocation(List.of(), 100, 100));
-        assertThatThrownBy(() -> new FileEntry("/test", 200, 0, Optional.of(locations)))
+        List<Block> locations = List.of(
+                new Block(List.of(), 0, 50),
+                new Block(List.of(), 100, 100));
+        assertThatThrownBy(() -> new FileEntry("/test", 200, MODIFIED, Optional.of(locations)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("blockLocations has a gap");
+                .hasMessage("blocks have a gap");
     }
 
     @Test
-    public void testBlockLocationsGapAtEnd()
+    public void testBlocksGapAtEnd()
     {
-        List<BlockLocation> locations = List.of(
-                new BlockLocation(List.of(), 0, 50),
-                new BlockLocation(List.of(), 50, 49));
-        assertThatThrownBy(() -> new FileEntry("/test", 100, 0, Optional.of(locations)))
+        List<Block> locations = List.of(
+                new Block(List.of(), 0, 50),
+                new Block(List.of(), 50, 49));
+        assertThatThrownBy(() -> new FileEntry("/test", 100, MODIFIED, Optional.of(locations)))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("blockLocations does not cover file");
+                .hasMessage("blocks do not cover file");
     }
 }

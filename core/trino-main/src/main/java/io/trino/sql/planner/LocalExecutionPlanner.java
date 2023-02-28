@@ -62,6 +62,7 @@ import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.GroupIdOperator;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.HashSemiJoinOperator;
+import io.trino.operator.LeafTableFunctionOperator.LeafTableFunctionOperatorFactory;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
 import io.trino.operator.LocalPlannerAware;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
@@ -77,6 +78,7 @@ import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesSpatialIndexFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.RefreshMaterializedViewOperator.RefreshMaterializedViewOperatorFactory;
+import io.trino.operator.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.operator.RetryPolicy;
 import io.trino.operator.RowNumberOperator;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
@@ -90,6 +92,7 @@ import io.trino.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import io.trino.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import io.trino.operator.StreamingAggregationOperator;
 import io.trino.operator.TableDeleteOperator.TableDeleteOperatorFactory;
+import io.trino.operator.TableFunctionOperator.TableFunctionOperatorFactory;
 import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
 import io.trino.operator.TaskContext;
 import io.trino.operator.TopNOperator;
@@ -163,6 +166,7 @@ import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
@@ -185,6 +189,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -221,6 +226,8 @@ import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -367,6 +374,8 @@ import static io.trino.util.SpatialJoinUtils.ST_INTERSECTS;
 import static io.trino.util.SpatialJoinUtils.ST_WITHIN;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.trino.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.partitioningBy;
@@ -1656,13 +1665,93 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
         {
-            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
         }
 
         @Override
         public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
         {
-            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+            TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle());
+
+            if (node.getSource().isEmpty()) {
+                OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(context.getNextOperatorId(), node.getId(), processorProvider, node.getHandle().getFunctionHandle());
+                return new PhysicalOperation(operatorFactory, makeLayout(node), context);
+            }
+
+            PhysicalOperation source = node.getSource().orElseThrow().accept(this, context);
+
+            int properChannelsCount = node.getProperOutputs().size();
+
+            long passThroughSourcesCount = node.getPassThroughSpecifications().stream()
+                    .filter(PassThroughSpecification::declaredAsPassThrough)
+                    .count();
+
+            List<List<Integer>> requiredChannels = node.getRequiredSymbols().stream()
+                    .map(list -> getChannelsForSymbols(list, source.getLayout()))
+                    .collect(toImmutableList());
+
+            Optional<Map<Integer, Integer>> markerChannels = node.getMarkerSymbols()
+                    .map(map -> map.entrySet().stream()
+                            .collect(toImmutableMap(entry -> source.getLayout().get(entry.getKey()), entry -> source.getLayout().get(entry.getValue()))));
+
+            int channel = properChannelsCount;
+            ImmutableList.Builder<PassThroughColumnSpecification> passThroughColumnSpecifications = ImmutableList.builder();
+            for (PassThroughSpecification specification : node.getPassThroughSpecifications()) {
+                // the table function produces one index channel for each source declared as pass-through. They are laid out after the proper channels.
+                int indexChannel = specification.declaredAsPassThrough() ? channel++ : -1;
+                for (PassThroughColumn column : specification.columns()) {
+                    passThroughColumnSpecifications.add(new PassThroughColumnSpecification(column.isPartitioningColumn(), source.getLayout().get(column.symbol()), indexChannel));
+                }
+            }
+
+            List<Integer> partitionChannels = node.getSpecification()
+                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .map(list -> getChannelsForSymbols(list, source.getLayout()))
+                    .orElse(ImmutableList.of());
+
+            List<Integer> sortChannels = ImmutableList.of();
+            List<SortOrder> sortOrders = ImmutableList.of();
+            if (node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).isPresent()) {
+                OrderingScheme orderingScheme = node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).orElseThrow();
+                sortChannels = getChannelsForSymbols(orderingScheme.getOrderBy(), source.getLayout());
+                sortOrders = orderingScheme.getOrderingList();
+            }
+
+            OperatorFactory operator = new TableFunctionOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    processorProvider,
+                    node.getHandle().getFunctionHandle(),
+                    properChannelsCount,
+                    toIntExact(passThroughSourcesCount),
+                    requiredChannels,
+                    markerChannels,
+                    passThroughColumnSpecifications.build(),
+                    node.isPruneWhenEmpty(),
+                    partitionChannels,
+                    getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitioned()), source.getLayout()),
+                    sortChannels,
+                    sortOrders,
+                    node.getPreSorted(),
+                    source.getTypes(),
+                    10_000,
+                    pagesIndexFactory);
+
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            for (int i = 0; i < node.getProperOutputs().size(); i++) {
+                outputMappings.put(node.getProperOutputs().get(i), i);
+            }
+            List<Symbol> passThroughSymbols = node.getPassThroughSpecifications().stream()
+                    .map(PassThroughSpecification::columns)
+                    .flatMap(Collection::stream)
+                    .map(PassThroughColumn::symbol)
+                    .collect(toImmutableList());
+            int outputChannel = properChannelsCount;
+            for (Symbol passThroughSymbol : passThroughSymbols) {
+                outputMappings.put(passThroughSymbol, outputChannel++);
+            }
+
+            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), context, source);
         }
 
         @Override

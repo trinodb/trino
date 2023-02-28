@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.line.Column;
@@ -154,7 +153,7 @@ public abstract class LinePageSourceFactory
                 throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "File does not exist");
             }
             if (estimatedFileSize < SMALL_FILE_SIZE.toBytes()) {
-                try (TrinoInput input = inputFile.newInput(); InputStream inputStream = input.inputStream()) {
+                try (InputStream inputStream = inputFile.newStream()) {
                     byte[] data = inputStream.readAllBytes();
                     inputFile = new MemoryInputFile(path.toString(), Slices.wrappedBuffer(data));
                 }

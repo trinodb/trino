@@ -23,7 +23,6 @@ import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.MemoryCompressedSliceOutput;
 import io.trino.hive.formats.compression.ValueCompressor;
 import io.trino.hive.formats.line.LineWriter;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,12 +36,12 @@ import java.util.function.LongSupplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hive.formats.ReadWriteUtils.computeVIntLength;
 import static io.trino.hive.formats.ReadWriteUtils.writeLengthPrefixedString;
 import static io.trino.hive.formats.ReadWriteUtils.writeVInt;
 import static io.trino.hive.formats.compression.CompressionKind.LZOP;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -51,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class SequenceFileWriter
         implements LineWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SequenceFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SequenceFileWriter.class);
     private static final Slice SEQUENCE_FILE_MAGIC = utf8Slice("SEQ");
     private static final byte SEQUENCE_FILE_VERSION = 6;
 
@@ -171,7 +170,7 @@ public class SequenceFileWriter
     private static class SingleValueWriter
             implements ValueWriter
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleValueWriter.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SingleValueWriter.class);
         private static final int SYNC_INTERVAL = 10 * 1024;
 
         private final DataOutputStream output;
@@ -194,7 +193,6 @@ public class SequenceFileWriter
                 requireNonNull(codec, "codec is null");
                 if (codec.isPresent()) {
                     this.valueCompressor = codec.get().createValueCompressor();
-                    closer.register(valueCompressor);
                 }
                 else {
                     valueCompressor = null;
@@ -269,7 +267,7 @@ public class SequenceFileWriter
     private static class BlockCompressionValueWriter
             implements ValueWriter
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BlockCompressionValueWriter.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(BlockCompressionValueWriter.class);
 
         private static final int MAX_ROWS = 10_000_000;
         private static final int TARGET_BLOCK_SIZE = 1024 * 1024;

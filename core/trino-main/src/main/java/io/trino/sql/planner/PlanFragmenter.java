@@ -47,6 +47,8 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -365,6 +367,22 @@ public class PlanFragmenter
             // don't attempt to overwrite one's already been chosen
             if (node.getRowCount() != 0 || !context.get().hasDistribution()) {
                 context.get().setSingleNodeDistribution();
+            }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<FragmentProperties> context)
+        {
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        @Override
+        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<FragmentProperties> context)
+        {
+            if (node.getSource().isEmpty()) {
+                // context is mutable. The leaf node should set the PartitioningHandle.
+                context.get().addSourceDistribution(node.getId(), SOURCE_DISTRIBUTION, metadata, session);
             }
             return context.defaultRewrite(node, context.get());
         }

@@ -16,22 +16,21 @@ package io.trino.hive.formats.line.text;
 import com.google.common.io.CountingInputStream;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.addExact;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class TextLineReader
         implements LineReader
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TextLineReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TextLineReader.class);
 
     private final CountingInputStream in;
     private final byte[] buffer;

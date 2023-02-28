@@ -264,6 +264,9 @@ the following table:
   * - ``DATE``
     - ``DATE``
     -
+  * - ``TIME``
+    - ``TIME(9)``
+    -
   * - ``TIMESTAMP``
     - ``TIMESTAMP(3) WITH TIME ZONE``
     -

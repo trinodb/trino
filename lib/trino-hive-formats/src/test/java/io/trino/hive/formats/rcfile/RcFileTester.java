@@ -184,7 +184,7 @@ public class RcFileTester
         rcFileTester.listTestsEnabled = true;
         rcFileTester.complexStructuralTestsEnabled = false;
         rcFileTester.readLastBatchOnlyEnabled = false;
-        rcFileTester.compressions = ImmutableList.of(Optional.empty(), Optional.of(CompressionKind.SNAPPY));
+        rcFileTester.compressions = ImmutableList.of(Optional.empty(), Optional.of(CompressionKind.ZSTD));
         return rcFileTester;
     }
 

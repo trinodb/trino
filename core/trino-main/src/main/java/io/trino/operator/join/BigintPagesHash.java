@@ -22,12 +22,12 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.airlift.slice.SizeOf.sizeOfLongArray;
@@ -46,7 +46,7 @@ import static java.util.Objects.requireNonNull;
 public final class BigintPagesHash
         implements PagesHash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BigintPagesHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BigintPagesHash.class);
     private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
 
     private final LongArrayList addresses;

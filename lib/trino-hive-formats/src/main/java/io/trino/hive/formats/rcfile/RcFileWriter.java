@@ -31,7 +31,6 @@ import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationB
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -47,6 +46,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class RcFileWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RcFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RcFileWriter.class);
     private static final Slice RCFILE_MAGIC = utf8Slice("RCF");
     private static final int CURRENT_VERSION = 1;
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
@@ -344,7 +344,7 @@ public class RcFileWriter
 
     private static class ColumnEncoder
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ColumnEncoder.class).instanceSize() + ClassLayout.parseClass(ColumnEncodeOutput.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ColumnEncoder.class) + instanceSize(ColumnEncodeOutput.class);
 
         private final ColumnEncoding columnEncoding;
 
@@ -412,6 +412,7 @@ public class RcFileWriter
         }
 
         public void reset()
+                throws IOException
         {
             checkArgument(columnClosed, "Column is open");
             lengthOutput.reset();

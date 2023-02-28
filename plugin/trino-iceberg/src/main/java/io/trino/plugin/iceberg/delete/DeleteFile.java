@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileFormat;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -32,11 +31,12 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public final class DeleteFile
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DeleteFile.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(DeleteFile.class);
 
     private final FileContent content;
     private final String path;

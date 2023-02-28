@@ -14,19 +14,19 @@ local exchange (GATHER, SINGLE, [])
                                                     scan lineitem
                                                 local exchange (GATHER, SINGLE, [])
                                                     join (INNER, PARTITIONED):
-                                                        remote exchange (REPARTITION, HASH, ["orderkey_4"])
-                                                            scan orders
+                                                        remote exchange (REPARTITION, HASH, ["orderkey"])
+                                                            join (INNER, REPLICATED):
+                                                                scan lineitem
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                                        join (INNER, REPLICATED):
+                                                                            scan supplier
+                                                                            local exchange (GATHER, SINGLE, [])
+                                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                                    scan nation
                                                         local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPARTITION, HASH, ["orderkey"])
-                                                                join (INNER, REPLICATED):
-                                                                    scan lineitem
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                                            join (INNER, REPLICATED):
-                                                                                scan supplier
-                                                                                local exchange (GATHER, SINGLE, [])
-                                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                                        scan nation
+                                                            remote exchange (REPARTITION, HASH, ["orderkey_4"])
+                                                                scan orders
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["orderkey_32"])
                                         scan lineitem

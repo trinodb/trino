@@ -100,8 +100,7 @@ public class TestHumanReadableSeconds
                 .isEqualTo("2 hours, 13 minutes, 23 seconds");
 
         assertThat(assertions.function("human_readable_seconds", "NULL"))
-                .hasType(VARCHAR)
-                .isEqualTo((Object) null);
+                .isNull(VARCHAR);
 
         // check for NaN
         assertTrinoExceptionThrownBy(() -> assertions.function("human_readable_seconds", "0.0E0 / 0.0E0").evaluate())

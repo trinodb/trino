@@ -133,8 +133,8 @@ Property                                                  Description
 See :ref:`Standards supported <tls-version-and-ciphers>` for a discussion of the
 supported TLS versions and cipher suites.
 
-access-controls.properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+access-control.properties
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 At a minimum, an :file:`access-control.properties` file must contain an
 ``access-control.name`` property.  All other configuration is specific for the

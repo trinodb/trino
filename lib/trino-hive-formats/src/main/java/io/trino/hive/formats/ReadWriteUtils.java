@@ -67,7 +67,7 @@ public final class ReadWriteUtils
         return value < -120 || (value >= -112 && value < 0);
     }
 
-    public static long readVInt(DataSeekableInputStream in)
+    public static long readVInt(TrinoDataInputStream in)
             throws IOException
     {
         byte firstByte = in.readByte();

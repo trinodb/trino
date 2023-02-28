@@ -44,6 +44,7 @@ import static io.trino.parquet.reader.decoders.PlainByteArrayDecoders.BinaryPlai
 import static io.trino.parquet.reader.decoders.PlainByteArrayDecoders.BoundedVarcharPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainByteArrayDecoders.CharPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.BooleanPlainValueDecoder;
+import static io.trino.parquet.reader.decoders.PlainValueDecoders.FixedLengthPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.Int96PlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntToBytePlainValueDecoder;
@@ -198,6 +199,15 @@ public final class ValueDecoders
         return switch (encoding) {
             case PLAIN -> new LongDecimalPlainValueDecoder(field.getDescriptor().getPrimitiveType().getTypeLength());
             case DELTA_BYTE_ARRAY -> getDeltaFixedWidthLongDecimalDecoder(encoding, field);
+            default -> throw wrongEncoding(encoding, field);
+        };
+    }
+
+    public static ValueDecoder<BinaryBuffer> getFixedWidthBinaryDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return switch (encoding) {
+            case PLAIN -> new FixedLengthPlainValueDecoder(field.getDescriptor().getPrimitiveType().getTypeLength());
+            case DELTA_BYTE_ARRAY -> new BinaryDeltaByteArrayDecoder();
             default -> throw wrongEncoding(encoding, field);
         };
     }

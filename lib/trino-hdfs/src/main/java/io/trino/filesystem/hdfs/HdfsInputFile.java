@@ -15,6 +15,7 @@ package io.trino.filesystem.hdfs;
 
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -23,6 +24,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
+import java.time.Instant;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
@@ -52,9 +54,14 @@ class HdfsInputFile
     public TrinoInput newInput()
             throws IOException
     {
-        FileSystem fileSystem = environment.getFileSystem(context, file);
-        FSDataInputStream input = environment.doAs(context.getIdentity(), () -> fileSystem.open(file));
-        return new HdfsInput(input, this);
+        return new HdfsInput(openFile(), this);
+    }
+
+    @Override
+    public TrinoInputStream newStream()
+            throws IOException
+    {
+        return new HdfsTrinoInputStream(openFile());
     }
 
     @Override
@@ -68,10 +75,10 @@ class HdfsInputFile
     }
 
     @Override
-    public long modificationTime()
+    public Instant lastModified()
             throws IOException
     {
-        return lazyStatus().getModificationTime();
+        return Instant.ofEpochMilli(lazyStatus().getModificationTime());
     }
 
     @Override
@@ -92,6 +99,13 @@ class HdfsInputFile
     public String toString()
     {
         return location();
+    }
+
+    private FSDataInputStream openFile()
+            throws IOException
+    {
+        FileSystem fileSystem = environment.getFileSystem(context, file);
+        return environment.doAs(context.getIdentity(), () -> fileSystem.open(file));
     }
 
     private FileStatus lazyStatus()

@@ -69,5 +69,5 @@
 
 ## SQL Server connector
 
-* Add support for pushing down `=`, `<>` and `IN` predicates over case-sensitive 
-  text columns. ({issue}`15714`)
+* Add support for pushing down `=`, `<>` and `IN` predicates over text columns
+  if the column uses a case-sensitive collation within SQL Server. ({issue}`15714`)

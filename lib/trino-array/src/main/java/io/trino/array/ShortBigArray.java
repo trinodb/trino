@@ -14,22 +14,21 @@
 package io.trino.array;
 
 import io.airlift.slice.SizeOf;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfShortArray;
 import static io.trino.array.BigArrays.INITIAL_SEGMENTS;
 import static io.trino.array.BigArrays.SEGMENT_SIZE;
 import static io.trino.array.BigArrays.offset;
 import static io.trino.array.BigArrays.segment;
-import static java.lang.Math.toIntExact;
 
 // Note: this code was forked from fastutil (http://fastutil.di.unimi.it/)
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class ShortBigArray
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ShortBigArray.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ShortBigArray.class);
     private static final long SIZE_OF_SEGMENT = sizeOfShortArray(SEGMENT_SIZE);
 
     private final short initialValue;

@@ -66,6 +66,8 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
@@ -134,7 +136,8 @@ public final class ColumnReaderFactory
                 }
                 throw unsupportedException(type, field);
             }
-            if (BIGINT.equals(type) && primitiveType == INT64 && annotation instanceof TimestampLogicalTypeAnnotation) {
+            if (BIGINT.equals(type) && primitiveType == INT64
+                    && (annotation instanceof TimestampLogicalTypeAnnotation || annotation instanceof TimeLogicalTypeAnnotation)) {
                 return createColumnReader(field, ValueDecoders::getLongDecoder, LONG_ADAPTER, memoryContext);
             }
             if (type instanceof AbstractLongType && isIntegerOrDecimalPrimitive(primitiveType)) {
@@ -249,6 +252,9 @@ public final class ColumnReaderFactory
             if (type instanceof AbstractVariableWidthType && primitiveType == BINARY) {
                 return createColumnReader(field, ValueDecoders::getBinaryDecoder, BINARY_ADAPTER, memoryContext);
             }
+            if ((VARBINARY.equals(type) || VARCHAR.equals(type)) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
+                return createColumnReader(field, ValueDecoders::getFixedWidthBinaryDecoder, BINARY_ADAPTER, memoryContext);
+            }
             if (UUID.equals(type) && primitiveType == FIXED_LEN_BYTE_ARRAY) {
                 // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)
                 // To support such files, we bet on the logical type to be UUID based on the Trino UUID type check.
@@ -267,8 +273,11 @@ public final class ColumnReaderFactory
             case INT32 -> createDecimalColumnReader(field).orElse(new IntColumnReader(field));
             case INT64 -> {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation) {
-                    if (timeAnnotation.getUnit() == MICROS) {
+                    if (field.getType() instanceof TimeType && timeAnnotation.getUnit() == MICROS) {
                         yield new TimeMicrosColumnReader(field);
+                    }
+                    else if (BIGINT.equals(field.getType())) {
+                        yield new LongColumnReader(field);
                     }
                     throw unsupportedException(type, field);
                 }
@@ -297,6 +306,9 @@ public final class ColumnReaderFactory
                 }
                 if (isLogicalUuid(annotation)) {
                     yield new UuidColumnReader(field);
+                }
+                if (VARBINARY.equals(type) || VARCHAR.equals(type)) {
+                    yield new BinaryColumnReader(field);
                 }
                 if (annotation == null) {
                     // Iceberg 0.11.1 writes UUID as FIXED_LEN_BYTE_ARRAY without logical type annotation (see https://github.com/apache/iceberg/pull/2913)

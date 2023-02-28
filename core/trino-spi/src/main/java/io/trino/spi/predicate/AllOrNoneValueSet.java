@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Collection;
 import java.util.List;
@@ -26,7 +25,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -36,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class AllOrNoneValueSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AllOrNoneValueSet.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(AllOrNoneValueSet.class);
 
     private final Type type;
     private final boolean all;

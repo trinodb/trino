@@ -13,6 +13,8 @@
  */
 package io.trino.parquet.reader.flat;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.DataPage;
@@ -38,6 +40,8 @@ import static java.util.Objects.requireNonNull;
 public class FlatColumnReader<BufferType>
         extends AbstractColumnReader<BufferType>
 {
+    private static final Logger log = Logger.get(FlatColumnReader.class);
+
     private static final int[] EMPTY_DEFINITION_LEVELS = new int[0];
     private static final int[] EMPTY_REPETITION_LEVELS = new int[0];
 
@@ -46,6 +50,8 @@ public class FlatColumnReader<BufferType>
     private int remainingPageValueCount;
     private FlatDefinitionLevelDecoder definitionLevelDecoder;
     private ValueDecoder<BufferType> valueDecoder;
+    private int readOffset;
+    private int nextBatchSize;
 
     public FlatColumnReader(
             PrimitiveField field,
@@ -58,14 +64,46 @@ public class FlatColumnReader<BufferType>
     }
 
     @Override
+    public boolean hasPageReader()
+    {
+        return pageReader != null;
+    }
+
+    @Override
     protected boolean isNonNull()
     {
         return field.isRequired() || pageReader.hasNoNulls();
     }
 
     @Override
-    protected void seek()
+    public ColumnChunk readPrimitive()
     {
+        seek();
+        ColumnChunk columnChunk;
+        if (isNonNull()) {
+            columnChunk = readNonNull();
+        }
+        else {
+            columnChunk = readNullable();
+        }
+
+        readOffset = 0;
+        nextBatchSize = 0;
+        return columnChunk;
+    }
+
+    @Override
+    public void prepareNextRead(int batchSize)
+    {
+        readOffset += nextBatchSize;
+        nextBatchSize = batchSize;
+    }
+
+    private void seek()
+    {
+        if (readOffset > 0) {
+            log.debug("seek field %s, readOffset %d, remainingPageValueCount %d", field, readOffset, remainingPageValueCount);
+        }
         int remainingInBatch = readOffset;
         while (remainingInBatch > 0) {
             if (remainingPageValueCount == 0) {
@@ -92,9 +130,10 @@ public class FlatColumnReader<BufferType>
         }
     }
 
-    @Override
-    public ColumnChunk readNullable()
+    @VisibleForTesting
+    ColumnChunk readNullable()
     {
+        log.debug("readNullable field %s, nextBatchSize %d, remainingPageValueCount %d", field, nextBatchSize, remainingPageValueCount);
         NullableValuesBuffer<BufferType> valuesBuffer = createNullableValuesBuffer(nextBatchSize);
         boolean[] isNull = new boolean[nextBatchSize];
         int remainingInBatch = nextBatchSize;
@@ -121,9 +160,10 @@ public class FlatColumnReader<BufferType>
         return valuesBuffer.createNullableBlock(isNull, field.getType());
     }
 
-    @Override
-    public ColumnChunk readNonNull()
+    @VisibleForTesting
+    ColumnChunk readNonNull()
     {
+        log.debug("readNonNull field %s, nextBatchSize %d, remainingPageValueCount %d", field, nextBatchSize, remainingPageValueCount);
         NonNullValuesBuffer<BufferType> valuesBuffer = createNonNullValuesBuffer(nextBatchSize);
         int remainingInBatch = nextBatchSize;
         int offset = 0;
@@ -157,6 +197,9 @@ public class FlatColumnReader<BufferType>
     private boolean skipToRowRangesStart()
     {
         int skipCount = toIntExact(rowRanges.skipToRangeStart());
+        if (skipCount > 0) {
+            log.debug("skipCount %d, remainingPageValueCount %d", skipCount, remainingPageValueCount);
+        }
         if (skipCount >= remainingPageValueCount) {
             remainingPageValueCount = 0;
             return true;
@@ -207,6 +250,7 @@ public class FlatColumnReader<BufferType>
     {
         DataPage page = pageReader.readPage();
         requireNonNull(page, "page is null");
+        log.debug("readNextPage field %s, page %s", field, page);
         if (page instanceof DataPageV1) {
             readFlatPageV1((DataPageV1) page);
         }
@@ -261,18 +305,18 @@ public class FlatColumnReader<BufferType>
 
     private NonNullValuesBuffer<BufferType> createNonNullValuesBuffer(int batchSize)
     {
-        if (produceDictionaryBlock) {
-            return new DictionaryValuesBuffer<>(dictionaryDecoder, batchSize);
+        if (produceDictionaryBlock()) {
+            return new DictionaryValuesBuffer<>(field, dictionaryDecoder, batchSize);
         }
-        return new DataValuesBuffer<>(columnAdapter, batchSize);
+        return new DataValuesBuffer<>(field, columnAdapter, batchSize);
     }
 
     private NullableValuesBuffer<BufferType> createNullableValuesBuffer(int batchSize)
     {
-        if (produceDictionaryBlock) {
-            return new DictionaryValuesBuffer<>(dictionaryDecoder, batchSize);
+        if (produceDictionaryBlock()) {
+            return new DictionaryValuesBuffer<>(field, dictionaryDecoder, batchSize);
         }
-        return new DataValuesBuffer<>(columnAdapter, batchSize);
+        return new DataValuesBuffer<>(field, columnAdapter, batchSize);
     }
 
     private interface NonNullValuesBuffer<T>
@@ -292,13 +336,15 @@ public class FlatColumnReader<BufferType>
     private static final class DataValuesBuffer<T>
             implements NonNullValuesBuffer<T>, NullableValuesBuffer<T>
     {
+        private final PrimitiveField field;
         private final ColumnAdapter<T> columnAdapter;
         private final T values;
         private final int batchSize;
         private int totalNullsCount;
 
-        private DataValuesBuffer(ColumnAdapter<T> columnAdapter, int batchSize)
+        private DataValuesBuffer(PrimitiveField field, ColumnAdapter<T> columnAdapter, int batchSize)
         {
+            this.field = field;
             this.values = columnAdapter.createBuffer(batchSize);
             this.columnAdapter = columnAdapter;
             this.batchSize = batchSize;
@@ -340,12 +386,14 @@ public class FlatColumnReader<BufferType>
                     totalNullsCount == 0,
                     "totalNonNullsCount %s should be equal to 0 when creating non-null block",
                     totalNullsCount);
+            log.debug("DataValuesBuffer createNonNullBlock field %s, totalNullsCount %d", field, totalNullsCount);
             return new ColumnChunk(columnAdapter.createNonNullBlock(values), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
         }
 
         @Override
         public ColumnChunk createNullableBlock(boolean[] isNull, Type type)
         {
+            log.debug("DataValuesBuffer createNullableBlock field %s, totalNullsCount %d, batchSize %d", field, totalNullsCount, batchSize);
             if (totalNullsCount == batchSize) {
                 return new ColumnChunk(RunLengthEncodedBlock.create(type, null, batchSize), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
             }
@@ -359,13 +407,15 @@ public class FlatColumnReader<BufferType>
     private static final class DictionaryValuesBuffer<T>
             implements NonNullValuesBuffer<T>, NullableValuesBuffer<T>
     {
+        private final PrimitiveField field;
         private final DictionaryDecoder<T> decoder;
         private final int[] ids;
         private final int batchSize;
         private int totalNullsCount;
 
-        private DictionaryValuesBuffer(DictionaryDecoder<T> dictionaryDecoder, int batchSize)
+        private DictionaryValuesBuffer(PrimitiveField field, DictionaryDecoder<T> dictionaryDecoder, int batchSize)
         {
+            this.field = field;
             this.ids = new int[batchSize];
             this.decoder = dictionaryDecoder;
             this.batchSize = batchSize;
@@ -409,12 +459,14 @@ public class FlatColumnReader<BufferType>
                     totalNullsCount == 0,
                     "totalNonNullsCount %s should be equal to 0 when creating non-null block",
                     totalNullsCount);
+            log.debug("DictionaryValuesBuffer createNonNullBlock field %s, totalNullsCount %d", field, totalNullsCount);
             return createDictionaryBlock(ids, decoder.getDictionaryBlock(), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
         }
 
         @Override
         public ColumnChunk createNullableBlock(boolean[] isNull, Type type)
         {
+            log.debug("DictionaryValuesBuffer createNullableBlock field %s, totalNullsCount %d, batchSize %d", field, totalNullsCount, batchSize);
             if (totalNullsCount == batchSize) {
                 return new ColumnChunk(RunLengthEncodedBlock.create(type, null, batchSize), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
             }

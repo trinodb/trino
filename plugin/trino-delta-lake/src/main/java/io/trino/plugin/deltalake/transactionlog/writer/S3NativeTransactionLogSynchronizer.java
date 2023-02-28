@@ -189,9 +189,9 @@ public class S3NativeTransactionLogSynchronizer
 
         while (files.hasNext()) {
             FileEntry entry = files.next();
-            String name = entry.path().substring(entry.path().lastIndexOf('/') + 1);
+            String name = entry.location().substring(entry.location().lastIndexOf('/') + 1);
             if (LOCK_FILENAME_PATTERN.matcher(name).matches()) {
-                Optional<LockInfo> lockInfo = parseLockFile(fileSystem, entry.path(), name);
+                Optional<LockInfo> lockInfo = parseLockFile(fileSystem, entry.location(), name);
                 lockInfo.ifPresent(lockInfos::add);
             }
         }
@@ -203,7 +203,7 @@ public class S3NativeTransactionLogSynchronizer
             throws IOException
     {
         byte[] bytes = null;
-        try (InputStream inputStream = fileSystem.newInputFile(path).newInput().inputStream()) {
+        try (InputStream inputStream = fileSystem.newInputFile(path).newStream()) {
             bytes = inputStream.readAllBytes();
             LockFileContents lockFileContents = lockFileContentsJsonCodec.fromJson(bytes);
             return Optional.of(new LockInfo(name, lockFileContents));

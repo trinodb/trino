@@ -19,6 +19,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -62,7 +63,10 @@ public class OptimizerConfig
     private boolean optimizeHashGeneration = true;
     private boolean pushTableWriteThroughUnion = true;
     private boolean dictionaryAggregation;
-    private boolean useMarkDistinct = true;
+    @Nullable
+    private Boolean useMarkDistinct;
+    @Nullable
+    private MarkDistinctStrategy markDistinctStrategy;
     private boolean preferPartialAggregation = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
@@ -113,6 +117,13 @@ public class OptimizerConfig
         {
             return this == BROADCAST || this == AUTOMATIC;
         }
+    }
+
+    public enum MarkDistinctStrategy
+    {
+        NONE,
+        ALWAYS,
+        AUTOMATIC,
     }
 
     public double getCpuCostWeight()
@@ -461,15 +472,32 @@ public class OptimizerConfig
         return this;
     }
 
-    public boolean isUseMarkDistinct()
+    @Deprecated
+    @Nullable
+    public Boolean isUseMarkDistinct()
     {
         return useMarkDistinct;
     }
 
-    @Config("optimizer.use-mark-distinct")
-    public OptimizerConfig setUseMarkDistinct(boolean value)
+    @Deprecated
+    @LegacyConfig(value = "optimizer.use-mark-distinct", replacedBy = "optimizer.mark-distinct-strategy")
+    public OptimizerConfig setUseMarkDistinct(Boolean value)
     {
         this.useMarkDistinct = value;
+        return this;
+    }
+
+    @Nullable
+    public MarkDistinctStrategy getMarkDistinctStrategy()
+    {
+        return markDistinctStrategy;
+    }
+
+    @Config("optimizer.mark-distinct-strategy")
+    @ConfigDescription("Strategy to use for distinct aggregations")
+    public OptimizerConfig setMarkDistinctStrategy(MarkDistinctStrategy markDistinctStrategy)
+    {
+        this.markDistinctStrategy = markDistinctStrategy;
         return this;
     }
 

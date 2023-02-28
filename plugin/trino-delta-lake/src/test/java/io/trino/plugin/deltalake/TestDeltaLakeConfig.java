@@ -19,10 +19,6 @@ import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-
-import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -30,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -72,9 +67,7 @@ public class TestDeltaLakeConfig
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setUniqueTableLocation(true)
                 .setLegacyCreateTableWithExistingLocationEnabled(false)
-                .setRegisterTableProcedureEnabled(false)
-                .setDefaultReaderVersion(1)
-                .setDefaultWriterVersion(2));
+                .setRegisterTableProcedureEnabled(false));
     }
 
     @Test
@@ -110,8 +103,6 @@ public class TestDeltaLakeConfig
                 .put("delta.unique-table-location", "false")
                 .put("delta.legacy-create-table-with-existing-location.enabled", "true")
                 .put("delta.register-table-procedure.enabled", "true")
-                .put("delta.default-reader-version", "2")
-                .put("delta.default-writer-version", "3")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -143,29 +134,8 @@ public class TestDeltaLakeConfig
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setUniqueTableLocation(false)
                 .setLegacyCreateTableWithExistingLocationEnabled(true)
-                .setRegisterTableProcedureEnabled(true)
-                .setDefaultReaderVersion(2)
-                .setDefaultWriterVersion(3);
+                .setRegisterTableProcedureEnabled(true);
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test
-    public void testValidation()
-    {
-        assertFailsReaderVersionValidation(new DeltaLakeConfig().setDefaultReaderVersion(0), Min.class);
-        assertFailsReaderVersionValidation(new DeltaLakeConfig().setDefaultReaderVersion(3), Max.class);
-        assertFailsWriterVersionValidation(new DeltaLakeConfig().setDefaultWriterVersion(1), Min.class);
-        assertFailsWriterVersionValidation(new DeltaLakeConfig().setDefaultWriterVersion(5), Max.class);
-    }
-
-    private void assertFailsReaderVersionValidation(DeltaLakeConfig config, Class<? extends Annotation> annotation)
-    {
-        assertFailsValidation(config, "defaultReaderVersion", "Must be in between 1 and 2", annotation);
-    }
-
-    private void assertFailsWriterVersionValidation(DeltaLakeConfig config, Class<? extends Annotation> annotation)
-    {
-        assertFailsValidation(config, "defaultWriterVersion", "Must be in between 2 and 4", annotation);
     }
 }

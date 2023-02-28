@@ -17,12 +17,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -32,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class RleAwarePositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RleAwarePositionsAppender.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RleAwarePositionsAppender.class);
     private static final int NO_RLE = -1;
 
     private final BlockPositionIsDistinctFrom isDistinctFromOperator;

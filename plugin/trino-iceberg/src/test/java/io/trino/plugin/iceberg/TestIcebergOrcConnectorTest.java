@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.Session;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -23,6 +22,7 @@ import java.nio.file.Path;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,11 +50,9 @@ public class TestIcebergOrcConnectorTest
     }
 
     @Override
-    protected Session withSmallRowGroups(Session session)
+    protected boolean isFileSorted(String path, String sortColumnName)
     {
-        return Session.builder(session)
-                .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "10")
-                .build();
+        return checkOrcFileSorting(path, sortColumnName);
     }
 
     @Test

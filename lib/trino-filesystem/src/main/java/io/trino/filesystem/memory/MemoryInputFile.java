@@ -16,8 +16,10 @@ package io.trino.filesystem.memory;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoInputStream;
 
 import java.io.IOException;
+import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
@@ -41,6 +43,13 @@ public class MemoryInputFile
     }
 
     @Override
+    public TrinoInputStream newStream()
+            throws IOException
+    {
+        return new MemoryTrinoInputStream(data);
+    }
+
+    @Override
     public long length()
             throws IOException
     {
@@ -48,10 +57,10 @@ public class MemoryInputFile
     }
 
     @Override
-    public long modificationTime()
+    public Instant lastModified()
             throws IOException
     {
-        return 0;
+        return Instant.EPOCH;
     }
 
     @Override

@@ -15,7 +15,6 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -23,11 +22,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.RowBlock.createRowBlockInternal;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +34,7 @@ public class RowBlockBuilder
         extends AbstractRowBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowBlockBuilder.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RowBlockBuilder.class);
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;

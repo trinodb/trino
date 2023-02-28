@@ -25,7 +25,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -195,28 +194,13 @@ public class TestCassandraConnectorTest
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar", "", "")
-                .build();
-
-        Assert.assertEquals(actual, expectedParametrizedVarchar);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -227,8 +211,6 @@ public class TestCassandraConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
@@ -283,6 +265,7 @@ public class TestCassandraConnectorTest
                         partitionColumn("typelong", "bigint"),
                         generalColumn("typebytes", "blob"),
                         partitionColumn("typedate", "date"),
+                        partitionColumn("typetime", "time"),
                         partitionColumn("typetimestamp", "timestamp"),
                         partitionColumn("typeansi", "ascii"),
                         partitionColumn("typeboolean", "boolean"),
@@ -305,6 +288,7 @@ public class TestCassandraConnectorTest
                         "1007, " +
                         "0x00000007, " +
                         "'1970-01-01', " +
+                        "'03:04:05.123456789', " +
                         "'1970-01-01 03:04:05.000+0000', " +
                         "'ansi 7', " +
                         "false, " +
@@ -327,6 +311,7 @@ public class TestCassandraConnectorTest
                     " AND typeinteger = 7" +
                     " AND typelong = 1007" +
                     " AND typedate = DATE '1970-01-01'" +
+                    " AND typetime = TIME '03:04:05.123456789'" +
                     " AND typetimestamp = TIMESTAMP '1970-01-01 03:04:05Z'" +
                     " AND typeansi = 'ansi 7'" +
                     " AND typeboolean = false" +
@@ -1465,18 +1450,6 @@ public class TestCassandraConnectorTest
                 .hasMessage("Handle doesn't have columns info");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
-
-        onCassandra("DROP TABLE IF EXISTS tpch." + tableName);
-    }
-
-    @Test
-    public void testNativeQueryUnsupportedType()
-    {
-        String tableName = "test_unsupported_type" + randomNameSuffix();
-        onCassandra("CREATE TABLE tpch." + tableName + "(col TIME PRIMARY KEY)");
-
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch." + tableName + "'))"))
-                .hasMessage("Unsupported type: TIME");
 
         onCassandra("DROP TABLE IF EXISTS tpch." + tableName);
     }

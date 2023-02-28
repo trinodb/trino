@@ -47,15 +47,6 @@ determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
 
-.. note::
-
-    Trino uses the new ClickHouse driver(``com.clickhouse.jdbc.ClickHouseDriver``)
-    by default, but the new driver only supports ClickHouse server with version >= 20.7.
-
-    For compatibility with ClickHouse server versions < 20.7,
-    you can temporarily continue to use the old ClickHouse driver(``ru.yandex.clickhouse.ClickHouseDriver``)
-    by adding the following catalog property: ``clickhouse.legacy-driver=true``.
-
 .. _clickhouse-tls:
 
 Connection security

@@ -82,6 +82,7 @@ public final class IcebergSessionProperties
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
+    private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -283,6 +284,11 @@ public final class IcebergSessionProperties
                         "Compact manifest files when performing write operations",
                         true,
                         false))
+                .add(booleanProperty(
+                        SORTED_WRITING_ENABLED,
+                        "Enable sorted writing to tables with a specified sort order",
+                        icebergConfig.isSortedWritingEnabled(),
+                        false))
                 .build();
     }
 
@@ -467,5 +473,10 @@ public final class IcebergSessionProperties
     public static boolean isMergeManifestsOnWrite(ConnectorSession session)
     {
         return session.getProperty(MERGE_MANIFESTS_ON_WRITE, Boolean.class);
+    }
+
+    public static boolean isSortedWritingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITING_ENABLED, Boolean.class);
     }
 }

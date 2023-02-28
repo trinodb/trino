@@ -13,10 +13,21 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.log.Logger;
-import io.trino.hadoop.ConfigurationInstantiator;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.ConfigurationInitializer;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
@@ -24,8 +35,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
@@ -34,8 +44,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -44,7 +52,10 @@ import java.util.Base64;
 
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -62,7 +73,7 @@ public class TestIcebergGcsConnectorSmokeTest
     private final String schema;
 
     private HiveHadoop hiveHadoop;
-    private FileSystem fileSystem;
+    private TrinoFileSystemFactory fileSystemFactory;
 
     @Parameters({"testing.gcp-storage-bucket", "testing.gcp-credentials-key"})
     public TestIcebergGcsConnectorSmokeTest(String gcpStorageBucket, String gcpCredentialKey)
@@ -79,38 +90,30 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(gcpCredentialKey));
         Path gcpCredentialsFile;
-        try {
-            gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
-            gcpCredentialsFile.toFile().deleteOnExit();
-            Files.write(gcpCredentialsFile, jsonKey.readAllBytes());
+        gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
+        gcpCredentialsFile.toFile().deleteOnExit();
+        Files.write(gcpCredentialsFile, jsonKey.readAllBytes());
 
-            String gcpSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.gcs-template"), UTF_8)
-                    .replace("%GCP_CREDENTIALS_FILE_PATH%", "/etc/hadoop/conf/gcp-credentials.json");
+        String gcpSpecificCoreSiteXmlContent = Resources.toString(Resources.getResource("hdp3.1-core-site.xml.gcs-template"), UTF_8)
+                .replace("%GCP_CREDENTIALS_FILE_PATH%", "/etc/hadoop/conf/gcp-credentials.json");
 
-            Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", READ_ONLY_PERMISSIONS);
-            hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
-            Files.writeString(hadoopCoreSiteXmlTempFile, gcpSpecificCoreSiteXmlContent);
+        Path hadoopCoreSiteXmlTempFile = Files.createTempFile("core-site", ".xml", READ_ONLY_PERMISSIONS);
+        hadoopCoreSiteXmlTempFile.toFile().deleteOnExit();
+        Files.writeString(hadoopCoreSiteXmlTempFile, gcpSpecificCoreSiteXmlContent);
 
-            this.hiveHadoop = closeAfterClass(HiveHadoop.builder()
-                    .withImage(HIVE3_IMAGE)
-                    .withFilesToMount(ImmutableMap.of(
-                            "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(),
-                            "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()))
-                    .build());
-            this.hiveHadoop.start();
+        this.hiveHadoop = closeAfterClass(HiveHadoop.builder()
+                .withImage(HIVE3_IMAGE)
+                .withFilesToMount(ImmutableMap.of(
+                        "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString(),
+                        "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()))
+                .build());
+        this.hiveHadoop.start();
 
-            HiveGcsConfig gcsConfig = new HiveGcsConfig().setJsonKeyFilePath(gcpCredentialsFile.toAbsolutePath().toString());
-            Configuration configuration = ConfigurationInstantiator.newEmptyConfiguration();
-            new GoogleGcsConfigurationInitializer(gcsConfig).initializeConfiguration(configuration);
-
-            this.fileSystem = FileSystem.newInstance(new URI(schemaPath()), configuration);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
-        }
+        HiveGcsConfig gcsConfig = new HiveGcsConfig().setJsonKeyFilePath(gcpCredentialsFile.toAbsolutePath().toString());
+        ConfigurationInitializer configurationInitializer = new GoogleGcsConfigurationInitializer(gcsConfig);
+        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(configurationInitializer));
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
+        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()));
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
@@ -119,10 +122,14 @@ public class TestIcebergGcsConnectorSmokeTest
                         .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
                         .put("iceberg.file-format", format.name())
                         .put("iceberg.register-table-procedure.enabled", "true")
+                        .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
-                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+                                .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()
+                                        .addAll(REQUIRED_TPCH_TABLES)
+                                        .add(LINE_ITEM)
+                                        .build())
                                 .withSchemaName(schema)
                                 .withSchemaProperties(ImmutableMap.of("location", "'" + schemaPath() + "'"))
                                 .build())
@@ -132,15 +139,13 @@ public class TestIcebergGcsConnectorSmokeTest
     @AfterClass(alwaysRun = true)
     public void removeTestData()
     {
-        if (fileSystem != null) {
-            try {
-                fileSystem.delete(new org.apache.hadoop.fs.Path(schemaPath()), true);
-            }
-            catch (IOException e) {
-                // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
-                LOG.warn(e, "Failed to clean up GCS test directory: %s", schemaPath());
-            }
-            fileSystem = null;
+        try {
+            TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+            fileSystem.deleteDirectory(schemaPath());
+        }
+        catch (IOException e) {
+            // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
+            LOG.warn(e, "Failed to clean up GCS test directory: %s", schemaPath());
         }
     }
 
@@ -173,7 +178,8 @@ public class TestIcebergGcsConnectorSmokeTest
     protected boolean locationExists(String location)
     {
         try {
-            return fileSystem.exists(new org.apache.hadoop.fs.Path(location));
+            TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+            return fileSystem.newInputFile(location).exists();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -217,10 +223,17 @@ public class TestIcebergGcsConnectorSmokeTest
     protected void deleteDirectory(String location)
     {
         try {
-            fileSystem.delete(new org.apache.hadoop.fs.Path(location), true);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+            fileSystem.deleteDirectory(location);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        return checkOrcFileSorting(fileSystemFactory, path, sortColumnName);
     }
 }

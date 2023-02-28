@@ -119,13 +119,13 @@
     <violation>
         <name>org/testng/Assert.assertEquals:(Ljava/lang/Iterable;Ljava/lang/Iterable;)V</name>
         <version>1.8</version>
-        <comment>Use io.trino.testing.assertions.Assert.assertEquals due to TestNG #543</comment>
+        <comment>Use AssertJ or QueryAssertions due to TestNG #543</comment>
     </violation>
 
     <violation>
         <name>org/testng/Assert.assertEquals:(Ljava/lang/Iterable;Ljava/lang/Iterable;Ljava/lang/String;)V</name>
         <version>1.8</version>
-        <comment>Use io.trino.testing.assertions.Assert.assertEquals due to TestNG #543</comment>
+        <comment>Use AssertJ or QueryAssertions due to TestNG #543</comment>
     </violation>
 
     <violation>
@@ -270,5 +270,11 @@
         <name>io/jsonwebtoken/Jwts.parserBuilder:()Lio/jsonwebtoken/JwtParserBuilder;</name>
         <version>1.8</version>
         <comment>Use io.trino.server.security.jwt.JwtsUtil or equivalent</comment>
+    </violation>
+
+    <violation>
+        <name>org/openjdk/jol/info/ClassLayout.instanceSize:()J</name>
+        <version>1.8</version>
+        <comment>Use io.airlift.slice.SizeOf.instanceSize</comment>
     </violation>
 </modernizer>

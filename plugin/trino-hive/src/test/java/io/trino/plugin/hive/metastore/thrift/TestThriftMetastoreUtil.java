@@ -39,6 +39,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalLong;
@@ -52,6 +53,7 @@ import static io.trino.hive.thrift.metastore.ColumnStatisticsData.doubleStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.longStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.stringStats;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiColumnStatistics;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getBasicStatisticsWithSparkFallback;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreDecimal;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
@@ -334,6 +336,47 @@ public class TestThriftMetastoreUtil
 
         assertEquals(actual.getNullsCount(), OptionalLong.of(10));
         assertEquals(actual.getDistinctValuesCount(), OptionalLong.of(1));
+    }
+
+    @Test
+    public void testSparkFallbackGetBasicStatistics()
+    {
+        // only spark stats
+        Map<String, String> tableParameters = Map.of(
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        HiveBasicStatistics actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
+        actual = getHiveBasicStatistics(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+        // empty hive and not empty spark stats
+        tableParameters = Map.of(
+                "numFiles", "0",
+                "numRows", "0",
+                "rawDataSize", "0",
+                "totalSize", "0",
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.of(1), OptionalLong.of(2), OptionalLong.of(3), OptionalLong.of(4)));
+        actual = getHiveBasicStatistics(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0), OptionalLong.of(0)));
+        //  not empty hive and not empty spark stats
+        tableParameters = Map.of(
+                "numFiles", "10",
+                "numRows", "20",
+                "rawDataSize", "30",
+                "totalSize", "40",
+                "spark.sql.statistics.numFiles", "1",
+                "spark.sql.statistics.numRows", "2",
+                "spark.sql.statistics.rawDataSize", "3",
+                "spark.sql.statistics.totalSize", "4");
+        actual = getBasicStatisticsWithSparkFallback(tableParameters);
+        assertEquals(actual, new HiveBasicStatistics(OptionalLong.of(10), OptionalLong.of(20), OptionalLong.of(30), OptionalLong.of(40)));
     }
 
     @Test

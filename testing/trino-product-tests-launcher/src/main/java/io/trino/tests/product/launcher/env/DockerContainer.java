@@ -26,12 +26,15 @@ import dev.failsafe.Timeout;
 import dev.failsafe.function.CheckedRunnable;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.testing.containers.ConditionalPullPolicy;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.SelinuxContext;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
+import org.testcontainers.images.ImagePullPolicy;
 import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.utility.DockerImageName;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -88,6 +91,7 @@ public class DockerContainer
     private List<String> logPaths = new ArrayList<>();
     private Optional<EnvironmentListener> listener = Optional.empty();
     private boolean temporary;
+    private static final ImagePullPolicy pullPolicy = new ConditionalPullPolicy();
 
     public DockerContainer(String dockerImageName, String logicalName)
     {
@@ -96,6 +100,16 @@ public class DockerContainer
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
+
+        this.withImagePullPolicy(pullPolicy);
+    }
+
+    @Override
+    public void setDockerImageName(String dockerImageName)
+    {
+        DockerImageName canonicalName = DockerImageName.parse(requireNonNull(dockerImageName, "dockerImageName is null"));
+        setImage(CompletableFuture.completedFuture(canonicalName.toString()));
+        withImagePullPolicy(pullPolicy);
     }
 
     public String getLogicalName()

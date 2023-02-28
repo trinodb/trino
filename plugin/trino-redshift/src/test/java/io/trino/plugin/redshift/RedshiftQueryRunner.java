@@ -41,11 +41,11 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTable;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class RedshiftQueryRunner
 {
@@ -241,7 +241,7 @@ public final class RedshiftQueryRunner
             log.info("Checking column types on table %s", tpchTable.getTableName());
             MaterializedResult expectedColumns = queryRunner.execute(format("DESCRIBE %s.%s.%s", TPCH_CATALOG, TINY_SCHEMA_NAME, tpchTable.getTableName()));
             MaterializedResult actualColumns = queryRunner.execute("DESCRIBE " + tpchTable.getTableName());
-            assertEquals(actualColumns, expectedColumns);
+            assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to assert columns for TPC-H table " + tpchTable.getTableName(), e);

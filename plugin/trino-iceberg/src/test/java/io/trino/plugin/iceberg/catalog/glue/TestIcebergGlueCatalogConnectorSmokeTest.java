@@ -23,13 +23,25 @@ import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestView;
+import io.trino.tpch.TpchTable;
 import org.apache.iceberg.FileFormat;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
@@ -39,7 +51,10 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,6 +71,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     private final String bucketName;
     private final String schemaName;
     private final AWSGlueAsync glueClient;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Parameters("s3.bucket")
     public TestIcebergGlueCatalogConnectorSmokeTest(String bucketName)
@@ -64,6 +80,10 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
         glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+
+        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
+        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()));
     }
 
     @Override
@@ -75,10 +95,14 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                         ImmutableMap.of(
                                 "iceberg.catalog.type", "glue",
                                 "hive.metastore.glue.default-warehouse-dir", schemaPath(),
-                                "iceberg.register-table-procedure.enabled", "true"))
+                                "iceberg.register-table-procedure.enabled", "true",
+                                "iceberg.writer-sort-buffer-size", "1MB"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
-                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
+                                .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()
+                                        .addAll(REQUIRED_TPCH_TABLES)
+                                        .add(LINE_ITEM)
+                                        .build())
                                 .withSchemaName(schemaName)
                                 .build())
                 .build();
@@ -222,6 +246,13 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
             s3.deleteObjects(new DeleteObjectsRequest(bucketName).withKeys(keysToDelete));
         }
         assertThat(s3.listObjects(bucketName, location).getObjectSummaries()).isEmpty();
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+        return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
     }
 
     @Override

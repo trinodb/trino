@@ -540,6 +540,12 @@ public class BigQueryMetadata
     }
 
     @Override
+    public boolean supportsMissingColumnsOnInsert()
+    {
+        return true;
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         BigQueryTableHandle table = (BigQueryTableHandle) tableHandle;

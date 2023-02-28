@@ -70,6 +70,12 @@ def build(input_file, output_file):
         json.dump(
             {"include": [{"commit": commit} for commit in commits]}, output_file, separators=(",", ":"), sort_keys=True
         )
+    else:
+        # Produce a valid matrix with an empty commit so the check-commit job
+        # can still succeed and not show up as skipped
+        json.dump(
+            {"include": [{"commit": ""}]}, output_file, separators=(",", ":"), sort_keys=True
+        )
 
 
 def has_followup(entries, i, commit_hash, subject):
@@ -87,8 +93,8 @@ class TestBuild(unittest.TestCase):
 
     def test_build(self):
         cases = [
-            ("Empty test", (), []),
-            ("Malformed input test", ("c1,t1\n"), []),
+            ("Empty test", (), ['{"include":[{"commit":""}]}']),
+            ("Malformed input test", ("c1,t1\n"), ['{"include":[{"commit":""}]}']),
             ("Basic test", ("c1,t1,Hello World\n",), ['{"include":[{"commit":"c1"}]}']),
             (
                 "Add a new entry",

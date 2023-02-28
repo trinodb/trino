@@ -10,6 +10,7 @@ permissions:
 jobs:
   stale:
     runs-on: ubuntu-latest
+    if: github.repository == 'trinodb/trino'
     steps:
       - uses: actions/stale@v7
         with:

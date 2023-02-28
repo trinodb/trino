@@ -22,6 +22,7 @@ from different data sources.
     Hudi            <connector/hudi>
     Iceberg         <connector/iceberg>
     Ignite          <connector/ignite>
+    InfluxDB        <connector/influxdb>
     JMX             <connector/jmx>
     Kafka           <connector/kafka>
     Kinesis         <connector/kinesis>

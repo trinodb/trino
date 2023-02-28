@@ -22,8 +22,6 @@ import java.io.IOException;
 public interface TrinoInput
         extends Closeable
 {
-    SeekableInputStream inputStream();
-
     void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
 

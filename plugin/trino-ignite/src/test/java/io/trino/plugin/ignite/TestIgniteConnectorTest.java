@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,6 +84,7 @@ public class TestIgniteConnectorTest
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
@@ -92,6 +94,37 @@ public class TestIgniteConnectorTest
 
             default:
                 return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Test
+    public void testDatabaseMetadataSearchEscapedWildCardCharacters()
+    {
+        // wildcard characters on schema name
+        assertQuerySucceeds("SHOW TABLES FROM public");
+        assertQueryFails("SHOW TABLES FROM \"publi_\"", ".*Schema 'publi_' does not exist");
+        assertQueryFails("SHOW TABLES FROM \"pu%lic\"", ".*Schema 'pu%lic' does not exist");
+
+        String tableNameSuffix = randomNameSuffix();
+        String normalTableName = "testxsearch" + tableNameSuffix;
+        String underscoreTableName = "\"" + "test_search" + tableNameSuffix + "\"";
+        String percentTableName = "\"" + "test%search" + tableNameSuffix + "\"";
+        try {
+            assertUpdate("CREATE TABLE " + normalTableName + "(a int, b int, c int) WITH (primary_key = ARRAY['a'])");
+            assertUpdate("CREATE TABLE " + underscoreTableName + "(a int, b int, c int) WITH (primary_key = ARRAY['b'])");
+            assertUpdate("CREATE TABLE " + percentTableName + " (a int, b int, c int) WITH (primary_key = ARRAY['c'])");
+
+            // wildcard characters on table name
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + normalTableName)).contains("primary_key = ARRAY['a']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + underscoreTableName)).contains("primary_key = ARRAY['b']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + percentTableName)).contains("primary_key = ARRAY['c']");
+            assertQueryFails("SHOW CREATE TABLE " + "\"test%\"", ".*Table 'ignite.public.test%' does not exist");
+            assertQueryFails("SHOW COLUMNS FROM " + "\"test%\"", ".*Table 'ignite.public.test%' does not exist");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + normalTableName);
+            assertUpdate("DROP TABLE IF EXISTS " + underscoreTableName);
+            assertUpdate("DROP TABLE IF EXISTS " + percentTableName);
         }
     }
 

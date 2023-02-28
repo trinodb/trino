@@ -20,13 +20,13 @@ import io.trino.operator.RowReferencePageManager.LoadCursor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 public class GroupedTopNRankBuilder
         implements GroupedTopNBuilder
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedTopNRankBuilder.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(GroupedTopNRankBuilder.class);
 
     private final List<Type> sourceTypes;
     private final boolean produceRanking;

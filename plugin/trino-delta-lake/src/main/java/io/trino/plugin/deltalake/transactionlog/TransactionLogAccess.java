@@ -411,9 +411,11 @@ public class TransactionLogAccess
         for (long version = lastVersion; version >= 0; version--) {
             Path entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version);
             TrinoInputFile inputFile = fileSystem.newInputFile(entryPath.toString());
-            long modificationTime;
             try {
-                modificationTime = inputFile.modificationTime();
+                if (inputFile.lastModified().isBefore(startAt)) {
+                    // already too old
+                    break;
+                }
             }
             catch (IOException e) {
                 if (isFileNotFoundException(e)) {
@@ -421,10 +423,6 @@ public class TransactionLogAccess
                     return null;
                 }
                 throw new UncheckedIOException(e);
-            }
-            if (modificationTime < startAt.toEpochMilli()) {
-                // already too old
-                break;
             }
             result.add(version);
         }

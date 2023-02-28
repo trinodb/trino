@@ -26,7 +26,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -101,11 +100,10 @@ public abstract class BaseDruidConnectorTest
         return druidServer::execute;
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("__time", "timestamp(3)", "", "")
                 .row("clerk", "varchar", "", "") // String columns are reported only as varchar
                 .row("comment", "varchar", "", "")
@@ -117,29 +115,12 @@ public abstract class BaseDruidConnectorTest
                 .row("shippriority", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice", "double", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("__time", "timestamp(3)", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("comment", "varchar", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderdate", "varchar", "", "")
-                .row("orderkey", "bigint", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("totalprice", "double", "", "")
-                .build();
-
-        assertThat(actual).isEqualTo(expected);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -239,8 +220,7 @@ public abstract class BaseDruidConnectorTest
                 .row("shippriority", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice", "double", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE " + datasourceA);
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertThat(query("DESCRIBE " + datasourceA)).matches(expectedColumns);
 
         // Assert that only columns from datsourceB are returned
         expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -255,8 +235,7 @@ public abstract class BaseDruidConnectorTest
                 .row("shippriority_x", "bigint", "", "") // Druid doesn't support int type
                 .row("totalprice_x", "double", "", "")
                 .build();
-        actualColumns = computeActual("DESCRIBE " + datasourceB);
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertThat(query("DESCRIBE " + datasourceB)).matches(expectedColumns);
     }
 
     @Test

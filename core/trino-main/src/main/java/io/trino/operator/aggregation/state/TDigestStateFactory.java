@@ -16,9 +16,8 @@ package io.trino.operator.aggregation.state;
 import io.airlift.stats.TDigest;
 import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
-import org.openjdk.jol.info.ClassLayout;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class TDigestStateFactory
@@ -40,7 +39,7 @@ public class TDigestStateFactory
             extends AbstractGroupedAccumulatorState
             implements TDigestState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedTDigestState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(GroupedTDigestState.class);
         private final ObjectBigArray<TDigest> digests = new ObjectBigArray<>();
         private long size;
 
@@ -79,7 +78,7 @@ public class TDigestStateFactory
     public static class SingleTDigestState
             implements TDigestState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleTDigestState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SingleTDigestState.class);
         private TDigest digest;
 
         @Override

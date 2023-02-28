@@ -17,21 +17,20 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static java.lang.Math.max;
-import static java.lang.Math.toIntExact;
 
 public class BytePositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BytePositionsAppender.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BytePositionsAppender.class);
     private static final Block NULL_VALUE_BLOCK = new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]);
 
     private boolean initialized;

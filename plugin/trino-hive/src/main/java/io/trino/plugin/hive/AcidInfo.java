@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.SizeOf;
 import org.apache.hadoop.fs.Path;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +30,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -39,7 +38,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class AcidInfo
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AcidInfo.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(AcidInfo.class);
 
     private final String partitionLocation;
     private final List<String> deleteDeltas;
@@ -137,7 +136,7 @@ public class AcidInfo
 
     public static class OriginalFileInfo
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OriginalFileInfo.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(OriginalFileInfo.class);
 
         private final String name;
         private final long fileSize;

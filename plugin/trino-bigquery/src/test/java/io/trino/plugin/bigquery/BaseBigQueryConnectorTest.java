@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -35,11 +36,12 @@ import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public abstract class BaseBigQueryConnectorTest
@@ -90,28 +92,14 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     public void testShowColumns()
     {
-        // shippriority column is bigint (not integer) in BigQuery connector
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("comment", "varchar", "", "")
-                .build();
-
-        assertEquals(actual, expectedParametrizedVarchar);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        // shippriority column is bigint (not integer) in BigQuery connector
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -122,8 +110,6 @@ public abstract class BaseBigQueryConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test(dataProvider = "createTableSupportedTypes")
@@ -434,10 +420,10 @@ public abstract class BaseBigQueryConnectorTest
 
             // Use assertEventually because there's delay until new row access policies become effective
             onBigQuery("CREATE ROW ACCESS POLICY " + policyName + " ON " + table.getName() + " FILTER USING (true)");
-            assertEventually(() -> assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName()));
+            assertEventually(new Duration(1, MINUTES), () -> assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName()));
 
             onBigQuery("DROP ALL ROW ACCESS POLICIES ON " + table.getName());
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
         }
     }
 
@@ -450,10 +436,10 @@ public abstract class BaseBigQueryConnectorTest
 
             // Use assertEventually because there's delay until new row access policies become effective
             onBigQuery("CREATE ROW ACCESS POLICY " + policyName + " ON " + table.getName() + " GRANT TO (\"allAuthenticatedUsers\") FILTER USING (col = 1)");
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
 
             onBigQuery("DROP ALL ROW ACCESS POLICIES ON " + table.getName());
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)"));
         }
     }
 
@@ -845,7 +831,14 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("BigQuery connector does not support column default values");
+        return new TestTable(
+                this::onBigQuery,
+                "test.test_table",
+                "(col_required INT64 NOT NULL," +
+                        "col_nullable INT64," +
+                        "col_default INT64 DEFAULT 43," +
+                        "col_nonnull_default INT64 DEFAULT 42 NOT NULL," +
+                        "col_required2 INT64 NOT NULL)");
     }
 
     @Override

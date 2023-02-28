@@ -49,7 +49,7 @@ public class ForwardingInputFile
     public SeekableInputStream newStream()
     {
         try {
-            return new ForwardingSeekableInputStream(inputFile.newInput().inputStream());
+            return new ForwardingSeekableInputStream(inputFile.newStream());
         }
         catch (FileNotFoundException e) {
             throw new NotFoundException(e, "Failed to open input stream for file: %s", location());

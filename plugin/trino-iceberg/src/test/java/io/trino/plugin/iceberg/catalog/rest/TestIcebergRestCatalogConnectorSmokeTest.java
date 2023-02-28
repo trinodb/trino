@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
@@ -20,6 +21,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.assertj.core.util.Files;
@@ -30,7 +32,9 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -81,8 +85,12 @@ public class TestIcebergRestCatalogConnectorSmokeTest
                                 .put("iceberg.catalog.type", "rest")
                                 .put("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                                 .put("iceberg.register-table-procedure.enabled", "true")
+                                .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .buildOrThrow())
-                .setInitialTables(REQUIRED_TPCH_TABLES)
+                .setInitialTables(ImmutableList.<TpchTable<?>>builder()
+                        .addAll(REQUIRED_TPCH_TABLES)
+                        .add(LINE_ITEM)
+                        .build())
                 .build();
     }
 
@@ -175,6 +183,13 @@ public class TestIcebergRestCatalogConnectorSmokeTest
     }
 
     @Override
+    public void testRegisterTableWithTrailingSpaceInLocation()
+    {
+        assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
+                .hasMessageContaining("registerTable is not supported for Iceberg REST catalog");
+    }
+
+    @Override
     public void testUnregisterTable()
     {
         assertThatThrownBy(super::testUnregisterTable)
@@ -200,6 +215,12 @@ public class TestIcebergRestCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testRepeatUnregisterTable)
                 .hasMessageContaining("unregisterTable is not supported for Iceberg REST catalogs");
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        return checkOrcFileSorting(path, sortColumnName);
     }
 
     @Override

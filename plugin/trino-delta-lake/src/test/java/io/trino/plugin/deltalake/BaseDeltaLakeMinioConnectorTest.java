@@ -48,14 +48,15 @@ import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public abstract class BaseDeltaLakeMinioConnectorTest
         extends BaseConnectorTest
@@ -224,11 +225,10 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         throw new SkipException("Delta Lake does not support columns with a default value");
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -239,8 +239,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
@@ -261,9 +259,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   location = \\E'.*/test_schema/orders',\n\\Q" +
-                        "   partitioned_by = ARRAY[],\n" +
-                        "   reader_version = 1,\n" +
-                        "   writer_version = 2\n" +
+                        "   partitioned_by = ARRAY[]\n" +
                         ")");
     }
 
@@ -563,6 +559,19 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL", "VALUES ('first'), ('second')");
             assertQueryReturnsEmptyResult("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NULL");
         }
+    }
+
+    @Test
+    public void testTableLocationTrailingSpace()
+    {
+        String tableName = "table_with_space_" + randomNameSuffix();
+        String tableLocationWithTrailingSpace = "s3://" + bucketName + "/" + tableName + " ";
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = '%s')", tableName, tableLocationWithTrailingSpace));
+        assertUpdate("INSERT INTO " + tableName + " (customer) VALUES ('Aaron'), ('Bill')", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Aaron'), ('Bill')");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -866,211 +875,39 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Test
-    public void testCreateTableWithInvalidReaderWriterVersion()
-    {
-        String tableName = "test_create_table_with_invalid_reader_writer_version_fails_" + randomNameSuffix();
-
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 0)",
-                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[0]: reader_version must be between 1 and 2");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 3)",
-                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[3]: reader_version must be between 1 and 2");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (writer_version = 1)",
-                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[1]: writer_version must be between 2 and 4");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (writer_version = 5)",
-                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
-    }
-
-    @Test
-    public void testCreateTableWithValidReaderWriterVersion()
-    {
-        String tableName = "test_create_table_with_valid_reader_writer_version_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
-        assertThatShowCreateTable(tableName, ".*(reader_version = 1,(.*)writer_version = 2).*"); // default reader and writer version
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 2)");
-        assertThatShowCreateTable(tableName, ".*reader_version = 2.*");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (writer_version = 4)");
-        assertThatShowCreateTable(tableName, ".*writer_version = 4.*");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 2, writer_version = 3)");
-        assertThatShowCreateTable(tableName, ".*(reader_version = 2,(.*)writer_version = 3).*");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testCreateTableAsWithInvalidReaderWriterVersion()
-    {
-        String tableName = "test_create_table_as_with_invalid_reader_writer_version_fails_" + randomNameSuffix();
-
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (reader_version = 0) AS VALUES (1), (2)",
-                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[0]: reader_version must be between 1 and 2");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (reader_version = 3) AS VALUES (1), (2)",
-                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[3]: reader_version must be between 1 and 2");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (writer_version = 1) AS VALUES (1), (2)",
-                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[1]: writer_version must be between 2 and 4");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (writer_version = 5) AS VALUES (1), (2)",
-                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
-    }
-
-    @Test
-    public void testCreateTableAsWithValidReaderWriterVersion()
-    {
-        String tableName = "test_create_table_as_with_valid_reader_writer_version_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number) AS VALUES (1), (2)", 2);
-        assertThatShowCreateTable(tableName, ".*(reader_version = 1,(.*)writer_version = 2).*"); // default reader and writer version
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (reader_version = 2) AS VALUES (1), (2)", 2);
-        assertThatShowCreateTable(tableName, ".*reader_version = 2.*");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (writer_version = 4) AS VALUES (1), (2)", 2);
-        assertThatShowCreateTable(tableName, ".*writer_version = 4.*");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (reader_version = 2, writer_version = 3) AS VALUES (1), (2)", 2);
-        assertThatShowCreateTable(tableName, ".*(reader_version = 2,(.*)writer_version = 3).*");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testCreateTableWithCdfEnabledWriterVersionUpgraded()
-    {
-        String tableName = "test_create_table_with_cdf_enabled_writer_version_upgraded_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = true)");
-        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = true,(.*)writer_version = 4).*");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testCreateTableWithCdfPropertyWriterVersionNotUpgraded()
-    {
-        String tableName = "test_create_table_writer_version_not_upgraded_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = false, writer_version = 3)");
-        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = false,(.*)writer_version = 3).*");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = true, writer_version = 4)");
-        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = true,(.*)writer_version = 4).*");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testCreateTableAsWithCdfEnabledWriterVersionUpgraded()
-    {
-        String tableName = "test_create_table_as_with_cdf_enabled_writer_version_upgraded_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = true) AS VALUES (1), (2)", 2);
-        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = true,(.*)writer_version = 4).*");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testCreateTableAsWithCdfPropertyWriterVersionNotUpgraded()
-    {
-        String tableName = "test_create_table_as_writer_version_not_upgraded_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = false, writer_version = 3) AS VALUES (1), (2)", 2);
-        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = false,(.*)writer_version = 3).*");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = true, writer_version = 4) AS VALUES (1), (2)", 2);
-        assertThatShowCreateTable(tableName, ".*(change_data_feed_enabled = true,(.*)writer_version = 4).*");
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testCreateTableWithCdfEnabledAndUnsupportedWriterVersionFails()
-    {
-        String tableName = "test_create_table_with_cdf_enabled_and_unsupported_writer_version_" + randomNameSuffix();
-
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = true, writer_version = 3)",
-                "writer_version cannot be set less than 4 when cdf is enabled");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number INT) WITH (change_data_feed_enabled = true, writer_version = 5)",
-                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = true, writer_version = 3) AS VALUES (1), (2)",
-                "writer_version cannot be set less than 4 when cdf is enabled");
-        assertQueryFails("CREATE TABLE " + tableName + " (a_number) WITH (change_data_feed_enabled = true, writer_version = 5) AS VALUES (1), (2)",
-                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
-    }
-
-    @Test
-    public void testAlterTableWithInvalidReaderWriterVersion()
-    {
-        String tableName = "test_alter_table_with_invalid_reader_writer_version_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
-
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 0",
-                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[0]: reader_version must be between 1 and 2");
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 3",
-                "Unable to set catalog 'delta_lake' table property 'reader_version' to \\[3]: reader_version must be between 1 and 2");
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 1",
-                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[1]: writer_version must be between 2 and 4");
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 5",
-                "Unable to set catalog 'delta_lake' table property 'writer_version' to \\[5]: writer_version must be between 2 and 4");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testAlterTableUpgradeReaderWriterVersion()
-    {
-        String tableName = "test_alter_table_upgrade_reader_writer_version_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
-
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 2");
-        assertThatShowCreateTable(tableName, ".*reader_version = 2.*");
-
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 3");
-        assertThatShowCreateTable(tableName, ".*writer_version = 3.*");
-
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 2, writer_version = 4");
-        assertThatShowCreateTable(tableName, ".*(reader_version = 2,(.*)writer_version = 4).*");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
-    public void testAlterTableDowngradeReaderWriterVersion()
-    {
-        String tableName = "test_alter_table_downgrade_reader_writer_version_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + " (a_number INT) WITH (reader_version = 2, writer_version = 3)");
-
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES reader_version = 1",
-                "reader_version cannot be downgraded from 2 to 1");
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 2",
-                "writer_version cannot be downgraded from 3 to 2");
-        assertThatShowCreateTable(tableName, ".*(reader_version = 2,(.*)writer_version = 3).*");
-
-        assertUpdate("DROP TABLE " + tableName);
-    }
-
-    @Test
     public void testAlterTableWithUnsupportedProperties()
     {
         String tableName = "test_alter_table_with_unsupported_properties_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
 
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true",
-                "The following properties cannot be updated: change_data_feed_enabled");
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true, checkpoint_interval = 10",
-                "The following properties cannot be updated: change_data_feed_enabled, checkpoint_interval");
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES writer_version = 4, partitioned_by = ARRAY['a']",
+                "The following properties cannot be updated: checkpoint_interval");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES partitioned_by = ARRAY['a']",
                 "The following properties cannot be updated: partitioned_by");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSettingChangeDataFeedEnabledProperty()
+    {
+        String tableName = "test_enable_and_disable_cdf_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = false");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = true");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = false");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = true");
     }
 
     @Override

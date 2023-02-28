@@ -29,8 +29,8 @@ import java.util.function.Consumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionField;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestPartitionFields
 {

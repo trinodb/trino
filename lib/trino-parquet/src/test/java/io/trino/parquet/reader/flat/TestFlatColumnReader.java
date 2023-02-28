@@ -20,6 +20,7 @@ import io.trino.parquet.DataPageV1;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.AbstractColumnReaderTest;
 import io.trino.parquet.reader.ColumnReader;
 import io.trino.parquet.reader.ColumnReaderFactory;
 import io.trino.parquet.reader.PageReader;

@@ -17,9 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.LogicalPlanner.Stage;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.tpch.Customer;
@@ -49,6 +53,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.BenchmarkPlanner.Queries.TPCH;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -66,6 +71,8 @@ import static org.testng.Assert.assertNotNull;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPlanner
 {
+    private static final SchemaTableName TABLE = new SchemaTableName("default", "t");
+
     @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Benchmark)
     public static class BenchmarkData
@@ -90,6 +97,18 @@ public class BenchmarkPlanner
 
             queryRunner = LocalQueryRunner.create(session);
             queryRunner.createCatalog(tpch, new TpchConnectorFactory(4), ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
+
+            MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
+                    .withGetTableHandle((session, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
+                    .withGetColumns(name -> {
+                        if (!name.equals(TABLE)) {
+                            throw new IllegalArgumentException();
+                        }
+                        return IntStream.rangeClosed(0, 500)
+                                .mapToObj(i -> new ColumnMetadata("col_varchar_" + i, VARCHAR))
+                                .collect(toImmutableList());
+                    });
+            queryRunner.createCatalog("mock", builder.build(), ImmutableMap.of());
         }
 
         @TearDown
@@ -134,7 +153,7 @@ public class BenchmarkPlanner
                         .mapToObj(Integer::toString)
                         .collect(joining(", ", "(", ")")))),
         // 86k columns present in the query with 500 group bys
-        GROUP_BY_WITH_MANY_REFERENCED_COLUMNS(() -> ImmutableList.of("WITH " + IntStream.rangeClosed(0, 500)
+        MULTIPLE_GROUP_BY(() -> ImmutableList.of("WITH " + IntStream.rangeClosed(0, 500)
                 .mapToObj(i -> """
                         t%s AS (
                         SELECT * FROM lineitem a
@@ -147,6 +166,10 @@ public class BenchmarkPlanner
                         .formatted(i))
                 .collect(joining(",")) +
                 "SELECT 1 FROM lineitem")),
+        GROUP_BY_WITH_MANY_REFERENCED_COLUMNS(() -> ImmutableList.of("SELECT * FROM mock.default.t GROUP BY " +
+                IntStream.rangeClosed(1, 501)
+                        .mapToObj(Integer::toString)
+                        .collect(joining(",")))),
         /**/;
 
         private final Supplier<List<String>> queries;

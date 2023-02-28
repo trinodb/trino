@@ -129,9 +129,7 @@ public class TransactionLogTail
     {
         Path transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
         TrinoInputFile inputFile = fileSystem.newInputFile(transactionLogFilePath.toString());
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(inputFile.newInput().inputStream(), UTF_8),
-                JSON_LOG_ENTRY_READ_BUFFER_SIZE)) {
+        try (var reader = new BufferedReader(new InputStreamReader(inputFile.newStream(), UTF_8), JSON_LOG_ENTRY_READ_BUFFER_SIZE)) {
             ImmutableList.Builder<DeltaLakeTransactionLogEntry> resultsBuilder = ImmutableList.builder();
             String line = reader.readLine();
             while (line != null) {

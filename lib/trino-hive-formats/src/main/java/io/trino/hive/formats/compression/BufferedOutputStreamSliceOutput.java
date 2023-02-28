@@ -16,7 +16,6 @@ package io.trino.hive.formats.compression;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,12 +29,13 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 
 public class BufferedOutputStreamSliceOutput
         extends SliceOutput
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BufferedOutputStreamSliceOutput.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BufferedOutputStreamSliceOutput.class);
     private static final int CHUNK_SIZE = 4096;
 
     private final OutputStream outputStream;

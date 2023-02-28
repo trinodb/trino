@@ -17,7 +17,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
-import com.google.common.primitives.Longs;
 import com.google.common.primitives.Shorts;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
 import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
@@ -125,6 +124,8 @@ import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INS
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreParameterParserUtils.toLong;
+import static io.trino.plugin.hive.metastore.thrift.ThriftSparkMetastoreUtil.getSparkBasicStatistics;
 import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
@@ -144,10 +145,10 @@ import static java.util.Objects.requireNonNull;
 
 public final class ThriftMetastoreUtil
 {
+    public static final String NUM_ROWS = "numRows";
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String NUM_FILES = "numFiles";
-    public static final String NUM_ROWS = "numRows";
     private static final String RAW_DATA_SIZE = "rawDataSize";
     private static final String TOTAL_SIZE = "totalSize";
     private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
@@ -742,23 +743,25 @@ public final class ThriftMetastoreUtil
 
     public static HiveBasicStatistics getHiveBasicStatistics(Map<String, String> parameters)
     {
-        OptionalLong numFiles = parse(parameters.get(NUM_FILES));
-        OptionalLong numRows = parse(parameters.get(NUM_ROWS));
-        OptionalLong inMemoryDataSizeInBytes = parse(parameters.get(RAW_DATA_SIZE));
-        OptionalLong onDiskDataSizeInBytes = parse(parameters.get(TOTAL_SIZE));
+        OptionalLong numFiles = toLong(parameters.get(NUM_FILES));
+        OptionalLong numRows = toLong(parameters.get(NUM_ROWS));
+        OptionalLong inMemoryDataSizeInBytes = toLong(parameters.get(RAW_DATA_SIZE));
+        OptionalLong onDiskDataSizeInBytes = toLong(parameters.get(TOTAL_SIZE));
         return new HiveBasicStatistics(numFiles, numRows, inMemoryDataSizeInBytes, onDiskDataSizeInBytes);
     }
 
-    private static OptionalLong parse(@Nullable String parameterValue)
+    public static HiveBasicStatistics getBasicStatisticsWithSparkFallback(Map<String, String> parameters)
     {
-        if (parameterValue == null) {
-            return OptionalLong.empty();
+        HiveBasicStatistics basicStatistics = getHiveBasicStatistics(parameters);
+        // Partitioned table without statistics
+        if (basicStatistics.getRowCount().isEmpty() || basicStatistics.getRowCount().getAsLong() == 0L) {
+            HiveBasicStatistics sparkBasicStatistics = getSparkBasicStatistics(parameters);
+            if (sparkBasicStatistics.getRowCount().isPresent()) {
+                return sparkBasicStatistics;
+            }
         }
-        Long longValue = Longs.tryParse(parameterValue);
-        if (longValue == null || longValue < 0) {
-            return OptionalLong.empty();
-        }
-        return OptionalLong.of(longValue);
+
+        return basicStatistics;
     }
 
     public static Map<String, String> updateStatisticsParameters(Map<String, String> parameters, HiveBasicStatistics statistics)

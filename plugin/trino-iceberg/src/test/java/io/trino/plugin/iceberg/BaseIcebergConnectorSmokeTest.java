@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -28,6 +29,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -306,6 +308,38 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    public void testCreateTableWithTrailingSpaceInLocation()
+    {
+        String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
+        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+
+        assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
+
+        assertThat(getTableLocation(tableName)).isEqualTo(tableLocationWithTrailingSpace);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRegisterTableWithTrailingSpaceInLocation()
+    {
+        String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
+        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+
+        assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
+
+        String registeredTableName = "test_register_table_with_trailing_space_" + randomNameSuffix();
+        assertUpdate(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", registeredTableName, tableLocationWithTrailingSpace));
+        assertQuery("SELECT * FROM " + registeredTableName, "VALUES (1, 'INDIA', true)");
+
+        assertThat(getTableLocation(registeredTableName)).isEqualTo(tableLocationWithTrailingSpace);
+
+        assertUpdate("DROP TABLE " + registeredTableName);
+        dropTableFromMetastore(tableName);
+    }
+
+    @Test
     public void testUnregisterTable()
     {
         String tableName = "test_unregister_table_" + randomNameSuffix();
@@ -413,6 +447,44 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertThat(locationExists(tableLocation))
                 .as("location should not exist").isFalse();
     }
+
+    @Test
+    public void testSortedNationTable()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sorted_nation_table",
+                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertTrue(isFileSorted((String) filePath, "comment"));
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testFileSortingWithLargerTable()
+    {
+        // Using a larger table forces buffered data to be written to disk
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sorted_lineitem_table",
+                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM lineitem WITH NO DATA")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    "INSERT INTO " + table.getName() + " SELECT * FROM lineitem",
+                    "VALUES 60175");
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertTrue(isFileSorted((String) filePath, "comment"));
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
+        }
+    }
+
+    protected abstract boolean isFileSorted(String path, String sortColumnName);
 
     private String getTableLocation(String tableName)
     {

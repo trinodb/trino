@@ -14,8 +14,9 @@
 package io.trino.spi.function;
 
 import io.trino.spi.Experimental;
+import io.trino.spi.ptf.TableFunctionProcessorProvider;
 
-@Experimental(eta = "2022-10-31")
+@Experimental(eta = "2023-03-31")
 public interface FunctionProvider
 {
     ScalarFunctionImplementation getScalarFunctionImplementation(
@@ -27,4 +28,6 @@ public interface FunctionProvider
     AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
 
     WindowFunctionSupplier getWindowFunctionSupplier(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
+
+    TableFunctionProcessorProvider getTableFunctionProcessorProvider(SchemaFunctionName name);
 }

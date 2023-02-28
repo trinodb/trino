@@ -18,9 +18,9 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.formats.DataSeekableInputStream;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.ReadWriteUtils;
+import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
@@ -76,7 +76,7 @@ public class RcFileReader
     private final String location;
     private final long fileSize;
     private final Map<Integer, Type> readColumns;
-    private final DataSeekableInputStream input;
+    private final TrinoDataInputStream input;
     private final long length;
 
     private final byte version;
@@ -131,7 +131,7 @@ public class RcFileReader
         this.location = inputFile.location();
         this.fileSize = inputFile.length();
         this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
-        this.input = new DataSeekableInputStream(inputFile.newInput().inputStream());
+        this.input = new TrinoDataInputStream(inputFile.newStream());
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
@@ -294,14 +294,7 @@ public class RcFileReader
         rowGroupPosition = 0;
         rowGroupRowCount = 0;
         currentChunkRowCount = 0;
-        try {
-            input.close();
-        }
-        finally {
-            if (decompressor != null) {
-                decompressor.close();
-            }
-        }
+        input.close();
         if (writeChecksumBuilder.isPresent()) {
             WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
             validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
@@ -459,7 +452,7 @@ public class RcFileReader
         }
     }
 
-    private Slice readLengthPrefixedString(DataSeekableInputStream in)
+    private Slice readLengthPrefixedString(TrinoDataInputStream in)
             throws IOException
     {
         int length = toIntExact(ReadWriteUtils.readVInt(in));

@@ -25,7 +25,7 @@ import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.RFC2822;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestRFC2822JsonDateTimeFormatter
 {

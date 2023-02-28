@@ -15,12 +15,12 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.iceberg.BaseIcebergConnectorTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -83,6 +83,12 @@ public class TestIcebergJdbcConnectorTest
                       WITH \\(
                          location = '.*'
                       \\)""");
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        throw new SkipException("Not implemented");
     }
 
     @Override
@@ -261,14 +267,6 @@ public class TestIcebergJdbcConnectorTest
     protected boolean supportsRowGroupStatistics(String typeName)
     {
         return !typeName.equalsIgnoreCase("varbinary");
-    }
-
-    @Override
-    protected Session withSmallRowGroups(Session session)
-    {
-        return Session.builder(session)
-                .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "10")
-                .build();
     }
 
     @Override

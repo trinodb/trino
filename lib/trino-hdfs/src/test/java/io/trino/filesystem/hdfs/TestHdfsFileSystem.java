@@ -92,7 +92,7 @@ public class TestHdfsFileSystem
         FileIterator iterator = fileSystem.listFiles(path);
         ImmutableList.Builder<String> files = ImmutableList.builder();
         while (iterator.hasNext()) {
-            files.add(iterator.next().path());
+            files.add(iterator.next().location());
         }
         return files.build();
     }

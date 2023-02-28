@@ -20,10 +20,10 @@ import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValu
 import static io.trino.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static io.trino.cost.PlanNodeStatsEstimateMath.capStats;
 import static io.trino.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
+import static org.testng.Assert.assertEquals;
 
 public class TestPlanNodeStatsEstimateMath
 {

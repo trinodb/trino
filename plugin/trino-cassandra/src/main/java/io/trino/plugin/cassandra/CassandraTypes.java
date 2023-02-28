@@ -21,6 +21,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.UuidType;
@@ -48,6 +49,7 @@ public final class CassandraTypes
     public static final CassandraType SET = new CassandraType(Kind.SET, createUnboundedVarcharType());
     public static final CassandraType SMALLINT = new CassandraType(Kind.SMALLINT, SmallintType.SMALLINT);
     public static final CassandraType TEXT = new CassandraType(Kind.TEXT, createUnboundedVarcharType());
+    public static final CassandraType TIME = new CassandraType(Kind.TIME, TimeType.TIME_NANOS);
     public static final CassandraType TIMESTAMP = new CassandraType(Kind.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS);
     public static final CassandraType TIMEUUID = new CassandraType(Kind.TIMEUUID, UuidType.UUID);
     public static final CassandraType TINYINT = new CassandraType(Kind.TINYINT, TinyintType.TINYINT);

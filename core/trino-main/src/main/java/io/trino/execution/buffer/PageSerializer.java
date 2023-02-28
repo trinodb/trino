@@ -23,7 +23,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -36,6 +35,7 @@ import java.security.GeneralSecurityException;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
@@ -58,7 +58,7 @@ import static javax.crypto.Cipher.ENCRYPT_MODE;
 
 public class PageSerializer
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PageSerializer.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PageSerializer.class);
 
     private final BlockEncodingSerde blockEncodingSerde;
     private final SerializedPageOutput output;
@@ -93,10 +93,10 @@ public class PageSerializer
     private static class SerializedPageOutput
             extends SliceOutput
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SerializedPageOutput.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SerializedPageOutput.class);
         // TODO: implement getRetainedSizeInBytes in Lz4Compressor
-        private static final int COMPRESSOR_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(Lz4Compressor.class).instanceSize() + sizeOfIntArray(Lz4RawCompressor.MAX_TABLE_SIZE));
-        private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(SecretKeySpec.class).instanceSize() + sizeOfByteArray(256 / 8));
+        private static final int COMPRESSOR_RETAINED_SIZE = toIntExact(instanceSize(Lz4Compressor.class) + sizeOfIntArray(Lz4RawCompressor.MAX_TABLE_SIZE));
+        private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(instanceSize(SecretKeySpec.class) + sizeOfByteArray(256 / 8));
 
         private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
 
@@ -531,7 +531,7 @@ public class PageSerializer
 
     private static class WriteBuffer
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(WriteBuffer.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(WriteBuffer.class);
 
         private Slice slice;
         private int position;

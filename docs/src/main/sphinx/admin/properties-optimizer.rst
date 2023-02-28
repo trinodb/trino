@@ -44,6 +44,26 @@ partition keys for partitions that have no rows. In particular, the Hive connect
 can return empty partitions, if they were created by other systems. Trino cannot
 create them.
 
+``optimizer.mark-distinct-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Allowed values:** ``AUTOMATIC``, ``ALWAYS``, ``NONE``
+* **Default value:** ``AUTOMATIC``
+
+The mark distinct strategy to use for distinct aggregations. ``NONE`` does not use
+``MarkDistinct`` operator.  ``ALWAYS`` uses ``MarkDistinct`` for multiple distinct
+aggregations or for mix of distinct and non-distinct aggregations.
+``AUTOMATIC`` limits the use of ``MarkDistinct`` only for cases with limited
+concurrency (global or small cardinality aggregations), where direct distinct
+aggregation implementation cannot utilize CPU efficiently.
+``optimizer.mark-distinct-strategy`` overrides, if set, the deprecated
+``optimizer.use-mark-distinct``. If ``optimizer.mark-distinct-strategy`` is not
+set, but ``optimizer.use-mark-distinct`` is then ``optimizer.use-mark-distinct``
+is mapped to ``optimizer.mark-distinct-strategy`` with value ``true`` mapped to
+``AUTOMATIC`` and value ``false`` mapped to ``NONE``.The strategy can be specified
+on a per-query basis using the ``mark_distinct_strategy`` session property.
+
 ``optimizer.push-aggregation-through-outer-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

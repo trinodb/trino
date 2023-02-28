@@ -249,6 +249,7 @@ public abstract class AbstractTestHiveFileSystem
                 new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), blockTypeOperators),
                 TESTING_TYPE_MANAGER,
                 config,
+                new SortingFileWriterConfig(),
                 locationService,
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
@@ -494,6 +495,10 @@ public abstract class AbstractTestHiveFileSystem
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
             if (storageFormat == HiveStorageFormat.CSV) {
                 // CSV supports only unbounded VARCHAR type
+                continue;
+            }
+            if (storageFormat == HiveStorageFormat.REGEX) {
+                // REGEX format is read-only
                 continue;
             }
             createTable(temporaryCreateTable, storageFormat);

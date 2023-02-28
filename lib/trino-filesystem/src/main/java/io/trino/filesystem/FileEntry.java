@@ -15,6 +15,7 @@ package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableList;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,19 +26,19 @@ import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public record FileEntry(String path, long length, long lastModified, Optional<List<BlockLocation>> blockLocations)
+public record FileEntry(String location, long length, Instant lastModified, Optional<List<Block>> blocks)
 {
     public FileEntry
     {
         checkArgument(length >= 0, "length is negative");
-        requireNonNull(path, "path is null");
-        requireNonNull(blockLocations, "blockLocations is null");
-        blockLocations = blockLocations.map(locations -> validatedBlockLocations(locations, length));
+        requireNonNull(location, "location is null");
+        requireNonNull(blocks, "blocks is null");
+        blocks = blocks.map(locations -> validatedBlocks(locations, length));
     }
 
-    public record BlockLocation(List<String> hosts, long offset, long length)
+    public record Block(List<String> hosts, long offset, long length)
     {
-        public BlockLocation
+        public Block
         {
             hosts = ImmutableList.copyOf(requireNonNull(hosts, "hosts is null"));
             checkArgument(offset >= 0, "offset is negative");
@@ -45,20 +46,20 @@ public record FileEntry(String path, long length, long lastModified, Optional<Li
         }
     }
 
-    private static List<BlockLocation> validatedBlockLocations(List<BlockLocation> blockLocations, long length)
+    private static List<Block> validatedBlocks(List<Block> blocks, long length)
     {
-        checkArgument(!blockLocations.isEmpty(), "blockLocations is empty");
-        blockLocations = blockLocations.stream()
-                .sorted(comparing(BlockLocation::offset))
+        checkArgument(!blocks.isEmpty(), "blocks is empty");
+        blocks = blocks.stream()
+                .sorted(comparing(Block::offset))
                 .collect(toImmutableList());
 
         long position = 0;
-        for (BlockLocation location : blockLocations) {
-            checkArgument(location.offset() <= position, "blockLocations has a gap");
-            position = max(position, addExact(location.offset(), location.length()));
+        for (Block block : blocks) {
+            checkArgument(block.offset() <= position, "blocks have a gap");
+            position = max(position, addExact(block.offset(), block.length()));
         }
-        checkArgument(position >= length, "blockLocations does not cover file");
+        checkArgument(position >= length, "blocks do not cover file");
 
-        return blockLocations;
+        return blocks;
     }
 }

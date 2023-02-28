@@ -182,17 +182,17 @@ public class RegisterTableProcedure
             FileIterator fileIterator = fileSystem.listFiles(metadataDirectoryLocation);
             while (fileIterator.hasNext()) {
                 FileEntry fileEntry = fileIterator.next();
-                if (fileEntry.path().contains(METADATA_FILE_EXTENSION)) {
-                    OptionalInt version = parseVersion(fileEntry.path());
+                if (fileEntry.location().contains(METADATA_FILE_EXTENSION)) {
+                    OptionalInt version = parseVersion(fileEntry.location());
                     if (version.isPresent()) {
                         int versionNumber = version.getAsInt();
                         if (versionNumber > latestMetadataVersion) {
                             latestMetadataVersion = versionNumber;
                             latestMetadataLocations.clear();
-                            latestMetadataLocations.add(fileEntry.path());
+                            latestMetadataLocations.add(fileEntry.location());
                         }
                         else if (versionNumber == latestMetadataVersion) {
-                            latestMetadataLocations.add(fileEntry.path());
+                            latestMetadataLocations.add(fileEntry.location());
                         }
                     }
                 }

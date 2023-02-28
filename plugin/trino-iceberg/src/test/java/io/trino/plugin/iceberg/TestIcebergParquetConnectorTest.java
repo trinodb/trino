@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.Session;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
@@ -23,6 +22,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -67,16 +68,6 @@ public class TestIcebergParquetConnectorTest
     }
 
     @Override
-    protected Session withSmallRowGroups(Session session)
-    {
-        return Session.builder(session)
-                .setCatalogSessionProperty("iceberg", "parquet_writer_page_size", "100B")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100B")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "10")
-                .build();
-    }
-
-    @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
@@ -94,5 +85,11 @@ public class TestIcebergParquetConnectorTest
         assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
                 .hasMessageContaining("Error opening Iceberg split")
                 .hasStackTraceContaining("Multiple entries with same key");
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        return checkParquetFileSorting(path, sortColumnName);
     }
 }

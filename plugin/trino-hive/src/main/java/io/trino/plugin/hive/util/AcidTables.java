@@ -99,7 +99,7 @@ public final class AcidTables
             return 0;
         }
         // Hive only reads one byte from the file
-        try (var in = file.newInput().inputStream()) {
+        try (var in = file.newStream()) {
             byte[] bytes = in.readNBytes(1);
             if (bytes.length == 1) {
                 return parseInt(new String(bytes, UTF_8));
@@ -126,14 +126,14 @@ public final class AcidTables
         List<FileEntry> originalFiles = new ArrayList<>();
 
         for (FileEntry file : listFiles(fileSystem, directory)) {
-            String suffix = listingSuffix(directory, file.path());
+            String suffix = listingSuffix(directory, file.location());
 
             int slash = suffix.indexOf('/');
             String name = (slash == -1) ? "" : suffix.substring(0, slash);
 
             if (name.startsWith("base_") || name.startsWith("delta_") || name.startsWith("delete_delta_")) {
                 if (suffix.indexOf('/', slash + 1) != -1) {
-                    throw new TrinoException(HIVE_INVALID_BUCKET_FILES, "Found file in sub-directory of ACID directory: " + file.path());
+                    throw new TrinoException(HIVE_INVALID_BUCKET_FILES, "Found file in sub-directory of ACID directory: " + file.location());
                 }
                 groupedFiles.put(name, file);
             }
@@ -188,7 +188,7 @@ public final class AcidTables
             originalFiles.clear();
         }
 
-        originalFiles.sort(comparing(FileEntry::path));
+        originalFiles.sort(comparing(FileEntry::location));
         workingDeltas.sort(null);
 
         List<ParsedDelta> deltas = new ArrayList<>();
@@ -243,7 +243,7 @@ public final class AcidTables
         }
 
         Map<String, String> metadata;
-        try (var in = file.newInput().inputStream()) {
+        try (var in = file.newStream()) {
             metadata = new ObjectMapper().readValue(in, new TypeReference<>() {});
         }
         catch (IOException e) {
@@ -312,7 +312,7 @@ public final class AcidTables
         FileIterator iterator = fileSystem.listFiles(directory);
         while (iterator.hasNext()) {
             FileEntry file = iterator.next();
-            String name = new Path(file.path()).getName();
+            String name = new Path(file.location()).getName();
             if (!name.startsWith("_") && !name.startsWith(".")) {
                 files.add(file);
             }
