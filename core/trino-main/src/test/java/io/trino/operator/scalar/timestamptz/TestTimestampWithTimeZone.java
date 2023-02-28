@@ -28,6 +28,8 @@ import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -432,6 +434,44 @@ public class TestTimestampWithTimeZone
         assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '-123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+    }
+
+    @Test
+    public void testPlusInterval()
+    {
+        assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'", "INTERVAL '3' hour"))
+                .matches("TIMESTAMP '2001-01-22 06:04:05.321 +05:09'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' hour", "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'"))
+                .matches("TIMESTAMP '2001-01-22 06:04:05.321 +05:09'");
+
+        assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'", "INTERVAL '3' day"))
+                .matches("TIMESTAMP '2001-01-25 03:04:05.321 +05:09'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' day", "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'"))
+                .matches("TIMESTAMP '2001-01-25 03:04:05.321 +05:09'");
+
+        assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'", "INTERVAL '3' month"))
+                .matches("TIMESTAMP '2001-04-22 03:04:05.321 +05:09'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' month", "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'"))
+                .matches("TIMESTAMP '2001-04-22 03:04:05.321 +05:09'");
+
+        assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'", "INTERVAL '3' year"))
+                .matches("TIMESTAMP '2004-01-22 03:04:05.321 +05:09'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' year", "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'"))
+                .matches("TIMESTAMP '2004-01-22 03:04:05.321 +05:09'");
+    }
+
+    @Test
+    public void testMinusInterval()
+    {
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'", "INTERVAL '3' day"))
+                .matches("TIMESTAMP '2001-01-19 03:04:05.321 +05:09'");
+
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2001-1-22 03:04:05.321 +05:09'", "INTERVAL '3' month"))
+                .matches("TIMESTAMP '2000-10-22 03:04:05.321 +05:09'");
     }
 
     @Test
@@ -2501,47 +2541,47 @@ public class TestTimestampWithTimeZone
     {
         // short timestamp
         assertThat(assertions.query("" +
-                "SELECT value FROM (VALUES " +
-                "TIMESTAMP '2020-05-10 01:00:00 America/New_York', " +
-                "TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles', " +
-                "TIMESTAMP '2020-05-10 02:00:00 America/New_York', " +
-                "TIMESTAMP '2020-05-10 02:00:00 America/Los_Angeles', " +
-                "TIMESTAMP '2020-05-10 03:00:00 America/New_York', " +
-                "TIMESTAMP '2020-05-10 03:00:00 America/Los_Angeles' " +
-                ") t(value)" +
-                "ORDER BY value"))
+                                    "SELECT value FROM (VALUES " +
+                                    "TIMESTAMP '2020-05-10 01:00:00 America/New_York', " +
+                                    "TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles', " +
+                                    "TIMESTAMP '2020-05-10 02:00:00 America/New_York', " +
+                                    "TIMESTAMP '2020-05-10 02:00:00 America/Los_Angeles', " +
+                                    "TIMESTAMP '2020-05-10 03:00:00 America/New_York', " +
+                                    "TIMESTAMP '2020-05-10 03:00:00 America/Los_Angeles' " +
+                                    ") t(value)" +
+                                    "ORDER BY value"))
                 .ordered()
                 .matches("" +
-                        "SELECT value FROM (VALUES " +
-                        "TIMESTAMP '2020-05-10 01:00:00 America/New_York', " +
-                        "TIMESTAMP '2020-05-10 02:00:00 America/New_York', " +
-                        "TIMESTAMP '2020-05-10 03:00:00 America/New_York', " +
-                        "TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles', " +
-                        "TIMESTAMP '2020-05-10 02:00:00 America/Los_Angeles', " +
-                        "TIMESTAMP '2020-05-10 03:00:00 America/Los_Angeles' " +
-                        ") t(value)");
+                         "SELECT value FROM (VALUES " +
+                         "TIMESTAMP '2020-05-10 01:00:00 America/New_York', " +
+                         "TIMESTAMP '2020-05-10 02:00:00 America/New_York', " +
+                         "TIMESTAMP '2020-05-10 03:00:00 America/New_York', " +
+                         "TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles', " +
+                         "TIMESTAMP '2020-05-10 02:00:00 America/Los_Angeles', " +
+                         "TIMESTAMP '2020-05-10 03:00:00 America/Los_Angeles' " +
+                         ") t(value)");
 
         // long timestamp
         assertThat(assertions.query("" +
-                "SELECT value FROM (VALUES " +
-                "TIMESTAMP '2020-05-10 01:00:00.000000 America/New_York', " +
-                "TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles', " +
-                "TIMESTAMP '2020-05-10 02:00:00.000000 America/New_York', " +
-                "TIMESTAMP '2020-05-10 02:00:00.000000 America/Los_Angeles', " +
-                "TIMESTAMP '2020-05-10 03:00:00.000000 America/New_York', " +
-                "TIMESTAMP '2020-05-10 03:00:00.000000 America/Los_Angeles' " +
-                ") t(value)" +
-                "ORDER BY value"))
+                                    "SELECT value FROM (VALUES " +
+                                    "TIMESTAMP '2020-05-10 01:00:00.000000 America/New_York', " +
+                                    "TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles', " +
+                                    "TIMESTAMP '2020-05-10 02:00:00.000000 America/New_York', " +
+                                    "TIMESTAMP '2020-05-10 02:00:00.000000 America/Los_Angeles', " +
+                                    "TIMESTAMP '2020-05-10 03:00:00.000000 America/New_York', " +
+                                    "TIMESTAMP '2020-05-10 03:00:00.000000 America/Los_Angeles' " +
+                                    ") t(value)" +
+                                    "ORDER BY value"))
                 .ordered()
                 .matches("" +
-                        "SELECT value FROM (VALUES " +
-                        "TIMESTAMP '2020-05-10 01:00:00.000000 America/New_York', " +
-                        "TIMESTAMP '2020-05-10 02:00:00.000000 America/New_York', " +
-                        "TIMESTAMP '2020-05-10 03:00:00.000000 America/New_York', " +
-                        "TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles', " +
-                        "TIMESTAMP '2020-05-10 02:00:00.000000 America/Los_Angeles', " +
-                        "TIMESTAMP '2020-05-10 03:00:00.000000 America/Los_Angeles' " +
-                        ") t(value)");
+                         "SELECT value FROM (VALUES " +
+                         "TIMESTAMP '2020-05-10 01:00:00.000000 America/New_York', " +
+                         "TIMESTAMP '2020-05-10 02:00:00.000000 America/New_York', " +
+                         "TIMESTAMP '2020-05-10 03:00:00.000000 America/New_York', " +
+                         "TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles', " +
+                         "TIMESTAMP '2020-05-10 02:00:00.000000 America/Los_Angeles', " +
+                         "TIMESTAMP '2020-05-10 03:00:00.000000 America/Los_Angeles' " +
+                         ") t(value)");
     }
 
     @Test
@@ -2549,14 +2589,14 @@ public class TestTimestampWithTimeZone
     {
         // short timestamp
         assertThat(assertions.query("" +
-                "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00 America/New_York') t(v) " +
-                "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles') u(v) USING (v)"))
+                                    "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00 America/New_York') t(v) " +
+                                    "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00 America/Los_Angeles') u(v) USING (v)"))
                 .matches("VALUES BIGINT '1'");
 
         // long timestamp
         assertThat(assertions.query("" +
-                "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00.000000 America/New_York') t(v) " +
-                "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles') u(v) USING (v)"))
+                                    "SELECT count(*) FROM (VALUES TIMESTAMP '2020-05-10 04:00:00.000000 America/New_York') t(v) " +
+                                    "JOIN (VALUES TIMESTAMP '2020-05-10 01:00:00.000000 America/Los_Angeles') u(v) USING (v)"))
                 .matches("VALUES BIGINT '1'");
     }
 
