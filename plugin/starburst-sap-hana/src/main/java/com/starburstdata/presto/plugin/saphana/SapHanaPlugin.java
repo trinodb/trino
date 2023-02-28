@@ -18,7 +18,6 @@ import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.license.StarburstFeature.SAP_HANA;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +29,7 @@ public class SapHanaPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(SAP_HANA, getConnectorFactory(new LicenseManagerProvider().get())));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(getConnectorFactory(new LicenseManagerProvider().get())));
     }
 
     @VisibleForTesting

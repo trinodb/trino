@@ -27,7 +27,7 @@ public class TestSapHanaPlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:sap:test"), new TestingConnectorContext()))
                 .isInstanceOf(RuntimeException.class)
-                .hasToString("com.starburstdata.presto.license.StarburstLicenseException: Valid license required to use the feature: sap-hana");
+                .hasMessageContaining("Starburst Enterprise requires valid license");
     }
 
     @Test
