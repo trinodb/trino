@@ -562,6 +562,19 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Test
+    public void testTableLocationTrailingSpace()
+    {
+        String tableName = "table_with_space_" + randomNameSuffix();
+        String tableLocationWithTrailingSpace = "s3://" + bucketName + "/" + tableName + " ";
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = '%s')", tableName, tableLocationWithTrailingSpace));
+        assertUpdate("INSERT INTO " + tableName + " (customer) VALUES ('Aaron'), ('Bill')", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Aaron'), ('Bill')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testTableLocationTrailingSlash()
     {
         String tableWithSlash = "table_with_slash";
