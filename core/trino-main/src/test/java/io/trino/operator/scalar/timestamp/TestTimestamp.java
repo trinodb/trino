@@ -29,6 +29,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
+import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -2854,6 +2855,44 @@ public class TestTimestamp
 
         assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2016-03-29 03:04:05.321'", "TIMESTAMP '2017-03-30 14:15:16.432'"))
                 .matches("INTERVAL '-366 11:11:11.111' DAY TO SECOND");
+    }
+
+    @Test
+    public void testPlusInterval()
+    {
+        assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321'", "INTERVAL '3' hour"))
+                .matches("TIMESTAMP '2001-01-22 06:04:05.321'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' hour", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .matches("TIMESTAMP '2001-01-22 06:04:05.321'");
+
+        assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321'", "INTERVAL '3' day"))
+                .matches("TIMESTAMP '2001-01-25 03:04:05.321'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' day", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .matches("TIMESTAMP '2001-01-25 03:04:05.321'");
+
+        assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321'", "INTERVAL '3' month"))
+                .matches("TIMESTAMP '2001-04-22 03:04:05.321'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' month", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .matches("TIMESTAMP '2001-04-22 03:04:05.321'");
+
+        assertThat(assertions.operator(ADD, "TIMESTAMP '2001-1-22 03:04:05.321'", "INTERVAL '3' year"))
+                .matches("TIMESTAMP '2004-01-22 03:04:05.321'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' year", "TIMESTAMP '2001-1-22 03:04:05.321'"))
+                .matches("TIMESTAMP '2004-01-22 03:04:05.321'");
+    }
+
+    @Test
+    public void testMinusInterval()
+    {
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2001-1-22 03:04:05.321'", "INTERVAL '3' day"))
+                .matches("TIMESTAMP '2001-01-19 03:04:05.321'");
+
+        assertThat(assertions.operator(SUBTRACT, "TIMESTAMP '2001-1-22 03:04:05.321'", "INTERVAL '3' month"))
+                .matches("TIMESTAMP '2000-10-22 03:04:05.321'");
     }
 
     @Test

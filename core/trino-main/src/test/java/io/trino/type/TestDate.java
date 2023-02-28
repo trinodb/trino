@@ -24,14 +24,21 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -57,10 +64,106 @@ public class TestDate
     @Test
     public void testLiteral()
     {
-        long millis = new DateTime(2001, 1, 22, 0, 0, UTC).getMillis();
         assertThat(assertions.expression("DATE '2001-1-22'"))
                 .hasType(DATE)
-                .isEqualTo(new SqlDate((int) TimeUnit.MILLISECONDS.toDays(millis)));
+                .isEqualTo(toDate(new DateTime(2001, 1, 22, 0, 0, UTC)));
+
+        assertThat(assertions.expression("DATE '2013-02-02'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        // one digit for month or day
+        assertThat(assertions.expression("DATE '2013-2-02'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        assertThat(assertions.expression("DATE '2013-02-2'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        // three digit for month or day
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-02-002'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '2013-02-002' is not a valid date literal");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-002-02'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '2013-002-02' is not a valid date literal");
+
+        // zero-padded year
+        assertThat(assertions.expression("DATE '02013-02-02'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        assertThat(assertions.expression("DATE '0013-02-02'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(13, 2, 2, 0, 0, 0, 0, UTC)));
+
+        // invalid date
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-02-29'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '2013-02-29' is not a valid date literal");
+
+        // surrounding whitespace
+        assertThat(assertions.expression("DATE '  2013-02-02  '"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        assertThat(assertions.expression("DATE ' \t\n\u000B\f\r\u001C\u001D\u001E\u001F 2013-02-02 \t\n\u000B\f\n\u001C\u001D\u001E\u001F '"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        // intra whitespace
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013 -02-02'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '2013 -02-02' is not a valid date literal");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013- 2-02'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '2013- 2-02' is not a valid date literal");
+
+        // large year
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '5881580-07-12'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '5881580-07-12' is not a valid date literal");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '392251590-07-12'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '392251590-07-12' is not a valid date literal");
+
+        // signed
+        assertThat(assertions.expression("DATE '+2013-02-02'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        assertThat(assertions.expression("DATE '-2013-02-02'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        // signed with whitespace
+        assertThat(assertions.expression("DATE ' +2013-02-02'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '+ 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '+ 2013-02-02' is not a valid date literal");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE ' + 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: ' + 2013-02-02' is not a valid date literal");
+
+        assertThat(assertions.expression("DATE ' -2013-02-02'"))
+                .hasType(DATE)
+                .isEqualTo(toDate(new DateTime(-2013, 2, 2, 0, 0, 0, 0, UTC)));
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '- 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '- 2013-02-02' is not a valid date literal");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("DATE ' - 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: ' - 2013-02-02' is not a valid date literal");
     }
 
     @Test
@@ -211,7 +314,8 @@ public class TestDate
     @Test
     public void testCastToTimestamp()
     {
-        assertThat(assertions.expression("CAST(DATE '2001-1-22' AS timestamp)"))
+        assertThat(assertions.expression("cast(a as timestamp)")
+                .binding("a", "DATE '2001-1-22'"))
                 .matches("TIMESTAMP '2001-01-22 00:00:00.000'");
     }
 
@@ -229,25 +333,165 @@ public class TestDate
     @Test
     public void testCastToVarchar()
     {
-        assertThat(assertions.expression("CAST(DATE '2001-1-22' AS varchar)"))
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "DATE '2001-1-22'"))
                 .hasType(VARCHAR)
                 .isEqualTo("2001-01-22");
+
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "DATE '2013-02-02'"))
+                .hasType(VARCHAR)
+                .isEqualTo("2013-02-02");
+
+        // according to the SQL standard, this literal is incorrect. The required format is 'YYYY-MM-DD'. https://github.com/trinodb/trino/issues/10677
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "DATE '13-2-2'"))
+                .hasType(VARCHAR)
+                .isEqualTo("0013-02-02");
+
+        assertThat(assertions.expression("cast(a as varchar(50))")
+                .binding("a", "DATE '2013-02-02'"))
+                .hasType(createVarcharType(50))
+                .isEqualTo("2013-02-02");
+
+        assertThat(assertions.expression("cast(a as varchar(10))")
+                .binding("a", "DATE '2013-02-02'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("2013-02-02");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as varchar(9))")
+                .binding("a", "DATE '2013-02-02'").evaluate())
+                .hasMessage("Value 2013-02-02 cannot be represented as varchar(9)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test
     public void testCastFromVarchar()
     {
-        assertThat(assertions.expression("CAST('2001-1-22' AS date)"))
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'2001-1-22'"))
                 .matches("DATE '2001-01-22'");
 
-        assertThat(assertions.expression("CAST('\n\t 2001-1-22' AS date)"))
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'\n\t 2001-1-22'"))
                 .matches("DATE '2001-01-22'");
 
-        assertThat(assertions.expression("CAST('2001-1-22 \t\n' AS date)"))
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'2001-1-22 \t\n'"))
                 .matches("DATE '2001-01-22'");
 
-        assertThat(assertions.expression("CAST('\n\t 2001-1-22 \t\n' AS date)"))
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'\n\t 2001-1-22 \t\n'"))
                 .matches("DATE '2001-01-22'");
+
+        // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'2013-02-02'"))
+                .matches("DATE '2013-02-02'");
+
+        // one digit for month or day
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'2013-2-02'"))
+                .matches("DATE '2013-02-02'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'2013-02-2'"))
+                .matches("DATE '2013-02-02'");
+
+        // three digit for month or day
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'2013-02-002'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013-02-002");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'2013-002-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013-002-02");
+
+        // zero-padded year
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'02013-02-02'"))
+                .matches("DATE '2013-02-02'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'0013-02-02'"))
+                .matches("DATE '13-02-02'");
+
+        // invalid date
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'2013-02-29'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013-02-29");
+
+        // surrounding whitespace
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'  2013-02-02  '"))
+                .matches("DATE '2013-02-02'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "' \t\n\u000B\f\r\u001C\u001D\u001E\u001F 2013-02-02 \t\n\u000B\f\n\u001C\u001D\u001E\u001F '"))
+                .matches("DATE '2013-02-02'");
+
+        // intra whitespace
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'2013 -02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013 -02-02");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'2013- 2-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 2013- 2-02");
+
+        // large year
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'5881580-07-12'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 5881580-07-12");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'392251590-07-12'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: 392251590-07-12");
+
+        // signed
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'+2013-02-02'"))
+                .matches("DATE '2013-02-02'");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "'-2013-02-02'"))
+                .matches("DATE '-2013-02-02'");
+
+        // signed with whitespace
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "' +2013-02-02'"))
+                .matches("DATE '2013-02-02'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'+ 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: + 2013-02-02");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "' + 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date:  + 2013-02-02");
+
+        assertThat(assertions.expression("cast(a as date)")
+                .binding("a", "' -2013-02-02'"))
+                .matches("DATE '-2013-02-02'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "'- 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date: - 2013-02-02");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as date)")
+                .binding("a", "' - 2013-02-02'").evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage("Value cannot be cast to date:  - 2013-02-02");
     }
 
     @Test
@@ -278,5 +522,99 @@ public class TestDate
 
         assertThat(assertions.operator(INDETERMINATE, "DATE '2013-10-27'"))
                 .isEqualTo(false);
+    }
+
+    @Test
+    public void testIsDistinctFrom()
+    {
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS DATE)", "CAST(NULL AS DATE)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "DATE '2013-10-27'", "TIMESTAMP '2013-10-27 00:00:00'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "DATE '2013-10-27'", "TIMESTAMP '2013-10-28 00:00:00'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "DATE '2013-10-27'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "DATE '2013-10-27'", "NULL"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testDateToTimestampCoercing()
+    {
+        assertThat(assertions.operator(EQUAL, "DATE '2013-10-27'", "TIMESTAMP '2013-10-27 00:00:00'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "DATE '2013-10-27'", "TIMESTAMP '2013-10-27 00:00:01'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "DATE '2013-10-27'")
+                .binding("b", "TIMESTAMP '2013-10-26 23:59:59'"))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testDateToTimestampWithZoneCoercing()
+    {
+        Session session = assertions.sessionBuilder()
+                .setTimeZoneKey(getTimeZoneKey("Europe/Berlin"))
+                .build();
+
+        assertThat(assertions.expression("DATE '2013-10-27' = TIMESTAMP '2013-10-27 00:00:00 Europe/Berlin'", session))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("DATE '2013-10-27' < TIMESTAMP '2013-10-27 00:00:01 Europe/Berlin'", session))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("DATE '2013-10-27' > TIMESTAMP '2013-10-26 23:59:59 Europe/Berlin'", session))
+                .isEqualTo(true);
+    }
+
+    @Test
+    public void testMinusInterval()
+    {
+        assertThat(assertions.operator(SUBTRACT, "DATE '2001-1-22'", "INTERVAL '3' day"))
+                .matches("DATE '2001-01-19'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(SUBTRACT, "DATE '2001-1-22'", "INTERVAL '3' hour").evaluate())
+                .hasMessage("Cannot subtract hour, minutes or seconds from a date");
+    }
+
+    @Test
+    public void testPlusInterval()
+    {
+        assertThat(assertions.operator(ADD, "DATE '2001-1-22'", "INTERVAL '3' day"))
+                .matches("DATE '2001-01-25'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' day", "DATE '2001-1-22'"))
+                .matches("DATE '2001-01-25'");
+
+        assertThat(assertions.operator(ADD, "DATE '2001-1-22'", "INTERVAL '3' month"))
+                .matches("DATE '2001-04-22'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' month", "DATE '2001-1-22'"))
+                .matches("DATE '2001-04-22'");
+
+        assertThat(assertions.operator(ADD, "DATE '2001-1-22'", "INTERVAL '3' year"))
+                .matches("DATE '2004-01-22'");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' year", "DATE '2001-1-22'"))
+                .matches("DATE '2004-01-22'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "DATE '2001-1-22'", "INTERVAL '3' hour").evaluate())
+                .hasMessage("Cannot add hour, minutes or seconds to a date");
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(ADD, "INTERVAL '3' hour", "DATE '2001-1-22'").evaluate())
+                .hasMessage("Cannot add hour, minutes or seconds to a date");
+    }
+
+    private static SqlDate toDate(DateTime dateTime)
+    {
+        return new SqlDate((int) TimeUnit.MILLISECONDS.toDays(dateTime.getMillis()));
     }
 }
