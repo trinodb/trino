@@ -9,7 +9,7 @@ using tools like `kind <https://kind.sigs.k8s.io>`_, to running on a managed
 Kubernetes service on cloud services like
 `Amazon Elastic Kubernetes Service <https://aws.amazon.com/eks>`_,
 `Google Kubernetes Engine <https://cloud.google.com/kubernetes-engine>`_,
-`Azure Kubernetes Service <https://azure.microsoft.com/en-us/services/kubernetes-service>`_,
+`Azure Kubernetes Service <https://azure.microsoft.com/services/kubernetes-service>`_,
 and others.
 
 The fastest way to run Trino on Kubernetes is to use the

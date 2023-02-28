@@ -3,7 +3,7 @@ HyperLogLog functions
 =====================
 
 Trino implements the :func:`approx_distinct` function using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data structure.
+`HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_ data structure.
 
 Data structures
 ---------------
