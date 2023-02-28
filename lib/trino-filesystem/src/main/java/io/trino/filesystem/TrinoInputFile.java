@@ -20,6 +20,9 @@ public interface TrinoInputFile
     TrinoInput newInput()
             throws IOException;
 
+    SeekableInputStream newStream()
+            throws IOException;
+
     long length()
             throws IOException;
 

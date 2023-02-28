@@ -84,7 +84,7 @@ public final class SequenceFileReader
         try {
             requireNonNull(inputFile, "inputFile is null");
             this.location = inputFile.location();
-            this.input = new DataSeekableInputStream(inputFile.newInput().inputStream());
+            this.input = new DataSeekableInputStream(inputFile.newStream());
             closer.register(input);
 
             verify(offset >= 0, "offset is negative");

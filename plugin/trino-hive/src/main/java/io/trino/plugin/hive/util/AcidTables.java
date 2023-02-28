@@ -99,7 +99,7 @@ public final class AcidTables
             return 0;
         }
         // Hive only reads one byte from the file
-        try (var in = file.newInput().inputStream()) {
+        try (var in = file.newStream()) {
             byte[] bytes = in.readNBytes(1);
             if (bytes.length == 1) {
                 return parseInt(new String(bytes, UTF_8));
@@ -243,7 +243,7 @@ public final class AcidTables
         }
 
         Map<String, String> metadata;
-        try (var in = file.newInput().inputStream()) {
+        try (var in = file.newStream()) {
             metadata = new ObjectMapper().readValue(in, new TypeReference<>() {});
         }
         catch (IOException e) {

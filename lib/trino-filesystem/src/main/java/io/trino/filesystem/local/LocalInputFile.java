@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.local;
 
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 
@@ -36,6 +37,13 @@ public class LocalInputFile
             throws IOException
     {
         return new LocalInput(file);
+    }
+
+    @Override
+    public SeekableInputStream newStream()
+            throws IOException
+    {
+        return new FileSeekableInputStream(file);
     }
 
     @Override
