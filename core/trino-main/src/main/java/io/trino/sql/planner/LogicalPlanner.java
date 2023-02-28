@@ -35,6 +35,7 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
@@ -116,6 +117,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
+import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -605,6 +608,12 @@ public class LogicalPlanner
     {
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         Optional<PartitioningScheme> preferredPartitioningScheme = Optional.empty();
+
+        int maxWriterTasks = target.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+        Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                : Optional.empty();
+
         if (writeTableLayout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
             writeTableLayout.get().getPartitionColumns().stream()
@@ -616,6 +625,7 @@ public class LogicalPlanner
 
             Optional<PartitioningHandle> partitioningHandle = writeTableLayout.get().getPartitioning();
             if (partitioningHandle.isPresent()) {
+                checkState(target.getMaxWriterTasks(plannerContext.getMetadata(), session).isEmpty(), "maxWriterTasks must be empty if partitioning is set by connector");
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
@@ -624,7 +634,11 @@ public class LogicalPlanner
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
                 preferredPartitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
-                        outputLayout));
+                        outputLayout,
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        maxWritersNodesCount));
             }
         }
 
@@ -901,15 +915,24 @@ public class LogicalPlanner
 
             Optional<PartitioningHandle> partitioningHandle = layout.get().getPartitioning();
             if (partitioningHandle.isPresent()) {
+                checkState(tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).isEmpty(), "maxWriterTasks must be empty if partitioning is set by connector");
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
             }
             else {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
+                int maxWriterTasks = tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+                Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                        ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                        : Optional.empty();
                 preferredPartitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
-                        outputLayout));
+                        outputLayout,
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        maxWritersNodesCount));
             }
         }
 

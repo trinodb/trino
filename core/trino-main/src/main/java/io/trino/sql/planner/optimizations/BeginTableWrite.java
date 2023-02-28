@@ -238,14 +238,16 @@ public class BeginTableWrite
                         metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()),
                         create.getTableMetadata().getTable(),
                         target.supportsReportingWrittenBytes(metadata, session),
-                        target.supportsMultipleWritersPerPartition(metadata, session));
+                        target.supportsMultipleWritersPerPartition(metadata, session),
+                        target.getMaxWriterTasks(metadata, session));
             }
             if (target instanceof InsertReference insert) {
                 return new InsertTarget(
                         metadata.beginInsert(session, insert.getHandle(), insert.getColumns()),
                         metadata.getTableMetadata(session, insert.getHandle()).getTable(),
                         target.supportsReportingWrittenBytes(metadata, session),
-                        target.supportsMultipleWritersPerPartition(metadata, session));
+                        target.supportsMultipleWritersPerPartition(metadata, session),
+                        target.getMaxWriterTasks(metadata, session));
             }
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
