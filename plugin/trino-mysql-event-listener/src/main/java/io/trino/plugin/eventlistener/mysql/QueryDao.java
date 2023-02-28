@@ -83,7 +83,8 @@ public interface QueryDao
             "  cumulative_memory DOUBLE NOT NULL,\n" +
             "  failed_cumulative_memory DOUBLE NOT NULL,\n" +
             "  completed_splits BIGINT NOT NULL,\n" +
-            "  retry_policy VARCHAR(255) NOT NULL\n" +
+            "  retry_policy VARCHAR(255) NOT NULL,\n" +
+            "  operator_summaries_json MEDIUMTEXT NOT NULL\n" +
             ")")
     void createTable();
 
@@ -152,7 +153,8 @@ public interface QueryDao
             "  cumulative_memory,\n" +
             "  failed_cumulative_memory,\n" +
             "  completed_splits,\n" +
-            "  retry_policy\n" +
+            "  retry_policy,\n" +
+            "  operator_summaries_json\n" +
             ")\n" +
             "VALUES (\n" +
             " :queryId,\n" +
@@ -219,7 +221,8 @@ public interface QueryDao
             " :cumulativeMemory,\n" +
             " :failedCumulativeMemory,\n" +
             " :completedSplits,\n" +
-            " :retryPolicy\n" +
+            " :retryPolicy,\n" +
+            " :operatorSummariesJson\n" +
             ")")
     void store(@BindBean QueryEntity entity);
 }
