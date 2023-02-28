@@ -220,7 +220,7 @@ to the following table:
     - Time zone is UTC
   * - ``GEOGRAPHY``
     - ``VARCHAR``
-    - In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
+    - In `Well-known text (WKT) <https://wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
   * - ``ARRAY``
     - ``ARRAY``
     -

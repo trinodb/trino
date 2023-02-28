@@ -439,7 +439,7 @@ Bing tiles
 ----------
 
 These functions convert between geometries and
-`Bing tiles <https://msdn.microsoft.com/en-us/library/bb259689.aspx>`_.
+`Bing tiles <https://msdn.microsoft.com/library/bb259689.aspx>`_.
 
 .. function:: bing_tile(x, y, zoom_level) -> BingTile
 

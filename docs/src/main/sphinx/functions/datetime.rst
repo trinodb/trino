@@ -527,7 +527,7 @@ Convenience extraction functions
     Returns the `ISO week`_ of the year from ``x``.
     The value ranges from ``1`` to ``53``.
 
-    .. _ISO week: https://en.wikipedia.org/wiki/ISO_week_date
+    .. _ISO week: https://wikipedia.org/wiki/ISO_week_date
 
 .. function:: week_of_year(x) -> bigint
 
