@@ -85,7 +85,8 @@ public interface QueryDao
             "  completed_splits BIGINT NOT NULL,\n" +
             "  retry_policy VARCHAR(255) NOT NULL,\n" +
             "  operator_summaries_json MEDIUMTEXT NOT NULL\n" +
-            ")")
+            ")\n" +
+            "DEFAULT CHARACTER SET utf8")
     void createTable();
 
     @SqlUpdate("INSERT INTO trino_queries (\n" +
