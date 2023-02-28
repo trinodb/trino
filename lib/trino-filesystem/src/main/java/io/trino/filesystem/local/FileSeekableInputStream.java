@@ -13,50 +13,64 @@
  */
 package io.trino.filesystem.local;
 
+import com.google.common.primitives.Ints;
 import io.trino.filesystem.SeekableInputStream;
-import io.trino.filesystem.TrinoInput;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
-import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-class LocalInput
-        implements TrinoInput
+class FileSeekableInputStream
+        extends SeekableInputStream
 {
-    private final File file;
     private final RandomAccessFile input;
 
-    public LocalInput(File file)
+    FileSeekableInputStream(RandomAccessFile input)
+    {
+        this.input = requireNonNull(input, "input is null");
+    }
+
+    @Override
+    public long getPosition()
             throws IOException
     {
-        this.file = requireNonNull(file, "file is null");
-        this.input = new RandomAccessFile(file, "r");
+        return input.getFilePointer();
     }
 
     @Override
-    public SeekableInputStream inputStream()
-    {
-        return new FileSeekableInputStream(input);
-    }
-
-    @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    public void seek(long position)
             throws IOException
     {
         input.seek(position);
-        input.readFully(buffer, bufferOffset, bufferLength);
     }
 
     @Override
-    public int readTail(byte[] buffer, int bufferOffset, int bufferLength)
+    public int read()
             throws IOException
     {
-        int readSize = (int) min(file.length(), bufferLength);
-        readFully(file.length() - readSize, buffer, bufferOffset, readSize);
-        return readSize;
+        return input.read();
+    }
+
+    @Override
+    public int read(byte[] b)
+            throws IOException
+    {
+        return input.read(b);
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len)
+            throws IOException
+    {
+        return input.read(b, off, len);
+    }
+
+    @Override
+    public long skip(long n)
+            throws IOException
+    {
+        return input.skipBytes(Ints.saturatedCast(n));
     }
 
     @Override
@@ -64,11 +78,5 @@ class LocalInput
             throws IOException
     {
         input.close();
-    }
-
-    @Override
-    public String toString()
-    {
-        return file.getPath();
     }
 }
