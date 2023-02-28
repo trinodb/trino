@@ -13,254 +13,640 @@
  */
 package io.trino.operator.scalar;
 
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
-import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestJsonFunctions
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testIsJsonScalar()
     {
-        assertFunction("IS_JSON_SCALAR(null)", BOOLEAN, null);
+        assertThat(assertions.function("is_json_scalar", "null"))
+                .isNull(BOOLEAN);
 
-        assertFunction("IS_JSON_SCALAR(JSON 'null')", BOOLEAN, true);
-        assertFunction("IS_JSON_SCALAR(JSON 'true')", BOOLEAN, true);
-        assertFunction("IS_JSON_SCALAR(JSON '1')", BOOLEAN, true);
-        assertFunction("IS_JSON_SCALAR(JSON '\"str\"')", BOOLEAN, true);
-        assertFunction("IS_JSON_SCALAR('null')", BOOLEAN, true);
-        assertFunction("IS_JSON_SCALAR('true')", BOOLEAN, true);
-        assertFunction("IS_JSON_SCALAR('1')", BOOLEAN, true);
-        assertFunction("IS_JSON_SCALAR('\"str\"')", BOOLEAN, true);
+        assertThat(assertions.function("is_json_scalar", "JSON 'null'"))
+                .isEqualTo(true);
 
-        assertFunction("IS_JSON_SCALAR(JSON '[1, 2, 3]')", BOOLEAN, false);
-        assertFunction("IS_JSON_SCALAR(JSON '{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
-        assertFunction("IS_JSON_SCALAR('[1, 2, 3]')", BOOLEAN, false);
-        assertFunction("IS_JSON_SCALAR('{\"a\": 1, \"b\": 2}')", BOOLEAN, false);
+        assertThat(assertions.function("is_json_scalar", "JSON 'true'"))
+                .isEqualTo(true);
 
-        assertInvalidFunction("IS_JSON_SCALAR('')", "Invalid JSON value: ");
-        assertInvalidFunction("IS_JSON_SCALAR('[1')", "Invalid JSON value: [1");
-        assertInvalidFunction("IS_JSON_SCALAR('1 trailing')", "Invalid JSON value: 1 trailing");
-        assertInvalidFunction("IS_JSON_SCALAR('[1, 2] trailing')", "Invalid JSON value: [1, 2] trailing");
+        assertThat(assertions.function("is_json_scalar", "JSON '1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_json_scalar", "JSON '\"str\"'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_json_scalar", "'null'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_json_scalar", "'true'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_json_scalar", "'1'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_json_scalar", "'\"str\"'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("is_json_scalar", "JSON '[1, 2, 3]'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_json_scalar", "JSON '{\"a\": 1, \"b\": 2}'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_json_scalar", "'[1, 2, 3]'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("is_json_scalar", "'{\"a\": 1, \"b\": 2}'"))
+                .isEqualTo(false);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("is_json_scalar", "''").evaluate())
+                .hasMessage("Invalid JSON value: ");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("is_json_scalar", "'[1'").evaluate())
+                .hasMessage("Invalid JSON value: [1");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("is_json_scalar", "'1 trailing'").evaluate())
+                .hasMessage("Invalid JSON value: 1 trailing");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("is_json_scalar", "'[1, 2] trailing'").evaluate())
+                .hasMessage("Invalid JSON value: [1, 2] trailing");
     }
 
     @Test
     public void testJsonArrayLength()
     {
-        assertFunction("JSON_ARRAY_LENGTH('[]')", BIGINT, 0L);
-        assertFunction("JSON_ARRAY_LENGTH('[1]')", BIGINT, 1L);
-        assertFunction("JSON_ARRAY_LENGTH('[1, \"foo\", null]')", BIGINT, 3L);
-        assertFunction("JSON_ARRAY_LENGTH('[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6L);
-        assertFunction("JSON_ARRAY_LENGTH(JSON '[]')", BIGINT, 0L);
-        assertFunction("JSON_ARRAY_LENGTH(JSON '[1]')", BIGINT, 1L);
-        assertFunction("JSON_ARRAY_LENGTH(JSON '[1, \"foo\", null]')", BIGINT, 3L);
-        assertFunction("JSON_ARRAY_LENGTH(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 4]')", BIGINT, 6L);
-        assertFunction("JSON_ARRAY_LENGTH(null)", BIGINT, null);
+        assertThat(assertions.function("json_array_length", "'[]'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("json_array_length", "'[1]'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("json_array_length", "'[1, \"foo\", null]'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("json_array_length", "'[2, 4, {\"a\": [8, 9]}, [], [5], 4]'"))
+                .isEqualTo(6L);
+
+        assertThat(assertions.function("json_array_length", "JSON '[]'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("json_array_length", "JSON '[1]'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("json_array_length", "JSON '[1, \"foo\", null]'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("json_array_length", "JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 4]'"))
+                .isEqualTo(6L);
+
+        assertThat(assertions.function("json_array_length", "null"))
+                .isNull(BIGINT);
     }
 
     @Test
     public void testJsonArrayContainsBoolean()
     {
-        assertFunction("JSON_ARRAY_CONTAINS('[]', true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[true]', true)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[false]', false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[true, false]', false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[false, true]', true)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[1]', true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[[true]]', true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null, \"true\"]', true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[2, 4, {\"a\": [8, 9]}, [], [5], false]', false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[]', true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[true]', true)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[false]', false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[true, false]', false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[false, true]', true)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1]', true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[[true]]', true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, \"foo\", null, \"true\"]', true)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], false]', false)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(null, true)", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS(null, null)", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS('[]', null)", BOOLEAN, null);
+        assertThat(assertions.function("json_array_contains", "'[]'", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[true]'", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[false]'", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[true, false]'", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[false, true]'", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[1]'", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[[true]]'", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[1, \"foo\", null, \"true\"]'", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[2, 4, {\"a\": [8, 9]}, [], [5], false]'", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[]'", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[true]'", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[false]'", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[true, false]'", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[false, true]'", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1]'", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[[true]]'", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1, \"foo\", null, \"true\"]'", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[2, 4, {\"a\": [8, 9]}, [], [5], false]'", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "null", "true"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "null", "null"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "'[]'", "null"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testJsonArrayContainsLong()
     {
-        assertFunction("JSON_ARRAY_CONTAINS('[]', 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[3]', 3)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[-4]', -4)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[1.0]', 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[[2]]', 2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null, \"8\"]', 8)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[2, 4, {\"a\": [8, 9]}, [], [5], 6]', 6)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[92233720368547758071]', -9)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[]', 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[3]', 3)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[-4]', -4)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1.0]', 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[[2]]', 2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, \"foo\", null, \"8\"]', 8)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 6]', 6)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[92233720368547758071]', -9)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(null, 1)", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS(null, null)", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS('[3]', null)", BOOLEAN, null);
+        assertThat(assertions.function("json_array_contains", "'[]'", "1"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[3]'", "3"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[-4]'", "-4"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[1.0]'", "1"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[[2]]'", "2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[1, \"foo\", null, \"8\"]'", "8"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[2, 4, {\"a\": [8, 9]}, [], [5], 6]'", "6"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[92233720368547758071]'", "-9"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[]'", "1"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[3]'", "3"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[-4]'", "-4"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1.0]'", "1"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[[2]]'", "2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1, \"foo\", null, \"8\"]'", "8"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 6]'", "6"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[92233720368547758071]'", "-9"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "null", "1"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "null", "null"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "'[3]'", "null"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testJsonArrayContainsDouble()
     {
-        assertFunction("JSON_ARRAY_CONTAINS('[]', 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[1.5]', 1.5)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[-9.5]', -9.5)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[1]', 1.0)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[[2.5]]', 2.5)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null, \"8.2\"]', 8.2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]', 6.1)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[9.6E400]', 4.2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[]', 1)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1.5]', 1.5)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[-9.5]', -9.5)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1]', 1.0)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[[2.5]]', 2.5)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, \"foo\", null, \"8.2\"]', 8.2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]', 6.1)", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[9.6E400]', 4.2)", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(null, 1.5)", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS(null, null)", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS('[3.5]', null)", BOOLEAN, null);
+        assertThat(assertions.function("json_array_contains", "'[]'", "1"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[1.5]'", "1.5"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[-9.5]'", "-9.5"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[1]'", "1.0"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[[2.5]]'", "2.5"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[1, \"foo\", null, \"8.2\"]'", "8.2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]'", "6.1"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[9.6E400]'", "4.2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[]'", "1"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1.5]'", "1.5"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[-9.5]'", "-9.5"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1]'", "1.0"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[[2.5]]'", "2.5"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1, \"foo\", null, \"8.2\"]'", "8.2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[2, 4, {\"a\": [8, 9]}, [], [5], 6.1]'", "6.1"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[9.6E400]'", "4.2"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "null", "1.5"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "null", "null"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "'[3.5]'", "null"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testJsonArrayContainsString()
     {
-        assertFunction("JSON_ARRAY_CONTAINS('[]', 'x')", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[\"foo\"]', 'foo')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[\"foo\", null]', cast(null as varchar))", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS('[\"8\"]', '8')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[1, \"foo\", null]', 'foo')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[1, 5]', '5')", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS('[2, 4, {\"a\": [8, 9]}, [], [5], \"6\"]', '6')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[]', 'x')", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[\"foo\"]', 'foo')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[\"foo\", null]', cast(null as varchar))", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[\"8\"]', '8')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, \"foo\", null]', 'foo')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[1, 5]', '5')", BOOLEAN, false);
-        assertFunction("JSON_ARRAY_CONTAINS(JSON '[2, 4, {\"a\": [8, 9]}, [], [5], \"6\"]', '6')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS(null, 'x')", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS(null, '')", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS(null, null)", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS('[\"\"]', null)", BOOLEAN, null);
-        assertFunction("JSON_ARRAY_CONTAINS('[\"\"]', '')", BOOLEAN, true);
-        assertFunction("JSON_ARRAY_CONTAINS('[\"\"]', 'x')", BOOLEAN, false);
+        assertThat(assertions.function("json_array_contains", "'[]'", "'x'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[\"foo\"]'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[\"foo\", null]'", "cast(null as varchar)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "'[\"8\"]'", "'8'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[1, \"foo\", null]'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[1, 5]'", "'5'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "'[2, 4, {\"a\": [8, 9]}, [], [5], \"6\"]'", "'6'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[]'", "'x'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[\"foo\"]'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[\"foo\", null]'", "cast(null as varchar)"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[\"8\"]'", "'8'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1, \"foo\", null]'", "'foo'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[1, 5]'", "'5'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("json_array_contains", "JSON '[2, 4, {\"a\": [8, 9]}, [], [5], \"6\"]'", "'6'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "null", "'x'"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "null", "''"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "null", "null"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "'[\"\"]'", "null"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.function("json_array_contains", "'[\"\"]'", "''"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("json_array_contains", "'[\"\"]'", "'x'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testJsonArrayGetLong()
     {
-        assertFunction("JSON_ARRAY_GET('[1]', 0)", JSON, utf8Slice(String.valueOf(1)));
-        assertFunction("JSON_ARRAY_GET('[2, 7, 4]', 1)", JSON, utf8Slice(String.valueOf(7)));
-        assertFunction("JSON_ARRAY_GET('[2, 7, 4, 6, 8, 1, 0]', 6)", JSON, utf8Slice(String.valueOf(0)));
-        assertFunction("JSON_ARRAY_GET('[]', 0)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[1, 3, 2]', 3)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[2, 7, 4, 6, 8, 1, 0]', -1)", JSON, utf8Slice(String.valueOf(0)));
-        assertFunction("JSON_ARRAY_GET('[2, 7, 4, 6, 8, 1, 0]', -2)", JSON, utf8Slice(String.valueOf(1)));
-        assertFunction("JSON_ARRAY_GET('[2, 7, 4, 6, 8, 1, 0]', -7)", JSON, utf8Slice(String.valueOf(2)));
-        assertFunction("JSON_ARRAY_GET('[2, 7, 4, 6, 8, 1, 0]', -8)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(JSON '[1]', 0)", JSON, utf8Slice(String.valueOf(1)));
-        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4]', 1)", JSON, utf8Slice(String.valueOf(7)));
-        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', 6)", JSON, utf8Slice(String.valueOf(0)));
-        assertFunction("JSON_ARRAY_GET(JSON '[]', 0)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(JSON '[1, 3, 2]', 3)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', -1)", JSON, utf8Slice(String.valueOf(0)));
-        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', -2)", JSON, utf8Slice(String.valueOf(1)));
-        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', -7)", JSON, utf8Slice(String.valueOf(2)));
-        assertFunction("JSON_ARRAY_GET(JSON '[2, 7, 4, 6, 8, 1, 0]', -8)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[]', null)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[1]', null)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('', null)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('', 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('', -1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[1]', -9223372036854775807 - 1)", JSON, null);
+        assertThat(assertions.function("json_array_get", "'[1]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("1");
+
+        assertThat(assertions.function("json_array_get", "'[2, 7, 4]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("7");
+
+        assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "6"))
+                .hasType(JSON)
+                .isEqualTo("0");
+
+        assertThat(assertions.function("json_array_get", "'[]'", "0"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[1, 3, 2]'", "3"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "-1"))
+                .hasType(JSON)
+                .isEqualTo("0");
+
+        assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "-2"))
+                .hasType(JSON)
+                .isEqualTo("1");
+
+        assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "-7"))
+                .hasType(JSON)
+                .isEqualTo("2");
+
+        assertThat(assertions.function("json_array_get", "'[2, 7, 4, 6, 8, 1, 0]'", "-8"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "JSON '[1]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("1");
+
+        assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("7");
+
+        assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "6"))
+                .hasType(JSON)
+                .isEqualTo("0");
+
+        assertThat(assertions.function("json_array_get", "JSON '[]'", "0"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "JSON '[1, 3, 2]'", "3"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "-1"))
+                .hasType(JSON)
+                .isEqualTo("0");
+
+        assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "-2"))
+                .hasType(JSON)
+                .isEqualTo("1");
+
+        assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "-7"))
+                .hasType(JSON)
+                .isEqualTo("2");
+
+        assertThat(assertions.function("json_array_get", "JSON '[2, 7, 4, 6, 8, 1, 0]'", "-8"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[]'", "null"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[1]'", "null"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "''", "null"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "''", "1"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "''", "-1"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[1]'", "-9223372036854775807 - 1"))
+                .isNull(JSON);
     }
 
     @Test
     public void testJsonArrayGetString()
     {
-        assertFunction("JSON_ARRAY_GET('[\"jhfa\"]', 0)", JSON, "jhfa");
-        assertFunction("JSON_ARRAY_GET('[\"jhfa\", null]', 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[\"as\", \"fgs\", \"tehgf\"]', 1)", JSON, "fgs");
-        assertFunction("JSON_ARRAY_GET('[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]', 4)", JSON, "jut");
-        assertFunction("JSON_ARRAY_GET(JSON '[\"jhfa\"]', 0)", JSON, "jhfa");
-        assertFunction("JSON_ARRAY_GET(JSON '[\"jhfa\", null]', 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(JSON '[\"as\", \"fgs\", \"tehgf\"]', 1)", JSON, "fgs");
-        assertFunction("JSON_ARRAY_GET(JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]', 4)", JSON, "jut");
-        assertFunction("JSON_ARRAY_GET('[\"\"]', 0)", JSON, "");
-        assertFunction("JSON_ARRAY_GET('[]', 0)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[null]', 0)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[]', null)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[1]', -9223372036854775807 - 1)", JSON, null);
+        assertThat(assertions.function("json_array_get", "'[\"jhfa\"]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("jhfa");
+
+        assertThat(assertions.function("json_array_get", "'[\"jhfa\", null]'", "1"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\"]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("fgs");
+
+        assertThat(assertions.function("json_array_get", "'[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
+                .hasType(JSON)
+                .isEqualTo("jut");
+
+        assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\"]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("jhfa");
+
+        assertThat(assertions.function("json_array_get", "JSON '[\"jhfa\", null]'", "1"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\"]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("fgs");
+
+        assertThat(assertions.function("json_array_get", "JSON '[\"as\", \"fgs\", \"tehgf\", \"gjyj\", \"jut\"]'", "4"))
+                .hasType(JSON)
+                .isEqualTo("jut");
+
+        assertThat(assertions.function("json_array_get", "'[\"\"]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("");
+
+        assertThat(assertions.function("json_array_get", "'[]'", "0"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[null]'", "0"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[]'", "null"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[1]'", "-9223372036854775807 - 1"))
+                .isNull(JSON);
     }
 
     @Test
     public void testJsonArrayGetDouble()
     {
-        assertFunction("JSON_ARRAY_GET('[3.14]', 0)", JSON, utf8Slice(String.valueOf(3.14)));
-        assertFunction("JSON_ARRAY_GET('[3.14, null]', 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[1.12, 3.54, 2.89]', 1)", JSON, utf8Slice(String.valueOf(3.54)));
-        assertFunction("JSON_ARRAY_GET('[0.58, 9.7, 7.6, 11.2, 5.02]', 4)", JSON, utf8Slice(String.valueOf(5.02)));
-        assertFunction("JSON_ARRAY_GET(JSON '[3.14]', 0)", JSON, utf8Slice(String.valueOf(3.14)));
-        assertFunction("JSON_ARRAY_GET(JSON '[3.14, null]', 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(JSON '[1.12, 3.54, 2.89]', 1)", JSON, utf8Slice(String.valueOf(3.54)));
-        assertFunction("JSON_ARRAY_GET(JSON '[0.58, 9.7, 7.6, 11.2, 5.02]', 4)", JSON, utf8Slice(String.valueOf(5.02)));
-        assertFunction("JSON_ARRAY_GET('[1.0]', -1)", JSON, utf8Slice(String.valueOf(1.0)));
-        assertFunction("JSON_ARRAY_GET('[1.0]', null)", JSON, null);
+        assertThat(assertions.function("json_array_get", "'[3.14]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("3.14");
+
+        assertThat(assertions.function("json_array_get", "'[3.14, null]'", "1"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[1.12, 3.54, 2.89]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("3.54");
+
+        assertThat(assertions.function("json_array_get", "'[0.58, 9.7, 7.6, 11.2, 5.02]'", "4"))
+                .hasType(JSON)
+                .isEqualTo("5.02");
+
+        assertThat(assertions.function("json_array_get", "JSON '[3.14]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("3.14");
+
+        assertThat(assertions.function("json_array_get", "JSON '[3.14, null]'", "1"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "JSON '[1.12, 3.54, 2.89]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("3.54");
+
+        assertThat(assertions.function("json_array_get", "JSON '[0.58, 9.7, 7.6, 11.2, 5.02]'", "4"))
+                .hasType(JSON)
+                .isEqualTo("5.02");
+
+        assertThat(assertions.function("json_array_get", "'[1.0]'", "-1"))
+                .hasType(JSON)
+                .isEqualTo("1.0");
+
+        assertThat(assertions.function("json_array_get", "'[1.0]'", "null"))
+                .isNull(JSON);
     }
 
     @Test
     public void testJsonArrayGetBoolean()
     {
-        assertFunction("JSON_ARRAY_GET('[true]', 0)", JSON, utf8Slice(String.valueOf(true)));
-        assertFunction("JSON_ARRAY_GET('[true, null]', 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[false, false, true]', 1)", JSON, utf8Slice(String.valueOf(false)));
-        assertFunction(
-                "JSON_ARRAY_GET('[true, false, false, true, true, false]', 5)",
-                JSON,
-                utf8Slice(String.valueOf(false)));
-        assertFunction("JSON_ARRAY_GET(JSON '[true]', 0)", JSON, utf8Slice(String.valueOf(true)));
-        assertFunction("JSON_ARRAY_GET(JSON '[true, null]', 1)", JSON, null);
-        assertFunction("JSON_ARRAY_GET(JSON '[false, false, true]', 1)", JSON, utf8Slice(String.valueOf(false)));
-        assertFunction(
-                "JSON_ARRAY_GET(JSON '[true, false, false, true, true, false]', 5)",
-                JSON,
-                utf8Slice(String.valueOf(false)));
-        assertFunction("JSON_ARRAY_GET('[true]', -1)", JSON, utf8Slice(String.valueOf(true)));
+        assertThat(assertions.function("json_array_get", "'[true]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("true");
+
+        assertThat(assertions.function("json_array_get", "'[true, null]'", "1"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[false, false, true]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("false");
+
+        assertThat(assertions.function("json_array_get", "'[true, false, false, true, true, false]'", "5"))
+                .hasType(JSON)
+                .isEqualTo("false");
+
+        assertThat(assertions.function("json_array_get", "JSON '[true]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("true");
+
+        assertThat(assertions.function("json_array_get", "JSON '[true, null]'", "1"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "JSON '[false, false, true]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("false");
+
+        assertThat(assertions.function("json_array_get", "JSON '[true, false, false, true, true, false]'", "5"))
+                .hasType(JSON)
+                .isEqualTo("false");
+
+        assertThat(assertions.function("json_array_get", "'[true]'", "-1"))
+                .hasType(JSON)
+                .isEqualTo("true");
     }
 
     @Test
     public void testJsonArrayGetNonScalar()
     {
-        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}]', 0)", JSON, utf8Slice(String.valueOf("{\"hello\":\"world\"}")));
-        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, [1,2,3]]', 1)", JSON, utf8Slice(String.valueOf("[1,2,3]")));
-        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, [1,2, {\"x\" : 2} ]]', 1)", JSON, utf8Slice(String.valueOf("[1,2,{\"x\":2}]")));
-        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]', 1)", JSON, utf8Slice(String.valueOf("{\"a\":[{\"x\":99}]}")));
-        assertFunction("JSON_ARRAY_GET('[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]', -1)", JSON, utf8Slice(String.valueOf("{\"a\":[{\"x\":99}]}")));
-        assertFunction("JSON_ARRAY_GET('[{\"hello\": null}]', 0)", JSON, utf8Slice(String.valueOf("{\"hello\":null}")));
-        assertFunction("JSON_ARRAY_GET('[{\"\":\"\"}]', 0)", JSON, utf8Slice(String.valueOf("{\"\":\"\"}")));
-        assertFunction("JSON_ARRAY_GET('[{null:null}]', 0)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[{null:\"\"}]', 0)", JSON, null);
-        assertFunction("JSON_ARRAY_GET('[{\"\":null}]', 0)", JSON, utf8Slice(String.valueOf("{\"\":null}")));
-        assertFunction("JSON_ARRAY_GET('[{\"\":null}]', -1)", JSON, utf8Slice(String.valueOf("{\"\":null}")));
+        assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("{\"hello\":\"world\"}");
+
+        assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}, [1,2,3]]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("[1,2,3]");
+
+        assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}, [1,2, {\"x\" : 2} ]]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("[1,2,{\"x\":2}]");
+
+        assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]'", "1"))
+                .hasType(JSON)
+                .isEqualTo("{\"a\":[{\"x\":99}]}");
+
+        assertThat(assertions.function("json_array_get", "'[{\"hello\":\"world\"}, {\"a\":[{\"x\":99}]}]'", "-1"))
+                .hasType(JSON)
+                .isEqualTo("{\"a\":[{\"x\":99}]}");
+
+        assertThat(assertions.function("json_array_get", "'[{\"hello\": null}]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("{\"hello\":null}");
+
+        assertThat(assertions.function("json_array_get", "'[{\"\":\"\"}]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("{\"\":\"\"}");
+
+        assertThat(assertions.function("json_array_get", "'[{null:null}]'", "0"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[{null:\"\"}]'", "0"))
+                .isNull(JSON);
+
+        assertThat(assertions.function("json_array_get", "'[{\"\":null}]'", "0"))
+                .hasType(JSON)
+                .isEqualTo("{\"\":null}");
+
+        assertThat(assertions.function("json_array_get", "'[{\"\":null}]'", "-1"))
+                .hasType(JSON)
+                .isEqualTo("{\"\":null}");
     }
 
     @Test
@@ -268,7 +654,8 @@ public class TestJsonFunctions
     {
         for (String value : new String[] {"'x'", "2.5", "8", "true", "cast(null as varchar)"}) {
             for (String array : new String[] {"", "123", "[", "[1,0,]", "[1,,0]"}) {
-                assertFunction(format("JSON_ARRAY_CONTAINS('%s', %s)", array, value), BOOLEAN, null);
+                assertThat(assertions.function("json_array_contains", "'%s'".formatted(array), value))
+                        .isNull(BOOLEAN);
             }
         }
     }
@@ -276,45 +663,103 @@ public class TestJsonFunctions
     @Test
     public void testInvalidJsonParse()
     {
-        assertInvalidFunction("JSON 'INVALID'", INVALID_LITERAL);
-        assertInvalidFunction("JSON_PARSE('INVALID')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON_PARSE('\"x\": 1')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON_PARSE('{}{')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON_PARSE('{} \"a\"')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON_PARSE('{}{abc')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON_PARSE('{}abc')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("JSON_PARSE('')", INVALID_FUNCTION_ARGUMENT);
+        assertTrinoExceptionThrownBy(() -> assertions.expression("JSON 'INVALID'").evaluate())
+                .hasErrorCode(INVALID_LITERAL);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'INVALID'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'\"x\": 1'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'{}{'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'{} \"a\"'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'{}{abc'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "'{}abc'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_parse", "''").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testJsonFormat()
     {
-        assertFunction("JSON_FORMAT(JSON '[\"a\", \"b\"]')", VARCHAR, "[\"a\",\"b\"]");
+        assertThat(assertions.function("json_format", "JSON '[\"a\", \"b\"]'"))
+                .hasType(VARCHAR)
+                .isEqualTo("[\"a\",\"b\"]");
     }
 
     @Test
     public void testJsonSize()
     {
-        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), BIGINT, 1L);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), BIGINT, 2L);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), BIGINT, 3L);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), BIGINT, 0L);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "[1,2,3]", "$"), BIGINT, 3L);
-        assertFunction(format("JSON_SIZE('%s', CHAR '%s')", "[1,2,3]", "$"), BIGINT, 3L);
-        assertFunction(format("JSON_SIZE(null, '%s')", "$"), BIGINT, null);
-        assertFunction(format("JSON_SIZE('%s', '%s')", "INVALID_JSON", "$"), BIGINT, null);
-        assertFunction(format("JSON_SIZE('%s', null)", "[1,2,3]"), BIGINT, null);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$"), BIGINT, 1L);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x"), BIGINT, 2L);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }", "$.x"), BIGINT, 3L);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "{\"x\": {\"a\" : 1, \"b\" : 2} }", "$.x.a"), BIGINT, 0L);
-        assertFunction(format("JSON_SIZE(JSON '%s', '%s')", "[1,2,3]", "$"), BIGINT, 3L);
-        assertFunction(format("JSON_SIZE(null, '%s')", "$"), BIGINT, null);
-        assertFunction(format("JSON_SIZE(JSON '%s', null)", "[1,2,3]"), BIGINT, null);
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", ""), "Invalid JSON path: ''");
-        assertInvalidFunction(format("JSON_SIZE('%s', CHAR '%s')", "{\"\":\"\"}", " "), "Invalid JSON path: ' '");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "."), "Invalid JSON path: '.'");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", "null"), "Invalid JSON path: 'null'");
-        assertInvalidFunction(format("JSON_SIZE('%s', '%s')", "{\"\":\"\"}", null), "Invalid JSON path: 'null'");
+        assertThat(assertions.function("json_size", "'{\"x\": {\"a\" : 1, \"b\" : 2} }'", "'$'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("json_size", "'{\"x\": {\"a\" : 1, \"b\" : 2} }'", "'$.x'"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("json_size", "'{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }'", "'$.x'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("json_size", "'{\"x\": {\"a\" : 1, \"b\" : 2} }'", "'$.x.a'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("json_size", "'[1,2,3]'", "'$'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("json_size", "'[1,2,3]'", "CHAR '$'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("json_size", "null", "'$'"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("json_size", "'INVALID_JSON'", "'$'"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("json_size", "'[1,2,3]'", "null"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("json_size", "JSON '{\"x\": {\"a\" : 1, \"b\" : 2} }'", "'$'"))
+                .isEqualTo(1L);
+
+        assertThat(assertions.function("json_size", "JSON '{\"x\": {\"a\" : 1, \"b\" : 2} }'", "'$.x'"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.function("json_size", "JSON '{\"x\": {\"a\" : 1, \"b\" : [1,2,3], \"c\" : {\"w\":9}} }'", "'$.x'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("json_size", "JSON '{\"x\": {\"a\" : 1, \"b\" : 2} }'", "'$.x.a'"))
+                .isEqualTo(0L);
+
+        assertThat(assertions.function("json_size", "JSON '[1,2,3]'", "'$'"))
+                .isEqualTo(3L);
+
+        assertThat(assertions.function("json_size", "null", "'%'"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.function("json_size", "JSON '[1,2,3]'", "null"))
+                .isNull(BIGINT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "''").evaluate())
+                .hasMessage("Invalid JSON path: ''");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "CHAR ' '").evaluate())
+                .hasMessage("Invalid JSON path: ' '");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "'.'").evaluate())
+                .hasMessage("Invalid JSON path: '.'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "'null'").evaluate())
+                .hasMessage("Invalid JSON path: 'null'");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("json_size", "'{\"\":\"\"}'", "'null'").evaluate())
+                .hasMessage("Invalid JSON path: 'null'");
     }
 }
