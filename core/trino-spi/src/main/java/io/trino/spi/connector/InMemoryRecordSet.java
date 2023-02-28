@@ -174,6 +174,8 @@ public class InMemoryRecordSet
         @Override
         public void close()
         {
+            records = null;
+            record = null;
         }
     }
 
