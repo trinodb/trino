@@ -145,11 +145,12 @@ public class FilesTable
 
         public RecordCursor cursor()
         {
-            return new InMemoryRecordSet.InMemoryRecordCursor<CloseableIterator<? extends List<?>>>(types, this.iterator()) {
+            CloseableIterator<List<Object>> iterator = this.iterator();
+            return new InMemoryRecordSet.InMemoryRecordCursor(types, iterator) {
                 @Override
                 public void close()
                 {
-                    try (CloseableIterator<?> ignore = records) {
+                    try (iterator) {
                         super.close();
                     }
                     catch (IOException e) {
