@@ -1076,13 +1076,15 @@ public class PipelinedQueryScheduler
                         .collect(toImmutableList());
                 Supplier<Collection<TaskStatus>> writerTasksProvider = stageExecution::getTaskStatuses;
 
+                checkState(partitionCount.isPresent(), "Partition count cannot be empty when scale writers is used");
                 ScaledWriterScheduler scheduler = new ScaledWriterScheduler(
                         stageExecution,
                         sourceTasksProvider,
                         writerTasksProvider,
                         nodeScheduler.createNodeSelector(session, Optional.empty()),
                         executor,
-                        getWriterMinSize(session));
+                        getWriterMinSize(session),
+                        partitionCount.get());
 
                 whenAllStages(childStageExecutions, StageExecution.State::isDone)
                         .addListener(scheduler::finish, directExecutor());

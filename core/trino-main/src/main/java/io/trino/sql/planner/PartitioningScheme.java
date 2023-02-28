@@ -134,9 +134,9 @@ public class PartitioningScheme
         return new PartitioningScheme(newPartitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition, partitionCount);
     }
 
-    public PartitioningScheme withPartitionCount(int partitionCount)
+    public PartitioningScheme withPartitionCount(Optional<Integer> partitionCount)
     {
-        return new PartitioningScheme(partitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition, Optional.of(partitionCount));
+        return new PartitioningScheme(partitioning, outputLayout, hashColumn, replicateNullsAndAny, bucketToPartition, partitionCount);
     }
 
     public PartitioningScheme translateOutputLayout(List<Symbol> newOutputLayout)

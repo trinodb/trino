@@ -30,6 +30,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
+import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -103,6 +104,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -170,6 +172,8 @@ public class MockConnector
     private final Supplier<List<PropertyMetadata<?>>> columnProperties;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final Map<SchemaFunctionName, Function<ConnectorTableFunctionHandle, ConnectorSplitSource>> tableFunctionSplitsSources;
+    private final OptionalInt maxWriterTasks;
+    private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
 
     MockConnector(
             List<PropertyMetadata<?>> sessionProperties,
@@ -212,7 +216,9 @@ public class MockConnector
             Supplier<List<PropertyMetadata<?>>> tableProperties,
             Supplier<List<PropertyMetadata<?>>> columnProperties,
             boolean supportsReportingWrittenBytes,
-            Map<SchemaFunctionName, Function<ConnectorTableFunctionHandle, ConnectorSplitSource>> tableFunctionSplitsSources)
+            Map<SchemaFunctionName, Function<ConnectorTableFunctionHandle, ConnectorSplitSource>> tableFunctionSplitsSources,
+            OptionalInt maxWriterTasks,
+            BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute)
     {
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
@@ -255,6 +261,8 @@ public class MockConnector
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
         this.tableFunctionSplitsSources = ImmutableMap.copyOf(tableFunctionSplitsSources);
+        this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
+        this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
     }
 
     @Override
@@ -704,6 +712,12 @@ public class MockConnector
         }
 
         @Override
+        public Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
+        {
+            return getLayoutForTableExecute.apply(session, tableExecuteHandle);
+        }
+
+        @Override
         public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
         {
             return new MockConnectorOutputTableHandle(tableMetadata.getTable());
@@ -751,7 +765,8 @@ public class MockConnector
         @Override
         public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
         {
-            return Optional.of(new MockConnectorTableExecuteHandle(0));
+            MockConnectorTableHandle connectorTableHandle = (MockConnectorTableHandle) tableHandle;
+            return Optional.of(new MockConnectorTableExecuteHandle(0, connectorTableHandle.getTableName()));
         }
 
         @Override
@@ -821,6 +836,18 @@ public class MockConnector
         public boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle tableHandle)
         {
             return supportsReportingWrittenBytes;
+        }
+
+        @Override
+        public OptionalInt getMaxWriterTasks(ConnectorSession session)
+        {
+            return maxWriterTasks;
+        }
+
+        @Override
+        public BeginTableExecuteResult<ConnectorTableExecuteHandle, ConnectorTableHandle> beginTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, ConnectorTableHandle updatedSourceTableHandle)
+        {
+            return new BeginTableExecuteResult<>(tableExecuteHandle, updatedSourceTableHandle);
         }
 
         private MockConnectorAccessControl getMockAccessControl()
@@ -953,17 +980,25 @@ public class MockConnector
             implements ConnectorTableExecuteHandle
     {
         private final int someFieldForSerializer;
+        private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public MockConnectorTableExecuteHandle(int someFieldForSerializer)
+        public MockConnectorTableExecuteHandle(int someFieldForSerializer, SchemaTableName schemaTableName)
         {
             this.someFieldForSerializer = someFieldForSerializer;
+            this.schemaTableName = schemaTableName;
         }
 
         @JsonProperty
         public int getSomeFieldForSerializer()
         {
             return someFieldForSerializer;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
         }
     }
 }
