@@ -4390,24 +4390,23 @@ public abstract class BaseConnectorTest
     }
 
     @Test(dataProvider = "testColumnNameDataProvider")
-    public void testColumnName(String columnName)
+    public void testColumnNameWithCreateAndInsert(String columnName)
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
 
         if (!requiresDelimiting(columnName)) {
-            testColumnName(columnName, false);
+            testColumnNameWithCreateAndInsert(columnName, false);
         }
-        testColumnName(columnName, true);
+        testColumnNameWithCreateAndInsert(columnName, true);
     }
 
-    protected void testColumnName(String columnName, boolean delimited)
+    protected void testColumnNameWithCreateAndInsert(String columnName, boolean delimited)
     {
         String nameInSql = toColumnNameInSql(columnName, delimited);
         String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
 
         try {
-            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
-            assertUpdate("CREATE TABLE " + tableName + "(key varchar(50), " + nameInSql + " varchar(50))");
+            createTableByCreateAndInsertForTestingColumnName(tableName, nameInSql);
         }
         catch (RuntimeException e) {
             if (isColumnNameRejected(e, columnName, delimited)) {
@@ -4416,9 +4415,79 @@ public abstract class BaseConnectorTest
             }
             throw e;
         }
-        try {
-            assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
 
+        doColumnNameTest(tableName, nameInSql);
+    }
+
+    /**
+     * Create a table named "tableName" for testing column name, with two columns: key varchar(50), "nameInSql" varchar(50)
+     * and three rows:
+     * ('sample value', 'abc')
+     * ('other value', 'xyz')
+     * ('null value', NULL)
+     * by using "CREATE TABLE" and "INSERT INTO" statement
+     */
+    protected void createTableByCreateAndInsertForTestingColumnName(String tableName, String nameInSql)
+    {
+        assertUpdate("CREATE TABLE " + tableName + "(key varchar(50), " + nameInSql + " varchar(50))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
+    }
+
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testColumnNameWithCreateAsSelect(String columnName)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        if (!requiresDelimiting(columnName)) {
+            testColumnNameWithCreateAsSelect(columnName, false);
+        }
+        testColumnNameWithCreateAsSelect(columnName, true);
+    }
+
+    protected void testColumnNameWithCreateAsSelect(String columnName, boolean delimited)
+    {
+        String nameInSql = toColumnNameInSql(columnName, delimited);
+        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
+
+        try {
+            createTableByCreateAsSelectForTestingColumnName(tableName, nameInSql);
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if give column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+
+        doColumnNameTest(tableName, nameInSql);
+    }
+
+    /**
+     * Create a table named "tableName" for testing column name, with two columns: key varchar(50), "nameInSql" varchar(50)
+     * and three rows:
+     * ('null value', NULL)
+     * ('sample value', 'abc')
+     * ('other value', 'xyz')
+     * by using "CREATE TABLE AS SELECT" statement
+     */
+    protected void createTableByCreateAsSelectForTestingColumnName(String tableName, String nameInSql)
+    {
+        @Language("SQL") String sql = format("""
+                CREATE TABLE %s AS
+                SELECT * FROM (
+                    VALUES
+                        ('null value', NULL),
+                        ('sample value', 'abc'),
+                        ('other value', 'xyz')
+                ) AS t (key, %s)
+                """, tableName, nameInSql);
+        assertUpdate(sql, 3);
+    }
+
+    protected void doColumnNameTest(String tableName, String nameInSql)
+    {
+        try {
             // SELECT *
             assertQuery("SELECT * FROM " + tableName, "VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
 

@@ -112,16 +112,28 @@ public class TestMongoConnectorTest
 
     @Test(dataProvider = "testColumnNameDataProvider")
     @Override
-    public void testColumnName(String columnName)
+    public void testColumnNameWithCreateAndInsert(String columnName)
     {
         if (columnName.equals("a.dot")) {
-            assertThatThrownBy(() -> super.testColumnName(columnName))
+            assertThatThrownBy(() -> super.testColumnNameWithCreateAndInsert(columnName))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
             throw new SkipException("Insert would fail");
         }
 
-        super.testColumnName(columnName);
+        super.testColumnNameWithCreateAndInsert(columnName);
+    }
+
+    @Test(dataProvider = "testColumnNameDataProvider")
+    @Override
+    public void testColumnNameWithCreateAsSelect(String columnName)
+    {
+        if (columnName.equals("a.dot")) {
+            // TODO: Enable the test
+            throw new SkipException("Not implement yet");
+        }
+
+        super.testColumnNameWithCreateAsSelect(columnName);
     }
 
     @Test

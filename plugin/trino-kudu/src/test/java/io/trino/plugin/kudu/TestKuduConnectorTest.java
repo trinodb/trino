@@ -40,7 +40,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELET
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
@@ -300,43 +299,11 @@ public class TestKuduConnectorTest
     }
 
     @Override
-    protected void testColumnName(String columnName, boolean delimited)
+    protected void createTableByCreateAndInsertForTestingColumnName(String tableName, String nameInSql)
     {
-        String nameInSql = columnName;
-        if (delimited) {
-            nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
-        }
-        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
-
-        try {
-            // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
-            assertUpdate("" +
-                    "CREATE TABLE " + tableName + "(key varchar(50) WITH (primary_key=true), " + nameInSql + " varchar(50) WITH (nullable=true)) " +
-                    "WITH (partition_by_hash_columns = ARRAY['key'], partition_by_hash_buckets = 3)");
-        }
-        catch (RuntimeException e) {
-            if (isColumnNameRejected(e, columnName, delimited)) {
-                // It is OK if give column name is not allowed and is clearly rejected by the connector.
-                return;
-            }
-            throw e;
-        }
-        try {
-            assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
-
-            // SELECT *
-            assertQuery("SELECT * FROM " + tableName, "VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')");
-
-            // projection
-            assertQuery("SELECT " + nameInSql + " FROM " + tableName, "VALUES (NULL), ('abc'), ('xyz')");
-
-            // predicate
-            assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " IS NULL", "VALUES ('null value')");
-            assertQuery("SELECT key FROM " + tableName + " WHERE " + nameInSql + " = 'abc'", "VALUES ('sample value')");
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-        }
+        assertUpdate("CREATE TABLE " + tableName + "(key varchar(50) WITH (primary_key=true), " + nameInSql + " varchar(50) WITH (nullable=true)) " +
+                "WITH (partition_by_hash_columns = ARRAY['key'], partition_by_hash_buckets = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('null value', NULL), ('sample value', 'abc'), ('other value', 'xyz')", 3);
     }
 
     @Test
