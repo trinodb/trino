@@ -99,6 +99,7 @@ public class QueryEntity
     private final int completedSplits;
 
     private final String retryPolicy;
+    private final Optional<String> operatorSummariesJson;
 
     public QueryEntity(
             String queryId,
@@ -165,7 +166,8 @@ public class QueryEntity
             double cumulativeMemory,
             double failedCumulativeMemory,
             int completedSplits,
-            String retryPolicy)
+            String retryPolicy,
+            Optional<String> operatorSummariesJson)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -232,6 +234,7 @@ public class QueryEntity
         this.failedCumulativeMemory = failedCumulativeMemory;
         this.completedSplits = completedSplits;
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+        this.operatorSummariesJson = requireNonNull(operatorSummariesJson, "operatorSummariesJson is null");
     }
 
     public String getQueryId()
@@ -557,5 +560,10 @@ public class QueryEntity
     public String getRetryPolicy()
     {
         return retryPolicy;
+    }
+
+    public Optional<String> getOperatorSummariesJson()
+    {
+        return operatorSummariesJson;
     }
 }
