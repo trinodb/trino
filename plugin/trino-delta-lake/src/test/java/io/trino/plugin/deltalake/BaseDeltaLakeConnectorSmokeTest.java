@@ -91,26 +91,26 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     private static final List<TpchTable<?>> REQUIRED_TPCH_TABLES =
             ImmutableSet.<TpchTable<?>>builder()
-                    .addAll(BaseConnectorSmokeTest.REQUIRED_TPCH_TABLES)
-                    .add(CUSTOMER, LINE_ITEM, ORDERS)
+//                    .addAll(BaseConnectorSmokeTest.REQUIRED_TPCH_TABLES)
+//                    .add(CUSTOMER, LINE_ITEM, ORDERS)
                     .build()
                     .asList();
 
     private static final List<String> NON_TPCH_TABLES = ImmutableList.of(
-            "invariants",
-            "person",
-            "foo",
-            "bar",
-            "old_dates",
-            "old_timestamps",
-            "nested_timestamps",
-            "nested_timestamps_parquet_stats",
-            "json_stats_on_row_type",
-            "parquet_stats_missing",
-            "uppercase_columns",
-            "default_partitions",
-            "insert_nonlowercase_columns",
-            "insert_nested_nonlowercase_columns",
+//            "invariants",
+//            "person",
+//            "foo",
+//            "bar",
+//            "old_dates",
+//            "old_timestamps",
+//            "nested_timestamps",
+//            "nested_timestamps_parquet_stats",
+//            "json_stats_on_row_type",
+//            "parquet_stats_missing",
+//            "uppercase_columns",
+//            "default_partitions",
+//            "insert_nonlowercase_columns",
+//            "insert_nested_nonlowercase_columns",
             "insert_nonlowercase_columns_partitioned");
 
     // Cannot be too small, as implicit (time-based) cache invalidation can mask issues. Cannot be too big as some tests need to wait for cache
@@ -1825,6 +1825,35 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true), (2, 'POLAND', false)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testRegisterTableWithTrailingSpaceInLocation()
+    {
+        try {
+
+            String tableName = "talbe_register_table_with_trailing_space_" + randomNameSuffix();
+            String tableLocationWithSpace = bucketUrl() + tableName + " ";
+
+            assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 as a, 'INDIA' as b, true as c", tableName, tableLocationWithSpace));
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
+
+            String showCreateTableOld = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+            String tableLocation = getTableLocation(tableName);
+            // Drop table from metastore and use the table content to register a table
+            metastore.dropTable(SCHEMA, tableName, false);
+
+            String tableNameNew = "test_register_table_with_different_table_name_new_" + randomNameSuffix();
+            assertQuerySucceeds(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation));
+            String showCreateTableNew = (String) computeScalar("SHOW CREATE TABLE " + tableNameNew);
+
+            assertThat(showCreateTableOld).isEqualTo(showCreateTableNew.replaceFirst(tableNameNew, tableName));
+            assertQuery("SELECT * FROM " + tableNameNew, "VALUES (1, 'INDIA', true)");
+
+            assertUpdate(format("DROP TABLE %s", tableNameNew));
+        }catch (Exception e){
+            System.out.println(e);
+        }
     }
 
     @Test

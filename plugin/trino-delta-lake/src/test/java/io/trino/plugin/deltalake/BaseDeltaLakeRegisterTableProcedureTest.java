@@ -178,6 +178,30 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     }
 
     @Test
+    public void testRegisterTableWithTrailingSpaceInLocation()
+    {
+        String tableName = "talbe_register_table_with_trailing_space_" + randomNameSuffix();
+        String tableLocationWithSpace = tableName + " ";
+
+        assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 as a, 'INDIA' as b, true as c", tableName, tableLocationWithSpace));
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
+
+        String showCreateTableOld = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        String tableLocation = getTableLocation(tableName);
+        // Drop table from metastore and use the table content to register a table
+        metastore.dropTable(SCHEMA, tableName, false);
+
+        String tableNameNew = "test_register_table_with_different_table_name_new_" + randomNameSuffix();
+        assertQuerySucceeds(format("CALL %s.system.register_table('%s', '%s', '%s')", CATALOG_NAME, SCHEMA, tableNameNew, tableLocation));
+        String showCreateTableNew = (String) computeScalar("SHOW CREATE TABLE " + tableNameNew);
+
+        assertThat(showCreateTableOld).isEqualTo(showCreateTableNew.replaceFirst(tableNameNew, tableName));
+        assertQuery("SELECT * FROM " + tableNameNew, "VALUES (1, 'INDIA', true)");
+
+        assertUpdate(format("DROP TABLE %s", tableNameNew));
+    }
+
+    @Test
     public void testRegisterEmptyTable()
     {
         String tableName = "test_register_table_with_no_data_" + randomNameSuffix();
