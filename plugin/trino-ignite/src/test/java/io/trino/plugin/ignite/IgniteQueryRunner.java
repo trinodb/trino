@@ -19,6 +19,7 @@ import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.SharedResource;
 import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
@@ -80,14 +81,16 @@ public final class IgniteQueryRunner
     {
         Logging.initialize();
 
-        DistributedQueryRunner queryRunner = createIgniteQueryRunner(
-                TestingIgniteServer.getInstance().get(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                TpchTable.getTables());
+        try (SharedResource.Lease<TestingIgniteServer> instance = TestingIgniteServer.getInstance()) {
+            DistributedQueryRunner queryRunner = createIgniteQueryRunner(
+                    instance.get(),
+                    ImmutableMap.of("http-server.http.port", "8080"),
+                    ImmutableMap.of(),
+                    TpchTable.getTables());
 
-        Logger log = Logger.get(IgniteQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+            Logger log = Logger.get(IgniteQueryRunner.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
     }
 }
