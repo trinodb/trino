@@ -121,7 +121,7 @@ public class TestMysqlEventListener
             // not stored
             Collections.emptyList(),
             // not stored
-            Collections.emptyList(),
+            List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
             Optional.empty());
 
@@ -267,7 +267,6 @@ public class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
-            // not stored
             Collections.emptyList(),
             // not stored
             Optional.empty());
@@ -421,6 +420,7 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getDouble("failed_cumulative_memory"), 129.0);
                     assertEquals(resultSet.getLong("completed_splits"), 130);
                     assertEquals(resultSet.getString("retry_policy"), "TASK");
+                    assertEquals(resultSet.getString("operator_summaries_json"), "[{operator: \"operator1\"},{operator: \"operator2\"}]");
                     assertFalse(resultSet.next());
                 }
             }
@@ -503,6 +503,7 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getDouble("failed_cumulative_memory"), 129.0);
                     assertEquals(resultSet.getLong("completed_splits"), 130);
                     assertEquals(resultSet.getString("retry_policy"), "NONE");
+                    assertEquals(resultSet.getString("operator_summaries_json"), "[]");
                     assertFalse(resultSet.next());
                 }
             }
