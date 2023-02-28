@@ -47,6 +47,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
+import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HivePartitionManager.parsePartition;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
@@ -759,6 +760,71 @@ public class TestMetastoreHiveStatisticsProvider
                         ImmutableMap.of(),
                         ImmutableList.of(partition(partitionName))),
                 TableStatistics.empty());
+    }
+
+    @Test
+    public void testEmptyTableStatisticsForPartitionColumnsWhenStatsAreEmpty()
+    {
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
+                (session, table, hivePartitions) -> ImmutableMap.of("p1=string1/p2=1234", PartitionStatistics.empty()));
+        testEmptyTableStatisticsForPartitionColumns(statisticsProvider);
+    }
+
+    @Test
+    public void testEmptyTableStatisticsForPartitionColumnsWhenStatsAreMissing()
+    {
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
+                (session, table, hivePartitions) -> ImmutableMap.of());
+        testEmptyTableStatisticsForPartitionColumns(statisticsProvider);
+    }
+
+    private void testEmptyTableStatisticsForPartitionColumns(MetastoreHiveStatisticsProvider statisticsProvider)
+    {
+        String partitionName1 = "p1=string1/p2=1234";
+        String partitionName2 = "p1=string2/p2=1235";
+        String partitionName3 = "p1=string3/p2=1236";
+        String partitionName4 = "p1=string4/p2=1237";
+        String partitionName5 = format("p1=%s/p2=1237", HIVE_DEFAULT_DYNAMIC_PARTITION);
+        String partitionName6 = format("p1=string5/p2=%s", HIVE_DEFAULT_DYNAMIC_PARTITION);
+
+        HiveColumnHandle columnHandle = createBaseColumn(COLUMN, 2, HIVE_LONG, BIGINT, REGULAR, Optional.empty());
+
+        TableStatistics expected = TableStatistics.builder()
+                .setColumnStatistics(
+                        PARTITION_COLUMN_1,
+                        ColumnStatistics.builder()
+                                .setNullsFraction(Estimate.of(0.16666666666666666))
+                                .setDistinctValuesCount(Estimate.of(5.0))
+                                .build())
+                .setColumnStatistics(
+                        PARTITION_COLUMN_2,
+                        ColumnStatistics.builder()
+                                .setRange(new DoubleRange(1234.0, 1237.0))
+                                .setNullsFraction(Estimate.of(0.16666666666666666))
+                                .setDistinctValuesCount(Estimate.of(4.0))
+                                .build())
+                .build();
+
+        assertEquals(
+                statisticsProvider.getTableStatistics(
+                        getHiveSession(new HiveConfig().setIgnoreCorruptedStatistics(true)),
+                        TABLE,
+                        ImmutableMap.of(
+                                "p1", PARTITION_COLUMN_1,
+                                "p2", PARTITION_COLUMN_2,
+                                COLUMN, columnHandle),
+                        ImmutableMap.of(
+                                "p1", VARCHAR,
+                                "p2", BIGINT,
+                                COLUMN, BIGINT),
+                        ImmutableList.of(
+                                partition(partitionName1),
+                                partition(partitionName2),
+                                partition(partitionName3),
+                                partition(partitionName4),
+                                partition(partitionName5),
+                                partition(partitionName6))),
+                expected);
     }
 
     private static void assertInvalidStatistics(PartitionStatistics partitionStatistics, String expectedMessage)

@@ -711,6 +711,27 @@ public class TestShowStats
         assertUpdate("DROP VIEW nation_view");
     }
 
+    @Test
+    public void testShowStatsForPartitionedTableWhenStatisticsAreAbsentInMetastore()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .build();
+        assertUpdate(session, "CREATE TABLE nation_partitioned_without_stats(nationkey BIGINT, name VARCHAR, comment VARCHAR, regionkey BIGINT) WITH (partitioned_by = ARRAY['regionkey'])");
+        assertUpdate(session, "INSERT INTO nation_partitioned_without_stats SELECT nationkey, name, comment, regionkey FROM tpch.tiny.nation", 25);
+        assertUpdate("CALL system.drop_stats('tpch', 'nation_partitioned_without_stats')");
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM nation_partitioned_without_stats)",
+                "VALUES " +
+                        "   ('nationkey', null, null, null, null, null, null), " +
+                        "   ('name', null, null, null, null, null, null), " +
+                        "   ('comment', null, null, null, null, null, null), " +
+                        "   ('regionkey', null, 5, 0, null, 0, 4), " +
+                        "   (null, null, null, null, null, null, null)");
+
+        assertUpdate("DROP TABLE nation_partitioned_without_stats");
+    }
+
     private static Session sessionWith(Session base, String property, String value)
     {
         return Session.builder(base)
