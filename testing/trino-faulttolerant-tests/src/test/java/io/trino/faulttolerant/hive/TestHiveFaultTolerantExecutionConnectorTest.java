@@ -64,6 +64,24 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     }
 
     @Override
+    public void testWriterTasksCountLimitUnpartitioned(boolean scaleWriters, boolean redistributeWrites, int expectedFilesCount)
+    {
+        // Not applicable for fault-tolerant mode.
+    }
+
+    @Override
+    public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
+    {
+        // Not applicable for fault-tolerant mode.
+    }
+
+    @Override
+    public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
+    {
+        // Not applicable for fault-tolerant mode.
+    }
+
+    @Override
     public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
     {
         // Not applicable for fault-tolerant mode.

@@ -123,6 +123,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -704,7 +705,7 @@ public class PlanBuilder
                 Optional.empty());
     }
 
-    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported, boolean multipleWritersPerPartitionSupported)
+    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported, boolean multipleWritersPerPartitionSupported, OptionalInt maxWriterTasks)
     {
         OutputTableHandle tableHandle = new OutputTableHandle(
                 catalogHandle,
@@ -715,7 +716,13 @@ public class PlanBuilder
                 tableHandle,
                 schemaTableName,
                 reportingWrittenBytesSupported,
-                multipleWritersPerPartitionSupported);
+                multipleWritersPerPartitionSupported,
+                maxWriterTasks);
+    }
+
+    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported, boolean multipleWritersPerPartitionSupported)
+    {
+        return createTarget(catalogHandle, schemaTableName, reportingWrittenBytesSupported, multipleWritersPerPartitionSupported, OptionalInt.empty());
     }
 
     public MergeWriterNode merge(SchemaTableName schemaTableName, PlanNode mergeSource, Symbol mergeRow, Symbol rowId, List<Symbol> outputs)
