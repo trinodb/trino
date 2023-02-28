@@ -22,6 +22,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
+import io.airlift.units.ThreadCount;
 import io.trino.sql.analyzer.RegexLibrary;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -88,7 +89,7 @@ public class FeaturesConfig
     private boolean spillEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
-    private int spillerThreads = 4;
+    private ThreadCount spillerThreads = ThreadCount.exactValueOf(4);
     private double spillMaxUsedSpaceThreshold = 0.9;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -257,14 +258,14 @@ public class FeaturesConfig
     @Min(1)
     public int getSpillerThreads()
     {
-        return spillerThreads;
+        return spillerThreads.getThreadCount();
     }
 
     @Config("spiller-threads")
     @LegacyConfig("experimental.spiller-threads")
-    public FeaturesConfig setSpillerThreads(int spillerThreads)
+    public FeaturesConfig setSpillerThreads(String spillerThreads)
     {
-        this.spillerThreads = spillerThreads;
+        this.spillerThreads = ThreadCount.valueOf(spillerThreads);
         return this;
     }
 

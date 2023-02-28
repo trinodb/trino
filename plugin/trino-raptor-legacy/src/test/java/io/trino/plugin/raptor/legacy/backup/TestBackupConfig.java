@@ -32,9 +32,9 @@ public class TestBackupConfig
     {
         assertRecordedDefaults(recordDefaults(BackupConfig.class)
                 .setProvider(null)
-                .setTimeoutThreads(1000)
+                .setTimeoutThreads("1000")
                 .setTimeout(new Duration(1, MINUTES))
-                .setBackupThreads(5));
+                .setBackupThreads("5"));
     }
 
     @Test
@@ -50,8 +50,8 @@ public class TestBackupConfig
         BackupConfig expected = new BackupConfig()
                 .setProvider("file")
                 .setTimeout(new Duration(42, SECONDS))
-                .setTimeoutThreads(13)
-                .setBackupThreads(3);
+                .setTimeoutThreads("13")
+                .setBackupThreads("3");
 
         assertFullMapping(properties, expected);
     }

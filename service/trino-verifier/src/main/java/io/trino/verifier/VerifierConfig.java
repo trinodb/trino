@@ -21,6 +21,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
+import io.airlift.units.ThreadCount;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import jakarta.annotation.Nullable;
@@ -52,7 +53,7 @@ public class VerifierConfig
     private String source;
     private String runId = new DateTime().toString("yyyy-MM-dd");
     private Set<String> eventClients = ImmutableSet.of("human-readable");
-    private int threadCount = 10;
+    private ThreadCount threadCount = ThreadCount.exactValueOf(10);
     private String queryDatabase;
     private String controlGateway;
     private String testGateway;
@@ -249,14 +250,14 @@ public class VerifierConfig
     @Min(1)
     public int getThreadCount()
     {
-        return threadCount;
+        return threadCount.getThreadCount();
     }
 
     @ConfigDescription("The concurrency level")
     @Config("thread-count")
-    public VerifierConfig setThreadCount(int threadCount)
+    public VerifierConfig setThreadCount(String threadCount)
     {
-        this.threadCount = threadCount;
+        this.threadCount = ThreadCount.valueOf(threadCount);
         return this;
     }
 

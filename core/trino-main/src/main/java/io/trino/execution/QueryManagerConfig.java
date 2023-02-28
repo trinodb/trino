@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import io.trino.operator.RetryPolicy;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -73,15 +74,15 @@ public class QueryManagerConfig
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
-    private int queryManagerExecutorPoolSize = 5;
-    private int queryExecutorPoolSize = 1000;
-    private int maxStateMachineCallbackThreads = 5;
+    private ThreadCount queryManagerExecutorPoolSize = ThreadCount.exactValueOf(5);
+    private ThreadCount queryExecutorPoolSize = ThreadCount.exactValueOf(1000);
+    private ThreadCount maxStateMachineCallbackThreads = ThreadCount.exactValueOf(5);
 
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
      */
     private Duration remoteTaskMaxErrorDuration = new Duration(5, TimeUnit.MINUTES);
-    private int remoteTaskMaxCallbackThreads = 1000;
+    private ThreadCount remoteTaskMaxCallbackThreads = ThreadCount.exactValueOf(1000);
 
     private String queryExecutionPolicy = "phased";
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
@@ -350,40 +351,40 @@ public class QueryManagerConfig
     @Min(1)
     public int getQueryManagerExecutorPoolSize()
     {
-        return queryManagerExecutorPoolSize;
+        return queryManagerExecutorPoolSize.getThreadCount();
     }
 
     @Config("query.manager-executor-pool-size")
-    public QueryManagerConfig setQueryManagerExecutorPoolSize(int queryManagerExecutorPoolSize)
+    public QueryManagerConfig setQueryManagerExecutorPoolSize(String queryManagerExecutorPoolSize)
     {
-        this.queryManagerExecutorPoolSize = queryManagerExecutorPoolSize;
+        this.queryManagerExecutorPoolSize = ThreadCount.valueOf(queryManagerExecutorPoolSize);
         return this;
     }
 
     @Min(1)
     public int getQueryExecutorPoolSize()
     {
-        return queryExecutorPoolSize;
+        return queryExecutorPoolSize.getThreadCount();
     }
 
     @Config("query.executor-pool-size")
-    public QueryManagerConfig setQueryExecutorPoolSize(int queryExecutorPoolSize)
+    public QueryManagerConfig setQueryExecutorPoolSize(String queryExecutorPoolSize)
     {
-        this.queryExecutorPoolSize = queryExecutorPoolSize;
+        this.queryExecutorPoolSize = ThreadCount.valueOf(queryExecutorPoolSize);
         return this;
     }
 
     @Min(1)
     public int getMaxStateMachineCallbackThreads()
     {
-        return maxStateMachineCallbackThreads;
+        return maxStateMachineCallbackThreads.getThreadCount();
     }
 
     @Config("query.max-state-machine-callback-threads")
     @ConfigDescription("The maximum number of threads allowed to run query and stage state machine listener callbacks concurrently for each query")
-    public QueryManagerConfig setMaxStateMachineCallbackThreads(int maxStateMachineCallbackThreads)
+    public QueryManagerConfig setMaxStateMachineCallbackThreads(String maxStateMachineCallbackThreads)
     {
-        this.maxStateMachineCallbackThreads = maxStateMachineCallbackThreads;
+        this.maxStateMachineCallbackThreads = ThreadCount.valueOf(maxStateMachineCallbackThreads);
         return this;
     }
 
@@ -483,13 +484,13 @@ public class QueryManagerConfig
     @Min(1)
     public int getRemoteTaskMaxCallbackThreads()
     {
-        return remoteTaskMaxCallbackThreads;
+        return remoteTaskMaxCallbackThreads.getThreadCount();
     }
 
     @Config("query.remote-task.max-callback-threads")
-    public QueryManagerConfig setRemoteTaskMaxCallbackThreads(int remoteTaskMaxCallbackThreads)
+    public QueryManagerConfig setRemoteTaskMaxCallbackThreads(String remoteTaskMaxCallbackThreads)
     {
-        this.remoteTaskMaxCallbackThreads = remoteTaskMaxCallbackThreads;
+        this.remoteTaskMaxCallbackThreads = ThreadCount.valueOf(remoteTaskMaxCallbackThreads);
         return this;
     }
 

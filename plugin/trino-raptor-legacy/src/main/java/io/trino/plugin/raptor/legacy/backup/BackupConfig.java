@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -27,9 +28,9 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class BackupConfig
 {
     private Duration timeout = new Duration(1, MINUTES);
-    private int timeoutThreads = 1000;
+    private ThreadCount timeoutThreads = ThreadCount.exactValueOf(1000);
     private String provider;
-    private int backupThreads = 5;
+    private ThreadCount backupThreads = ThreadCount.exactValueOf(5);
 
     @NotNull
     @MinDuration("1s")
@@ -50,14 +51,14 @@ public class BackupConfig
     @Min(1)
     public int getTimeoutThreads()
     {
-        return timeoutThreads;
+        return timeoutThreads.getThreadCount();
     }
 
     @Config("backup.timeout-threads")
     @ConfigDescription("Maximum number of timeout threads for backup operations")
-    public BackupConfig setTimeoutThreads(int timeoutThreads)
+    public BackupConfig setTimeoutThreads(String timeoutThreads)
     {
-        this.timeoutThreads = timeoutThreads;
+        this.timeoutThreads = ThreadCount.valueOf(timeoutThreads);
         return this;
     }
 
@@ -78,14 +79,14 @@ public class BackupConfig
     @Min(1)
     public int getBackupThreads()
     {
-        return backupThreads;
+        return backupThreads.getThreadCount();
     }
 
     @Config("backup.threads")
     @ConfigDescription("Maximum number of shards to backup at once")
-    public BackupConfig setBackupThreads(int backupThreads)
+    public BackupConfig setBackupThreads(String backupThreads)
     {
-        this.backupThreads = backupThreads;
+        this.backupThreads = ThreadCount.valueOf(backupThreads);
         return this;
     }
 }

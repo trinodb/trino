@@ -29,8 +29,6 @@ import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.Math.max;
-import static java.lang.Runtime.getRuntime;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -50,13 +48,13 @@ public class TestStorageManagerConfig
                 .setOrcTinyStripeThreshold(DataSize.of(8, MEGABYTE))
                 .setOrcLazyReadSmallRanges(true)
                 .setOrcNestedLazy(true)
-                .setDeletionThreads(max(1, getRuntime().availableProcessors() / 2))
+                .setDeletionThreads("0.5C")
                 .setShardRecoveryTimeout(new Duration(30, SECONDS))
                 .setMissingShardDiscoveryInterval(new Duration(5, MINUTES))
                 .setCompactionInterval(new Duration(1, HOURS))
                 .setShardEjectorInterval(new Duration(4, HOURS))
-                .setRecoveryThreads(10)
-                .setOrganizationThreads(5)
+                .setRecoveryThreads("10")
+                .setOrganizationThreads("5")
                 .setCompactionEnabled(true)
                 .setOrganizationEnabled(true)
                 .setOrganizationInterval(new Duration(7, DAYS))
@@ -105,7 +103,7 @@ public class TestStorageManagerConfig
                 .setOrcTinyStripeThreshold(DataSize.of(15, KILOBYTE))
                 .setOrcLazyReadSmallRanges(false)
                 .setOrcNestedLazy(false)
-                .setDeletionThreads(999)
+                .setDeletionThreads("999")
                 .setShardRecoveryTimeout(new Duration(1, MINUTES))
                 .setMissingShardDiscoveryInterval(new Duration(4, MINUTES))
                 .setCompactionEnabled(false)
@@ -114,8 +112,8 @@ public class TestStorageManagerConfig
                 .setOrganizationInterval(new Duration(4, HOURS))
                 .setOrganizationDiscoveryInterval(new Duration(2, HOURS))
                 .setShardEjectorInterval(new Duration(9, HOURS))
-                .setRecoveryThreads(12)
-                .setOrganizationThreads(12)
+                .setRecoveryThreads("12")
+                .setOrganizationThreads("12")
                 .setMaxShardRows(10_000)
                 .setMaxShardSize(DataSize.of(10, MEGABYTE))
                 .setMaxBufferSize(DataSize.of(512, MEGABYTE))

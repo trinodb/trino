@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -33,7 +34,7 @@ public class ShardCleanerConfig
     private Duration localCleanTime = new Duration(4, HOURS);
     private Duration backupCleanerInterval = new Duration(5, MINUTES);
     private Duration backupCleanTime = new Duration(1, DAYS);
-    private int backupDeletionThreads = 50;
+    private ThreadCount backupDeletionThreads = ThreadCount.exactValueOf(50);
     private Duration maxCompletedTransactionAge = new Duration(1, DAYS);
 
     @NotNull
@@ -128,14 +129,14 @@ public class ShardCleanerConfig
     @Min(1)
     public int getBackupDeletionThreads()
     {
-        return backupDeletionThreads;
+        return backupDeletionThreads.getThreadCount();
     }
 
     @Config("raptor.backup-deletion-threads")
     @ConfigDescription("Maximum number of threads to use for deleting shards from backup store")
-    public ShardCleanerConfig setBackupDeletionThreads(int backupDeletionThreads)
+    public ShardCleanerConfig setBackupDeletionThreads(String backupDeletionThreads)
     {
-        this.backupDeletionThreads = backupDeletionThreads;
+        this.backupDeletionThreads = ThreadCount.valueOf(backupDeletionThreads);
         return this;
     }
 

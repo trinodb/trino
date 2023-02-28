@@ -21,6 +21,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -33,8 +34,8 @@ public class DirectExchangeClientConfig
     private int concurrentRequestMultiplier = 3;
     private Duration maxErrorDuration = new Duration(5, TimeUnit.MINUTES);
     private DataSize maxResponseSize = new HttpClientConfig().getMaxContentLength();
-    private int clientThreads = 25;
-    private int pageBufferClientMaxCallbackThreads = 25;
+    private ThreadCount clientThreads = ThreadCount.exactValueOf(25);
+    private ThreadCount pageBufferClientMaxCallbackThreads = ThreadCount.exactValueOf(25);
     private boolean acknowledgePages = true;
     private DataSize deduplicationBufferSize = DataSize.of(32, Unit.MEGABYTE);
 
@@ -95,26 +96,26 @@ public class DirectExchangeClientConfig
     @Min(1)
     public int getClientThreads()
     {
-        return clientThreads;
+        return clientThreads.getThreadCount();
     }
 
     @Config("exchange.client-threads")
-    public DirectExchangeClientConfig setClientThreads(int clientThreads)
+    public DirectExchangeClientConfig setClientThreads(String clientThreads)
     {
-        this.clientThreads = clientThreads;
+        this.clientThreads = ThreadCount.valueOf(clientThreads);
         return this;
     }
 
     @Min(1)
     public int getPageBufferClientMaxCallbackThreads()
     {
-        return pageBufferClientMaxCallbackThreads;
+        return pageBufferClientMaxCallbackThreads.getThreadCount();
     }
 
     @Config("exchange.page-buffer-client.max-callback-threads")
-    public DirectExchangeClientConfig setPageBufferClientMaxCallbackThreads(int pageBufferClientMaxCallbackThreads)
+    public DirectExchangeClientConfig setPageBufferClientMaxCallbackThreads(String pageBufferClientMaxCallbackThreads)
     {
-        this.pageBufferClientMaxCallbackThreads = pageBufferClientMaxCallbackThreads;
+        this.pageBufferClientMaxCallbackThreads = ThreadCount.valueOf(pageBufferClientMaxCallbackThreads);
         return this;
     }
 

@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import io.trino.orc.OrcReaderOptions;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -31,8 +32,6 @@ import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.Math.max;
-import static java.lang.Runtime.getRuntime;
 
 @DefunctConfig({
         "storage.backup-directory",
@@ -48,9 +47,9 @@ public class StorageManagerConfig
     private Duration compactionInterval = new Duration(1, TimeUnit.HOURS);
     private Duration shardEjectorInterval = new Duration(4, TimeUnit.HOURS);
     private OrcReaderOptions options = new OrcReaderOptions();
-    private int deletionThreads = max(1, getRuntime().availableProcessors() / 2);
-    private int recoveryThreads = 10;
-    private int organizationThreads = 5;
+    private ThreadCount deletionThreads = ThreadCount.valueOf("0.5C");
+    private ThreadCount recoveryThreads = ThreadCount.exactValueOf(10);
+    private ThreadCount organizationThreads = ThreadCount.exactValueOf(5);
     private boolean organizationEnabled = true;
     private Duration organizationDiscoveryInterval = new Duration(6, TimeUnit.HOURS);
     private Duration organizationInterval = new Duration(7, TimeUnit.DAYS);
@@ -178,14 +177,14 @@ public class StorageManagerConfig
     @Min(1)
     public int getDeletionThreads()
     {
-        return deletionThreads;
+        return deletionThreads.getThreadCount();
     }
 
     @Config("storage.max-deletion-threads")
     @ConfigDescription("Maximum number of threads to use for deletions")
-    public StorageManagerConfig setDeletionThreads(int deletionThreads)
+    public StorageManagerConfig setDeletionThreads(String deletionThreads)
     {
-        this.deletionThreads = deletionThreads;
+        this.deletionThreads = ThreadCount.valueOf(deletionThreads);
         return this;
     }
 
@@ -278,30 +277,30 @@ public class StorageManagerConfig
     @Min(1)
     public int getRecoveryThreads()
     {
-        return recoveryThreads;
+        return recoveryThreads.getThreadCount();
     }
 
     @Config("storage.max-recovery-threads")
     @ConfigDescription("Maximum number of threads to use for recovery")
-    public StorageManagerConfig setRecoveryThreads(int recoveryThreads)
+    public StorageManagerConfig setRecoveryThreads(String recoveryThreads)
     {
-        this.recoveryThreads = recoveryThreads;
+        this.recoveryThreads = ThreadCount.valueOf(recoveryThreads);
         return this;
     }
 
     @LegacyConfig("storage.max-compaction-threads")
     @Config("storage.max-organization-threads")
     @ConfigDescription("Maximum number of threads to use for organization")
-    public StorageManagerConfig setOrganizationThreads(int organizationThreads)
+    public StorageManagerConfig setOrganizationThreads(String organizationThreads)
     {
-        this.organizationThreads = organizationThreads;
+        this.organizationThreads = ThreadCount.valueOf(organizationThreads);
         return this;
     }
 
     @Min(1)
     public int getOrganizationThreads()
     {
-        return organizationThreads;
+        return organizationThreads.getThreadCount();
     }
 
     @Min(1)

@@ -20,6 +20,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -66,7 +67,7 @@ public class ElasticsearchConfig
     private Duration maxRetryTime = new Duration(30, SECONDS);
     private Duration nodeRefreshInterval = new Duration(1, MINUTES);
     private int maxHttpConnections = 25;
-    private int httpThreadCount = Runtime.getRuntime().availableProcessors();
+    private ThreadCount httpThreadCount = ThreadCount.valueOf("1C");
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -247,16 +248,15 @@ public class ElasticsearchConfig
 
     @Config("elasticsearch.http-thread-count")
     @ConfigDescription("Number of threads handling HTTP connections to Elasticsearch")
-    public ElasticsearchConfig setHttpThreadCount(int count)
+    public ElasticsearchConfig setHttpThreadCount(String count)
     {
-        this.httpThreadCount = count;
+        this.httpThreadCount = ThreadCount.valueOf(count);
         return this;
     }
 
-    @NotNull
     public int getHttpThreadCount()
     {
-        return httpThreadCount;
+        return httpThreadCount.getThreadCount();
     }
 
     public boolean isTlsEnabled()

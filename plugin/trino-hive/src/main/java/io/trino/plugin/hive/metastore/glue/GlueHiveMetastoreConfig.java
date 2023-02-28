@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.units.ThreadCount;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -44,9 +45,9 @@ public class GlueHiveMetastoreConfig
     private Optional<String> awsCredentialsProvider = Optional.empty();
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
-    private int getPartitionThreads = 20;
-    private int readStatisticsThreads = 5;
-    private int writeStatisticsThreads = 20;
+    private ThreadCount getPartitionThreads = ThreadCount.exactValueOf(20);
+    private ThreadCount readStatisticsThreads = ThreadCount.exactValueOf(5);
+    private ThreadCount writeStatisticsThreads = ThreadCount.exactValueOf(20);
     private boolean assumeCanonicalPartitionKeys;
 
     public Optional<String> getGlueRegion()
@@ -265,14 +266,14 @@ public class GlueHiveMetastoreConfig
     @Min(1)
     public int getGetPartitionThreads()
     {
-        return getPartitionThreads;
+        return getPartitionThreads.getThreadCount();
     }
 
     @Config("hive.metastore.glue.get-partition-threads")
     @ConfigDescription("Number of threads for parallel partition fetches from Glue")
-    public GlueHiveMetastoreConfig setGetPartitionThreads(int getPartitionThreads)
+    public GlueHiveMetastoreConfig setGetPartitionThreads(String getPartitionThreads)
     {
-        this.getPartitionThreads = getPartitionThreads;
+        this.getPartitionThreads = ThreadCount.valueOf(getPartitionThreads);
         return this;
     }
 
@@ -292,28 +293,28 @@ public class GlueHiveMetastoreConfig
     @Min(1)
     public int getReadStatisticsThreads()
     {
-        return readStatisticsThreads;
+        return readStatisticsThreads.getThreadCount();
     }
 
     @Config("hive.metastore.glue.read-statistics-threads")
     @ConfigDescription("Number of threads for parallel statistics reads from Glue")
-    public GlueHiveMetastoreConfig setReadStatisticsThreads(int getReadStatisticsThreads)
+    public GlueHiveMetastoreConfig setReadStatisticsThreads(String getReadStatisticsThreads)
     {
-        this.readStatisticsThreads = getReadStatisticsThreads;
+        this.readStatisticsThreads = ThreadCount.valueOf(getReadStatisticsThreads);
         return this;
     }
 
     @Min(1)
     public int getWriteStatisticsThreads()
     {
-        return writeStatisticsThreads;
+        return writeStatisticsThreads.getThreadCount();
     }
 
     @Config("hive.metastore.glue.write-statistics-threads")
     @ConfigDescription("Number of threads for parallel statistics writes to Glue")
-    public GlueHiveMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
+    public GlueHiveMetastoreConfig setWriteStatisticsThreads(String writeStatisticsThreads)
     {
-        this.writeStatisticsThreads = writeStatisticsThreads;
+        this.writeStatisticsThreads = ThreadCount.valueOf(writeStatisticsThreads);
         return this;
     }
 

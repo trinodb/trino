@@ -24,6 +24,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import io.airlift.units.ThreadCount;
 import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.AssertTrue;
@@ -73,7 +74,7 @@ public class HiveConfig
     private int maxPartitionsForEagerLoad = 100_000;
     private int maxOutstandingSplits = 1_000;
     private DataSize maxOutstandingSplitsSize = DataSize.of(256, MEGABYTE);
-    private int maxSplitIteratorThreads = 1_000;
+    private ThreadCount maxSplitIteratorThreads = ThreadCount.exactValueOf(1_000);
     private int minPartitionBatchSize = 10;
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
@@ -103,7 +104,7 @@ public class HiveConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private int maxPartitionsPerWriter = 100;
-    private int writeValidationThreads = 16;
+    private ThreadCount writeValidationThreads = ThreadCount.exactValueOf(16);
     private boolean validateBucketing = true;
     private boolean parallelPartitionedBucketedWrites = true;
 
@@ -150,7 +151,7 @@ public class HiveConfig
     private boolean hiveViewsRunAsInvoker;
 
     private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
-    private int hiveTransactionHeartbeatThreads = 5;
+    private ThreadCount hiveTransactionHeartbeatThreads = ThreadCount.exactValueOf(5);
 
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
@@ -432,13 +433,13 @@ public class HiveConfig
     @Min(1)
     public int getMaxSplitIteratorThreads()
     {
-        return maxSplitIteratorThreads;
+        return maxSplitIteratorThreads.getThreadCount();
     }
 
     @Config("hive.max-split-iterator-threads")
-    public HiveConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
+    public HiveConfig setMaxSplitIteratorThreads(String maxSplitIteratorThreads)
     {
-        this.maxSplitIteratorThreads = maxSplitIteratorThreads;
+        this.maxSplitIteratorThreads = ThreadCount.valueOf(maxSplitIteratorThreads);
         return this;
     }
 
@@ -594,14 +595,14 @@ public class HiveConfig
 
     public int getWriteValidationThreads()
     {
-        return writeValidationThreads;
+        return writeValidationThreads.getThreadCount();
     }
 
     @Config("hive.write-validation-threads")
     @ConfigDescription("Number of threads used for verifying data after a write")
-    public HiveConfig setWriteValidationThreads(int writeValidationThreads)
+    public HiveConfig setWriteValidationThreads(String writeValidationThreads)
     {
-        this.writeValidationThreads = writeValidationThreads;
+        this.writeValidationThreads = ThreadCount.valueOf(writeValidationThreads);
         return this;
     }
 
@@ -1082,14 +1083,14 @@ public class HiveConfig
 
     public int getHiveTransactionHeartbeatThreads()
     {
-        return hiveTransactionHeartbeatThreads;
+        return hiveTransactionHeartbeatThreads.getThreadCount();
     }
 
     @Config("hive.transaction-heartbeat-threads")
     @ConfigDescription("Number of threads to run in the Hive transaction heartbeat service")
-    public HiveConfig setHiveTransactionHeartbeatThreads(int hiveTransactionHeartbeatThreads)
+    public HiveConfig setHiveTransactionHeartbeatThreads(String hiveTransactionHeartbeatThreads)
     {
-        this.hiveTransactionHeartbeatThreads = hiveTransactionHeartbeatThreads;
+        this.hiveTransactionHeartbeatThreads = ThreadCount.valueOf(hiveTransactionHeartbeatThreads);
         return this;
     }
 

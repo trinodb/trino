@@ -38,7 +38,7 @@ public class TestShardCleanerConfig
                 .setLocalCleanTime(new Duration(4, HOURS))
                 .setBackupCleanerInterval(new Duration(5, MINUTES))
                 .setBackupCleanTime(new Duration(1, DAYS))
-                .setBackupDeletionThreads(50)
+                .setBackupDeletionThreads("50")
                 .setMaxCompletedTransactionAge(new Duration(1, DAYS)));
     }
 
@@ -63,7 +63,7 @@ public class TestShardCleanerConfig
                 .setLocalCleanTime(new Duration(32, MINUTES))
                 .setBackupCleanerInterval(new Duration(34, MINUTES))
                 .setBackupCleanTime(new Duration(35, MINUTES))
-                .setBackupDeletionThreads(37)
+                .setBackupDeletionThreads("37")
                 .setMaxCompletedTransactionAge(new Duration(39, MINUTES));
 
         assertFullMapping(properties, expected);

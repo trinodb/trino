@@ -15,24 +15,25 @@ package io.trino.plugin.tpcds;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.ThreadCount;
 import jakarta.validation.constraints.Min;
 
 public class TpcdsConfig
 {
-    private int splitsPerNode = Runtime.getRuntime().availableProcessors();
+    private ThreadCount splitsPerNode = ThreadCount.valueOf("1C");
     private boolean withNoSexism;
     private Integer splitCount;
 
     @Min(1)
     public int getSplitsPerNode()
     {
-        return splitsPerNode;
+        return splitsPerNode.getThreadCount();
     }
 
     @Config("tpcds.splits-per-node")
     public TpcdsConfig setSplitsPerNode(int splitsPerNode)
     {
-        this.splitsPerNode = splitsPerNode;
+        this.splitsPerNode = ThreadCount.exactValueOf(splitsPerNode);
         return this;
     }
 

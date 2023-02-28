@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import io.airlift.units.ThreadCount;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -25,7 +26,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class ThriftConnectorConfig
 {
     private DataSize maxResponseSize = DataSize.of(16, MEGABYTE);
-    private int metadataRefreshThreads = 1;
+    private ThreadCount metadataRefreshThreads = ThreadCount.exactValueOf(1);
     private int lookupRequestsConcurrency = 1;
 
     @NotNull
@@ -46,13 +47,13 @@ public class ThriftConnectorConfig
     @Min(1)
     public int getMetadataRefreshThreads()
     {
-        return metadataRefreshThreads;
+        return metadataRefreshThreads.getThreadCount();
     }
 
     @Config("trino-thrift.metadata-refresh-threads")
-    public ThriftConnectorConfig setMetadataRefreshThreads(int metadataRefreshThreads)
+    public ThriftConnectorConfig setMetadataRefreshThreads(String metadataRefreshThreads)
     {
-        this.metadataRefreshThreads = metadataRefreshThreads;
+        this.metadataRefreshThreads = ThreadCount.valueOf(metadataRefreshThreads);
         return this;
     }
 

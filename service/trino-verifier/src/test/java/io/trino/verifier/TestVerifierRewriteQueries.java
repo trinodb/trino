@@ -93,7 +93,7 @@ public class TestVerifierRewriteQueries
     public void testSingleThread()
     {
         config.setControlGateway(URL);
-        config.setThreadCount(1);
+        config.setThreadCount("1");
         List<QueryPair> rewrittenQueries = rewriteQueries(parser, config, queryPairs);
         assertEquals(rewrittenQueries.size(), queryPairs.size());
     }
@@ -102,7 +102,7 @@ public class TestVerifierRewriteQueries
     public void testMultipleThreads()
     {
         config.setControlGateway(URL);
-        config.setThreadCount(5);
+        config.setThreadCount("5");
         List<QueryPair> rewrittenQueries = rewriteQueries(parser, config, queryPairs);
         assertEquals(rewrittenQueries.size(), queryPairs.size());
     }

@@ -350,7 +350,7 @@ public class LocalQueryRunner
         checkArgument(defaultSession.getTransactionId().isEmpty() || !withInitialTransaction, "Already in transaction");
 
         Tracer tracer = noopTracer();
-        this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
+        this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency("4");
         requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.maxSpillPerNode = nodeSpillConfig.getMaxSpillPerNode();
         this.queryMaxSpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();

@@ -22,6 +22,7 @@ import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import io.trino.util.PowerOfTwo;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -29,10 +30,7 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
-import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
-import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
+import static com.google.common.math.IntMath.ceilingPowerOfTwo;
 
 @DefunctConfig({
         "experimental.big-query-max-task-memory",
@@ -53,7 +51,7 @@ public class TaskManagerConfig
     private DataSize maxLocalExchangeBufferSize = DataSize.of(128, Unit.MEGABYTE);
     private DataSize maxIndexMemoryUsage = DataSize.of(64, Unit.MEGABYTE);
     private boolean shareIndexLoading;
-    private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private ThreadCount maxWorkerThreads = ThreadCount.valueOf("2C");
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
     private int minDriversPerTask = 3;
@@ -63,7 +61,7 @@ public class TaskManagerConfig
     private DataSize sinkMaxBufferSize = DataSize.of(32, Unit.MEGABYTE);
     private DataSize sinkMaxBroadcastBufferSize = DataSize.of(200, Unit.MEGABYTE);
     private DataSize maxPagePartitioningBufferSize = DataSize.of(32, Unit.MEGABYTE);
-    private int pagePartitioningBufferPoolSize = 8;
+    private ThreadCount pagePartitioningBufferPoolSize = ThreadCount.exactValueOf(8);
 
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
@@ -82,14 +80,17 @@ public class TaskManagerConfig
     // because preferred write partitioning is always enabled for local exchange thus partitioned inserts will never
     // use this property. Hence, there is no risk in terms of more numbers of physical writers which can cause high
     // resource utilization.
-    private int scaleWritersMaxWriterCount = min(getAvailablePhysicalProcessorCount(), 32) * 2;
+
+    private ThreadCount scaleWritersMaxWriterCount = ThreadCount.boundedValueOf(nextPowerOfTwo(), "2", "64");
+
     private int writerCount = 1;
     // Default value of partitioned task writer count should be above 1, otherwise it can create a plan
     // with a single gather exchange node on the coordinator due to a single available processor. Whereas,
     // on the worker nodes due to more available processors, the default value could be above 1. Therefore,
     // it can cause error due to config mismatch during execution. Additionally, cap it to 32 in order to
     // avoid small pages produced by local partitioning exchanges.
-    private int partitionedWriterCount = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32) * 2;
+    private ThreadCount partitionedWriterCount = ThreadCount.boundedValueOf(nextPowerOfTwo(), "2", "32");
+
     // Default value of task concurrency should be above 1, otherwise it can create a plan with a single gather
     // exchange node on the coordinator due to a single available processor. Whereas, on the worker nodes due to
     // more available processors, the default value could be above 1. Therefore, it can cause error due to config
@@ -98,12 +99,12 @@ public class TaskManagerConfig
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
-    private int taskConcurrency = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
-    private int httpResponseThreads = 100;
-    private int httpTimeoutThreads = 3;
+    private ThreadCount taskConcurrency = ThreadCount.boundedValueOf(nextPowerOfTwo(), "2", "32");
+    private ThreadCount httpResponseThreads = ThreadCount.exactValueOf(100);
+    private ThreadCount httpTimeoutThreads = ThreadCount.exactValueOf(3);
 
-    private int taskNotificationThreads = 5;
-    private int taskYieldThreads = 3;
+    private ThreadCount taskNotificationThreads = ThreadCount.exactValueOf(5);
+    private ThreadCount taskYieldThreads = ThreadCount.exactValueOf(3);
 
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
 
@@ -272,14 +273,14 @@ public class TaskManagerConfig
     @Min(1)
     public int getMaxWorkerThreads()
     {
-        return maxWorkerThreads;
+        return maxWorkerThreads.getThreadCount();
     }
 
     @LegacyConfig("task.shard.max-threads")
     @Config("task.max-worker-threads")
-    public TaskManagerConfig setMaxWorkerThreads(int maxWorkerThreads)
+    public TaskManagerConfig setMaxWorkerThreads(String maxWorkerThreads)
     {
-        this.maxWorkerThreads = maxWorkerThreads;
+        this.maxWorkerThreads = ThreadCount.valueOf(maxWorkerThreads);
         return this;
     }
 
@@ -287,7 +288,7 @@ public class TaskManagerConfig
     public int getInitialSplitsPerNode()
     {
         if (initialSplitsPerNode == null) {
-            return maxWorkerThreads;
+            return maxWorkerThreads.getThreadCount();
         }
         return initialSplitsPerNode;
     }
@@ -316,7 +317,7 @@ public class TaskManagerConfig
     public int getMinDrivers()
     {
         if (minDrivers == null) {
-            return 2 * maxWorkerThreads;
+            return 2 * maxWorkerThreads.getThreadCount();
         }
         return minDrivers;
     }
@@ -397,14 +398,14 @@ public class TaskManagerConfig
     @Min(0)
     public int getPagePartitioningBufferPoolSize()
     {
-        return pagePartitioningBufferPoolSize;
+        return pagePartitioningBufferPoolSize.getThreadCount();
     }
 
     @Config("driver.page-partitioning-buffer-pool-size")
     @ConfigDescription("Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool")
-    public TaskManagerConfig setPagePartitioningBufferPoolSize(int pagePartitioningBufferPoolSize)
+    public TaskManagerConfig setPagePartitioningBufferPoolSize(String pagePartitioningBufferPoolSize)
     {
-        this.pagePartitioningBufferPoolSize = pagePartitioningBufferPoolSize;
+        this.pagePartitioningBufferPoolSize = ThreadCount.valueOf(pagePartitioningBufferPoolSize);
         return this;
     }
 
@@ -451,14 +452,14 @@ public class TaskManagerConfig
     @Min(1)
     public int getScaleWritersMaxWriterCount()
     {
-        return scaleWritersMaxWriterCount;
+        return scaleWritersMaxWriterCount.getThreadCount();
     }
 
     @Config("task.scale-writers.max-writer-count")
     @ConfigDescription("Maximum number of writers per task up to which scaling will happen if task.scale-writers.enabled is set")
-    public TaskManagerConfig setScaleWritersMaxWriterCount(int scaleWritersMaxWriterCount)
+    public TaskManagerConfig setScaleWritersMaxWriterCount(String scaleWritersMaxWriterCount)
     {
-        this.scaleWritersMaxWriterCount = scaleWritersMaxWriterCount;
+        this.scaleWritersMaxWriterCount = ThreadCount.valueOf(scaleWritersMaxWriterCount);
         return this;
     }
 
@@ -480,14 +481,14 @@ public class TaskManagerConfig
     @PowerOfTwo
     public int getPartitionedWriterCount()
     {
-        return partitionedWriterCount;
+        return partitionedWriterCount.getThreadCount();
     }
 
     @Config("task.partitioned-writer-count")
     @ConfigDescription("Number of local parallel table writers per task when prefer partitioning is used")
-    public TaskManagerConfig setPartitionedWriterCount(int partitionedWriterCount)
+    public TaskManagerConfig setPartitionedWriterCount(String partitionedWriterCount)
     {
-        this.partitionedWriterCount = partitionedWriterCount;
+        this.partitionedWriterCount = ThreadCount.valueOf(partitionedWriterCount);
         return this;
     }
 
@@ -495,68 +496,68 @@ public class TaskManagerConfig
     @PowerOfTwo
     public int getTaskConcurrency()
     {
-        return taskConcurrency;
+        return taskConcurrency.getThreadCount();
     }
 
     @Config("task.concurrency")
     @ConfigDescription("Default number of local parallel jobs per worker")
-    public TaskManagerConfig setTaskConcurrency(int taskConcurrency)
+    public TaskManagerConfig setTaskConcurrency(String taskConcurrency)
     {
-        this.taskConcurrency = taskConcurrency;
+        this.taskConcurrency = ThreadCount.valueOf(taskConcurrency);
         return this;
     }
 
     @Min(1)
     public int getHttpResponseThreads()
     {
-        return httpResponseThreads;
+        return httpResponseThreads.getThreadCount();
     }
 
     @Config("task.http-response-threads")
-    public TaskManagerConfig setHttpResponseThreads(int httpResponseThreads)
+    public TaskManagerConfig setHttpResponseThreads(String httpResponseThreads)
     {
-        this.httpResponseThreads = httpResponseThreads;
+        this.httpResponseThreads = ThreadCount.valueOf(httpResponseThreads);
         return this;
     }
 
     @Min(1)
     public int getHttpTimeoutThreads()
     {
-        return httpTimeoutThreads;
+        return httpTimeoutThreads.getThreadCount();
     }
 
     @Config("task.http-timeout-threads")
-    public TaskManagerConfig setHttpTimeoutThreads(int httpTimeoutThreads)
+    public TaskManagerConfig setHttpTimeoutThreads(String httpTimeoutThreads)
     {
-        this.httpTimeoutThreads = httpTimeoutThreads;
+        this.httpTimeoutThreads = ThreadCount.valueOf(httpTimeoutThreads);
         return this;
     }
 
     @Min(1)
     public int getTaskNotificationThreads()
     {
-        return taskNotificationThreads;
+        return taskNotificationThreads.getThreadCount();
     }
 
     @Config("task.task-notification-threads")
     @ConfigDescription("Number of threads used for internal task event notifications")
-    public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
+    public TaskManagerConfig setTaskNotificationThreads(String taskNotificationThreads)
     {
-        this.taskNotificationThreads = taskNotificationThreads;
+        this.taskNotificationThreads = ThreadCount.valueOf(taskNotificationThreads);
         return this;
     }
 
     @Min(1)
     public int getTaskYieldThreads()
     {
-        return taskYieldThreads;
+        return taskYieldThreads.getThreadCount();
     }
 
     @Config("task.task-yield-threads")
     @ConfigDescription("Number of threads used for setting yield signals")
-    public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
+    public TaskManagerConfig setTaskYieldThreads(String taskYieldThreads)
     {
-        this.taskYieldThreads = taskYieldThreads;
+        this.taskYieldThreads = ThreadCount.valueOf(taskYieldThreads);
         return this;
     }
 
@@ -616,6 +617,11 @@ public class TaskManagerConfig
 
     public void applyFaultTolerantExecutionDefaults()
     {
-        taskConcurrency = 8;
+        taskConcurrency = ThreadCount.exactValueOf(8);
+    }
+
+    private static String nextPowerOfTwo()
+    {
+        return String.valueOf(ceilingPowerOfTwo(ThreadCount.valueOf("1C").getThreadCount()));
     }
 }

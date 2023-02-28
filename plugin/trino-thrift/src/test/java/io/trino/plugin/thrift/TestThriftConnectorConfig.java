@@ -31,7 +31,7 @@ public class TestThriftConnectorConfig
     {
         assertRecordedDefaults(recordDefaults(ThriftConnectorConfig.class)
                 .setMaxResponseSize(DataSize.of(16, MEGABYTE))
-                .setMetadataRefreshThreads(1)
+                .setMetadataRefreshThreads("1")
                 .setLookupRequestsConcurrency(1));
     }
 
@@ -46,7 +46,7 @@ public class TestThriftConnectorConfig
 
         ThriftConnectorConfig expected = new ThriftConnectorConfig()
                 .setMaxResponseSize(DataSize.of(2, MEGABYTE))
-                .setMetadataRefreshThreads(10)
+                .setMetadataRefreshThreads("10")
                 .setLookupRequestsConcurrency(8);
 
         assertFullMapping(properties, expected);

@@ -44,10 +44,10 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsCredentialsProvider(null)
                 .setCatalogId(null)
                 .setPartitionSegments(5)
-                .setGetPartitionThreads(20)
+                .setGetPartitionThreads("20")
                 .setAssumeCanonicalPartitionKeys(false)
-                .setReadStatisticsThreads(5)
-                .setWriteStatisticsThreads(20));
+                .setReadStatisticsThreads("5")
+                .setWriteStatisticsThreads("20"));
     }
 
     @Test
@@ -93,10 +93,10 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsCredentialsProvider("custom")
                 .setCatalogId("0123456789")
                 .setPartitionSegments(10)
-                .setGetPartitionThreads(42)
+                .setGetPartitionThreads("42")
                 .setAssumeCanonicalPartitionKeys(true)
-                .setReadStatisticsThreads(42)
-                .setWriteStatisticsThreads(43);
+                .setReadStatisticsThreads("42")
+                .setWriteStatisticsThreads("43");
 
         assertFullMapping(properties, expected);
     }
