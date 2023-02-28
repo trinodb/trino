@@ -44,7 +44,6 @@ import java.util.function.Predicate;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.partition;
 import static com.google.common.math.IntMath.divide;
-import static com.starburstdata.presto.license.StarburstFeature.SQLSERVER_EXTENSIONS;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.getConnectionsCount;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.hasParallelism;
 import static io.trino.plugin.jdbc.DynamicFilteringJdbcSplitSource.isEligibleForDynamicFilter;
@@ -67,7 +66,7 @@ public class SqlServerSplitManager
     {
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
         if (starburstSqlServerConfig.getConnectionsCount() > 1) {
-            licenseManager.checkFeature(SQLSERVER_EXTENSIONS);
+            licenseManager.checkLicense();
         }
     }
 

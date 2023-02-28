@@ -20,7 +20,6 @@ import io.trino.spi.session.PropertyMetadata;
 import java.util.List;
 import java.util.Optional;
 
-import static com.starburstdata.presto.license.StarburstFeature.SQLSERVER_EXTENSIONS;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -53,7 +52,7 @@ public final class StarburstSqlServerSessionProperties
                         config.getConnectionsCount(),
                         value -> {
                             if (value > 1) {
-                                licenseManager.checkFeature(SQLSERVER_EXTENSIONS);
+                                licenseManager.checkLicense();
                             }
                         },
                         false));

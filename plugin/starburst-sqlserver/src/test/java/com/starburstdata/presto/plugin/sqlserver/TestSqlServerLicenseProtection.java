@@ -43,6 +43,6 @@ public class TestSqlServerLicenseProtection
                 .build();
 
         assertQuery(noParallelismSession, "SELECT * FROM nation");
-        assertQueryFails(partitionsParallelismSession, "SELECT * FROM nation", "Valid license required to use the feature: sqlserver-extensions");
+        assertQueryFails(partitionsParallelismSession, "SELECT * FROM nation", "Starburst Enterprise requires valid license");
     }
 }
