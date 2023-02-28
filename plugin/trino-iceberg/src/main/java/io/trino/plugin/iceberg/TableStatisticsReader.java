@@ -66,8 +66,10 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
-public class TableStatisticsReader
+public final class TableStatisticsReader
 {
+    private TableStatisticsReader() {}
+
     private static final Logger log = Logger.get(TableStatisticsReader.class);
 
     // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
@@ -85,35 +87,32 @@ public class TableStatisticsReader
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
-    private final TypeManager typeManager;
-    private final ConnectorSession session;
-    private final Table icebergTable;
-
-    private TableStatisticsReader(TypeManager typeManager, ConnectorSession session, Table icebergTable)
-    {
-        this.typeManager = typeManager;
-        this.session = session;
-        this.icebergTable = icebergTable;
-    }
-
     public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, IcebergTableHandle tableHandle, Table icebergTable)
     {
-        return new TableStatisticsReader(typeManager, session, icebergTable).makeTableStatistics(tableHandle);
+        return makeTableStatistics(
+                typeManager,
+                icebergTable,
+                tableHandle.getSnapshotId(),
+                tableHandle.getEnforcedPredicate(),
+                isExtendedStatisticsEnabled(session));
     }
 
-    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
+    private static TableStatistics makeTableStatistics(
+            TypeManager typeManager,
+            Table icebergTable,
+            Optional<Long> snapshot,
+            TupleDomain<IcebergColumnHandle> enforcedConstraint,
+            boolean extendedStatisticsEnabled)
     {
-        if (tableHandle.getSnapshotId().isEmpty()) {
+        if (snapshot.isEmpty()) {
             // No snapshot, so no data.
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
         }
-        long snapshotId = tableHandle.getSnapshotId().get();
+        long snapshotId = snapshot.get();
 
-        TupleDomain<IcebergColumnHandle> enforcedPredicate = tableHandle.getEnforcedPredicate();
-
-        if (enforcedPredicate.isNone()) {
+        if (enforcedConstraint.isNone()) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
@@ -130,7 +129,7 @@ public class TableStatisticsReader
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(enforcedPredicate))
+                .filter(toIcebergExpression(enforcedConstraint))
                 .useSnapshot(snapshotId)
                 .includeColumnStats();
 
@@ -151,10 +150,12 @@ public class TableStatisticsReader
         }
 
         Map<Integer, Long> ndvs = readNdvs(
+                icebergTable,
                 snapshotId,
                 // TODO We don't need NDV information for columns not involved in filters/joins. Engine should provide set of columns
                 //  it makes sense to find NDV information for.
-                idToColumnHandle.keySet());
+                idToColumnHandle.keySet(),
+                extendedStatisticsEnabled);
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.getRecordCount();
@@ -210,9 +211,9 @@ public class TableStatisticsReader
         return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
-    private Map<Integer, Long> readNdvs(long snapshotId, Set<Integer> columnIds)
+    private static Map<Integer, Long> readNdvs(Table icebergTable, long snapshotId, Set<Integer> columnIds, boolean extendedStatisticsEnabled)
     {
-        if (!isExtendedStatisticsEnabled(session)) {
+        if (!extendedStatisticsEnabled) {
             return ImmutableMap.of();
         }
 
