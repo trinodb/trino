@@ -36,7 +36,7 @@ public class TestStargatePlugin
         for (ConnectorFactory factory : plugin.getConnectorFactories()) {
             assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:trino://localhost:8080/test", "connection-user", "presto"), new TestingConnectorContext()))
                     .isInstanceOf(RuntimeException.class)
-                    .hasToString("com.starburstdata.presto.license.StarburstLicenseException: Valid license required to use the feature: stargate");
+                    .hasMessageContaining("Valid license required to use the feature: Starburst Stargate");
         }
     }
 
