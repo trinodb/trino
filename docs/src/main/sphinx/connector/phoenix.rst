@@ -57,6 +57,8 @@ Property name                                      Required   Description
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: query-comment-format.fragment
+
 .. |default_domain_compaction_threshold| replace:: ``5000``
 .. include:: jdbc-domain-compaction-threshold.fragment
 
