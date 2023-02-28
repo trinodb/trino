@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.HdfsContext;
@@ -52,9 +53,14 @@ class HdfsInputFile
     public TrinoInput newInput()
             throws IOException
     {
-        FileSystem fileSystem = environment.getFileSystem(context, file);
-        FSDataInputStream input = environment.doAs(context.getIdentity(), () -> fileSystem.open(file));
-        return new HdfsInput(input, this);
+        return new HdfsInput(openFile(), this);
+    }
+
+    @Override
+    public SeekableInputStream newStream()
+            throws IOException
+    {
+        return new HdfsSeekableInputStream(openFile());
     }
 
     @Override
@@ -92,6 +98,13 @@ class HdfsInputFile
     public String toString()
     {
         return location();
+    }
+
+    private FSDataInputStream openFile()
+            throws IOException
+    {
+        FileSystem fileSystem = environment.getFileSystem(context, file);
+        return environment.doAs(context.getIdentity(), () -> fileSystem.open(file));
     }
 
     private FileStatus lazyStatus()

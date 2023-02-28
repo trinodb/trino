@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.local;
 
-import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 
 import java.io.File;
@@ -34,12 +33,6 @@ class LocalInput
     {
         this.file = requireNonNull(file, "file is null");
         this.input = new RandomAccessFile(file, "r");
-    }
-
-    @Override
-    public SeekableInputStream inputStream()
-    {
-        return new FileSeekableInputStream(input);
     }
 
     @Override

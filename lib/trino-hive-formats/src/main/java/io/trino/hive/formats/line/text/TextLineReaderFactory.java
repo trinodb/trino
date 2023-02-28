@@ -63,7 +63,7 @@ public class TextLineReaderFactory
             int footerCount)
             throws IOException
     {
-        InputStream inputStream = inputFile.newInput().inputStream();
+        InputStream inputStream = inputFile.newStream();
         try {
             Optional<Codec> codec = getExtension(inputFile.location())
                     .flatMap(CompressionKind::createCodecFromExtension);

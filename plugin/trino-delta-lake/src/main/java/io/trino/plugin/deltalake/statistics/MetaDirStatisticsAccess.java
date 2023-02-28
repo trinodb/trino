@@ -71,7 +71,7 @@ public class MetaDirStatisticsAccess
                 return Optional.empty();
             }
 
-            try (InputStream inputStream = inputFile.newInput().inputStream()) {
+            try (InputStream inputStream = inputFile.newStream()) {
                 return Optional.of(statisticsCodec.fromJson(inputStream.readAllBytes()));
             }
         }

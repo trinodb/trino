@@ -14,6 +14,7 @@
 package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 
@@ -38,6 +39,13 @@ public class MemoryInputFile
             throws IOException
     {
         return new MemoryInput(location, data);
+    }
+
+    @Override
+    public SeekableInputStream newStream()
+            throws IOException
+    {
+        return new MemorySeekableInputStream(data);
     }
 
     @Override
