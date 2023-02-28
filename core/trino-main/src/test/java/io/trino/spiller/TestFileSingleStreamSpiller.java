@@ -48,6 +48,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Double.doubleToLongBits;
 import static java.nio.file.Files.newInputStream;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -150,6 +151,11 @@ public class TestFileSingleStreamSpiller
         for (int i = 0; i < 4; ++i) {
             PageAssertions.assertPageEquals(TYPES, page, spilledPages.get(i));
         }
+
+        // Repeated reads are disallowed
+        assertThatThrownBy(spiller::getSpilledPages)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Repeated reads are disallowed to prevent potential resource leaks");
 
         spiller.close();
         assertEquals(listFiles(spillPath.toPath()).size(), 0);
