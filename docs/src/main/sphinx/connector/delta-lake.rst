@@ -157,16 +157,6 @@ values. Typical usage does not require you to configure them.
     * - ``delta.register-table-procedure.enabled``
       - Enable to allow users to call the ``register_table`` procedure
       - ``false``
-    * - ``delta.default-reader-version``
-      - The default reader version used by new tables.
-        The value can be overridden for a specific table with the
-        ``reader_version`` table property.
-      - ``1``
-    * - ``delta.default-writer-version``
-      - The default writer version used by new tables.
-        The value can be overridden for a specific table with the
-        ``writer_version`` table property.
-      - ``2``
 
 The following table describes performance tuning catalog properties for the
 connector.
@@ -573,21 +563,15 @@ The following properties are available for use:
     - Set the checkpoint interval in seconds.
   * - ``change_data_feed_enabled``
     - Enables storing change data feed entries.
-  * - ``reader_version``
-    - Set reader version.
-  * - ``writer_version``
-    - Set writer version.
 
-The following example uses all six table properties::
+The following example uses all available table properties::
 
   CREATE TABLE example.default.example_partitioned_table
   WITH (
     location = 's3://my-bucket/a/path',
     partitioned_by = ARRAY['regionkey'],
     checkpoint_interval = 5,
-    change_data_feed_enabled = true,
-    reader_version = 2,
-    writer_version = 4
+    change_data_feed_enabled = true
   )
   AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 
