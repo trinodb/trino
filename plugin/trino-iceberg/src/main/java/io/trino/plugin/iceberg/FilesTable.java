@@ -149,8 +149,8 @@ public class FilesTable
                 @Override
                 public void close()
                 {
-                    try {
-                        records.close();
+                    try (CloseableIterator<?> ignore = records) {
+                        super.close();
                         records = null;
                     }
                     catch (IOException e) {
