@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
@@ -94,14 +95,17 @@ public final class TableStatisticsReader
                 icebergTable,
                 tableHandle.getSnapshotId(),
                 tableHandle.getEnforcedPredicate(),
+                tableHandle.getUnenforcedPredicate(),
                 isExtendedStatisticsEnabled(session));
     }
 
-    private static TableStatistics makeTableStatistics(
+    @VisibleForTesting
+    public static TableStatistics makeTableStatistics(
             TypeManager typeManager,
             Table icebergTable,
             Optional<Long> snapshot,
             TupleDomain<IcebergColumnHandle> enforcedConstraint,
+            TupleDomain<IcebergColumnHandle> unenforcedConstraint,
             boolean extendedStatisticsEnabled)
     {
         if (snapshot.isEmpty()) {
@@ -112,7 +116,11 @@ public final class TableStatisticsReader
         }
         long snapshotId = snapshot.get();
 
-        if (enforcedConstraint.isNone()) {
+        // Including both enforced and unenforced constraint matches how Splits will eventually be generated and allows
+        // us to provide more accurate estimates. Stats will be estimated again by FilterStatsCalculator based on the
+        // unenforced constraint.
+        TupleDomain<IcebergColumnHandle> effectivePredicate = enforcedConstraint.intersect(unenforcedConstraint);
+        if (effectivePredicate.isNone()) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
@@ -129,7 +137,7 @@ public final class TableStatisticsReader
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(enforcedConstraint))
+                .filter(toIcebergExpression(effectivePredicate))
                 .useSnapshot(snapshotId)
                 .includeColumnStats();
 
