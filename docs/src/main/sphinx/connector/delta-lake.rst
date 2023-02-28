@@ -642,6 +642,34 @@ Write operations are supported for tables stored on the following systems:
   make sure that no concurrent data modifications are run to avoid data
   corruption.
 
+.. _delta-lake-vacuum:
+
+``VACUUM``
+^^^^^^^^^^
+
+The ``VACUUM`` procedure removes all old files that are not in the transaction
+log, as well as files that are not needed to read table snapshots newer than the
+current time minus the retention period defined by the ``retention period``
+parameter.
+
+Users with ``INSERT`` and ``DELETE`` permissions on a table can run ``VACUUM``
+as follows:
+
+.. code-block:: shell
+
+  CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
+
+All parameters are required, and must be presented in the following order:
+
+* Schema name
+* Table name
+* Retention period
+
+The ``delta.vacuum.min-retention`` config property provides a safety
+measure to ensure that files are retained as expected.  The minimum value for
+this property is ``0s``. There is a minimum retention session property as well,
+``vacuum_min_retention``.
+
 Metadata tables
 ---------------
 
@@ -819,34 +847,6 @@ important to take that into account when provisioning the coordinator.
 
 You need to decrease memory usage by keeping the number of active data files in
 table low by running ``OPTIMIZE`` and ``VACUUM`` in Delta Lake regularly.
-
-.. _delta-lake-vacuum:
-
-``VACUUM``
-""""""""""
-
-The ``VACUUM`` procedure removes all old files that are not in the transaction
-log, as well as files that are not needed to read table snapshots newer than the
-current time minus the retention period defined by the ``retention period``
-parameter.
-
-Users with ``INSERT`` and ``DELETE`` permissions on a table can run ``VACUUM``
-as follows:
-
-.. code-block:: shell
-
-  CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
-
-All parameters are required, and must be presented in the following order:
-
-* Schema name
-* Table name
-* Retention period
-
-The ``delta.vacuum.min-retention`` config property provides a safety
-measure to ensure that files are retained as expected.  The minimum value for
-this property is ``0s``. There is a minimum retention session property as well,
-``vacuum_min_retention``.
 
 Memory monitoring
 """""""""""""""""
