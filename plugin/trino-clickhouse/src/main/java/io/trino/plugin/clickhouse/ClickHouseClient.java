@@ -94,6 +94,7 @@ import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import static com.clickhouse.data.ClickHouseValues.convertToQuotedString;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -299,7 +300,7 @@ public class ClickHouseClient
         formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).ifPresent(value -> tableOptions.add("ORDER BY " + value));
         formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
         formatProperty(ClickHouseTableProperties.getPartitionBy(tableProperties)).ifPresent(value -> tableOptions.add("PARTITION BY " + value));
-        ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
+        ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + quoted(value)));
         tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT %s", clickhouseVarcharLiteral(comment))));
 
         return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build()));
@@ -363,7 +364,7 @@ public class ClickHouseClient
                 .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
 
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
-        ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
+        ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + quoted(value)));
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             String sql = format(
@@ -720,10 +721,10 @@ public class ClickHouseClient
         }
         if (prop.size() == 1) {
             // only one column
-            return Optional.of(prop.get(0));
+            return Optional.of(quoted(prop.get(0)));
         }
         // include more than one column
-        return Optional.of("(" + String.join(",", prop) + ")");
+        return Optional.of(prop.stream().map(this::quoted).collect(Collectors.joining(",", "(", ")")));
     }
 
     private static LongWriteFunction uInt8WriteFunction(ClickHouseVersion version)

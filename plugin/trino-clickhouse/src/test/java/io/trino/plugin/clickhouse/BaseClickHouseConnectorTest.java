@@ -83,6 +83,15 @@ public abstract class BaseClickHouseConnectorTest
         }
     }
 
+    @Test
+    public void testSampleBySqlInjection()
+    {
+        assertQueryFails("CREATE TABLE test (p1 int NOT NULL, p2 boolean NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'], sample_by = 'p2; drop table tpch.nation')", "(?s).*Missing columns: 'p2; drop table tpch.nation.*");
+        assertUpdate("CREATE TABLE test (p1 int NOT NULL, p2 boolean NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'], sample_by = 'p2')");
+        assertQueryFails("ALTER TABLE test SET PROPERTIES sample_by = 'p2; drop table tpch.nation'", "(?s).*Missing columns: 'p2; drop table tpch.nation.*");
+        assertUpdate("ALTER TABLE test SET PROPERTIES sample_by = 'p2'");
+    }
+
     @Override
     @Test(dataProvider = "testColumnNameDataProvider")
     public void testColumnName(String columnName)
@@ -352,7 +361,7 @@ public abstract class BaseClickHouseConnectorTest
 
         // MergeTree with optional
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR, logdate DATE NOT NULL) WITH " +
-                "(engine = 'MergeTree', order_by = ARRAY['id'], partition_by = ARRAY['toYYYYMM(logdate)'])");
+                "(engine = 'MergeTree', order_by = ARRAY['id'], partition_by = ARRAY['logdate'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("DROP TABLE " + tableName);
 
