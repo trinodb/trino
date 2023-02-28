@@ -18,6 +18,7 @@ import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeTestWithContext;
+import io.trino.testng.services.Flaky;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
@@ -28,6 +29,8 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -50,6 +53,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdateTableWithCdf()
     {
         String tableName = "test_updates_to_table_with_cdf_" + randomNameSuffix();
@@ -84,6 +88,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdatePartitionedTableWithCdf()
     {
         String tableName = "test_updates_to_partitioned_table_with_cdf_" + randomNameSuffix();
@@ -115,6 +120,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdateTableWithManyRowsInsertedInTheSameQueryAndCdfEnabled()
     {
         String tableName = "test_updates_to_table_with_many_rows_inserted_in_one_query_cdf_" + randomNameSuffix();
@@ -142,6 +148,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdatePartitionedTableWithManyRowsInsertedInTheSameRequestAndCdfEnabled()
     {
         String tableName = "test_updates_to_partitioned_table_with_many_rows_inserted_in_one_query_cdf_" + randomNameSuffix();
@@ -174,6 +181,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdatePartitionedTableCdfEnabledAndPartitioningColumnUpdated()
     {
         String tableName = "test_updates_partitioning_column_in_table_with_cdf_" + randomNameSuffix();
@@ -211,6 +219,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdateTableWithCdfEnabledAfterTableIsAlreadyCreated()
     {
         String tableName = "test_updates_to_table_with_cdf_enabled_later_" + randomNameSuffix();
@@ -262,6 +271,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteFromTableWithCdf()
     {
         String tableName = "test_deletes_from_table_with_cdf_" + randomNameSuffix();
@@ -290,6 +300,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testMergeUpdateIntoTableWithCdfEnabled()
     {
         String tableName1 = "test_merge_update_into_table_with_cdf_" + randomNameSuffix();
@@ -346,6 +357,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testMergeDeleteIntoTableWithCdfEnabled()
     {
         String tableName1 = "test_merge_delete_into_table_with_cdf_" + randomNameSuffix();
@@ -400,6 +412,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testMergeMixedDeleteAndUpdateIntoTableWithCdfEnabled()
     {
         String targetTableName = "test_merge_mixed_delete_and_update_into_table_with_cdf_" + randomNameSuffix();
@@ -461,6 +474,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeleteFromNullPartitionWithCdfEnabled()
     {
         String tableName = "test_delete_from_null_partition_with_cdf_enabled" + randomNameSuffix();
@@ -499,6 +513,7 @@ public class TestDeltaLakeDatabricksChangeDataFeedCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testThatCdfDoesntWorkWhenPropertyIsNotSet()
     {
         String tableName1 = "test_cdf_doesnt_work_when_property_is_not_set_1_" + randomNameSuffix();
