@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryInputFile;
@@ -154,7 +153,7 @@ public class RcFilePageSourceFactory
                 throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "File does not exist");
             }
             if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
-                try (TrinoInput input = inputFile.newInput(); InputStream inputStream = input.inputStream()) {
+                try (InputStream inputStream = inputFile.newStream()) {
                     byte[] data = inputStream.readAllBytes();
                     inputFile = new MemoryInputFile(path.toString(), Slices.wrappedBuffer(data));
                 }

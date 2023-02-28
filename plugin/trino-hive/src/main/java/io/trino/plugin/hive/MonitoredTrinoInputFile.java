@@ -41,6 +41,13 @@ public class MonitoredTrinoInputFile
     }
 
     @Override
+    public SeekableInputStream newStream()
+            throws IOException
+    {
+        return new MonitoredSeekableInputStream(stats, delegate.newStream());
+    }
+
+    @Override
     public long length()
             throws IOException
     {
@@ -83,12 +90,6 @@ public class MonitoredTrinoInputFile
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.delegate = requireNonNull(delegate, "delegate is null");
-        }
-
-        @Override
-        public SeekableInputStream inputStream()
-        {
-            return new MonitoredSeekableInputStream(stats, delegate.inputStream());
         }
 
         @Override

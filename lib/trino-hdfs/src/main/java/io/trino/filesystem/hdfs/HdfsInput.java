@@ -14,7 +14,6 @@
 package io.trino.filesystem.hdfs;
 
 import io.airlift.slice.Slice;
-import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hdfs.FSDataInputStreamTail;
@@ -34,12 +33,6 @@ class HdfsInput
     {
         this.stream = requireNonNull(stream, "stream is null");
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
-    }
-
-    @Override
-    public SeekableInputStream inputStream()
-    {
-        return new HdfsSeekableInputStream(stream);
     }
 
     @Override

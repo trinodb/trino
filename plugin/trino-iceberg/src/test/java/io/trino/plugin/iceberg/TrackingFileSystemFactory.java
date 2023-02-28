@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInput;
@@ -195,6 +196,14 @@ public class TrackingFileSystemFactory
         {
             tracker.accept(INPUT_FILE_NEW_STREAM);
             return delegate.newInput();
+        }
+
+        @Override
+        public SeekableInputStream newStream()
+                throws IOException
+        {
+            tracker.accept(INPUT_FILE_NEW_STREAM);
+            return delegate.newStream();
         }
 
         @Override

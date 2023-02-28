@@ -203,7 +203,7 @@ public class S3NativeTransactionLogSynchronizer
             throws IOException
     {
         byte[] bytes = null;
-        try (InputStream inputStream = fileSystem.newInputFile(path).newInput().inputStream()) {
+        try (InputStream inputStream = fileSystem.newInputFile(path).newStream()) {
             bytes = inputStream.readAllBytes();
             LockFileContents lockFileContents = lockFileContentsJsonCodec.fromJson(bytes);
             return Optional.of(new LockInfo(name, lockFileContents));

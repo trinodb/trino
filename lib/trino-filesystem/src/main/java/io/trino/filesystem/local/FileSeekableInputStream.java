@@ -16,19 +16,20 @@ package io.trino.filesystem.local;
 import com.google.common.primitives.Ints;
 import io.trino.filesystem.SeekableInputStream;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-
-import static java.util.Objects.requireNonNull;
 
 class FileSeekableInputStream
         extends SeekableInputStream
 {
     private final RandomAccessFile input;
 
-    FileSeekableInputStream(RandomAccessFile input)
+    public FileSeekableInputStream(File file)
+            throws FileNotFoundException
     {
-        this.input = requireNonNull(input, "input is null");
+        this.input = new RandomAccessFile(file, "r");
     }
 
     @Override

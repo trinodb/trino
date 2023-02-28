@@ -17,6 +17,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInput;
@@ -141,6 +142,14 @@ public final class AccessTrackingFileSystemFactory
         {
             fileOpened.accept(location());
             return delegate.newInput();
+        }
+
+        @Override
+        public SeekableInputStream newStream()
+                throws IOException
+        {
+            fileOpened.accept(location());
+            return delegate.newStream();
         }
 
         @Override

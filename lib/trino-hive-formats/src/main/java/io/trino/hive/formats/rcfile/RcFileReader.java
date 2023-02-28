@@ -131,7 +131,7 @@ public class RcFileReader
         this.location = inputFile.location();
         this.fileSize = inputFile.length();
         this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
-        this.input = new DataSeekableInputStream(inputFile.newInput().inputStream());
+        this.input = new DataSeekableInputStream(inputFile.newStream());
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
