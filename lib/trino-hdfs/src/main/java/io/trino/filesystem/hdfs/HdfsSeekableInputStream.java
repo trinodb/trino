@@ -13,49 +13,56 @@
  */
 package io.trino.filesystem.hdfs;
 
-import io.airlift.slice.Slice;
 import io.trino.filesystem.SeekableInputStream;
-import io.trino.filesystem.TrinoInput;
-import io.trino.filesystem.TrinoInputFile;
-import io.trino.hdfs.FSDataInputStreamTail;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
 
 import static java.util.Objects.requireNonNull;
 
-class HdfsInput
-        implements TrinoInput
+class HdfsSeekableInputStream
+        extends SeekableInputStream
 {
     private final FSDataInputStream stream;
-    private final TrinoInputFile inputFile;
 
-    public HdfsInput(FSDataInputStream stream, TrinoInputFile inputFile)
+    HdfsSeekableInputStream(FSDataInputStream stream)
     {
         this.stream = requireNonNull(stream, "stream is null");
-        this.inputFile = requireNonNull(inputFile, "inputFile is null");
     }
 
     @Override
-    public SeekableInputStream inputStream()
-    {
-        return new HdfsSeekableInputStream(stream);
-    }
-
-    @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    public long getPosition()
             throws IOException
     {
-        stream.readFully(position, buffer, bufferOffset, bufferLength);
+        return stream.getPos();
     }
 
     @Override
-    public int readTail(byte[] buffer, int bufferOffset, int bufferLength)
+    public void seek(long position)
             throws IOException
     {
-        Slice tail = FSDataInputStreamTail.readTail(inputFile.location(), inputFile.length(), stream, bufferLength).getTailSlice();
-        tail.getBytes(0, buffer, bufferOffset, tail.length());
-        return tail.length();
+        stream.seek(position);
+    }
+
+    @Override
+    public int read()
+            throws IOException
+    {
+        return stream.read();
+    }
+
+    @Override
+    public int read(byte[] b)
+            throws IOException
+    {
+        return stream.read(b);
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len)
+            throws IOException
+    {
+        return stream.read(b, off, len);
     }
 
     @Override
@@ -63,11 +70,5 @@ class HdfsInput
             throws IOException
     {
         stream.close();
-    }
-
-    @Override
-    public String toString()
-    {
-        return inputFile.toString();
     }
 }
