@@ -127,13 +127,8 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.check-commits-dispatcher.outputs.matrix) }}
     steps:
-      - name: Verify args
-        shell: bash
-        if: matrix.commit == ''
-        run: |
-          echo >&2 "Required 'commit' argument not provided"
-          exit 1
       - uses: actions/checkout@v3
+        if: matrix.commit != ''
         with:
           fetch-depth: 0 # checkout all commits to be able to determine merge base
           ref: ${{ matrix.commit }}
@@ -142,6 +137,7 @@ jobs:
       # PR HEAD since that is the commit the workflow is started for. This could lead to problems if those parameters were changed
       # in the middle of a PR branch.
       - uses: ./.github/actions/compile-commit
+        if: matrix.commit != ''
         with:
           base_ref: ${{ github.event.pull_request.base.ref }}
 
