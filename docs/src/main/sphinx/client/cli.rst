@@ -199,7 +199,7 @@ mode:
       :doc:`/admin/resource-groups`.
   * - ``--timezone``
     - Sets the time zone for the session using the `time zone name
-      <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
+      <https://wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
       to the timezone set on your workstation.
   * - ``--user``
     - Sets the username for :ref:`cli-username-password-auth`. Defaults to your

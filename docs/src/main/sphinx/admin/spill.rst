@@ -57,7 +57,7 @@ is running and writing logs. Doing so may lead to cluster instability. Additiona
 it is recommended to monitor the disk saturation of the configured spill paths.
 
 Trino treats spill paths as independent disks (see `JBOD
-<https://en.wikipedia.org/wiki/Non-RAID_drive_architectures#JBOD>`_), so
+<https://wikipedia.org/wiki/Non-RAID_drive_architectures#JBOD>`_), so
 there is no need to use RAID for spill.
 
 Spill compression
