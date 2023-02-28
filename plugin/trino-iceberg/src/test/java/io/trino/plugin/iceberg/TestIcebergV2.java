@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystem;
@@ -27,9 +28,16 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.TypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionField;
@@ -67,6 +75,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
@@ -471,6 +480,43 @@ public class TestIcebergV2
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10");
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(0);
+    }
+
+    @Test
+    public void testStatsFilePruning()
+    {
+        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_stats_file_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
+
+            Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
+            TypeManager typeManager = new TestingTypeManager();
+            Table table = loadTable(testTable.getName());
+            TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(typeManager, table, snapshotId, TupleDomain.all(), TupleDomain.all(), true);
+            assertEquals(withNoFilter.getRowCount().getValue(), 4.0);
+
+            TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "b"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty()),
+                            Domain.singleValue(INTEGER, 10L))),
+                    TupleDomain.all(),
+                    true);
+            assertEquals(withPartitionFilter.getRowCount().getValue(), 3.0);
+
+            TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
+                    typeManager,
+                    table,
+                    snapshotId,
+                    TupleDomain.all(),
+                    TupleDomain.withColumnDomains(ImmutableMap.of(
+                            new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty()),
+                            Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
+                    true);
+            assertEquals(withUnenforcedFilter.getRowCount().getValue(), 2.0);
+        }
     }
 
     private void writeEqualityDeleteToNationTable(Table icebergTable)
