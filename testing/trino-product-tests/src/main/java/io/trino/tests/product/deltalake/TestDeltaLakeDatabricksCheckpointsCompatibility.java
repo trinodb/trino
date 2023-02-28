@@ -158,9 +158,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
                             "WITH (\n" +
                             "   checkpoint_interval = 5,\n" +
                             "   location = 's3://%s/%s',\n" +
-                            "   partitioned_by = ARRAY['a_number'],\n" +
-                            "   reader_version = 1,\n" +
-                            "   writer_version = 2\n" +
+                            "   partitioned_by = ARRAY['a_number']\n" +
                             ")",
                     tableName,
                     bucketName,
