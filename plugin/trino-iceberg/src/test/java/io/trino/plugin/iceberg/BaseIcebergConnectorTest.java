@@ -643,7 +643,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SHOW STATS FOR (SELECT * FROM " + tableName + " WHERE _timestamptz = " + instant1La + ")"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
-                            "('_timestamptz', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                            "('_timestamptz', null, 1e0, 0e0, NULL, '2021-10-31 00:30:00.005 UTC', '2021-10-31 00:30:00.005 UTC'), " +
                             "(NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
         }
 
