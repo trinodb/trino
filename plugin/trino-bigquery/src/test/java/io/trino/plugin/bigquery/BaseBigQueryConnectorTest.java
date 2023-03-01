@@ -845,7 +845,14 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("BigQuery connector does not support column default values");
+        return new TestTable(
+                this::onBigQuery,
+                "test.test_table",
+                "(col_required INT64 NOT NULL," +
+                        "col_nullable INT64," +
+                        "col_default INT64 DEFAULT 43," +
+                        "col_nonnull_default INT64 DEFAULT 42 NOT NULL," +
+                        "col_required2 INT64 NOT NULL)");
     }
 
     @Override
