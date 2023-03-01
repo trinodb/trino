@@ -41,6 +41,7 @@ when one wants to detect data anomalies for a query (e.g: skewness).
                                               Query Plan
     -----------------------------------------------------------------------------------------------
     Trino version: version
+    Queued: 374.17us, Analysis: 190.96ms, Planning: 179.03ms, Execution: 3.06s
     Fragment 1 [HASH]
         CPU: 22.58ms, Scheduled: 96.72ms, Blocked 46.21s (Input: 23.06s, Output: 0.00ns), Input: 1000 rows (37.11kB); per task: avg.: 1000.00 std.dev.: 0.00, Output: 1000 rows (28.32kB)
         Output layout: [clerk, count]

@@ -446,6 +446,11 @@ public class PlanPrinter
         TypeProvider typeProvider = getTypeProvider(allFragments);
 
         builder.append(format("Trino version: %s\n", version));
+        builder.append(format("Queued: %s, Analysis: %s, Planning: %s, Execution: %s\n",
+                queryStats.getQueuedTime().convertToMostSuccinctTimeUnit(),
+                queryStats.getAnalysisTime().convertToMostSuccinctTimeUnit(),
+                queryStats.getPlanningTime().convertToMostSuccinctTimeUnit(),
+                queryStats.getExecutionTime().convertToMostSuccinctTimeUnit()));
 
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(
