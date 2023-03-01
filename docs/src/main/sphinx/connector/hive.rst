@@ -161,7 +161,7 @@ Hive connector documentation.
       - ``ORC``
     * - ``hive.compression-codec``
       - The compression codec to use when writing files. Possible values are
-        ``NONE``, ``SNAPPY``, ``LZ4``, ``ZSTD``, or ``GZIP``.
+        ``NONE``, ``SNAPPY``, ``LZ4``, ``ZSTD``, ``GZIP``, or ``DEFLATE``.
       - ``GZIP``
     * - ``hive.force-local-scheduling``
       - Force splits to be scheduled on the same node as the Hadoop DataNode
@@ -1587,13 +1587,13 @@ with Parquet files performed by the Hive connector.
       - ``true``
     * - ``parquet.max-read-block-row-count``
       - Sets the maximum number of rows read in a batch.
-      - ``8192``  
+      - ``8192``
     * - ``parquet.optimized-nested-reader.enabled``
       - Whether batched column readers should be used when reading ARRAY, MAP
         and ROW types from Parquet files for improved performance. Set this
         property to ``false`` to disable the optimized parquet reader by default
         for structural data types. The equivalent catalog session property is
-        ``parquet_optimized_nested_reader_enabled``.  
+        ``parquet_optimized_nested_reader_enabled``.
       - ``true``
 
 Hive 3-related limitations
