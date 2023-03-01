@@ -15,12 +15,14 @@ package io.trino.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
+import io.trino.FeaturesConfig;
 import io.trino.block.BlockAssertions;
 import io.trino.geospatial.serde.GeometrySerde;
-import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.FunctionAssertions;
 import io.trino.plugin.geospatial.GeoPlugin;
 import io.trino.spi.Page;
 import io.trino.sql.tree.QualifiedName;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.util.Arrays;
@@ -29,17 +31,28 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public abstract class AbstractTestGeoAggregationFunctions
-        extends AbstractTestFunctions
 {
+    protected FunctionAssertions functionAssertions;
+
     @BeforeClass
-    public void registerFunctions()
+    public final void initTestFunctions()
     {
+        functionAssertions = new FunctionAssertions(TEST_SESSION, new FeaturesConfig());
         functionAssertions.installPlugin(new GeoPlugin());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public final void destroyTestFunctions()
+    {
+        closeAllRuntimeException(functionAssertions);
+        functionAssertions = null;
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)
