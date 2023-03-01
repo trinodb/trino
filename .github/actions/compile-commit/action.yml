@@ -22,6 +22,9 @@ runs:
         key: compile-commit-success-${{ github.event.pull_request.head.repo.full_name }}-${{ steps.repo-hash.outputs.tree-hash }}
     - uses: ./.github/actions/setup
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
+      with:
+        # Dependencies are downloaded explicitly below, after MAVEN has been set here. This allows modifications to the MAVEN setup with a PR.
+        download_dependencies: false
     - name: Check if a specified commit compiles
       shell: bash
       if: steps.check-compile-commit-success.outputs.cache-hit != 'true'
