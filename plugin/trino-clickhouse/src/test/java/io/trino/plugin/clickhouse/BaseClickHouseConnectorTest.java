@@ -192,40 +192,9 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    public void testAddColumn()
+    protected String tableDefinitionForAddColumn()
     {
-        String tableName = "test_add_column_" + randomNameSuffix();
-        // Only MergeTree engine table can add column
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
-        assertUpdate("INSERT INTO " + tableName + " (id, x) VALUES(1, 'first')", 1);
-
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN X bigint", ".* Column 'X' already exists");
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
-
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 2, 'second', 'xxx'", 1);
-        assertQuery(
-                "SELECT x, a FROM " + tableName,
-                "VALUES ('first', NULL), ('second', 'xxx')");
-
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b double");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 3, 'third', 'yyy', 33.3E0", 1);
-        assertQuery(
-                "SELECT x, a, b FROM " + tableName,
-                "VALUES ('first', NULL, NULL), ('second', 'xxx', NULL), ('third', 'yyy', 33.3)");
-
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar");
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 4, 'fourth', 'zzz', 55.3E0, 'newColumn'", 1);
-        assertQuery(
-                "SELECT x, a, b, c FROM " + tableName,
-                "VALUES ('first', NULL, NULL, NULL), ('second', 'xxx', NULL, NULL), ('third', 'yyy', 33.3, NULL), ('fourth', 'zzz', 55.3, 'newColumn')");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
-        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        return "(x VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'])";
     }
 
     @Override
