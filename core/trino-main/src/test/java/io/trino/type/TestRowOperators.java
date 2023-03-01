@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.scalar.AbstractTestFunctions.asMap;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -71,6 +70,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
