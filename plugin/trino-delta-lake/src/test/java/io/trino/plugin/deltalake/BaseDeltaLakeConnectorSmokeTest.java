@@ -347,9 +347,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   location = '%s',\n" +
-                                "   partitioned_by = ARRAY['age'],\n" +
-                                "   reader_version = 1,\n" +
-                                "   writer_version = 2\n" +
+                                "   partitioned_by = ARRAY['age']\n" +
                                 ")",
                         SCHEMA,
                         getLocationForTable(bucketName, "person")));
@@ -478,9 +476,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   location = '%s',\n" +
-                                "   partitioned_by = ARRAY['regionkey'],\n" +
-                                "   reader_version = 1,\n" +
-                                "   writer_version = 2\n" +
+                                "   partitioned_by = ARRAY['regionkey']\n" +
                                 ")",
                         DELTA_CATALOG, SCHEMA, tableName, getLocationForTable(bucketName, tableName)));
         assertQuery("SELECT * FROM " + tableName, "SELECT name, regionkey, comment FROM nation");
@@ -1351,9 +1347,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                                 ")\n" +
                                 "WITH (\n" +
                                 "   location = '%s',\n" +
-                                "   partitioned_by = ARRAY[%s],\n" +
-                                "   reader_version = 1,\n" +
-                                "   writer_version = 2\n" +
+                                "   partitioned_by = ARRAY[%s]\n" +
                                 ")",
                         getSession().getCatalog().orElseThrow(),
                         SCHEMA,

@@ -158,7 +158,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
-import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getFilesModifiedAfterProperty;
@@ -171,7 +170,6 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
-import static io.trino.plugin.deltalake.DeltaLakeConfig.MAX_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getHiveCatalogName;
@@ -183,14 +181,10 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEE
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
-import static io.trino.plugin.deltalake.DeltaLakeTableProperties.READER_VERSION_PROPERTY;
-import static io.trino.plugin.deltalake.DeltaLakeTableProperties.WRITER_VERSION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFeedEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
-import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getReaderVersion;
-import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getWriterVersion;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
@@ -287,6 +281,11 @@ public class DeltaLakeMetadata
     public static final String CHANGE_COLUMN_OPERATION = "CHANGE COLUMN";
     public static final String ISOLATION_LEVEL = "WriteSerializable";
 
+    public static final int DEFAULT_READER_VERSION = 1;
+    public static final int DEFAULT_WRITER_VERSION = 2;
+    // The highest reader and writer versions Trino supports writing to
+    public static final int MAX_WRITER_VERSION = 4;
+
     private static final int CDF_SUPPORTED_WRITER_VERSION = 4;
 
     // Matches the dummy column Databricks stores in the metastore
@@ -297,7 +296,6 @@ public class DeltaLakeMetadata
             .add(NUMBER_OF_DISTINCT_VALUES_SUMMARY)
             .build();
     private static final String ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY = "delta.enable-non-concurrent-writes";
-    public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.of(READER_VERSION_PROPERTY, WRITER_VERSION_PROPERTY);
 
     private final DeltaLakeMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -320,8 +318,6 @@ public class DeltaLakeMetadata
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
     private final boolean allowManagedTableRename;
-    private final int defaultReaderVersion;
-    private final int defaultWriterVersion;
 
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
@@ -342,9 +338,7 @@ public class DeltaLakeMetadata
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
             ExtendedStatisticsAccess statisticsAccess,
             boolean useUniqueTableLocation,
-            boolean allowManagedTableRename,
-            int defaultReaderVersion,
-            int defaultWriterVersion)
+            boolean allowManagedTableRename)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -366,8 +360,6 @@ public class DeltaLakeMetadata
         this.deleteSchemaLocationsFallback = deleteSchemaLocationsFallback;
         this.useUniqueTableLocation = useUniqueTableLocation;
         this.allowManagedTableRename = allowManagedTableRename;
-        this.defaultReaderVersion = defaultReaderVersion;
-        this.defaultWriterVersion = defaultWriterVersion;
     }
 
     @Override
@@ -487,10 +479,6 @@ public class DeltaLakeMetadata
 
         Optional<Boolean> changeDataFeedEnabled = tableHandle.getMetadataEntry().isChangeDataFeedEnabled();
         changeDataFeedEnabled.ifPresent(value -> properties.put(CHANGE_DATA_FEED_ENABLED_PROPERTY, value));
-
-        ProtocolEntry protocolEntry = getProtocolEntry(session, tableHandle.getSchemaTableName());
-        properties.put(READER_VERSION_PROPERTY, protocolEntry.getMinReaderVersion());
-        properties.put(WRITER_VERSION_PROPERTY, protocolEntry.getMinWriterVersion());
 
         return new ConnectorTableMetadata(
                 tableHandle.getSchemaTableName(),
@@ -1758,26 +1746,13 @@ public class DeltaLakeMetadata
 
     private ProtocolEntry getProtocolEntry(Map<String, Object> properties)
     {
-        Optional<Integer> readerVersion = getReaderVersion(properties);
-        Optional<Integer> writerVersion = getWriterVersion(properties);
-        Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(properties);
-
-        if (changeDataFeedEnabled.isPresent() && changeDataFeedEnabled.get()) {
-            if (writerVersion.isPresent()) {
-                if (writerVersion.get() < CDF_SUPPORTED_WRITER_VERSION) {
-                    throw new TrinoException(
-                            INVALID_TABLE_PROPERTY,
-                            WRITER_VERSION_PROPERTY + " cannot be set less than " + CDF_SUPPORTED_WRITER_VERSION + " when cdf is enabled");
-                }
-            }
-            else {
-                // Enabling cdf (change data feed) requires setting the writer version to 4
-                writerVersion = Optional.of(CDF_SUPPORTED_WRITER_VERSION);
-            }
+        int readerVersion = DEFAULT_READER_VERSION;
+        int writerVersion = DEFAULT_WRITER_VERSION;
+        if (getChangeDataFeedEnabled(properties).orElse(false)) {
+            writerVersion = CDF_SUPPORTED_WRITER_VERSION;
         }
-        return new ProtocolEntry(
-                readerVersion.orElse(defaultReaderVersion),
-                writerVersion.orElse(defaultWriterVersion));
+
+        return new ProtocolEntry(readerVersion, writerVersion);
     }
 
     private void writeCheckpointIfNeeded(ConnectorSession session, SchemaTableName table, Optional<Long> checkpointInterval, long newVersion)
@@ -1876,58 +1851,6 @@ public class DeltaLakeMetadata
                 readVersion,
                 ISOLATION_LEVEL,
                 Optional.of(true));
-    }
-
-    @Override
-    public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
-    {
-        Set<String> unsupportedProperties = difference(properties.keySet(), UPDATABLE_TABLE_PROPERTIES);
-        if (!unsupportedProperties.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "The following properties cannot be updated: " + String.join(", ", unsupportedProperties));
-        }
-
-        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
-        ProtocolEntry currentProtocolEntry = getProtocolEntry(session, handle.getSchemaTableName());
-
-        Optional<Integer> readerVersion = Optional.empty();
-        if (properties.containsKey(READER_VERSION_PROPERTY)) {
-            readerVersion = Optional.of((int) properties.get(READER_VERSION_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The " + READER_VERSION_PROPERTY + " property cannot be empty")));
-            if (readerVersion.get() < currentProtocolEntry.getMinReaderVersion()) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format(
-                        "%s cannot be downgraded from %d to %d", READER_VERSION_PROPERTY, currentProtocolEntry.getMinReaderVersion(), readerVersion.get()));
-            }
-        }
-
-        Optional<Integer> writerVersion = Optional.empty();
-        if (properties.containsKey(WRITER_VERSION_PROPERTY)) {
-            writerVersion = Optional.of((int) properties.get(WRITER_VERSION_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The " + WRITER_VERSION_PROPERTY + " property cannot be empty")));
-            if (writerVersion.get() < currentProtocolEntry.getMinWriterVersion()) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, format(
-                        "%s cannot be downgraded from %d to %d", WRITER_VERSION_PROPERTY, currentProtocolEntry.getMinWriterVersion(), writerVersion.get()));
-            }
-        }
-
-        long readVersion = handle.getReadVersion();
-        long commitVersion = readVersion + 1;
-
-        ProtocolEntry protocolEntry = new ProtocolEntry(
-                readerVersion.orElse(currentProtocolEntry.getMinReaderVersion()),
-                writerVersion.orElse(currentProtocolEntry.getMinWriterVersion()));
-
-        try {
-            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
-
-            long createdTime = Instant.now().toEpochMilli();
-            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, SET_TBLPROPERTIES_OPERATION, readVersion));
-            transactionLogWriter.appendProtocolEntry(protocolEntry);
-
-            transactionLogWriter.flush();
-        }
-        catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
-        }
     }
 
     @Override
