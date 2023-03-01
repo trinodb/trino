@@ -5,23 +5,20 @@ final aggregation over ()
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk"])
                         join (INNER, PARTITIONED):
-                            final aggregation over (ss_item_sk)
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["ss_item_sk"])
-                                        partial aggregation over (ss_item_sk)
-                                            final aggregation over (d_date_9, ss_item_sk, substr$gid)
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["d_date_9", "ss_item_sk", "substr$gid"])
-                                                        partial aggregation over (d_date_9, ss_item_sk, substr$gid)
-                                                            join (INNER, REPLICATED):
-                                                                join (INNER, REPLICATED):
-                                                                    scan store_sales
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                                            scan date_dim
-                                                                local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan item
+                            single aggregation over (ss_item_sk)
+                                final aggregation over (d_date_9, ss_item_sk, substr$gid)
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["ss_item_sk"])
+                                            partial aggregation over (d_date_9, ss_item_sk, substr$gid)
+                                                join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED):
+                                                        scan store_sales
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan date_dim
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan item
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["cs_item_sk"])
                                     join (INNER, REPLICATED):
@@ -63,23 +60,20 @@ final aggregation over ()
                 join (INNER, PARTITIONED):
                     remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk"])
                         join (INNER, PARTITIONED):
-                            final aggregation over (ss_item_sk_199)
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["ss_item_sk_199"])
-                                        partial aggregation over (ss_item_sk_199)
-                                            final aggregation over (d_date_227, ss_item_sk_199, substr$gid_284)
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["d_date_227", "ss_item_sk_199", "substr$gid_284"])
-                                                        partial aggregation over (d_date_227, ss_item_sk_199, substr$gid_284)
-                                                            join (INNER, REPLICATED):
-                                                                join (INNER, REPLICATED):
-                                                                    scan store_sales
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                                            scan date_dim
-                                                                local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan item
+                            single aggregation over (ss_item_sk_199)
+                                final aggregation over (d_date_227, ss_item_sk_199, substr$gid_284)
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["ss_item_sk_199"])
+                                            partial aggregation over (d_date_227, ss_item_sk_199, substr$gid_284)
+                                                join (INNER, REPLICATED):
+                                                    join (INNER, REPLICATED):
+                                                        scan store_sales
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan date_dim
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan item
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ws_item_sk"])
                                     join (INNER, REPLICATED):

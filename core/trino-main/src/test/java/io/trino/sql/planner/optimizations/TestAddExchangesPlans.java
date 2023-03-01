@@ -25,6 +25,7 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
+import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
@@ -68,6 +69,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.symbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -101,6 +103,7 @@ public class TestAddExchangesPlans
                 .setSpillerSpillPaths("/tmp/test_spill_path");
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(session)
                 .withFeaturesConfig(featuresConfig)
+                .withNodeCountForStats(1) // has to be non-zero for prefer parent partitioning test cases to work
                 .build();
         queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
         return queryRunner;
@@ -594,6 +597,142 @@ public class TestAddExchangesPlans
     }
 
     @Test
+    public void testAggregationPrefersParentPartitioning()
+    {
+        String singleColumnParentGroupBy = """
+                SELECT (partkey, sum(count))
+                FROM (
+                    SELECT suppkey, partkey, count(*) as count
+                    FROM lineitem
+                    GROUP BY suppkey, partkey)
+                GROUP BY partkey""";
+
+        // parent aggregation partitioned by a single column
+        assertDistributedPlan(
+                singleColumnParentGroupBy,
+                anyTree(aggregation(
+                        singleGroupingSet("partkey"),
+                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                        Optional.empty(),
+                        SINGLE, // no need for partial aggregation since data are already partitioned
+                        project(aggregation(
+                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                Step.FINAL,
+                                exchange(LOCAL,
+                                        // we only partition by partkey but aggregate by partkey and suppkey
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey"),
+                                                anyTree(aggregation(
+                                                        singleGroupingSet("partkey", "suppkey"),
+                                                        ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                        Optional.empty(),
+                                                        Step.PARTIAL,
+                                                        anyTree(tableScan("lineitem", ImmutableMap.of(
+                                                                "partkey", "partkey",
+                                                                "suppkey", "suppkey"))))))))))));
+
+        PlanMatchPattern exactPartitioningPlan = anyTree(aggregation(
+                singleGroupingSet("partkey"),
+                ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("sum_partial")))),
+                Optional.empty(),
+                Step.FINAL,
+                exchange(LOCAL,
+                        // additional remote exchange
+                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey"),
+                                project(aggregation(
+                                        singleGroupingSet("partkey"),
+                                        ImmutableMap.of(Optional.of("sum_partial"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                                        Optional.empty(),
+                                        PARTIAL,
+                                        project(aggregation(
+                                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                Step.FINAL,
+                                                exchange(LOCAL,
+                                                        // forced exact partitioning
+                                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey", "suppkey"),
+                                                                aggregation(
+                                                                        singleGroupingSet("partkey", "suppkey"),
+                                                                        ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                                        Optional.empty(),
+                                                                        PARTIAL,
+                                                                        anyTree(tableScan("lineitem", ImmutableMap.of(
+                                                                                "partkey", "partkey",
+                                                                                "suppkey", "suppkey"))))))))))))));
+        // parent partitioning would be preferable but use_exact_partitioning prevents it
+        assertDistributedPlan(singleColumnParentGroupBy, useExactPartitioning(), exactPartitioningPlan);
+        // no stats. fallback to exact partitioning expected
+        assertDistributedPlan(singleColumnParentGroupBy, disableStats(), exactPartitioningPlan);
+        // parent partitioning with estimated small number of distinct values. fallback to exact partitioning expected
+        assertDistributedPlan("""
+                        SELECT (partkey_expr, sum(count))
+                        FROM (
+                            SELECT suppkey, partkey % 10 as partkey_expr, count(*) as count
+                            FROM lineitem
+                            GROUP BY suppkey, partkey % 10)
+                        GROUP BY partkey_expr""",
+                anyTree(aggregation(
+                        singleGroupingSet("partkey_expr"),
+                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("sum_partial")))),
+                        Optional.empty(),
+                        Step.FINAL,
+                        exchange(LOCAL,
+                                // additional remote exchange
+                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey_expr"),
+                                        project(aggregation(
+                                                singleGroupingSet("partkey_expr"),
+                                                ImmutableMap.of(Optional.of("sum_partial"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                                                Optional.empty(),
+                                                PARTIAL,
+                                                project(aggregation(
+                                                        ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                        Step.FINAL,
+                                                        exchange(LOCAL,
+                                                                // forced exact partitioning
+                                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("partkey_expr", "suppkey"),
+                                                                        aggregation(
+                                                                                singleGroupingSet("partkey_expr", "suppkey"),
+                                                                                ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                                                Optional.empty(),
+                                                                                PARTIAL,
+                                                                                any(project(
+                                                                                        ImmutableMap.of("partkey_expr", expression("partkey % BIGINT '10'")),
+                                                                                        tableScan("lineitem", ImmutableMap.of(
+                                                                                                "partkey", "partkey",
+                                                                                                "suppkey", "suppkey"))))))))))))))));
+
+        // parent aggregation partitioned by multiple columns
+        assertDistributedPlan("""
+                        SELECT (orderkey % 10000, partkey, sum(count))
+                        FROM (
+                            SELECT orderkey % 10000 as orderkey, partkey, suppkey, count(*) as count
+                            FROM lineitem
+                            GROUP BY orderkey % 10000, partkey, suppkey)
+                        GROUP BY orderkey, partkey""",
+                anyTree(aggregation(
+                        singleGroupingSet("orderkey_expr", "partkey"),
+                        ImmutableMap.of(Optional.of("sum"), functionCall("sum", false, ImmutableList.of(symbol("count")))),
+                        Optional.empty(),
+                        SINGLE, // no need for partial aggregation since data are already partitioned
+                        project(aggregation(
+                                ImmutableMap.of("count", functionCall("count", false, ImmutableList.of(symbol("count_partial")))),
+                                Step.FINAL,
+                                exchange(LOCAL,
+                                        // we don't partition by suppkey because it's not needed by the parent aggregation
+                                        any(exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("orderkey_expr", "partkey"),
+                                                any(
+                                                        aggregation(
+                                                                singleGroupingSet("orderkey_expr", "partkey", "suppkey"),
+                                                                ImmutableMap.of(Optional.of("count_partial"), functionCall("count", false, ImmutableList.of())),
+                                                                Optional.empty(),
+                                                                Step.PARTIAL,
+                                                                any(project(
+                                                                        ImmutableMap.of("orderkey_expr", expression("orderkey % BIGINT '10000'")),
+                                                                        tableScan("lineitem", ImmutableMap.of(
+                                                                                "partkey", "partkey",
+                                                                                "orderkey", "orderkey",
+                                                                                "suppkey", "suppkey"))))))))))))));
+    }
+
+    @Test
     public void testWindowIsExactlyPartitioned()
     {
         assertDistributedPlan(
@@ -872,6 +1011,13 @@ public class TestAddExchangesPlans
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                 .setSystemProperty(USE_EXACT_PARTITIONING, "true")
+                .build();
+    }
+
+    private Session disableStats()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
                 .build();
     }
 }

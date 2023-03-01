@@ -703,6 +703,11 @@ public class LocalQueryRunner
         return estimatedExchangesCostCalculator;
     }
 
+    public TaskCountEstimator getTaskCountEstimator()
+    {
+        return taskCountEstimator;
+    }
+
     @Override
     public TestingGroupProviderManager getGroupProvider()
     {
