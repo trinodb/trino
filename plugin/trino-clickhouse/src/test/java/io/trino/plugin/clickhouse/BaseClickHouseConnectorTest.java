@@ -93,13 +93,6 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    @Test(dataProvider = "testColumnNameDataProvider")
-    public void testColumnName(String columnName)
-    {
-        throw new SkipException("TODO: test not implemented yet");
-    }
-
-    @Override
     public void testRenameColumn()
     {
         // ClickHouse need resets all data in a column for specified column which to be renamed
