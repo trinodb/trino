@@ -873,15 +873,25 @@ format, which has the schema set based on an Avro schema file/literal. Trino is
 also capable of creating the tables in Trino by infering the schema from a
 valid Avro schema file located locally, or remotely in HDFS/Web server.
 
-To specify that the Avro schema must be used for interpreting table's data one must use ``avro_schema_url`` table property.
-The schema can be placed remotely in
-HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
-S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
-a web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
-as well as local file system. This URL, where the schema is located, must be accessible from the
-Hive metastore and Trino coordinator/worker nodes.
+To specify that the Avro schema should be used for interpreting table data, use
+the ``avro_schema_url`` table property.
 
-The table created in Trino using ``avro_schema_url`` behaves the same way as a Hive table with ``avro.schema.url`` or ``avro.schema.literal`` set.
+The schema can be placed in the local file system or remotely in the following
+locations:
+
+- HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``)
+- S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``)
+- A web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
+
+The URL, where the schema is located, must be accessible from the Hive metastore
+and Trino coordinator/worker nodes.
+
+Alternatively, you can use the table property ``avro_schema_literal`` to define
+the Avro schema.
+
+The table created in Trino using the ``avro_schema_url`` or
+``avro_schema_literal`` property behaves the same way as a Hive table with
+``avro.schema.url`` or ``avro.schema.literal`` set.
 
 Example::
 
