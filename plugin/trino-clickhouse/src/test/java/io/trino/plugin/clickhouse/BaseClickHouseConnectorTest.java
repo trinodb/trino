@@ -49,7 +49,6 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseClickHouseConnectorTest
@@ -104,16 +103,6 @@ public abstract class BaseClickHouseConnectorTest
     {
         // ClickHouse need resets all data in a column for specified column which to be renamed
         throw new SkipException("TODO: test not implemented yet");
-    }
-
-    @Override
-    public void testAddColumnWithCommentSpecialCharacter(String comment)
-    {
-        // Override because default storage engine doesn't support renaming columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_column_", "(a_varchar varchar NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['a_varchar'])")) {
-            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
-            assertEquals(getColumnComment(table.getName(), "b_varchar"), comment);
-        }
     }
 
     @Override
@@ -214,20 +203,10 @@ public abstract class BaseClickHouseConnectorTest
         }
     }
 
-    @Test
     @Override
-    public void testAddColumnWithComment()
+    protected String tableDefinitionForAddingColumnWithComment()
     {
-        // Override because the default storage type doesn't support adding columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_desc_", "(a_varchar varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
-            String tableName = table.getName();
-
-            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
-            assertThat(getColumnComment(tableName, "b_varchar")).isEqualTo("test new column comment");
-
-            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN empty_comment varchar COMMENT ''");
-            assertNull(getColumnComment(tableName, "empty_comment"));
-        }
+        return "(a_varchar varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])";
     }
 
     @Override

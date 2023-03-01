@@ -2088,15 +2088,23 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_desc_", "(a_varchar varchar)")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_desc_", tableDefinitionForAddingColumnWithComment())) {
             String tableName = table.getName();
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
             assertThat(getColumnComment(tableName, "b_varchar")).isEqualTo("test new column comment");
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN empty_comment varchar COMMENT ''");
-            assertEquals(getColumnComment(tableName, "empty_comment"), "");
+            assertThat(getColumnComment(tableName, "empty_comment")).isIn("", null); // Some storages do not preserve empty comment
         }
+    }
+
+    /**
+     * The column definition of the table for test adding column with comment, at least contain a varchar type named 'a_varchar'
+     */
+    protected String tableDefinitionForAddingColumnWithComment()
+    {
+        return "(a_varchar varchar)";
     }
 
     @Test
@@ -4615,7 +4623,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN_WITH_COMMENT));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_", "(a_varchar varchar)")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_", tableDefinitionForAddingColumnWithComment())) {
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
             assertEquals(getColumnComment(table.getName(), "b_varchar"), comment);
         }
