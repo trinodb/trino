@@ -2111,7 +2111,7 @@ public abstract class BaseConnectorTest
             return;
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar)")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", tableDefinitionForAddingNotNullColumnToNonEmptyTable())) {
             String tableName = table.getName();
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
@@ -2128,6 +2128,14 @@ public abstract class BaseConnectorTest
                 verifyAddNotNullColumnToNonEmptyTableFailurePermissible(e);
             }
         }
+    }
+
+    /**
+     * The table must have only one varchar type column
+     */
+    protected String tableDefinitionForAddingNotNullColumnToNonEmptyTable()
+    {
+        return "(a_varchar varchar)";
     }
 
     protected boolean columnIsNullable(String tableName, String columnName)
