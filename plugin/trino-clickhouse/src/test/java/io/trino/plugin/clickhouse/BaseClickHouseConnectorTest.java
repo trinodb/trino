@@ -164,8 +164,12 @@ public abstract class BaseClickHouseConnectorTest
         String tableName = "test_drop_column_" + randomNameSuffix();
 
         // only MergeTree engine table can drop column
-        assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])");
+        assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
         assertUpdate("INSERT INTO " + tableName + "(x,y,a) SELECT 123, 456, 111", 1);
+
+        // the columns are referenced by order_by/partition_by property can not be dropped
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a'.*");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
@@ -177,12 +181,6 @@ public abstract class BaseClickHouseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN notExistColumn");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-
-        // the columns are referenced by order_by/order_by property can not be dropped
-        assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH " +
-                "(engine = 'MergeTree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x'.*");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a'.*");
     }
 
     @Override
