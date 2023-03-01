@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
@@ -38,6 +39,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
@@ -434,10 +436,10 @@ public abstract class BaseBigQueryConnectorTest
 
             // Use assertEventually because there's delay until new row access policies become effective
             onBigQuery("CREATE ROW ACCESS POLICY " + policyName + " ON " + table.getName() + " FILTER USING (true)");
-            assertEventually(() -> assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName()));
+            assertEventually(new Duration(1, MINUTES), () -> assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName()));
 
             onBigQuery("DROP ALL ROW ACCESS POLICIES ON " + table.getName());
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
         }
     }
 
@@ -450,10 +452,10 @@ public abstract class BaseBigQueryConnectorTest
 
             // Use assertEventually because there's delay until new row access policies become effective
             onBigQuery("CREATE ROW ACCESS POLICY " + policyName + " ON " + table.getName() + " GRANT TO (\"allAuthenticatedUsers\") FILTER USING (col = 1)");
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
 
             onBigQuery("DROP ALL ROW ACCESS POLICIES ON " + table.getName());
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)"));
         }
     }
 
