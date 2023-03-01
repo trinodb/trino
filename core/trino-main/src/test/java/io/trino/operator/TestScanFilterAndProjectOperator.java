@@ -15,7 +15,9 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.FeaturesConfig;
 import io.trino.SequencePageBuilder;
+import io.trino.Session;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalFunctionBundle;
@@ -26,7 +28,7 @@ import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.TestPageProcessor.LazyPagePageProjection;
 import io.trino.operator.project.TestPageProcessor.SelectAllFilter;
-import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.FunctionAssertions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
@@ -42,6 +44,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingSplit;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -51,6 +54,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -77,14 +81,25 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestScanFilterAndProjectOperator
-        extends AbstractTestFunctions
 {
+    private final Session session = TEST_SESSION;
+
+    private FunctionAssertions functionAssertions;
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
+
+    @BeforeClass
+    public final void initTestFunctions()
+    {
+        functionAssertions = new FunctionAssertions(session, new FeaturesConfig());
+    }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        closeAllRuntimeException(functionAssertions);
+        functionAssertions = null;
+
         executor.shutdownNow();
         executor = null;
         scheduledExecutor.shutdownNow();
