@@ -22,9 +22,11 @@ import com.google.common.collect.SetMultimap;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.cost.CachingStatsProvider;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.GroupingProperty;
@@ -102,6 +104,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.ignoreDownStreamPreferences;
 import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
@@ -137,12 +140,14 @@ public class AddExchanges
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
     private final StatsCalculator statsCalculator;
+    private final TaskCountEstimator taskCountEstimator;
 
-    public AddExchanges(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, StatsCalculator statsCalculator)
+    public AddExchanges(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, StatsCalculator statsCalculator, TaskCountEstimator taskCountEstimator)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
     }
 
     @Override
@@ -155,6 +160,9 @@ public class AddExchanges
     private class Rewriter
             extends PlanVisitor<PlanWithProperties, PreferredProperties>
     {
+        // using parent partitioning may limit parallelism if the estimate of NDV is wrong or partitions are skewed.
+        // this constant should be small enough to cover as many cases as possible but also big enough to provide some buffer for the above issues.
+        private static final int PREFER_PARENT_PARTITIONING_MIN_PARTITIONS_PER_DRIVER_MULTIPLIER = 128;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
         private final TypeProvider types;
@@ -249,11 +257,66 @@ public class AddExchanges
             }
             else if ((!isStreamPartitionedOn(child.getProperties(), partitioningRequirement) && !isNodePartitionedOn(child.getProperties(), partitioningRequirement)) ||
                     node.hasEmptyGroupingSet()) {
+                List<Symbol> partitioningKeys = parentPreferredProperties.getGlobalProperties()
+                        .flatMap(PreferredProperties.Global::getPartitioningProperties)
+                        .map(PreferredProperties.PartitioningProperties::getPartitioningColumns)
+                        .flatMap(partitioningColumns -> useParentPreferredPartitioning(node, partitioningColumns))
+                        .orElse(node.getGroupingKeys());
                 child = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), node.getGroupingKeys(), node.getHashSymbol()),
+                        partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), partitioningKeys, node.getHashSymbol()),
                         child.getProperties());
             }
             return rebaseAndDeriveProperties(node, child);
+        }
+
+        /**
+         * For cases where parent prefers to be partitioned by a subset of the current node {@link AggregationNode#getGroupingKeys()},
+         * and the preferred partitioning columns have enough distinct values to provide good parallelism, we want to partition
+         * just by parent preferred partitioning columns to avoid another data shuffle required by the parent.
+         */
+        private Optional<List<Symbol>> useParentPreferredPartitioning(AggregationNode node, Set<Symbol> parentPreferredPartitioningColumns)
+        {
+            if (isUseExactPartitioning(session)) {
+                return Optional.empty();
+            }
+            if (parentPreferredPartitioningColumns.isEmpty()) {
+                return Optional.empty();
+            }
+            if (!ImmutableSet.copyOf(node.getGroupingKeys()).containsAll(parentPreferredPartitioningColumns)) {
+                // parent wants to be partitioned by at least one different column
+                return Optional.empty();
+            }
+            double parentPartitioningNDV = getMinDistinctValueCountEstimate(statsProvider.getStats(node), parentPreferredPartitioningColumns);
+            if (Double.isNaN(parentPartitioningNDV)) {
+                // unknown estimate, fallback to partitioning by all grouping keys
+                return Optional.empty();
+            }
+            int maxConcurrentPartitionsCount = taskCountEstimator.estimateHashedTaskCount(session) * getTaskConcurrency(session);
+
+            if (parentPartitioningNDV <= PREFER_PARENT_PARTITIONING_MIN_PARTITIONS_PER_DRIVER_MULTIPLIER * maxConcurrentPartitionsCount) {
+                // small parentPartitioningNDV reduces the parallelism, also because the partitioning may be skewed.
+                // This makes query to underutilize the cluster CPU but also to possibly concentrate memory on few nodes.
+                // Fallback to partitioning by all grouping keys to increase the chance of higher parallelism.
+                return Optional.empty();
+            }
+            List<Symbol> newGroupingKeys = ImmutableList.copyOf(parentPreferredPartitioningColumns);
+            return Optional.of(newGroupingKeys);
+        }
+
+        private static double getMinDistinctValueCountEstimate(PlanNodeStatsEstimate nodeStatsEstimate, Set<Symbol> groupingKeys)
+        {
+            double min = Double.NaN;
+            for (Symbol groupingKey : groupingKeys) {
+                double distinctValuesCount = nodeStatsEstimate.getSymbolStatistics(groupingKey).getDistinctValuesCount();
+                if (Double.isNaN(distinctValuesCount)) {
+                    return Double.NaN;
+                }
+                if (Double.isNaN(min) || distinctValuesCount < min) {
+                    min = distinctValuesCount;
+                }
+            }
+
+            return min;
         }
 
         @Override
