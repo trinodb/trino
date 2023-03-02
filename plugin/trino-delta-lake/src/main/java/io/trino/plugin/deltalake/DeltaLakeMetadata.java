@@ -1873,7 +1873,7 @@ public class DeltaLakeMetadata
         Optional<MetadataEntry> metadataEntry = Optional.empty();
         if (properties.containsKey(CHANGE_DATA_FEED_ENABLED_PROPERTY)) {
             boolean changeDataFeedEnabled = (Boolean) properties.get(CHANGE_DATA_FEED_ENABLED_PROPERTY)
-                    .orElseThrow(() -> new IllegalArgumentException("The change_data_feed_enabled  property cannot be empty"));
+                    .orElseThrow(() -> new IllegalArgumentException("The change_data_feed_enabled property cannot be empty"));
             if (changeDataFeedEnabled) {
                 requiredWriterVersion = max(requiredWriterVersion, CDF_SUPPORTED_WRITER_VERSION);
             }
