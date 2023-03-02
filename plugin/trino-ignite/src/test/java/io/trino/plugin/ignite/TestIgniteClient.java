@@ -93,7 +93,7 @@ public class TestIgniteClient
         testImplementAggregation(
                 new AggregateFunction("count", BIGINT, List.of(bigintVariable), List.of(), true, Optional.empty()),
                 Map.of(bigintVariable.getName(), BIGINT_COLUMN),
-                Optional.empty());
+                Optional.of("count(DISTINCT `c_bigint`)"));
 
         // count() FILTER (WHERE ...)
         testImplementAggregation(
