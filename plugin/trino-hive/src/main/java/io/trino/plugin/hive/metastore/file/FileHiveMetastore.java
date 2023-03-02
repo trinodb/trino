@@ -761,6 +761,34 @@ public class FileHiveMetastore
         });
     }
 
+    @Override
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        alterTable(databaseName, tableName, oldTable -> {
+            if (oldTable.getColumn(columnName).isEmpty()) {
+                SchemaTableName name = new SchemaTableName(databaseName, tableName);
+                throw new ColumnNotFoundException(name, columnName);
+            }
+            for (Column column : oldTable.getPartitionColumns()) {
+                if (column.getName().equals(columnName)) {
+                    throw new TrinoException(NOT_SUPPORTED, "Changing partition column types is not supported");
+                }
+            }
+
+            ImmutableList.Builder<Column> newDataColumns = ImmutableList.builderWithExpectedSize(oldTable.getDataColumns().size());
+            for (Column fieldSchema : oldTable.getDataColumns()) {
+                if (fieldSchema.getName().equals(columnName)) {
+                    newDataColumns.add(new Column(fieldSchema.getName(), columnType, fieldSchema.getComment()));
+                }
+                else {
+                    newDataColumns.add(fieldSchema);
+                }
+            }
+
+            return oldTable.withDataColumns(currentVersion, newDataColumns.build());
+        });
+    }
+
     private void alterTable(String databaseName, String tableName, Function<TableMetadata, TableMetadata> alterFunction)
     {
         requireNonNull(databaseName, "databaseName is null");

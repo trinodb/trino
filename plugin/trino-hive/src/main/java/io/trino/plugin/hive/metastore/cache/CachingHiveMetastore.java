@@ -765,6 +765,17 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        try {
+            delegate.setColumnType(databaseName, tableName, columnName, columnType);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
     public void invalidateTable(String databaseName, String tableName)
     {
         invalidateTableCache(databaseName, tableName);

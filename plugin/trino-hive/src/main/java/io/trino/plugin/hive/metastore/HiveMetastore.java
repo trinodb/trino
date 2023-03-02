@@ -99,6 +99,8 @@ public interface HiveMetastore
 
     void dropColumn(String databaseName, String tableName, String columnName);
 
+    void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType);
+
     Optional<Partition> getPartition(Table table, List<String> partitionValues);
 
     /**

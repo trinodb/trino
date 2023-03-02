@@ -314,6 +314,22 @@ public class BridgingHiveMetastore
         alterTable(databaseName, tableName, table);
     }
 
+    @Override
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        io.trino.hive.thrift.metastore.Table table = delegate.getTable(databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        if (table.getPartitionKeys().stream().anyMatch(column -> column.getName().equals(columnName))) {
+            throw new TrinoException(NOT_SUPPORTED, "Changing partition column types is not supported");
+        }
+        for (FieldSchema fieldSchema : table.getSd().getCols()) {
+            if (fieldSchema.getName().equals(columnName)) {
+                fieldSchema.setType(columnType.getHiveTypeName().toString());
+            }
+        }
+        alterTable(databaseName, tableName, table);
+    }
+
     private void alterTable(String databaseName, String tableName, io.trino.hive.thrift.metastore.Table table)
     {
         delegate.alterTable(databaseName, tableName, table);

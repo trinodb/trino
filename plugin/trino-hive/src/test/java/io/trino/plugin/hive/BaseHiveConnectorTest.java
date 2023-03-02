@@ -4961,6 +4961,46 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testUnsupportedSetPartitionColumnType()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_unsupported_set_partition_column_type_",
+                "WITH(partitioned_by = ARRAY['part']) AS SELECT 1 AS id, 2 AS part")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " ALTER COLUMN part SET DATA TYPE bigint",
+                    "Changing partition column types is not supported");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 2)");
+        }
+    }
+
+    @Override
+    protected void verifySetColumnTypeFailurePermissible(Throwable e)
+    {
+        assertThat(e).hasMessageContaining("Cannot change type");
+    }
+
+    @Override
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "timestamp(3) -> timestamp(6)":
+                // TODO: Support changing timestamp type
+            case "bigint -> integer":
+            case "decimal(5,3) -> decimal(5,2)":
+                // Changing to small types is disallowed in the connector because it may lead to query failures
+                return Optional.of(setup.asUnsupported());
+            case "char(20) -> varchar":
+                // Char values are stored with trailing spaces trimmed, so after the conversion the varchar values don't have them.
+                return Optional.of(setup.withNewValueLiteral("rtrim(%s)".formatted(setup.newValueLiteral())));
+            case "timestamp(6) -> timestamp(3)":
+                // Creating timestamp(6) column throws 'Incorrect timestamp precision for timestamp(6); the configured precision is MILLISECONDS'
+                return Optional.empty();
+        }
+        return Optional.of(setup);
+    }
+
+    @Test
     public void testAvroTypeValidation()
     {
         assertQueryFails("CREATE TABLE test_avro_types (x map(bigint, bigint)) WITH (format = 'AVRO')", "Column 'x' has a non-varchar map key, which is not supported by Avro");

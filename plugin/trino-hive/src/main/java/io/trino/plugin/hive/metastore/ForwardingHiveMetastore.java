@@ -224,6 +224,12 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        delegate.setColumnType(databaseName, tableName, columnName, columnType);
+    }
+
+    @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
         return delegate.getPartition(table, partitionValues);

@@ -242,6 +242,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        verifyRecordingMode();
+        delegate.setColumnType(databaseName, tableName, columnName, columnType);
+    }
+
+    @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
         return recording.getPartition(

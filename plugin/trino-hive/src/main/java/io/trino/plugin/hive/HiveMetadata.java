@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -119,11 +120,14 @@ import io.trino.spi.statistics.TableStatisticType;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
 import org.apache.hadoop.fs.FileSystem;
@@ -326,6 +330,11 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.parseBoolean;
@@ -1343,6 +1352,79 @@ public class HiveMetadata
         HiveColumnHandle columnHandle = (HiveColumnHandle) column;
 
         metastore.dropColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), columnHandle.getName());
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, Type type)
+    {
+        HiveTableHandle table = (HiveTableHandle) tableHandle;
+        failIfAvroSchemaIsSet(table);
+        HiveColumnHandle column = (HiveColumnHandle) columnHandle;
+
+        table.getPartitionNames().ifPresent(partitionNames -> {
+            if (partitionNames.contains(column.getName())) {
+                throw new TrinoException(NOT_SUPPORTED, "Changing partition column types is not supported");
+            }
+        });
+        if (!canChangeColumnType(column.getType(), type)) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot change type from %s to %s".formatted(column.getType(), type));
+        }
+        metastore.setColumnType(table.getSchemaName(), table.getTableName(), column.getName(), toHiveType(type));
+    }
+
+    private static boolean canChangeColumnType(Type sourceType, Type targetType)
+    {
+        if (sourceType.equals(targetType)) {
+            return true;
+        }
+        if (sourceType == TINYINT) {
+            return targetType == SMALLINT || targetType == INTEGER || targetType == BIGINT;
+        }
+        if (sourceType == SMALLINT) {
+            return targetType == INTEGER || targetType == BIGINT;
+        }
+        if (sourceType == INTEGER) {
+            return targetType == BIGINT;
+        }
+        if (sourceType == REAL) {
+            return targetType == DOUBLE;
+        }
+        if (sourceType instanceof VarcharType || sourceType instanceof CharType) {
+            return targetType instanceof VarcharType || targetType instanceof CharType;
+        }
+        if (sourceType instanceof DecimalType sourceDecimal && targetType instanceof DecimalType targetDecimal) {
+            // TODO: Support rescale in ORC DecimalColumnReader
+            return sourceDecimal.getScale() == targetDecimal.getScale()
+                    && sourceDecimal.getPrecision() <= targetDecimal.getPrecision();
+        }
+        if (sourceType instanceof ArrayType sourceArrayType && targetType instanceof ArrayType targetArrayType) {
+            return canChangeColumnType(sourceArrayType.getElementType(), targetArrayType.getElementType());
+        }
+        if (sourceType instanceof RowType sourceRowType && targetType instanceof RowType targetRowType) {
+            List<RowType.Field> fields = Streams.concat(sourceRowType.getFields().stream(), targetRowType.getFields().stream())
+                    .distinct()
+                    .collect(toImmutableList());
+            for (RowType.Field field : fields) {
+                String fieldName = field.getName().orElseThrow();
+                boolean allowedChange = findFieldByName(sourceRowType.getFields(), fieldName)
+                        .flatMap(sourceField -> findFieldByName(targetRowType.getFields(), fieldName)
+                                .map(targetField -> canChangeColumnType(sourceField.getType(), targetField.getType())))
+                        // Allow removal and addition of fields
+                        .orElse(true);
+                if (!allowedChange) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private static Optional<RowType.Field> findFieldByName(List<RowType.Field> fields, String fieldName)
+    {
+        return fields.stream()
+                .filter(field -> field.getName().orElseThrow().equals(fieldName))
+                .findAny();
     }
 
     @Override

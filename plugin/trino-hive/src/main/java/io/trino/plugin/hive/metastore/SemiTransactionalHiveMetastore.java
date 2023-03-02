@@ -656,6 +656,11 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.dropColumn(databaseName, tableName, columnName));
     }
 
+    public synchronized void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.setColumnType(databaseName, tableName, columnName, columnType));
+    }
+
     public synchronized void finishChangingExistingTable(
             AcidOperation acidOperation,
             ConnectorSession session,

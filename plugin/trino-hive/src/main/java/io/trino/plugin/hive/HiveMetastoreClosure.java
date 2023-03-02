@@ -205,6 +205,11 @@ public class HiveMetastoreClosure
         delegate.dropColumn(databaseName, tableName, columnName);
     }
 
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        delegate.setColumnType(databaseName, tableName, columnName, columnType);
+    }
+
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
         return delegate.getTable(databaseName, tableName)

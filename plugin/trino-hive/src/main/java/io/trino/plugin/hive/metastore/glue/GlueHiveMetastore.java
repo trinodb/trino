@@ -778,6 +778,30 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        Table oldTable = getExistingTable(databaseName, tableName);
+        if (oldTable.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
+            throw new TrinoException(NOT_SUPPORTED, "Changing partition column types is not supported");
+        }
+
+        ImmutableList.Builder<Column> newDataColumns = ImmutableList.builderWithExpectedSize(oldTable.getDataColumns().size());
+        for (Column column : oldTable.getDataColumns()) {
+            if (column.getName().equals(columnName)) {
+                newDataColumns.add(new Column(column.getName(), columnType, column.getComment()));
+            }
+            else {
+                newDataColumns.add(column);
+            }
+        }
+
+        Table newTable = Table.builder(oldTable)
+                .setDataColumns(newDataColumns.build())
+                .build();
+        replaceTable(databaseName, tableName, newTable, null);
+    }
+
+    @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
         try {

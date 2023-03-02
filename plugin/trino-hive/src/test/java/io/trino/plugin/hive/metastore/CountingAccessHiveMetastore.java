@@ -197,6 +197,12 @@ public class CountingAccessHiveMetastore
     }
 
     @Override
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
         throw new UnsupportedOperationException();

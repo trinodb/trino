@@ -920,6 +920,16 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * Bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
+ALTER TABLE
+"""""""""""
+
+.. _hive-set-column-type:
+
+The connector supports changing column types with
+``ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type``.
+
+The column change command will only modify Hive's metadata, and will not modify data.
+
 .. _hive-alter-table-execute:
 
 ALTER TABLE EXECUTE

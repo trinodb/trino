@@ -337,6 +337,12 @@ public class AlluxioHiveMetastore
     }
 
     @Override
+    public void setColumnType(String databaseName, String tableName, String columnName, HiveType columnType)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "setColumnType");
+    }
+
+    @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
         throw new TrinoException(NOT_SUPPORTED, "getPartition");
