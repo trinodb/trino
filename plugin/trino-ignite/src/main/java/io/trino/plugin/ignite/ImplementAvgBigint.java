@@ -13,53 +13,14 @@
  */
 package io.trino.plugin.ignite;
 
-import io.trino.matching.Capture;
-import io.trino.matching.Captures;
-import io.trino.matching.Pattern;
-import io.trino.plugin.base.aggregation.AggregateFunctionRule;
-import io.trino.plugin.jdbc.JdbcExpression;
-import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.spi.connector.AggregateFunction;
-import io.trino.spi.expression.Variable;
-
-import java.sql.Types;
-import java.util.Optional;
-
-import static com.google.common.base.Verify.verify;
-import static io.trino.matching.Capture.newCapture;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.functionName;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.singleArgument;
-import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.variable;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static java.lang.String.format;
+import io.trino.plugin.jdbc.aggregation.BaseImplementAvgBigint;
 
 public class ImplementAvgBigint
-        implements AggregateFunctionRule<JdbcExpression, String>
+        extends BaseImplementAvgBigint
 {
-    private static final Capture<Variable> ARGUMENT = newCapture();
-
     @Override
-    public Pattern<AggregateFunction> getPattern()
+    protected String getRewriteFormatExpression()
     {
-        return basicAggregation()
-                .with(functionName().equalTo("avg"))
-                .with(singleArgument().matching(
-                        variable()
-                                .with(expressionType().matching(type -> type == BIGINT))
-                                .capturedAs(ARGUMENT)));
-    }
-
-    @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
-    {
-        Variable argument = captures.get(ARGUMENT);
-        verify(aggregateFunction.getOutputType() == DOUBLE);
-
-        return Optional.of(new JdbcExpression(
-                format("avg((%s * 1.0))", context.rewriteExpression(argument).orElseThrow()),
-                new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())));
+        return "avg((%s * 1.0))";
     }
 }
