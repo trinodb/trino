@@ -2366,7 +2366,7 @@ public abstract class BaseConnectorTest
 
         TestTable table;
         try {
-            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col");
+            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", setup.tableProperty.orElse("") + " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col");
         }
         catch (Exception e) {
             verifyUnsupportedTypeException(e, setup.sourceColumnType);
@@ -2402,7 +2402,7 @@ public abstract class BaseConnectorTest
         return Optional.of(setup);
     }
 
-    private List<SetColumnTypeSetup> setColumnTypeSetupData()
+    protected List<SetColumnTypeSetup> setColumnTypeSetupData()
     {
         return ImmutableList.<SetColumnTypeSetup>builder()
                 .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"))
@@ -2443,7 +2443,7 @@ public abstract class BaseConnectorTest
                 .build();
     }
 
-    public record SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral, boolean unsupportedType)
+    public record SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral, boolean unsupportedType, Optional<String> tableProperty)
     {
         public SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType)
         {
@@ -2452,7 +2452,7 @@ public abstract class BaseConnectorTest
 
         public SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral)
         {
-            this(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, false);
+            this(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, false, Optional.empty());
         }
 
         public SetColumnTypeSetup
@@ -2461,17 +2461,23 @@ public abstract class BaseConnectorTest
             requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
             requireNonNull(newColumnType, "newColumnType is null");
             requireNonNull(newValueLiteral, "newValueLiteral is null");
+            requireNonNull(tableProperty, "tableProperty is null");
         }
 
         public SetColumnTypeSetup withNewValueLiteral(String newValueLiteral)
         {
             checkState(!unsupportedType);
-            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType, tableProperty);
+        }
+
+        public SetColumnTypeSetup withTableProperty(String tableProperty)
+        {
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType, Optional.of("WITH (%s)".formatted(tableProperty)));
         }
 
         public SetColumnTypeSetup asUnsupported()
         {
-            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, true);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, true, tableProperty);
         }
     }
 

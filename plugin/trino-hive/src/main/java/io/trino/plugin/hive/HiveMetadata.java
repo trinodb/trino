@@ -1361,6 +1361,12 @@ public class HiveMetadata
         failIfAvroSchemaIsSet(table);
         HiveColumnHandle column = (HiveColumnHandle) columnHandle;
 
+        HiveStorageFormat storageFormat = extractHiveStorageFormat(metastore.getTable(table.getSchemaName(), table.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName())));
+        if (storageFormat != HiveStorageFormat.ORC && storageFormat != HiveStorageFormat.PARQUET) {
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported storage format for changing column type: " + storageFormat);
+        }
+
         table.getPartitionNames().ifPresent(partitionNames -> {
             if (partitionNames.contains(column.getName())) {
                 throw new TrinoException(NOT_SUPPORTED, "Changing partition column types is not supported");

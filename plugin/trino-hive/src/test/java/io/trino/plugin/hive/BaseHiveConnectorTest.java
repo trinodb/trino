@@ -236,7 +236,6 @@ public abstract class BaseHiveConnectorTest
                 return true;
 
             case SUPPORTS_DROP_FIELD:
-            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_CREATE_VIEW:
@@ -4977,13 +4976,49 @@ public abstract class BaseHiveConnectorTest
     @Override
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageContaining("Cannot change type");
+        assertThat(e)
+                .hasMessageMatching(".*(Cannot change type|Unsupported storage format for changing column type).*");
+    }
+
+    @Override
+    protected List<SetColumnTypeSetup> setColumnTypeSetupData()
+    {
+        ImmutableList.Builder<SetColumnTypeSetup> setup = ImmutableList.builder();
+        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            if (storageFormat == REGEX) {
+                // REGEX format is read-only
+                continue;
+            }
+            setup.addAll(super.setColumnTypeSetupData().stream()
+                    .map(data -> data.withTableProperty("format = '%s'".formatted(storageFormat)))
+                    .collect(toImmutableList()));
+        }
+        return setup.build();
     }
 
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+        String tableProperty = setup.tableProperty().orElseThrow();
+        String columnMapping = "%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType());
+
+        if (columnMapping.equals("timestamp(6) -> timestamp(3)")) {
+            // Creating timestamp(6) column throws 'Incorrect timestamp precision for timestamp(6); the configured precision is MILLISECONDS'
+            return Optional.empty();
+        }
+
+        switch (tableProperty) {
+            case "WITH (format = 'AVRO')":
+            case "WITH (format = 'RCBINARY')":
+            case "WITH (format = 'RCTEXT')":
+            case "WITH (format = 'SEQUENCEFILE')":
+            case "WITH (format = 'JSON')":
+            case "WITH (format = 'TEXTFILE')":
+            case "WITH (format = 'CSV')":
+                return Optional.of(setup.asUnsupported());
+        }
+
+        switch (columnMapping) {
             case "timestamp(3) -> timestamp(6)":
                 // TODO: Support changing timestamp type
             case "bigint -> integer":
@@ -4993,9 +5028,11 @@ public abstract class BaseHiveConnectorTest
             case "char(20) -> varchar":
                 // Char values are stored with trailing spaces trimmed, so after the conversion the varchar values don't have them.
                 return Optional.of(setup.withNewValueLiteral("rtrim(%s)".formatted(setup.newValueLiteral())));
-            case "timestamp(6) -> timestamp(3)":
-                // Creating timestamp(6) column throws 'Incorrect timestamp precision for timestamp(6); the configured precision is MILLISECONDS'
-                return Optional.empty();
+            case "row(x integer) -> row(y integer)":
+                if (tableProperty.equals("WITH (format = 'PARQUET')")) {
+                    // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
+                    return Optional.of(setup.withNewValueLiteral("NULL"));
+                }
         }
         return Optional.of(setup);
     }
