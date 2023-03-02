@@ -247,6 +247,12 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
+                                    <code>java.method.exception.checkedRemoved</code>
+                                    <old>method void io.airlift.slice.SliceOutput::write(byte[]) throws java.io.IOException</old>
+                                    <new>method void io.airlift.slice.SliceOutput::write(byte[])</new>
+                                    <exception>java.io.IOException</exception>
+                                </item>
+                                <item>
                                     <ignore>true</ignore>
                                     <code>java.field.visibilityReduced</code>
                                     <old>field io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor&lt;T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;&gt;.records</old>
