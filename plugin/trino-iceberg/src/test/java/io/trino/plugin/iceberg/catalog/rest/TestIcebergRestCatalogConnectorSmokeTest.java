@@ -183,6 +183,13 @@ public class TestIcebergRestCatalogConnectorSmokeTest
     }
 
     @Override
+    public void testRegisterTableWithTrailingSpaceInLocation()
+    {
+        assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
+                .hasMessageContaining("registerTable is not supported for Iceberg REST catalog");
+    }
+
+    @Override
     public void testUnregisterTable()
     {
         assertThatThrownBy(super::testUnregisterTable)
