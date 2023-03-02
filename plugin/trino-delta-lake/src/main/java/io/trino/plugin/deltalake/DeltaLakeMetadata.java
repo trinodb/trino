@@ -768,7 +768,7 @@ public class DeltaLakeMetadata
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Unable to access file system for: " + location, e);
         }
 
-        Table table = buildTable(session, schemaTableName, location, targetPath, external);
+        Table table = buildTable(session, schemaTableName, location, external);
 
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
         metastore.createTable(
@@ -777,7 +777,7 @@ public class DeltaLakeMetadata
                 principalPrivileges);
     }
 
-    public static Table buildTable(ConnectorSession session, SchemaTableName schemaTableName, String location, Path targetPath, boolean isExternal)
+    public static Table buildTable(ConnectorSession session, SchemaTableName schemaTableName, String location, boolean isExternal)
     {
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(schemaTableName.getSchemaName())
@@ -787,7 +787,7 @@ public class DeltaLakeMetadata
                 .setDataColumns(DUMMY_DATA_COLUMNS)
                 .setParameters(deltaTableProperties(session, location, isExternal));
 
-        setDeltaStorageFormat(tableBuilder, location, targetPath);
+        setDeltaStorageFormat(tableBuilder, location);
         return tableBuilder.build();
     }
 
@@ -810,13 +810,13 @@ public class DeltaLakeMetadata
         return properties.buildOrThrow();
     }
 
-    private static void setDeltaStorageFormat(Table.Builder tableBuilder, String location, Path targetPath)
+    private static void setDeltaStorageFormat(Table.Builder tableBuilder, String location)
     {
         tableBuilder.getStorageBuilder()
                 // this mimics what Databricks is doing when creating a Delta table in the Hive metastore
                 .setStorageFormat(DELTA_STORAGE_FORMAT)
                 .setSerdeParameters(ImmutableMap.of(PATH_PROPERTY, location))
-                .setLocation(targetPath.toString());
+                .setLocation(location);
     }
 
     private Path getExternalPath(HdfsContext context, String location)
@@ -964,7 +964,7 @@ public class DeltaLakeMetadata
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
 
-        Table table = buildTable(session, schemaTableName(schemaName, tableName), location, getExternalPath(new HdfsContext(session), location), handle.isExternal());
+        Table table = buildTable(session, schemaTableName(schemaName, tableName), getExternalPath(new HdfsContext(session), location).toString(), handle.isExternal());
         // Ensure the table has queryId set. This is relied on for exception handling
         String queryId = session.getQueryId();
         verify(
