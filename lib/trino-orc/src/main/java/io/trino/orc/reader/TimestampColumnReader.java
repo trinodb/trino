@@ -31,7 +31,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -43,6 +42,7 @@ import java.time.ZonedDateTime;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.trino.orc.metadata.Stream.StreamKind.SECONDARY;
@@ -100,7 +100,7 @@ public class TimestampColumnReader
 
     private static final long BASE_INSTANT_IN_SECONDS = ORC_EPOCH.toEpochSecond(ZoneOffset.UTC);
 
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TimestampColumnReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TimestampColumnReader.class);
 
     private final Type type;
     private final OrcColumn column;

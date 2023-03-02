@@ -20,13 +20,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.operator.output.PositionsAppenderUtil.MAX_ARRAY_SIZE;
@@ -40,7 +40,7 @@ public class SlicePositionsAppender
         implements PositionsAppender
 {
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SlicePositionsAppender.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SlicePositionsAppender.class);
     private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(1, EMPTY_SLICE, new int[] {0, 0}, Optional.of(new boolean[] {true}));
 
     private boolean initialized;

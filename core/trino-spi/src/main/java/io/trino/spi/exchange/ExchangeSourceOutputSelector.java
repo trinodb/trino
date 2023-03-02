@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.EXCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.UNKNOWN;
@@ -37,7 +37,7 @@ import static java.util.stream.Collectors.toUnmodifiableMap;
 
 public class ExchangeSourceOutputSelector
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ExchangeSourceOutputSelector.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(ExchangeSourceOutputSelector.class);
 
     private final int version;
     private final Map<ExchangeId, Slice> values;

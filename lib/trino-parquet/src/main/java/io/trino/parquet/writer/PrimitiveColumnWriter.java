@@ -31,7 +31,6 @@ import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.PageEncodingStats;
 import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -47,6 +46,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.parquet.writer.ParquetCompressor.getCompressor;
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static io.trino.parquet.writer.repdef.DefLevelWriterProvider.DefinitionLevelWriter;
@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class PrimitiveColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PrimitiveColumnWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PrimitiveColumnWriter.class);
 
     private final ColumnDescriptor columnDescriptor;
     private final CompressionCodec compressionCodec;

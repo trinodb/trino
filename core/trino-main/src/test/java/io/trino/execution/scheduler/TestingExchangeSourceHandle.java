@@ -14,16 +14,16 @@
 package io.trino.execution.scheduler;
 
 import io.trino.spi.exchange.ExchangeSourceHandle;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class TestingExchangeSourceHandle
         implements ExchangeSourceHandle
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TestingExchangeSourceHandle.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(TestingExchangeSourceHandle.class);
 
     private final int id;
     private final int partitionId;

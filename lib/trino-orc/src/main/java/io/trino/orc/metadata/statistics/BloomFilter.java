@@ -17,14 +17,13 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.ByteArrays;
 import io.airlift.slice.Slice;
 import io.airlift.slice.UnsafeSlice;
-import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Double.doubleToLongBits;
-import static java.lang.Math.toIntExact;
 
 /**
  * BloomFilter is a probabilistic data structure for set membership check. BloomFilters are
@@ -49,7 +48,7 @@ import static java.lang.Math.toIntExact;
 public class BloomFilter
         implements StatisticsHasher.Hashable
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BloomFilter.class).instanceSize() + ClassLayout.parseClass(BitSet.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BloomFilter.class) + instanceSize(BitSet.class);
 
     // from 64-bit linear congruential generator
     private static final long NULL_HASHCODE = 2862933555777941757L;

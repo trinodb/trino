@@ -15,19 +15,18 @@ package io.trino.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.function.Function;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
-import static java.lang.Math.toIntExact;
 
 public final class SplitWeight
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SplitWeight.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SplitWeight.class);
 
     private static final long UNIT_VALUE = 100;
     private static final int UNIT_SCALE = 2; // Decimal scale such that (10 ^ UNIT_SCALE) == UNIT_VALUE

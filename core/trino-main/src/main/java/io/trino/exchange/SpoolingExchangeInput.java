@@ -18,21 +18,20 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceOutputSelector;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SpoolingExchangeInput
         implements ExchangeInput
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SpoolingExchangeInput.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SpoolingExchangeInput.class);
 
     private final List<ExchangeSourceHandle> exchangeSourceHandles;
     private final Optional<ExchangeSourceOutputSelector> outputSelector;

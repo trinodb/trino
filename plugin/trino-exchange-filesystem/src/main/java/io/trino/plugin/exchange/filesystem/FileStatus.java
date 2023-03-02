@@ -15,7 +15,6 @@ package io.trino.plugin.exchange.filesystem;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -23,13 +22,13 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class FileStatus
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FileStatus.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(FileStatus.class);
 
     private final String filePath;
     private final long fileSize;

@@ -28,7 +28,6 @@ import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,6 +36,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.hive.formats.ReadWriteUtils.findFirstSyncPosition;
@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 public final class SequenceFileReader
         implements LineReader
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SequenceFileReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SequenceFileReader.class);
 
     private static final Slice SEQUENCE_FILE_MAGIC = utf8Slice("SEQ");
     private static final byte SEQUENCE_FILE_VERSION = 6;
@@ -279,7 +279,7 @@ public final class SequenceFileReader
     private static class SingleValueReader
             implements ValueReader
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleValueReader.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SingleValueReader.class);
 
         private final String location;
         private final long fileSize;
@@ -392,7 +392,7 @@ public final class SequenceFileReader
     private static class BlockCompressedValueReader
             implements ValueReader
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BlockCompressedValueReader.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(BlockCompressedValueReader.class);
 
         private final String location;
         private final long fileSize;
@@ -499,7 +499,7 @@ public final class SequenceFileReader
 
         private static class ValuesBlock
         {
-            private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ValuesBlock.class).instanceSize());
+            private static final int INSTANCE_SIZE = instanceSize(ValuesBlock.class);
 
             public static final ValuesBlock EMPTY_VALUES_BLOCK = new ValuesBlock(0, EMPTY_SLICE.getInput(), EMPTY_SLICE.getInput());
 
@@ -544,7 +544,7 @@ public final class SequenceFileReader
 
     private static class ReadBuffer
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ReadBuffer.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ReadBuffer.class);
 
         private final DataSeekableInputStream input;
         private final ValueDecompressor decompressor;

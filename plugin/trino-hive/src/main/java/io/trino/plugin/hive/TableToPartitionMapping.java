@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +24,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -41,9 +41,9 @@ public class TableToPartitionMapping
     }
 
     // Overhead of ImmutableMap is not accounted because of its complexity.
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TableToPartitionMapping.class).instanceSize());
-    private static final int INTEGER_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Integer.class).instanceSize());
-    private static final int OPTIONAL_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Optional.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TableToPartitionMapping.class);
+    private static final int INTEGER_INSTANCE_SIZE = instanceSize(Integer.class);
+    private static final int OPTIONAL_INSTANCE_SIZE = instanceSize(Optional.class);
 
     private final Optional<Map<Integer, Integer>> tableToPartitionColumns;
     private final Map<Integer, HiveTypeName> partitionColumnCoercions;

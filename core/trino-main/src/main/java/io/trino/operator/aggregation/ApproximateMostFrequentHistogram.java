@@ -21,12 +21,12 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -40,10 +40,10 @@ import static java.util.Objects.requireNonNull;
 public class ApproximateMostFrequentHistogram<K>
 {
     private static final byte FORMAT_TAG = 0;
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ApproximateMostFrequentHistogram.class).instanceSize());
-    private static final int STREAM_SUMMARY_SIZE = toIntExact(ClassLayout.parseClass(StreamSummary.class).instanceSize());
-    private static final int LIST_NODE2_SIZE = toIntExact(ClassLayout.parseClass(ListNode2.class).instanceSize());
-    private static final int COUNTER_SIZE = toIntExact(ClassLayout.parseClass(Counter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ApproximateMostFrequentHistogram.class);
+    private static final int STREAM_SUMMARY_SIZE = instanceSize(StreamSummary.class);
+    private static final int LIST_NODE2_SIZE = instanceSize(ListNode2.class);
+    private static final int COUNTER_SIZE = instanceSize(Counter.class);
 
     private final StreamSummary<K> streamSummary;
     private final int maxBuckets;

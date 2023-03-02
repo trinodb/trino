@@ -24,21 +24,20 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class LineFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LineFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LineFileWriter.class);
 
     private final LineWriter lineWriter;
     private final LineSerializer serializer;

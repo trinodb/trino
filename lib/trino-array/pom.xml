@@ -32,11 +32,6 @@
             <artifactId>fastutil</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +30,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
@@ -38,7 +38,7 @@ import static java.lang.Math.toIntExact;
 public final class ChunkedSliceOutput
         extends SliceOutput
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ChunkedSliceOutput.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ChunkedSliceOutput.class);
     private static final int MINIMUM_CHUNK_SIZE = 4096;
     private static final int MAXIMUM_CHUNK_SIZE = 16 * 1024 * 1024;
     // This must not be larger than MINIMUM_CHUNK_SIZE/2

@@ -17,19 +17,18 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.slice.SizeOf;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcTypeHandle
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(JdbcTypeHandle.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(JdbcTypeHandle.class);
 
     private final int jdbcType;
     private final Optional<String> jdbcTypeName;

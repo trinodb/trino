@@ -16,9 +16,8 @@ package io.trino.operator.aggregation.state;
 import io.trino.array.LongBigArray;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
-import org.openjdk.jol.info.ClassLayout;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class LongDecimalWithOverflowAndLongStateFactory
         implements AccumulatorStateFactory<LongDecimalWithOverflowAndLongState>
@@ -39,7 +38,7 @@ public class LongDecimalWithOverflowAndLongStateFactory
             extends LongDecimalWithOverflowStateFactory.GroupedLongDecimalWithOverflowState
             implements LongDecimalWithOverflowAndLongState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedLongDecimalWithOverflowAndLongState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(GroupedLongDecimalWithOverflowAndLongState.class);
         private final LongBigArray longs = new LongBigArray();
 
         @Override
@@ -78,7 +77,7 @@ public class LongDecimalWithOverflowAndLongStateFactory
             extends LongDecimalWithOverflowStateFactory.SingleLongDecimalWithOverflowState
             implements LongDecimalWithOverflowAndLongState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleLongDecimalWithOverflowAndLongState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SingleLongDecimalWithOverflowAndLongState.class);
 
         protected long longValue;
 

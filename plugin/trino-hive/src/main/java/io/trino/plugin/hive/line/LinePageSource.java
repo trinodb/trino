@@ -20,21 +20,20 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.OptionalLong;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LinePageSource
         implements ConnectorPageSource
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LinePageSource.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LinePageSource.class);
 
     private final LineReader lineReader;
     private final LineDeserializer deserializer;

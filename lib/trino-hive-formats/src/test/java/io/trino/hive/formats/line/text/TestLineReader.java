@@ -16,7 +16,6 @@ package io.trino.hive.formats.line.text;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.hive.formats.line.LineBuffer;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
@@ -27,17 +26,17 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLineReader
 {
-    private static final int LINE_READER_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TextLineReader.class).instanceSize());
+    private static final int LINE_READER_INSTANCE_SIZE = instanceSize(TextLineReader.class);
     private static final int[] SKIP_SIZES = new int[] {1, 2, 3, 13, 101, 331, 443, 701, 853, 1021};
 
     @Test
