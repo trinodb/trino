@@ -383,14 +383,21 @@ public abstract class BaseTestHiveOnDataLake
     @Test
     public void testEnumPartitionProjectionOnVarcharColumnWithStorageLocationTemplateCreatedOnTrino()
     {
+        // It's important to mix case here to detect if we properly handle rewriting
+        // properties between Trino and Hive (e.g for Partition Projection)
+        String schemaName = "Hive_Datalake_MixedCase";
         String tableName = getRandomTestTableName();
+
+        // We create new schema to include mixed case location path and create such keys in Object Store
+        computeActual("CREATE SCHEMA hive.%1$s WITH (location='s3a://%2$s/%1$s')".formatted(schemaName, bucketName));
+
         String storageFormat = format(
                 "s3a://%s/%s/%s/short_name1=${short_name1}/short_name2=${short_name2}/",
                 this.bucketName,
-                HIVE_TEST_SCHEMA,
+                schemaName,
                 tableName);
         computeActual(
-                "CREATE TABLE " + getFullyQualifiedTestTableName(tableName) + " ( " +
+                "CREATE TABLE " + getFullyQualifiedTestTableName(schemaName, tableName) + " ( " +
                         "  name varchar(25), " +
                         "  comment varchar(152), " +
                         "  nationkey bigint, " +
@@ -410,14 +417,14 @@ public abstract class BaseTestHiveOnDataLake
                         ")");
         assertThat(
                 hiveMinioDataLake.getHiveHadoop()
-                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(tableName)))
+                        .runOnHive("SHOW TBLPROPERTIES " + getHiveTestTableName(schemaName, tableName)))
                 .containsPattern("[ |]+projection\\.enabled[ |]+true[ |]+")
                 .containsPattern("[ |]+storage\\.location\\.template[ |]+" + quote(storageFormat) + "[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.type[ |]+enum[ |]+")
                 .containsPattern("[ |]+projection\\.short_name1\\.values[ |]+PL1,CZ1[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.type[ |]+enum[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.values[ |]+PL2,CZ2[ |]+");
-        testEnumPartitionProjectionOnVarcharColumnWithStorageLocationTemplate(tableName);
+        testEnumPartitionProjectionOnVarcharColumnWithStorageLocationTemplate(schemaName, tableName);
     }
 
     @Test
@@ -447,12 +454,12 @@ public abstract class BaseTestHiveOnDataLake
                         "  'projection.short_name2.type'='enum', " +
                         "  'projection.short_name2.values'='PL2,CZ2' " +
                         ")");
-        testEnumPartitionProjectionOnVarcharColumnWithStorageLocationTemplate(tableName);
+        testEnumPartitionProjectionOnVarcharColumnWithStorageLocationTemplate(HIVE_TEST_SCHEMA, tableName);
     }
 
-    private void testEnumPartitionProjectionOnVarcharColumnWithStorageLocationTemplate(String tableName)
+    private void testEnumPartitionProjectionOnVarcharColumnWithStorageLocationTemplate(String schemaName, String tableName)
     {
-        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(tableName);
+        String fullyQualifiedTestTableName = getFullyQualifiedTestTableName(schemaName, tableName);
         computeActual(createInsertStatement(
                 fullyQualifiedTestTableName,
                 ImmutableList.of(
@@ -462,7 +469,7 @@ public abstract class BaseTestHiveOnDataLake
                         ImmutableList.of("'CZECH_2'", "'Comment'", "3", "5", "'CZ1'", "'CZ2'"))));
 
         assertQuery(
-                format("SELECT * FROM %s", getFullyQualifiedTestTableName("\"" + tableName + "$partitions\"")),
+                format("SELECT * FROM %s", getFullyQualifiedTestTableName(schemaName, "\"" + tableName + "$partitions\"")),
                 "VALUES ('PL1','PL2'), ('PL1','CZ2'), ('CZ1','PL2'), ('CZ1','CZ2')");
 
         assertQuery(
@@ -1720,12 +1727,22 @@ public abstract class BaseTestHiveOnDataLake
 
     protected String getFullyQualifiedTestTableName(String tableName)
     {
-        return format("hive.%s.%s", HIVE_TEST_SCHEMA, tableName);
+        return getFullyQualifiedTestTableName(HIVE_TEST_SCHEMA, tableName);
+    }
+
+    protected String getFullyQualifiedTestTableName(String schemaName, String tableName)
+    {
+        return "hive.%s.%s".formatted(schemaName, tableName);
     }
 
     protected String getHiveTestTableName(String tableName)
     {
-        return format("%s.%s", HIVE_TEST_SCHEMA, tableName);
+        return getHiveTestTableName(HIVE_TEST_SCHEMA, tableName);
+    }
+
+    protected String getHiveTestTableName(String schemaName, String tableName)
+    {
+        return "%s.%s".formatted(schemaName, tableName);
     }
 
     protected String getCreateTableStatement(String tableName, String... propertiesEntries)
