@@ -18,20 +18,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeSourceHandle;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeSourceHandle
         implements ExchangeSourceHandle
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(FileSystemExchangeSourceHandle.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(FileSystemExchangeSourceHandle.class);
 
     private final ExchangeId exchangeId;
     private final int partitionId;
@@ -94,7 +93,7 @@ public class FileSystemExchangeSourceHandle
 
     public static class SourceFile
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SourceFile.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SourceFile.class);
 
         private final String filePath;
         private final long fileSize;

@@ -16,7 +16,6 @@ package io.trino.orc;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -25,13 +24,14 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 final class LazySliceInput
         extends FixedLengthSliceInput
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LazySliceInput.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LazySliceInput.class);
 
     private final int globalLength;
     private final Supplier<FixedLengthSliceInput> loader;

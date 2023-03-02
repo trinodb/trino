@@ -17,16 +17,16 @@ import io.airlift.slice.SizeOf;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.window.pattern.MatchAggregation;
 import io.trino.operator.window.pattern.MatchAggregation.MatchAggregationInstantiator;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 class MatchAggregations
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MatchAggregations.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(MatchAggregations.class);
 
     private MatchAggregation[][] values;
     private final List<MatchAggregationInstantiator> aggregationInstantiators;

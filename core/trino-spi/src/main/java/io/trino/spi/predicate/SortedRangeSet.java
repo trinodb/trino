@@ -21,7 +21,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -38,6 +37,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -51,7 +51,6 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Boolean.TRUE;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
@@ -67,7 +66,7 @@ import static java.util.stream.Collectors.joining;
 public final class SortedRangeSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortedRangeSet.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SortedRangeSet.class);
 
     private final Type type;
     private final MethodHandle equalOperator;

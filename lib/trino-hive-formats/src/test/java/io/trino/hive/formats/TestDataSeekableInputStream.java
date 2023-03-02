@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.memory.MemorySeekableInputStream;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -35,6 +34,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -592,7 +592,7 @@ public class TestDataSeekableInputStream
         int bufferSize = 1024;
         SeekableInputStream inputStream = new MemorySeekableInputStream(Slices.wrappedBuffer(new byte[] {0, 1}));
         DataSeekableInputStream input = new DataSeekableInputStream(inputStream, bufferSize);
-        assertEquals(input.getRetainedSize(), ClassLayout.parseClass(DataSeekableInputStream.class).instanceSize() + sizeOfByteArray(bufferSize));
+        assertEquals(input.getRetainedSize(), instanceSize(DataSeekableInputStream.class) + sizeOfByteArray(bufferSize));
     }
 
     private static void testDataInput(DataInputTester tester)

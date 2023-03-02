@@ -36,7 +36,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.time.OffsetDateTime;
@@ -48,6 +47,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
@@ -67,7 +67,6 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
@@ -106,7 +105,7 @@ public class TimestampColumnWriter
         INSTANT_NANOS,
     }
 
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TimestampColumnWriter.class);
 
     private static final long ORC_EPOCH_IN_SECONDS = OffsetDateTime.of(2015, 1, 1, 0, 0, 0, 0, UTC).toEpochSecond();
 

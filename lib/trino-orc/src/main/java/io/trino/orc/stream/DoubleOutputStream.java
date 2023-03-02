@@ -19,19 +19,19 @@ import io.trino.orc.checkpoint.DoubleStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static java.lang.Math.toIntExact;
 
 public class DoubleOutputStream
         implements ValueOutputStream<DoubleStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DoubleOutputStream.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(DoubleOutputStream.class);
     private final OrcOutputBuffer buffer;
     private final List<DoubleStreamCheckpoint> checkpoints = new ArrayList<>();
 

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,14 +28,14 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryColumnHandle
         implements ColumnHandle
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BigQueryColumnHandle.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BigQueryColumnHandle.class);
 
     private final String name;
     private final Type trinoType;

@@ -15,18 +15,17 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.Immutable;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class PlanNodeId
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PlanNodeId.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PlanNodeId.class);
 
     private final String id;
 

@@ -22,7 +22,6 @@ import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -32,6 +31,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
 import static java.lang.String.format;
@@ -39,7 +39,7 @@ import static java.lang.String.format;
 public class AddFileEntry
 {
     private static final Logger LOG = Logger.get(AddFileEntry.class);
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(AddFileEntry.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(AddFileEntry.class);
 
     private final String path;
     private final Map<String, String> partitionValues;

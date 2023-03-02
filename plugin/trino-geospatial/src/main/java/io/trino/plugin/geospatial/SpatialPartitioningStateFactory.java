@@ -20,11 +20,11 @@ import io.trino.array.ObjectBigArray;
 import io.trino.geospatial.Rectangle;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.GroupedAccumulatorState;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 
 public class SpatialPartitioningStateFactory
@@ -45,7 +45,7 @@ public class SpatialPartitioningStateFactory
     public static final class GroupedSpatialPartitioningState
             implements GroupedAccumulatorState, SpatialPartitioningState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedSpatialPartitioningState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(GroupedSpatialPartitioningState.class);
         private static final int ENVELOPE_SIZE = toIntExact(new Envelope(1, 2, 3, 4).estimateMemorySize());
 
         private long groupId;
@@ -137,7 +137,7 @@ public class SpatialPartitioningStateFactory
     public static final class SingleSpatialPartitioningState
             implements SpatialPartitioningState
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleSpatialPartitioningState.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SingleSpatialPartitioningState.class);
 
         private int partitionCount;
         private long count;

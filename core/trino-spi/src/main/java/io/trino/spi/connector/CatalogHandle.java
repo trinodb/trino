@@ -16,22 +16,21 @@ package io.trino.spi.connector;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.Experimental;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCHEMA;
 import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.NORMAL;
 import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.SYSTEM;
-import static java.lang.Math.toIntExact;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 
 @Experimental(eta = "2023-02-01")
 public final class CatalogHandle
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CatalogHandle.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(CatalogHandle.class);
 
     private final String catalogName;
     private final CatalogHandleType type;
@@ -177,7 +176,7 @@ public final class CatalogHandle
     public static final class CatalogVersion
             implements Comparable<CatalogVersion>
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CatalogVersion.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(CatalogVersion.class);
 
         private final String version;
 

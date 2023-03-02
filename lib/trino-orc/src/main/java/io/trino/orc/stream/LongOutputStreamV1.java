@@ -22,13 +22,13 @@ import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
 import io.trino.orc.metadata.Stream.StreamKind;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.stream.LongDecode.writeVLong;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class LongOutputStreamV1
         implements LongOutputStream
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LongOutputStreamV1.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LongOutputStreamV1.class);
     private static final int MIN_REPEAT_SIZE = 3;
     private static final long UNMATCHABLE_DELTA_VALUE = Long.MAX_VALUE;
     private static final int MAX_DELTA = 127;

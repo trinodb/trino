@@ -13,8 +13,6 @@
  */
 package io.trino.hive.formats.line;
 
-import org.openjdk.jol.info.ClassLayout;
-
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,13 +22,13 @@ import java.util.Arrays;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.primitives.Ints.constrainToRange;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 
 public final class LineBuffer
         extends OutputStream
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(LineBuffer.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(LineBuffer.class);
 
     private final int maxLength;
     private byte[] buffer;

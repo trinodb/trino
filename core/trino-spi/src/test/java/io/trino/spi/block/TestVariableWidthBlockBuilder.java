@@ -19,18 +19,17 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.ceil;
-import static java.lang.Math.toIntExact;
-import static org.openjdk.jol.info.ClassLayout.parseClass;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestVariableWidthBlockBuilder
 {
-    private static final int BLOCK_BUILDER_INSTANCE_SIZE = toIntExact(parseClass(VariableWidthBlockBuilder.class).instanceSize());
-    private static final int SLICE_INSTANCE_SIZE = toIntExact(parseClass(DynamicSliceOutput.class).instanceSize() + parseClass(Slice.class).instanceSize());
+    private static final int BLOCK_BUILDER_INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
+    private static final int SLICE_INSTANCE_SIZE = instanceSize(DynamicSliceOutput.class) + instanceSize(Slice.class);
     private static final int VARCHAR_VALUE_SIZE = 7;
     private static final int VARCHAR_ENTRY_SIZE = SIZE_OF_INT + VARCHAR_VALUE_SIZE;
     private static final int EXPECTED_ENTRY_COUNT = 3;

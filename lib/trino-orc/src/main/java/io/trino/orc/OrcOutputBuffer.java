@@ -23,7 +23,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.orc.checkpoint.InputStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -38,6 +37,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -47,7 +47,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcOutputBuffer
         extends SliceOutput
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcOutputBuffer.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(OrcOutputBuffer.class);
     private static final int INITIAL_BUFFER_SIZE = 256;
     private static final int DIRECT_FLUSH_SIZE = 32 * 1024;
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 4 * 1024;
