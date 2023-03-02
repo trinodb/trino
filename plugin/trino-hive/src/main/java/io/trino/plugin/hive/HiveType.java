@@ -27,7 +27,6 @@ import io.trino.plugin.hive.type.UnionTypeInfo;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +34,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.lenientFormat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
@@ -58,12 +58,11 @@ import static io.trino.plugin.hive.util.SerdeConstants.SMALLINT_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.STRING_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.TIMESTAMP_TYPE_NAME;
 import static io.trino.plugin.hive.util.SerdeConstants.TINYINT_TYPE_NAME;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveType
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveType.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(HiveType.class);
 
     public static final HiveType HIVE_BOOLEAN = new HiveType(getPrimitiveTypeInfo(BOOLEAN_TYPE_NAME));
     public static final HiveType HIVE_BYTE = new HiveType(getPrimitiveTypeInfo(TINYINT_TYPE_NAME));

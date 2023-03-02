@@ -21,20 +21,19 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SingleTypedHistogram
         implements TypedHistogram
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleTypedHistogram.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SingleTypedHistogram.class);
     private static final float FILL_RATIO = 0.75f;
 
     private final int expectedSize;

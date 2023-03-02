@@ -25,24 +25,23 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.avro.DataWriter;
 import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.io.OutputFile;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.toIcebergRecords;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 
 public class IcebergAvroFileWriter
         implements IcebergFileWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IcebergAvroFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(IcebergAvroFileWriter.class);
 
     // Use static table name instead of the actual name because it becomes outdated once the table is renamed
     public static final String AVRO_TABLE_NAME = "table";

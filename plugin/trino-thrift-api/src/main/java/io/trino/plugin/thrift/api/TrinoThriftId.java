@@ -20,19 +20,18 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.drift.annotations.ThriftConstructor;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
 public final class TrinoThriftId
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TrinoThriftId.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TrinoThriftId.class);
 
     private static final int PREFIX_SUFFIX_BYTES = 8;
     private static final String FILLER = "..";

@@ -19,17 +19,16 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public final class Split
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Split.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(Split.class);
 
     private final CatalogHandle catalogHandle;
     private final ConnectorSplit connectorSplit;

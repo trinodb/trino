@@ -30,7 +30,6 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.index.strtree.STRtree;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -38,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
@@ -64,7 +64,7 @@ public class PagesRTreeIndex
 
     public static final class GeometryWithPosition
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GeometryWithPosition.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(GeometryWithPosition.class);
 
         private final OGCGeometry ogcGeometry;
         private final int partition;

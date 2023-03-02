@@ -45,7 +45,6 @@ import io.trino.spi.ptf.TableFunctionProcessorState;
 import io.trino.spi.ptf.TableFunctionProcessorState.Processed;
 import io.trino.spi.ptf.TableFunctionSplitProcessor;
 import io.trino.spi.type.RowType;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -55,6 +54,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.TestingTableFunctions.ConstantFunction.ConstantFunctionSplit.DEFAULT_SPLIT_SIZE;
 import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
@@ -1241,7 +1241,7 @@ public class TestingTableFunctions
         public static final class ConstantFunctionSplit
                 implements ConnectorSplit
         {
-            private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ConstantFunctionSplit.class).instanceSize());
+            private static final int INSTANCE_SIZE = instanceSize(ConstantFunctionSplit.class);
             public static final int DEFAULT_SPLIT_SIZE = 5500;
 
             private final long count;

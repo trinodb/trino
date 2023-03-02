@@ -20,7 +20,6 @@ import io.trino.spi.Page;
 import io.trino.util.LongBigArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -29,6 +28,7 @@ import java.util.Arrays;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 /**
  * Page buffering manager that enables access to individual rows via stable row IDs. This allows computation to be
@@ -37,8 +37,8 @@ import static com.google.common.base.Verify.verify;
  */
 public class RowReferencePageManager
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowReferencePageManager.class).instanceSize();
-    private static final long PAGE_ACCOUNTING_INSTANCE_SIZE = ClassLayout.parseClass(PageAccounting.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(RowReferencePageManager.class);
+    private static final long PAGE_ACCOUNTING_INSTANCE_SIZE = instanceSize(PageAccounting.class);
     private static final int RESERVED_ROW_ID_FOR_CURSOR = -1;
 
     private final IdRegistry<PageAccounting> pages = new IdRegistry<>();
@@ -361,7 +361,7 @@ public class RowReferencePageManager
     private static class RowIdBuffer
     {
         public static final long UNKNOWN_ID = -1;
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowIdBuffer.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(RowIdBuffer.class);
 
         /*
          *  Memory layout:
@@ -432,7 +432,7 @@ public class RowReferencePageManager
     private static class IntHashSet
             extends IntOpenHashSet
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntHashSet.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(IntHashSet.class);
 
         public long sizeOf()
         {

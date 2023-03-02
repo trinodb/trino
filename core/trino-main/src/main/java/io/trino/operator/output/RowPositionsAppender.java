@@ -18,23 +18,22 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.RowType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RowPositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RowPositionsAppender.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RowPositionsAppender.class);
     private final PositionsAppender[] fieldAppenders;
     private int initialEntryCount;
     private boolean initialized;

@@ -17,19 +17,18 @@ import com.google.common.io.CountingOutputStream;
 import io.airlift.slice.Slice;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.line.LineWriter;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Optional;
 import java.util.function.LongSupplier;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class TextLineWriter
         implements LineWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TextLineWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TextLineWriter.class);
     private final LongSupplier writtenBytes;
     private final OutputStream outputStream;
 

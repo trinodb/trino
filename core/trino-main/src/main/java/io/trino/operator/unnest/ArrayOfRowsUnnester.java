@@ -16,19 +16,18 @@ package io.trino.operator.unnest;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarRow;
-import org.openjdk.jol.info.ClassLayout;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.unnest.UnnestOperator.ensureCapacity;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayOfRowsUnnester
         implements Unnester
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ArrayOfRowsUnnester.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ArrayOfRowsUnnester.class);
 
     private final int fieldCount;
     private final UnnestBlockBuilder[] blockBuilders;

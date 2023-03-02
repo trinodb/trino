@@ -35,9 +35,11 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- used by slice and must be listed for plugin dependency enforcer -->
         <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- for testing -->

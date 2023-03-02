@@ -25,7 +25,6 @@ import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -37,6 +36,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.toCanonicalNameKeyedMap;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.JSON_STATISTICS_TIMESTAMP_FORMATTER;
@@ -52,7 +52,7 @@ public class DeltaLakeJsonFileStatistics
         implements DeltaLakeFileStatistics
 {
     private static final Logger log = Logger.get(DeltaLakeJsonFileStatistics.class);
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DeltaLakeJsonFileStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(DeltaLakeJsonFileStatistics.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     private final Optional<Long> numRecords;

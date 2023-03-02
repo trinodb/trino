@@ -14,7 +14,6 @@
 package io.trino.orc.metadata.statistics;
 
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -22,8 +21,8 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 
 public class DecimalStatistics
         implements RangeStatistics<BigDecimal>, Hashable
@@ -31,10 +30,10 @@ public class DecimalStatistics
     // 1 byte to denote if null
     public static final long DECIMAL_VALUE_BYTES_OVERHEAD = Byte.BYTES;
 
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DecimalStatistics.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(DecimalStatistics.class);
     // BigDecimal contains BigInteger and BigInteger contains an integer array.
     // The size of the integer array is not accessible from outside; thus rely on callers to tell how large the size is.
-    private static final long BIG_DECIMAL_INSTANCE_SIZE = ClassLayout.parseClass(BigDecimal.class).instanceSize() + ClassLayout.parseClass(BigInteger.class).instanceSize() + sizeOf(new int[0]);
+    private static final long BIG_DECIMAL_INSTANCE_SIZE = instanceSize(BigDecimal.class) + instanceSize(BigInteger.class) + sizeOf(new int[0]);
 
     // TODO: replace min/max with LongDecimal/ShortDecimal to calculate retained size
     private final BigDecimal minimum;

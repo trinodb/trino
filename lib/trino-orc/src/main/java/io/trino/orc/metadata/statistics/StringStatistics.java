@@ -15,7 +15,6 @@ package io.trino.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -23,7 +22,7 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.io.BaseEncoding.base16;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.String.format;
 
 public class StringStatistics
@@ -32,7 +31,7 @@ public class StringStatistics
     // 1 byte to denote if null + 4 bytes to denote offset
     public static final long STRING_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
 
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(StringStatistics.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(StringStatistics.class);
 
     @Nullable
     private final Slice minimum;

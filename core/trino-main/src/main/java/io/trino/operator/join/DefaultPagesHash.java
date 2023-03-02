@@ -21,11 +21,11 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public final class DefaultPagesHash
         implements PagesHash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DefaultPagesHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(DefaultPagesHash.class);
     private static final DataSize CACHE_SIZE = DataSize.of(128, KILOBYTE);
     private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;

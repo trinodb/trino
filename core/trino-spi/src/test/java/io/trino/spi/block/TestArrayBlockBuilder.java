@@ -13,10 +13,11 @@
  */
 package io.trino.spi.block;
 
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Long.BYTES;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -60,7 +61,7 @@ public class TestArrayBlockBuilder
             BIGINT.writeLong(arrayElementBuilder, i);
             arrayBlockBuilder.closeEntry();
         }
-        assertTrue(arrayBlockBuilder.getRetainedSizeInBytes() >= (expectedEntries * Long.BYTES + ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize() + initialRetainedSize));
+        assertTrue(arrayBlockBuilder.getRetainedSizeInBytes() >= (expectedEntries * BYTES + instanceSize(LongArrayBlockBuilder.class) + initialRetainedSize));
     }
 
     @Test

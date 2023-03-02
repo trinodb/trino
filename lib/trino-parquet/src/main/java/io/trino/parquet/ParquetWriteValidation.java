@@ -33,7 +33,6 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.hadoop.metadata.IndexReference;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
@@ -48,11 +47,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ColumnStatisticsValidation.ColumnStatistics;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.IndexReferenceValidation.fromIndexReference;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetWriteValidation
@@ -443,9 +442,9 @@ public class ParquetWriteValidation
 
     public static class ParquetWriteValidationBuilder
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ParquetWriteValidationBuilder.class).instanceSize());
-        private static final int COLUMN_DESCRIPTOR_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ColumnDescriptor.class).instanceSize());
-        private static final int PRIMITIVE_TYPE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PrimitiveType.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ParquetWriteValidationBuilder.class);
+        private static final int COLUMN_DESCRIPTOR_INSTANCE_SIZE = instanceSize(ColumnDescriptor.class);
+        private static final int PRIMITIVE_TYPE_INSTANCE_SIZE = instanceSize(PrimitiveType.class);
 
         private final List<Type> types;
         private final List<String> columnNames;

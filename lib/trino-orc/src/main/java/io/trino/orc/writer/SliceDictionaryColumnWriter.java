@@ -40,7 +40,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrays;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -54,6 +53,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
@@ -67,7 +67,7 @@ import static java.util.stream.Collectors.toList;
 public class SliceDictionaryColumnWriter
         implements ColumnWriter, DictionaryColumn
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceDictionaryColumnWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SliceDictionaryColumnWriter.class);
     private static final int DIRECT_CONVERSION_CHUNK_MAX_LOGICAL_BYTES = toIntExact(DataSize.of(32, MEGABYTE).toBytes());
 
     private final OrcColumnId columnId;

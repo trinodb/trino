@@ -14,13 +14,12 @@
 package io.trino.orc.metadata.statistics;
 
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class IntegerStatistics
         implements RangeStatistics<Long>, Hashable
@@ -28,7 +27,7 @@ public class IntegerStatistics
     // 1 byte to denote if null + 8 bytes for the value (integer is of long type)
     public static final long INTEGER_VALUE_BYTES = Byte.BYTES + Long.BYTES;
 
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IntegerStatistics.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(IntegerStatistics.class);
 
     private final boolean hasMinimum;
     private final boolean hasMaximum;
