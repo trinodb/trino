@@ -668,6 +668,8 @@ public class TestingColumnReader
                 new ColumnReaderFormat<>(FIXED_LEN_BYTE_ARRAY, 16, null, UUID, FIXED_LENGTH_WRITER, DICTIONARY_FIXED_LENGTH_WRITER, WRITE_UUID, ASSERT_INT_128),
                 // Trino type precision is irrelevant since the data is always stored as picoseconds
                 new ColumnReaderFormat<>(INT64, timeType(false, MICROS), TimeType.TIME_MICROS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, assertTime(6)),
+                // Reading a column TimeLogicalTypeAnnotation as a BIGINT
+                new ColumnReaderFormat<>(INT64, timeType(false, MICROS), BIGINT, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG, ASSERT_LONG),
                 // Short decimals
                 new ColumnReaderFormat<>(INT32, decimalType(0, 8), createDecimalType(8), PLAIN_WRITER, DICTIONARY_INT_WRITER, WRITE_INT, ASSERT_INT),
                 // INT32 values can be read as zero scale decimals provided the precision is at least 10 to accommodate the largest possible integer

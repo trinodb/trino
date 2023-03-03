@@ -136,7 +136,8 @@ public final class ColumnReaderFactory
                 }
                 throw unsupportedException(type, field);
             }
-            if (BIGINT.equals(type) && primitiveType == INT64 && annotation instanceof TimestampLogicalTypeAnnotation) {
+            if (BIGINT.equals(type) && primitiveType == INT64
+                    && (annotation instanceof TimestampLogicalTypeAnnotation || annotation instanceof TimeLogicalTypeAnnotation)) {
                 return createColumnReader(field, ValueDecoders::getLongDecoder, LONG_ADAPTER, memoryContext);
             }
             if (type instanceof AbstractLongType && isIntegerOrDecimalPrimitive(primitiveType)) {
@@ -272,8 +273,11 @@ public final class ColumnReaderFactory
             case INT32 -> createDecimalColumnReader(field).orElse(new IntColumnReader(field));
             case INT64 -> {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation) {
-                    if (timeAnnotation.getUnit() == MICROS) {
+                    if (field.getType() instanceof TimeType && timeAnnotation.getUnit() == MICROS) {
                         yield new TimeMicrosColumnReader(field);
+                    }
+                    else if (BIGINT.equals(field.getType())) {
+                        yield new LongColumnReader(field);
                     }
                     throw unsupportedException(type, field);
                 }
