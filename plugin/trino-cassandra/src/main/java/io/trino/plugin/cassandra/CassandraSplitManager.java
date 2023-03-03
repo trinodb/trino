@@ -45,6 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.plugin.cassandra.CassandraSessionProperties.getSplitsPerNode;
+import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -103,7 +104,7 @@ public class CassandraSplitManager
 
         if (partitions.isEmpty()) {
             log.debug("No partitions matched predicates for table %s", connectorTableHandle);
-            return new FixedSplitSource(ImmutableList.of());
+            return emptySplitSource();
         }
 
         // if this is an unpartitioned table, split into equal ranges

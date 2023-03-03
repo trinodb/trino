@@ -33,6 +33,7 @@ import javax.inject.Inject;
 
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
+import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -66,7 +67,7 @@ public class IcebergSplitManager
             if (table.isRecordScannedFiles()) {
                 return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());
             }
-            return new FixedSplitSource(ImmutableList.of());
+            return emptySplitSource();
         }
 
         Table icebergTable = transactionManager.get(transaction, session.getIdentity()).getIcebergTable(session, table.getSchemaTableName());

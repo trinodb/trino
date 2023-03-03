@@ -46,7 +46,6 @@ import static io.trino.plugin.pinot.PinotSplit.createBrokerSplit;
 import static io.trino.plugin.pinot.PinotSplit.createSegmentSplit;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class PinotSplitManager
@@ -66,7 +65,7 @@ public class PinotSplitManager
 
     protected ConnectorSplitSource generateSplitForBrokerBasedScan(PinotTableHandle pinotTableHandle)
     {
-        return new FixedSplitSource(singletonList(createBrokerSplit()));
+        return new FixedSplitSource(createBrokerSplit());
     }
 
     protected ConnectorSplitSource generateSplitsForSegmentBasedScan(

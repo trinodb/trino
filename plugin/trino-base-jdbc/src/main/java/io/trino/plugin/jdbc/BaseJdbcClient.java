@@ -414,7 +414,7 @@ public abstract class BaseJdbcClient
     @Override
     public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return new FixedSplitSource(ImmutableList.of(new JdbcSplit(Optional.empty())));
+        return new FixedSplitSource(new JdbcSplit(Optional.empty()));
     }
 
     @Override
