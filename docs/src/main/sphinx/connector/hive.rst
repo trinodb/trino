@@ -1467,7 +1467,7 @@ connector.
     * - ``hive.max-splits-per-second``
       - The maximum number of splits generated per second per table scan. This
         can be used to reduce the load on the storage system. By default, there
-        is no limit, which results in Presto maximizing the parallelization of
+        is no limit, which results in Trino maximizing the parallelization of
         data access.
       -
     * - ``hive.max-initial-splits``
