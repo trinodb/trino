@@ -26,7 +26,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
-import org.apache.iceberg.DataFile;
+import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -43,6 +44,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +58,7 @@ import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
 public class FilesTable
@@ -171,16 +174,25 @@ public class FilesTable
             addCloseable(planFilesIterator);
 
             return new CloseableIterator<>() {
+                private Iterator<DeleteFile> deleteFileIterator = emptyIterator();
+
                 @Override
                 public boolean hasNext()
                 {
-                    return !closed && planFilesIterator.hasNext();
+                    return !closed && (planFilesIterator.hasNext() || deleteFileIterator.hasNext());
                 }
 
                 @Override
                 public List<Object> next()
                 {
-                    return getRecord(planFilesIterator.next().file());
+                    if (deleteFileIterator.hasNext()) {
+                        return getRecord(deleteFileIterator.next());
+                    }
+                    else {
+                        FileScanTask planFileTask = planFilesIterator.next();
+                        deleteFileIterator = planFileTask.deletes().iterator();
+                        return getRecord(planFileTask.file());
+                    }
                 }
 
                 @Override
@@ -193,23 +205,23 @@ public class FilesTable
             };
         }
 
-        private List<Object> getRecord(DataFile dataFile)
+        private List<Object> getRecord(ContentFile<?> contentFile)
         {
             List<Object> columns = new ArrayList<>();
-            columns.add(dataFile.content().id());
-            columns.add(dataFile.path().toString());
-            columns.add(dataFile.format().name());
-            columns.add(dataFile.recordCount());
-            columns.add(dataFile.fileSizeInBytes());
-            columns.add(getIntegerBigintMapBlock(dataFile.columnSizes()));
-            columns.add(getIntegerBigintMapBlock(dataFile.valueCounts()));
-            columns.add(getIntegerBigintMapBlock(dataFile.nullValueCounts()));
-            columns.add(getIntegerBigintMapBlock(dataFile.nanValueCounts()));
-            columns.add(getIntegerVarcharMapBlock(dataFile.lowerBounds()));
-            columns.add(getIntegerVarcharMapBlock(dataFile.upperBounds()));
-            columns.add(dataFile.keyMetadata());
-            columns.add(getBigintArrayBlock(dataFile.splitOffsets()));
-            columns.add(getIntegerArrayBlock(dataFile.equalityFieldIds()));
+            columns.add(contentFile.content().id());
+            columns.add(contentFile.path().toString());
+            columns.add(contentFile.format().name());
+            columns.add(contentFile.recordCount());
+            columns.add(contentFile.fileSizeInBytes());
+            columns.add(getIntegerBigintMapBlock(contentFile.columnSizes()));
+            columns.add(getIntegerBigintMapBlock(contentFile.valueCounts()));
+            columns.add(getIntegerBigintMapBlock(contentFile.nullValueCounts()));
+            columns.add(getIntegerBigintMapBlock(contentFile.nanValueCounts()));
+            columns.add(getIntegerVarcharMapBlock(contentFile.lowerBounds()));
+            columns.add(getIntegerVarcharMapBlock(contentFile.upperBounds()));
+            columns.add(contentFile.keyMetadata());
+            columns.add(getBigintArrayBlock(contentFile.splitOffsets()));
+            columns.add(getIntegerArrayBlock(contentFile.equalityFieldIds()));
             checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
             return columns;
         }

@@ -615,7 +615,7 @@ public class TestIcebergV2
 
     private List<String> getActiveFiles(String tableName)
     {
-        return computeActual(format("SELECT file_path FROM \"%s$files\"", tableName)).getOnlyColumn()
+        return computeActual(format("SELECT file_path FROM \"%s$files\" WHERE content = 0", tableName)).getOnlyColumn()
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }
