@@ -122,6 +122,25 @@ public class PlanFragmenter
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
     {
+        return createSubPlans(
+                session,
+                plan,
+                forceSingleNode,
+                warningCollector,
+                new PlanFragmentIdAllocator(0),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()),
+                ImmutableList.of());
+    }
+
+    public SubPlan createSubPlans(
+            Session session,
+            Plan plan,
+            boolean forceSingleNode,
+            WarningCollector warningCollector,
+            PlanFragmentIdAllocator idAllocator,
+            PartitioningScheme outputPartitioningScheme,
+            List<SubPlan> completedSubPlans)
+    {
         List<CatalogProperties> activeCatalogs = transactionManager.getActiveCatalogs(session.getTransactionId().orElseThrow()).stream()
                 .map(CatalogInfo::getCatalogHandle)
                 .flatMap(catalogHandle -> catalogManager.getCatalogProperties(catalogHandle).stream())
@@ -135,9 +154,9 @@ public class PlanFragmenter
                 plan.getStatsAndCosts(),
                 activeCatalogs,
                 languageScalarFunctions,
-                new PlanFragmentIdAllocator(0));
-
-        FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
+                idAllocator,
+                completedSubPlans);
+        FragmentProperties properties = new FragmentProperties(outputPartitioningScheme);
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
@@ -232,6 +251,7 @@ public class PlanFragmenter
         private final List<CatalogProperties> activeCatalogs;
         private final List<LanguageScalarFunctionData> languageFunctions;
         private final PlanFragmentIdAllocator idAllocator;
+        private final List<SubPlan> completedSubPlans;
         private final PlanFragmentId rootFragmentID;
 
         public Fragmenter(
@@ -242,7 +262,8 @@ public class PlanFragmenter
                 StatsAndCosts statsAndCosts,
                 List<CatalogProperties> activeCatalogs,
                 List<LanguageScalarFunctionData> languageFunctions,
-                PlanFragmentIdAllocator idAllocator)
+                PlanFragmentIdAllocator idAllocator,
+                List<SubPlan> completedSubPlans)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
@@ -252,6 +273,7 @@ public class PlanFragmenter
             this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
             this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.completedSubPlans = ImmutableList.copyOf(requireNonNull(completedSubPlans, "completedSubPlans is null"));
             this.rootFragmentID = idAllocator.getNextId();
         }
 
@@ -431,6 +453,31 @@ public class PlanFragmenter
             context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
 
             // stop the process in order not to add the underlying TableScanNodes as well
+            return node;
+        }
+
+        @Override
+        public PlanNode visitRemoteSource(RemoteSourceNode node, RewriteContext<FragmentProperties> context)
+        {
+            List<SubPlan> completedChildren = completedSubPlans.stream()
+                    .filter(subPlan -> node.getSourceFragmentIds().contains(subPlan.getFragment().getId()))
+                    .collect(toImmutableList());
+            checkState(completedChildren.size() == node.getSourceFragmentIds().size(), "completedSubPlans should contain all remote source children");
+
+            if (node.getExchangeType() == ExchangeNode.Type.GATHER) {
+                context.get().setSingleNodeDistribution();
+            }
+            else if (node.getExchangeType() == ExchangeNode.Type.REPARTITION) {
+                for (SubPlan child : completedChildren) {
+                    PartitioningScheme partitioningScheme = child.getFragment().getOutputPartitioningScheme();
+                    context.get().setDistribution(
+                            partitioningScheme.getPartitioning().getHandle(),
+                            partitioningScheme.getPartitionCount(),
+                            metadata,
+                            session);
+                }
+            }
+            context.get().addChildren(completedChildren);
             return node;
         }
 
