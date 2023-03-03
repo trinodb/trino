@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.operator.scalar.TryFunction;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
@@ -373,6 +374,22 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("abs(-bound_long)", "1234");
         assertOptimizedEquals("abs(unbound_long)", "abs(unbound_long)");
         assertOptimizedEquals("abs(unbound_long + 1)", "abs(unbound_long + 1)");
+    }
+
+    @Test
+    public void testTryFunction()
+    {
+        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> CAST('123' as BIGINT))", "123");
+        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> CAST('abc' as BIGINT))",
+                "\"" + TryFunction.NAME + "\"(() -> CAST('abc' as BIGINT))");
+        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> 0 / 0)",
+                "\"" + TryFunction.NAME + "\"(() -> 0 / 0)");
+        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> bound_long)", "bound_long");
+        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> 1 / (bound_long - 1234))",
+                "\"" + TryFunction.NAME + "\"(() -> 1 / (bound_long - 1234))");
+        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> NULL)", "NULL");
+        assertOptimizedEquals("\"" + TryFunction.NAME + "\"(() -> INTEGER '2147483647' * 2)",
+                "\"" + TryFunction.NAME + "\"(() -> INTEGER '2147483647' * 2)");
     }
 
     @Test

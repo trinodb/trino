@@ -27,6 +27,7 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArrayConstructor;
 import io.trino.operator.scalar.ArraySubscriptOperator;
 import io.trino.operator.scalar.FormatFunction;
+import io.trino.operator.scalar.TryFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -1024,6 +1025,24 @@ public class ExpressionInterpreter
         @Override
         protected Object visitFunctionCall(FunctionCall node, Object context)
         {
+            ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
+
+            if (optimize && resolvedFunction.getSignature().getName().equals(TryFunction.NAME) &&
+                    node.getArguments().size() == 1 &&
+                    node.getArguments().get(0) instanceof LambdaExpression lambdaExpression &&
+                    lambdaExpression.getArguments().isEmpty()) {
+                // Attempt to evaluate the inner expression of TryFunction and catch any exceptions,
+                // otherwise we will fall back to the original way.
+                try {
+                    Object object = processWithExceptionHandling(lambdaExpression.getBody(), context);
+                    if (!(object instanceof Expression)) {
+                        return object;
+                    }
+                }
+                catch (Exception ignore) {
+                }
+            }
+
             List<Type> argumentTypes = new ArrayList<>();
             List<Object> argumentValues = new ArrayList<>();
             for (Expression expression : node.getArguments()) {
@@ -1033,7 +1052,6 @@ public class ExpressionInterpreter
                 argumentTypes.add(type);
             }
 
-            ResolvedFunction resolvedFunction = metadata.decodeFunction(node.getName());
             FunctionNullability functionNullability = resolvedFunction.getFunctionNullability();
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
