@@ -312,7 +312,7 @@ public class MockConnector
                     DynamicFilter dynamicFilter,
                     Constraint constraint)
             {
-                return new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT));
+                return new FixedSplitSource(MOCK_CONNECTOR_SPLIT);
             }
 
             @Override
