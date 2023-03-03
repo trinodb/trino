@@ -25,7 +25,6 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
@@ -53,6 +52,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -85,8 +85,8 @@ public class FilesTable
                         .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
                         .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
                         .add(new ColumnMetadata("key_metadata", VARBINARY))
-                        .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
-                        .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
+                        .add(new ColumnMetadata("split_offsets", typeManager.getType(arrayType(BIGINT.getTypeSignature()))))
+                        .add(new ColumnMetadata("equality_ids", typeManager.getType(arrayType(INTEGER.getTypeSignature()))))
                         .build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
     }
@@ -132,6 +132,8 @@ public class FilesTable
         private boolean closed;
         private final io.trino.spi.type.Type integerToBigintMapType;
         private final io.trino.spi.type.Type integerToVarcharMapType;
+        private final io.trino.spi.type.Type bigintArrayType;
+        private final io.trino.spi.type.Type integerArrayType;
 
         public PlanFilesIterable(CloseableIterable<FileScanTask> planFiles, Map<Integer, Type> idToTypeMapping, List<io.trino.spi.type.Type> types, TypeManager typeManager)
         {
@@ -140,6 +142,8 @@ public class FilesTable
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.integerToBigintMapType = typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()));
             this.integerToVarcharMapType = typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()));
+            this.bigintArrayType = typeManager.getType(arrayType(BIGINT.getTypeSignature()));
+            this.integerArrayType = typeManager.getType(arrayType(INTEGER.getTypeSignature()));
             addCloseable(planFiles);
         }
 
@@ -204,8 +208,8 @@ public class FilesTable
             columns.add(getIntegerVarcharMapBlock(dataFile.lowerBounds()));
             columns.add(getIntegerVarcharMapBlock(dataFile.upperBounds()));
             columns.add(dataFile.keyMetadata());
-            columns.add(dataFile.splitOffsets());
-            columns.add(dataFile.equalityFieldIds());
+            columns.add(getBigintArrayBlock(dataFile.splitOffsets()));
+            columns.add(getIntegerArrayBlock(dataFile.equalityFieldIds()));
             checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
             return columns;
         }
@@ -254,6 +258,32 @@ public class FilesTable
             });
             blockBuilder.closeEntry();
             return integerToVarcharMapType.getObject(blockBuilder, 0);
+        }
+
+        private Object getBigintArrayBlock(List<Long> values)
+        {
+            if (values == null) {
+                return null;
+            }
+
+            BlockBuilder blockBuilder = bigintArrayType.createBlockBuilder(null, 1);
+            BlockBuilder singleArrayBlockBuilder = blockBuilder.beginBlockEntry();
+            values.forEach(value -> BIGINT.writeLong(singleArrayBlockBuilder, value));
+            blockBuilder.closeEntry();
+            return bigintArrayType.getObject(blockBuilder, 0);
+        }
+
+        private Object getIntegerArrayBlock(List<Integer> values)
+        {
+            if (values == null) {
+                return null;
+            }
+
+            BlockBuilder blockBuilder = integerArrayType.createBlockBuilder(null, 1);
+            BlockBuilder singleArrayBlockBuilder = blockBuilder.beginBlockEntry();
+            values.forEach(value -> INTEGER.writeLong(singleArrayBlockBuilder, value));
+            blockBuilder.closeEntry();
+            return integerArrayType.getObject(blockBuilder, 0);
         }
     }
 
