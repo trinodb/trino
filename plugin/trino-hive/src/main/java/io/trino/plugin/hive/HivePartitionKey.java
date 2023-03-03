@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class HivePartitionKey
 {
-    private static final int INSTANCE_SIZE = instanceSize(HivePartitionKey.class) + instanceSize(String.class) * 2;
+    private static final int INSTANCE_SIZE = instanceSize(HivePartitionKey.class);
 
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     private final String name;

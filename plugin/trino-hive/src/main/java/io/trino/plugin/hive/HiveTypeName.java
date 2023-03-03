@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class HiveTypeName
 {
-    private static final int INSTANCE_SIZE = instanceSize(HiveTypeName.class) + instanceSize(String.class);
+    private static final int INSTANCE_SIZE = instanceSize(HiveTypeName.class);
 
     private final String value;
 
