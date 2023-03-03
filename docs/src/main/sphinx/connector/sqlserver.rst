@@ -436,7 +436,22 @@ The connector supports pushdown for a number of operations:
 
 .. include:: join-pushdown-enabled-true.fragment
 
-.. include:: no-pushdown-text-type.fragment
+Predicate pushdown support
+""""""""""""""""""""""""""
+
+The connector supports pushdown of predicates on ``VARCHAR`` and ``NVARCHAR``
+columns if the underlying columns in SQL Server use a case-sensitive `collation
+<https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver16>`_.
+
+The following operators are pushed down:
+
+- ``=``
+- ``<>``
+- ``IN``
+- ``NOT IN``
+
+To ensure correct results, operators are not pushed down for columns using a
+case-insensitive collation.
 
 .. _sqlserver-bulk-insert:
 
