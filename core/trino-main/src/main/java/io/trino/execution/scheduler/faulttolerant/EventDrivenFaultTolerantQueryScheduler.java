@@ -1893,6 +1893,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private final DynamicFilterService dynamicFilterService;
         private final long[] outputDataSize;
+        private long outputRowCount;
 
         private final DataSize taskSplitMemoryThreshold;
         private final int taskSplitFactor;
@@ -2363,6 +2364,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 checkArgument(partitionSizeInBytes >= 0, "partitionSizeInBytes must be greater than or equal to zero: %s", partitionSizeInBytes);
                 outputDataSize[partitionId] += partitionSizeInBytes;
             }
+            outputRowCount += taskOutputStats.getRowCount();
         }
 
         public List<PrioritizedScheduledTask> taskFailed(TaskId taskId, ExecutionFailureInfo failureInfo, TaskStatus taskStatus)
@@ -2580,6 +2582,11 @@ public class EventDrivenFaultTolerantQueryScheduler
         public boolean isSomeProgressMade()
         {
             return partitions.size() > 0 && remainingPartitions.size() < partitions.size();
+        }
+
+        public long getOutputRowCount()
+        {
+            return outputRowCount;
         }
 
         public ExchangeSourceOutputSelector getSinkOutputSelector()
