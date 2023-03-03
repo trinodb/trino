@@ -184,8 +184,8 @@ public class IgniteClient
         return metadata.getTables(
                 null, // no catalogs in Ignite
                 // TODO: https://github.com/trinodb/trino/issues/8552 support user custom schemas.
-                schemaName.orElse(IGNITE_SCHEMA),
-                tableName.orElse(null),
+                escapeObjectNameForMetadataQuery(schemaName, metadata.getSearchStringEscape()).orElse(IGNITE_SCHEMA),
+                escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
                 new String[] {"TABLE", "VIEW"});
     }
 
