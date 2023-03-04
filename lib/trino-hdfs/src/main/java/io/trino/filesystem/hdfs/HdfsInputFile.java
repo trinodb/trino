@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
+import java.time.Instant;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
@@ -74,10 +75,10 @@ class HdfsInputFile
     }
 
     @Override
-    public long modificationTime()
+    public Instant lastModified()
             throws IOException
     {
-        return lazyStatus().getModificationTime();
+        return Instant.ofEpochMilli(lazyStatus().getModificationTime());
     }
 
     @Override

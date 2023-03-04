@@ -14,6 +14,7 @@
 package io.trino.filesystem;
 
 import java.io.IOException;
+import java.time.Instant;
 
 public interface TrinoInputFile
 {
@@ -26,7 +27,7 @@ public interface TrinoInputFile
     long length()
             throws IOException;
 
-    long modificationTime()
+    Instant lastModified()
             throws IOException;
 
     boolean exists()
