@@ -26,6 +26,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -160,10 +161,10 @@ public final class AccessTrackingFileSystemFactory
         }
 
         @Override
-        public long modificationTime()
+        public Instant lastModified()
                 throws IOException
         {
-            return delegate.modificationTime();
+            return delegate.lastModified();
         }
 
         @Override
