@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.RemoteIterator;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -80,7 +81,11 @@ class HdfsFileIterator
 
         Optional<List<BlockLocation>> blockLocations = locations.isEmpty() ? Optional.empty() : Optional.of(locations);
 
-        return new FileEntry(path, status.getLen(), status.getModificationTime(), blockLocations);
+        return new FileEntry(
+                path,
+                status.getLen(),
+                Instant.ofEpochMilli(status.getModificationTime()),
+                blockLocations);
     }
 
     private static BlockLocation toTrinoBlockLocation(org.apache.hadoop.fs.BlockLocation location)
