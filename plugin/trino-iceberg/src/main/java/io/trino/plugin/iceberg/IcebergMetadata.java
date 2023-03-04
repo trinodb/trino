@@ -146,6 +146,7 @@ import org.apache.iceberg.types.Types.StructType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1354,11 +1355,11 @@ public class IcebergMetadata
             return;
         }
 
-        long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
-        removeOrphanFiles(table, session, executeHandle.getSchemaTableName(), expireTimestampMillis);
+        Instant expiration = session.getStart().minusMillis(retention.toMillis());
+        removeOrphanFiles(table, session, executeHandle.getSchemaTableName(), expiration);
     }
 
-    private void removeOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp)
+    private void removeOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration)
     {
         Set<String> processedManifestFilePaths = new HashSet<>();
         // Similarly to issues like https://github.com/trinodb/trino/issues/13759, equivalent paths may have different String
@@ -1395,8 +1396,8 @@ public class IcebergMetadata
                 .forEach(validMetadataFileNames::add);
         validMetadataFileNames.add(fileName(versionHintLocation(table)));
 
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validDataFileNames.build(), "data");
-        scanAndDeleteInvalidFiles(table, session, schemaTableName, expireTimestamp, validMetadataFileNames.build(), "metadata");
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validDataFileNames.build(), "data");
+        scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validMetadataFileNames.build(), "metadata");
     }
 
     private static ManifestReader<? extends ContentFile<?>> readerForManifest(Table table, ManifestFile manifest)
@@ -1407,7 +1408,7 @@ public class IcebergMetadata
         };
     }
 
-    private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, long expireTimestamp, Set<String> validFiles, String subfolder)
+    private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Set<String> validFiles, String subfolder)
     {
         try {
             List<String> filesToDelete = new ArrayList<>();
@@ -1415,7 +1416,7 @@ public class IcebergMetadata
             FileIterator allFiles = fileSystem.listFiles(table.location() + "/" + subfolder);
             while (allFiles.hasNext()) {
                 FileEntry entry = allFiles.next();
-                if (entry.lastModified() < expireTimestamp && !validFiles.contains(fileName(entry.path()))) {
+                if (entry.lastModified().isBefore(expiration) && !validFiles.contains(fileName(entry.path()))) {
                     filesToDelete.add(entry.path());
                     if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
                         log.debug("Deleting files while removing orphan files for table %s [%s]", schemaTableName, filesToDelete);

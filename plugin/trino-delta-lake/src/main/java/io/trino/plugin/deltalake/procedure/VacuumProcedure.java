@@ -243,20 +243,14 @@ public class VacuumProcedure
             }
 
             // ignore recently created files
-            long modificationTime = entry.lastModified();
-            Instant modificationInstant = Instant.ofEpochMilli(modificationTime);
-            if (!modificationInstant.isBefore(threshold)) {
-                log.debug("[%s] retaining an unknown file %s with modification time %s (%s)", queryId, path, modificationTime, modificationInstant);
+            Instant modificationTime = entry.lastModified();
+            if (!modificationTime.isBefore(threshold)) {
+                log.debug("[%s] retaining an unknown file %s with modification time %s", queryId, path, modificationTime);
                 retainedUnknownFiles++;
                 continue;
             }
 
-            log.debug(
-                    "[%s] deleting file [%s] with modification time %s (%s)",
-                    queryId,
-                    path,
-                    modificationTime,
-                    modificationInstant);
+            log.debug("[%s] deleting file [%s] with modification time %s", queryId, path, modificationTime);
             filesToDelete.add(path);
             if (filesToDelete.size() == DELETE_BATCH_SIZE) {
                 fileSystem.deleteFiles(filesToDelete);
