@@ -60,7 +60,6 @@ import static io.trino.plugin.jdbc.TestCachingJdbcClient.CachingJdbcCache.TABLE_
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.testing.TestingConnectorSession.builder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -870,7 +869,7 @@ public class TestCachingJdbcClient
 
     private static ConnectorSession createSession(String sessionName)
     {
-        return builder()
+        return TestingConnectorSession.builder()
                 .setPropertyMetadata(PROPERTY_METADATA)
                 .setPropertyValues(ImmutableMap.of("session_name", sessionName))
                 .build();
@@ -878,7 +877,7 @@ public class TestCachingJdbcClient
 
     private static ConnectorSession createUserSession(String userName)
     {
-        return builder()
+        return TestingConnectorSession.builder()
                 .setIdentity(ConnectorIdentity.forUser(userName)
                         .withExtraCredentials(ImmutableMap.of("user", userName))
                         .build())

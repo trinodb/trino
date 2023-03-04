@@ -58,7 +58,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.builder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -236,7 +235,7 @@ public class InMemoryThriftMetastore
 
     private static List<String> listAllDataPaths(ThriftMetastore metastore, String schemaName, String tableName)
     {
-        ImmutableList.Builder<String> locations = builder();
+        ImmutableList.Builder<String> locations = ImmutableList.builder();
         Table table = metastore.getTable(schemaName, tableName).get();
         if (table.getSd().getLocation() != null) {
             // For unpartitioned table, there should be nothing directly under this directory.
@@ -413,7 +412,7 @@ public class InMemoryThriftMetastore
     @Override
     public synchronized List<Partition> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
-        ImmutableList.Builder<Partition> builder = builder();
+        ImmutableList.Builder<Partition> builder = ImmutableList.builder();
         for (String name : partitionNames) {
             PartitionName partitionName = PartitionName.partition(databaseName, tableName, name);
             Partition partition = partitions.get(partitionName);
