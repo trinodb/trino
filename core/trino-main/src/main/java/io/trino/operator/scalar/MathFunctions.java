@@ -38,6 +38,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import org.apache.commons.math3.distribution.BetaDistribution;
+import org.apache.commons.math3.distribution.ChiSquaredDistribution;
 import org.apache.commons.math3.distribution.TDistribution;
 import org.apache.commons.math3.special.Erf;
 
@@ -1448,5 +1449,31 @@ public final class MathFunctions
         }
 
         return Math.sqrt(norm);
+    }
+
+    @Description("ChiSquared cdf given the df parameter and value")
+    @ScalarFunction("chi_squared_cdf")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double chiSquaredCdf(
+            @SqlType(StandardTypes.DOUBLE) double df,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
+        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
+        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
+    }
+
+    @Description("inverse of ChiSquared cdf given df parameter and probability")
+    @ScalarFunction("inverse_chi_squared_cdf")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseChiSquaredCdf(
+            @SqlType(StandardTypes.DOUBLE) double df,
+            @SqlType(StandardTypes.DOUBLE) double p)
+    {
+        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
+        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
+        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(p);
     }
 }

@@ -3635,4 +3635,42 @@ public class TestMathFunctions
         assertThat(assertions.function("wilson_interval_upper", "1250", "1310", "1.96e0"))
                 .isEqualTo(0.9642524717143908);
     }
+
+    @Test
+    void testChiSquaredCdf()
+    {
+        assertThat(assertions.function("chi_squared_cdf", "3", "0.0"))
+                .isEqualTo(0.0);
+        assertThat(assertions.function("chi_squared_cdf", "3", "1.0"))
+                .isEqualTo(0.1987480430987992);
+        assertThat(assertions.function("chi_squared_cdf", "3", "2.5"))
+                .isEqualTo(0.5247089166569794);
+        assertThat(assertions.function("chi_squared_cdf", "3", "4"))
+                .isEqualTo(0.7385358700508893);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "-3", "0.3").evaluate())
+                .hasMessage("df must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "3", "-10").evaluate())
+                .hasMessage("value must non-negative");
+    }
+
+    @Test
+    void testInverseChiSquaredCdf()
+    {
+        assertThat(assertions.function("inverse_chi_squared_cdf", "3", "0.0"))
+                .isEqualTo(0.0);
+        assertThat(assertions.function("inverse_chi_squared_cdf", "3", "0.99"))
+                .isEqualTo(11.344866730144375);
+        assertThat(assertions.function("inverse_chi_squared_cdf", "3", "0.3"))
+                .isEqualTo(1.423652243035149);
+        assertThat(assertions.function("inverse_chi_squared_cdf", "3", "0.95"))
+                .isEqualTo(7.814727903124902);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "-3", "0.3").evaluate())
+                .hasMessage("df must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "-0.1").evaluate())
+                .hasMessage("p must be in the interval [0, 1]");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "1.1").evaluate())
+                .hasMessage("p must be in the interval [0, 1]");
+    }
 }
