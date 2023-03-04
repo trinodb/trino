@@ -45,7 +45,7 @@ public class TrinoFileStatus
                 new Path(entry.path()),
                 false,
                 entry.length(),
-                entry.lastModified());
+                entry.lastModified().toEpochMilli());
     }
 
     public TrinoFileStatus(LocatedFileStatus fileStatus)

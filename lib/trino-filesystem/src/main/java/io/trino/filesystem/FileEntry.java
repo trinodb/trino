@@ -15,6 +15,7 @@ package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableList;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,7 +26,7 @@ import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public record FileEntry(String path, long length, long lastModified, Optional<List<BlockLocation>> blockLocations)
+public record FileEntry(String path, long length, Instant lastModified, Optional<List<BlockLocation>> blockLocations)
 {
     public FileEntry
     {
