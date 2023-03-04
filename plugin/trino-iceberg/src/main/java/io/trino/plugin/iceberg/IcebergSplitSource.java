@@ -279,7 +279,7 @@ public class IcebergSplitSource
     {
         try {
             TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(path);
-            return inputFile.modificationTime();
+            return inputFile.lastModified().toEpochMilli();
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);

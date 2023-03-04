@@ -19,6 +19,7 @@ import io.trino.filesystem.TrinoInputFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
@@ -54,10 +55,10 @@ public class LocalInputFile
     }
 
     @Override
-    public long modificationTime()
+    public Instant lastModified()
             throws IOException
     {
-        return file.lastModified();
+        return Instant.ofEpochMilli(file.lastModified());
     }
 
     @Override

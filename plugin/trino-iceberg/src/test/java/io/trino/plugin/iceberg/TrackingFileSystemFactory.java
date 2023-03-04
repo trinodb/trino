@@ -28,6 +28,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -215,10 +216,10 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public long modificationTime()
+        public Instant lastModified()
                 throws IOException
         {
-            return delegate.modificationTime();
+            return delegate.lastModified();
         }
 
         @Override
