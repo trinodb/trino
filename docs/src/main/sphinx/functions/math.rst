@@ -274,3 +274,15 @@ Cumulative distribution functions
     Compute the Normal cdf with given mean and standard deviation (sd):  P(N < v; mean, sd).
     The mean and value v must be real values and the standard deviation must be a real
     and positive value.
+
+.. function:: chiSquaredCdf(df, value) -> double
+
+    Compute the Chi-square cdf with given df (degrees of freedom) parameter: P(N < value; df).
+    The df parameter must be a positive real number, and value must be a non-negative real
+    value (both of type DOUBLE).
+
+.. function:: inverseChiSquaredCdf(df, p) -> double
+
+    Compute the inverse of the Chi-square cdf with given df (degrees of freedom) parameter
+    for the cumulative probability (p): P(N < n). The df parameter must be positive real
+    values. The probability p must lie on the interval [0, 1].

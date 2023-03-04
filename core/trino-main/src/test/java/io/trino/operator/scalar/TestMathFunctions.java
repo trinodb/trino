@@ -36,6 +36,7 @@ import static io.trino.spi.type.SqlDecimal.decimal;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.lang.Math.round;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -3572,5 +3573,43 @@ public class TestMathFunctions
 
         assertThat(assertions.function("wilson_interval_upper", "1250", "1310", "1.96e0"))
                 .isEqualTo(0.9642524717143908);
+    }
+
+    @Test
+    public void testInverseChiSquaredCdf()
+    {
+        assertThat(assertions.function("inverse_chi_squared_cdf", "3", "0.0"))
+                .isEqualTo(0.0);
+//        assertThat(round(assertions.function("inverse_chi_squared_cdf", "3", "0..99")),4)
+//                .isEqualTo(11.3449);
+//        assertThat(round(assertions.function("inverse_chi_squared_cdf", "3", "0.3")),2)
+//                .isEqualTo(1.42);
+//        assertThat(round(assertions.function("inverse_chi_squared_cdf", "3", "0.95")),2)
+//                .isEqualTo(7.81);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "-3", "0.3").evaluate())
+                .hasMessage("df must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "-0.1").evaluate())
+                .hasMessage("p must be in the interval [0, 1]");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "1.1").evaluate())
+                .hasMessage("p must be in the interval [0, 1]");
+    }
+
+    @Test
+    public void testChiSquaredCdf()
+    {
+        assertThat(assertions.function("chi_squared_cdf", "3", "0.0"))
+                .isEqualTo(0.0);
+//        assertThat(round(assertions.function("chi_squared_cdf", "3", "1.0")),4)
+//                .isEqualTo(0.1987);
+//        assertThat(round(assertions.function("chi_squared_cdf", "3", "2.5")),2)
+//                .isEqualTo(0.52);
+//        assertThat(round(assertions.function("chi_squared_cdf", "3", "4")),2)
+//                .isEqualTo(0.74);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "-3", "0.3").evaluate())
+                .hasMessage("df must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "3", "-10").evaluate())
+                .hasMessage("value must non-negative");
     }
 }
