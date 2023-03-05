@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive;
+package io.trino.plugin.hive.avro;
 
 import io.trino.filesystem.local.LocalFileSystem;
 import io.trino.hadoop.ConfigurationInstantiator;
-import io.trino.plugin.hive.avro.AvroHiveFileUtils;
-import io.trino.plugin.hive.avro.TrinoAvroSerDe;
+import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.VarcharType;
@@ -34,7 +33,7 @@ import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class AvroSchemaGenerationTests
+public class TestAvroSchemaGeneration
 {
     @Test
     public void testOldVsNewSchemaGeneration()

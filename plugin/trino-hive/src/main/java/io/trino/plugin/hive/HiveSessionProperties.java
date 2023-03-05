@@ -65,18 +65,11 @@ public final class HiveSessionProperties
     private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
-    private static final String AVRO_NATIVE_READER_ENABLED = "avro_native_reader_enabled";
     private static final String AVRO_NATIVE_WRITER_ENABLED = "avro_native_writer_enabled";
-    private static final String CSV_NATIVE_READER_ENABLED = "csv_native_reader_enabled";
     private static final String CSV_NATIVE_WRITER_ENABLED = "csv_native_writer_enabled";
-    private static final String JSON_NATIVE_READER_ENABLED = "json_native_reader_enabled";
     private static final String JSON_NATIVE_WRITER_ENABLED = "json_native_writer_enabled";
-    private static final String OPENX_JSON_NATIVE_READER_ENABLED = "openx_json_native_reader_enabled";
     private static final String OPENX_JSON_NATIVE_WRITER_ENABLED = "openx_json_native_writer_enabled";
-    private static final String REGEX_NATIVE_READER_ENABLED = "regex_native_reader_enabled";
-    private static final String TEXT_FILE_NATIVE_READER_ENABLED = "text_file_native_reader_enabled";
     private static final String TEXT_FILE_NATIVE_WRITER_ENABLED = "text_file_native_writer_enabled";
-    private static final String SEQUENCE_FILE_NATIVE_READER_ENABLED = "sequence_file_native_reader_enabled";
     private static final String SEQUENCE_FILE_NATIVE_WRITER_ENABLED = "sequence_file_native_writer_enabled";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
@@ -203,19 +196,9 @@ public final class HiveSessionProperties
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
                 booleanProperty(
-                        AVRO_NATIVE_READER_ENABLED,
-                        "Use native Avro file reader",
-                        hiveFormatsConfig.isAvroFileNativeReaderEnabled(),
-                        false),
-                booleanProperty(
                         AVRO_NATIVE_WRITER_ENABLED,
                         "Use native Avro file writer",
                         hiveFormatsConfig.isAvroFileNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        CSV_NATIVE_READER_ENABLED,
-                        "Use native CSV reader",
-                        hiveFormatsConfig.isCsvNativeReaderEnabled(),
                         false),
                 booleanProperty(
                         CSV_NATIVE_WRITER_ENABLED,
@@ -223,19 +206,9 @@ public final class HiveSessionProperties
                         hiveFormatsConfig.isCsvNativeWriterEnabled(),
                         false),
                 booleanProperty(
-                        JSON_NATIVE_READER_ENABLED,
-                        "Use native JSON reader",
-                        hiveFormatsConfig.isJsonNativeReaderEnabled(),
-                        false),
-                booleanProperty(
                         JSON_NATIVE_WRITER_ENABLED,
                         "Use native JSON writer",
                         hiveFormatsConfig.isJsonNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        OPENX_JSON_NATIVE_READER_ENABLED,
-                        "Use native OpenX JSON reader",
-                        hiveFormatsConfig.isOpenXJsonNativeReaderEnabled(),
                         false),
                 booleanProperty(
                         OPENX_JSON_NATIVE_WRITER_ENABLED,
@@ -243,24 +216,9 @@ public final class HiveSessionProperties
                         hiveFormatsConfig.isOpenXJsonNativeWriterEnabled(),
                         false),
                 booleanProperty(
-                        REGEX_NATIVE_READER_ENABLED,
-                        "Use native REGEX reader",
-                        hiveFormatsConfig.isRegexNativeReaderEnabled(),
-                        false),
-                booleanProperty(
-                        TEXT_FILE_NATIVE_READER_ENABLED,
-                        "Use native text file reader",
-                        hiveFormatsConfig.isTextFileNativeReaderEnabled(),
-                        false),
-                booleanProperty(
                         TEXT_FILE_NATIVE_WRITER_ENABLED,
                         "Use native text file writer",
                         hiveFormatsConfig.isTextFileNativeWriterEnabled(),
-                        false),
-                booleanProperty(
-                        SEQUENCE_FILE_NATIVE_READER_ENABLED,
-                        "Use native sequence file reader",
-                        hiveFormatsConfig.isSequenceFileNativeReaderEnabled(),
                         false),
                 booleanProperty(
                         SEQUENCE_FILE_NATIVE_WRITER_ENABLED,
@@ -653,19 +611,9 @@ public final class HiveSessionProperties
         return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
     }
 
-    public static boolean isAvroNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(AVRO_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
     public static boolean isAvroNativeWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(AVRO_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isCsvNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(CSV_NATIVE_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isCsvNativeWriterEnabled(ConnectorSession session)
@@ -673,19 +621,9 @@ public final class HiveSessionProperties
         return session.getProperty(CSV_NATIVE_WRITER_ENABLED, Boolean.class);
     }
 
-    public static boolean isJsonNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(JSON_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
     public static boolean isJsonNativeWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(JSON_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isOpenXJsonNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(OPENX_JSON_NATIVE_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isOpenXJsonNativeWriterEnabled(ConnectorSession session)
@@ -693,24 +631,9 @@ public final class HiveSessionProperties
         return session.getProperty(OPENX_JSON_NATIVE_WRITER_ENABLED, Boolean.class);
     }
 
-    public static boolean isRegexNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(REGEX_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isTextFileNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(TEXT_FILE_NATIVE_READER_ENABLED, Boolean.class);
-    }
-
     public static boolean isTextFileNativeWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(TEXT_FILE_NATIVE_WRITER_ENABLED, Boolean.class);
-    }
-
-    public static boolean isSequenceFileNativeReaderEnabled(ConnectorSession session)
-    {
-        return session.getProperty(SEQUENCE_FILE_NATIVE_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isSequenceFileNativeWriterEnabled(ConnectorSession session)

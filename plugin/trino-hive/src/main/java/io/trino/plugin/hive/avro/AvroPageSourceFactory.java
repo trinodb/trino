@@ -56,7 +56,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.trino.plugin.hive.HiveSessionProperties.isAvroNativeReaderEnabled;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.wrapInUnionWithNull;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
@@ -93,10 +92,7 @@ public class AvroPageSourceFactory
             boolean originalFile,
             AcidTransaction transaction)
     {
-        if (!isAvroNativeReaderEnabled(session)) {
-            return Optional.empty();
-        }
-        else if (!AVRO_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
+        if (!AVRO_SERDE_CLASS.equals(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");

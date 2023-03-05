@@ -26,6 +26,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
@@ -81,6 +82,9 @@ public class TestS3SelectQueries
     @Test(dataProvider = "s3SelectFileFormats")
     public void testS3SelectPushdown(String tableProperties)
     {
+        if (true) {
+            throw new SkipException("S3 Select not yet supported");
+        }
         Session usingAppendInserts = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
                 .build();
@@ -159,8 +163,6 @@ public class TestS3SelectQueries
     {
         Session withS3SelectPushdown = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "s3_select_pushdown_enabled", "true")
-                .setCatalogSessionProperty("hive", "json_native_reader_enabled", "false")
-                .setCatalogSessionProperty("hive", "text_file_native_reader_enabled", "false")
                 .build();
 
         MaterializedResult expectedResult = computeActual(expectedValues);

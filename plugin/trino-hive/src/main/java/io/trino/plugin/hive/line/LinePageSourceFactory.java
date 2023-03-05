@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -67,17 +66,14 @@ public abstract class LinePageSourceFactory
     private final TrinoFileSystemFactory fileSystemFactory;
     private final LineDeserializerFactory lineDeserializerFactory;
     private final LineReaderFactory lineReaderFactory;
-    private final Predicate<ConnectorSession> activation;
 
     protected LinePageSourceFactory(
             TrinoFileSystemFactory fileSystemFactory,
             LineDeserializerFactory lineDeserializerFactory,
-            LineReaderFactory lineReaderFactory,
-            Predicate<ConnectorSession> activation)
+            LineReaderFactory lineReaderFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.lineDeserializerFactory = requireNonNull(lineDeserializerFactory, "lineDeserializerFactory is null");
-        this.activation = requireNonNull(activation, "activation is null");
         this.lineReaderFactory = requireNonNull(lineReaderFactory, "lineReaderFactory is null");
     }
 
@@ -97,8 +93,7 @@ public abstract class LinePageSourceFactory
             AcidTransaction transaction)
     {
         if (!lineReaderFactory.getHiveOutputFormatClassName().equals(schema.getProperty(FILE_INPUT_FORMAT)) ||
-                !lineDeserializerFactory.getHiveSerDeClassNames().contains(getDeserializerClassName(schema)) ||
-                !activation.test(session)) {
+                !lineDeserializerFactory.getHiveSerDeClassNames().contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
 

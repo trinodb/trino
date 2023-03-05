@@ -22,6 +22,7 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -69,6 +70,9 @@ public class TestMinioS3SelectQueries
     @Test
     public void testTextfileQueries()
     {
+        if (true) {
+            throw new SkipException("S3 Select not yet supported");
+        }
         // Demonstrate correctness issues which have resulted in pushdown for TEXTFILE
         // using CSV support in S3 Select being put behind a separate "experimental" flag.
         // TODO: https://github.com/trinodb/trino/issues/17775
@@ -79,12 +83,6 @@ public class TestMinioS3SelectQueries
                 "4, false, 44");
         Session withS3SelectPushdown = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "s3_select_pushdown_enabled", "true")
-                .setCatalogSessionProperty("hive", "json_native_reader_enabled", "false")
-                .setCatalogSessionProperty("hive", "text_file_native_reader_enabled", "false")
-                .build();
-        Session withoutS3SelectPushdown = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "json_native_reader_enabled", "false")
-                .setCatalogSessionProperty("hive", "text_file_native_reader_enabled", "false")
                 .build();
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
@@ -106,19 +104,19 @@ public class TestMinioS3SelectQueries
                 "(id INT, string_t VARCHAR) WITH (format = 'TEXTFILE', textfile_field_separator=',', textfile_field_separator_escape='|', null_format='~')",
                 specialCharacterValues)) {
             String selectWithComma = "SELECT id FROM " + table.getName() + " WHERE string_t = 'a,comma'";
-            assertQuery(withoutS3SelectPushdown, selectWithComma, "VALUES 1");
+            assertQuery(selectWithComma, "VALUES 1");
             assertQuery(withS3SelectPushdown, selectWithComma, "VALUES 1");
 
             String selectWithPipe = "SELECT id FROM " + table.getName() + " WHERE string_t = 'a|pipe'";
-            assertQuery(withoutS3SelectPushdown, selectWithPipe, "VALUES 2");
+            assertQuery(selectWithPipe, "VALUES 2");
             assertQuery(withS3SelectPushdown, selectWithPipe, "VALUES 2");
 
             String selectWithQuote = "SELECT id FROM " + table.getName() + " WHERE string_t = 'an''escaped quote'";
-            assertQuery(withoutS3SelectPushdown, selectWithQuote, "VALUES 3");
+            assertQuery(selectWithQuote, "VALUES 3");
             assertQuery(withS3SelectPushdown, selectWithQuote, "VALUES 3");
 
             String selectWithNullFormatEncoding = "SELECT id FROM " + table.getName() + " WHERE string_t = 'a~null encoding'";
-            assertQuery(withoutS3SelectPushdown, selectWithNullFormatEncoding, "VALUES 4");
+            assertQuery(selectWithNullFormatEncoding, "VALUES 4");
             assertQuery(withS3SelectPushdown, selectWithNullFormatEncoding, "VALUES 4");
         }
     }

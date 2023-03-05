@@ -18,32 +18,12 @@ import io.airlift.configuration.ConfigDescription;
 
 public class HiveFormatsConfig
 {
-    private boolean avroFileNativeReaderEnabled = true;
     private boolean avroFileNativeWriterEnabled = true;
-    private boolean csvNativeReaderEnabled = true;
     private boolean csvNativeWriterEnabled = true;
-    private boolean jsonNativeReaderEnabled = true;
     private boolean jsonNativeWriterEnabled = true;
-    private boolean openXJsonNativeReaderEnabled = true;
     private boolean openXJsonNativeWriterEnabled = true;
-    private boolean regexNativeReaderEnabled = true;
-    private boolean textFileNativeReaderEnabled = true;
     private boolean textFileNativeWriterEnabled = true;
-    private boolean sequenceFileNativeReaderEnabled = true;
     private boolean sequenceFileNativeWriterEnabled = true;
-
-    public boolean isAvroFileNativeReaderEnabled()
-    {
-        return avroFileNativeReaderEnabled;
-    }
-
-    @Config("avro.native-reader.enabled")
-    @ConfigDescription("Use native Avro file reader")
-    public HiveFormatsConfig setAvroFileNativeReaderEnabled(boolean avroFileNativeReaderEnabled)
-    {
-        this.avroFileNativeReaderEnabled = avroFileNativeReaderEnabled;
-        return this;
-    }
 
     public boolean isAvroFileNativeWriterEnabled()
     {
@@ -55,19 +35,6 @@ public class HiveFormatsConfig
     public HiveFormatsConfig setAvroFileNativeWriterEnabled(boolean avroFileNativeWriterEnabled)
     {
         this.avroFileNativeWriterEnabled = avroFileNativeWriterEnabled;
-        return this;
-    }
-
-    public boolean isCsvNativeReaderEnabled()
-    {
-        return csvNativeReaderEnabled;
-    }
-
-    @Config("csv.native-reader.enabled")
-    @ConfigDescription("Use native CSV reader")
-    public HiveFormatsConfig setCsvNativeReaderEnabled(boolean csvNativeReaderEnabled)
-    {
-        this.csvNativeReaderEnabled = csvNativeReaderEnabled;
         return this;
     }
 
@@ -84,19 +51,6 @@ public class HiveFormatsConfig
         return this;
     }
 
-    public boolean isJsonNativeReaderEnabled()
-    {
-        return jsonNativeReaderEnabled;
-    }
-
-    @Config("json.native-reader.enabled")
-    @ConfigDescription("Use native JSON reader")
-    public HiveFormatsConfig setJsonNativeReaderEnabled(boolean jsonNativeReaderEnabled)
-    {
-        this.jsonNativeReaderEnabled = jsonNativeReaderEnabled;
-        return this;
-    }
-
     public boolean isJsonNativeWriterEnabled()
     {
         return jsonNativeWriterEnabled;
@@ -107,19 +61,6 @@ public class HiveFormatsConfig
     public HiveFormatsConfig setJsonNativeWriterEnabled(boolean jsonNativeWriterEnabled)
     {
         this.jsonNativeWriterEnabled = jsonNativeWriterEnabled;
-        return this;
-    }
-
-    public boolean isOpenXJsonNativeReaderEnabled()
-    {
-        return openXJsonNativeReaderEnabled;
-    }
-
-    @Config("openx-json.native-reader.enabled")
-    @ConfigDescription("Use native OpenXJson reader")
-    public HiveFormatsConfig setOpenXJsonNativeReaderEnabled(boolean openXJsonNativeReaderEnabled)
-    {
-        this.openXJsonNativeReaderEnabled = openXJsonNativeReaderEnabled;
         return this;
     }
 
@@ -136,32 +77,6 @@ public class HiveFormatsConfig
         return this;
     }
 
-    public boolean isRegexNativeReaderEnabled()
-    {
-        return regexNativeReaderEnabled;
-    }
-
-    @Config("regex.native-reader.enabled")
-    @ConfigDescription("Use native REGEX reader")
-    public HiveFormatsConfig setRegexNativeReaderEnabled(boolean regexNativeReaderEnabled)
-    {
-        this.regexNativeReaderEnabled = regexNativeReaderEnabled;
-        return this;
-    }
-
-    public boolean isTextFileNativeReaderEnabled()
-    {
-        return textFileNativeReaderEnabled;
-    }
-
-    @Config("text-file.native-reader.enabled")
-    @ConfigDescription("Use native text file reader")
-    public HiveFormatsConfig setTextFileNativeReaderEnabled(boolean textFileNativeReaderEnabled)
-    {
-        this.textFileNativeReaderEnabled = textFileNativeReaderEnabled;
-        return this;
-    }
-
     public boolean isTextFileNativeWriterEnabled()
     {
         return textFileNativeWriterEnabled;
@@ -172,19 +87,6 @@ public class HiveFormatsConfig
     public HiveFormatsConfig setTextFileNativeWriterEnabled(boolean textFileNativeWriterEnabled)
     {
         this.textFileNativeWriterEnabled = textFileNativeWriterEnabled;
-        return this;
-    }
-
-    public boolean isSequenceFileNativeReaderEnabled()
-    {
-        return sequenceFileNativeReaderEnabled;
-    }
-
-    @Config("sequence-file.native-reader.enabled")
-    @ConfigDescription("Use native sequence file reader")
-    public HiveFormatsConfig setSequenceFileNativeReaderEnabled(boolean sequenceFileNativeReaderEnabled)
-    {
-        this.sequenceFileNativeReaderEnabled = sequenceFileNativeReaderEnabled;
         return this;
     }
 
