@@ -21,7 +21,6 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -67,7 +66,6 @@ import org.joda.time.format.DateTimeFormat;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -83,7 +81,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -91,7 +88,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnProjectionInfo.generatePartialName;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.HiveTestUtils.isDistinctFrom;
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
@@ -123,7 +119,6 @@ import static java.lang.Math.floorDiv;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
@@ -143,8 +138,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestHiveFileFormats
 {
@@ -725,59 +718,6 @@ public abstract class AbstractTestHiveFileFormats
             return ((Int128) cursor.getObject(field)).toBigInteger();
         }
         throw new RuntimeException("unknown type");
-    }
-
-    protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int rowCount)
-    {
-        List<Type> types = testColumns.stream()
-                .map(column -> column.getObjectInspector().getTypeName())
-                .map(type -> HiveType.valueOf(type).getType(TESTING_TYPE_MANAGER))
-                .collect(toImmutableList());
-
-        Map<Type, MethodHandle> distinctFromOperators = types.stream().distinct()
-                .collect(toImmutableMap(identity(), HiveTestUtils::distinctFromOperator));
-
-        for (int row = 0; row < rowCount; row++) {
-            assertTrue(cursor.advanceNextPosition());
-            for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
-                TestColumn testColumn = testColumns.get(i);
-
-                Type type = types.get(i);
-                Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
-                if (fieldFromCursor == null) {
-                    assertEquals(null, testColumn.getExpectedValue(), "Expected null for column " + testColumn.getName());
-                }
-                else if (type instanceof DecimalType decimalType) {
-                    fieldFromCursor = new BigDecimal((BigInteger) fieldFromCursor, decimalType.getScale());
-                    assertEquals(fieldFromCursor, testColumn.getExpectedValue(), "Wrong value for column " + testColumn.getName());
-                }
-                else if (testColumn.getObjectInspector().getTypeName().equals("float")) {
-                    assertEquals((float) fieldFromCursor, (float) testColumn.getExpectedValue(), (float) EPSILON);
-                }
-                else if (testColumn.getObjectInspector().getTypeName().equals("double")) {
-                    assertEquals((double) fieldFromCursor, (double) testColumn.getExpectedValue(), EPSILON);
-                }
-                else if (testColumn.getObjectInspector().getTypeName().equals("tinyint")) {
-                    assertEquals(((Number) fieldFromCursor).byteValue(), testColumn.getExpectedValue());
-                }
-                else if (testColumn.getObjectInspector().getTypeName().equals("smallint")) {
-                    assertEquals(((Number) fieldFromCursor).shortValue(), testColumn.getExpectedValue());
-                }
-                else if (testColumn.getObjectInspector().getTypeName().equals("int")) {
-                    assertEquals(((Number) fieldFromCursor).intValue(), testColumn.getExpectedValue());
-                }
-                else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
-                    assertEquals(fieldFromCursor, testColumn.getExpectedValue(), "Wrong value for column " + testColumn.getName());
-                }
-                else {
-                    Block expected = (Block) testColumn.getExpectedValue();
-                    Block actual = (Block) fieldFromCursor;
-                    boolean distinct = isDistinctFrom(distinctFromOperators.get(type), expected, actual);
-                    assertFalse(distinct, "Wrong value for column: " + testColumn.getName());
-                }
-            }
-        }
-        assertFalse(cursor.advanceNextPosition());
     }
 
     protected void checkPageSource(ConnectorPageSource pageSource, List<TestColumn> testColumns, List<Type> types, int rowCount)

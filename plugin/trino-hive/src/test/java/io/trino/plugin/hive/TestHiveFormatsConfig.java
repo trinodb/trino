@@ -28,18 +28,11 @@ public class TestHiveFormatsConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HiveFormatsConfig.class)
-                .setAvroFileNativeReaderEnabled(true)
                 .setAvroFileNativeWriterEnabled(true)
-                .setCsvNativeReaderEnabled(true)
                 .setCsvNativeWriterEnabled(true)
-                .setJsonNativeReaderEnabled(true)
                 .setJsonNativeWriterEnabled(true)
-                .setOpenXJsonNativeReaderEnabled(true)
                 .setOpenXJsonNativeWriterEnabled(true)
-                .setRegexNativeReaderEnabled(true)
-                .setTextFileNativeReaderEnabled(true)
                 .setTextFileNativeWriterEnabled(true)
-                .setSequenceFileNativeReaderEnabled(true)
                 .setSequenceFileNativeWriterEnabled(true));
     }
 
@@ -47,34 +40,20 @@ public class TestHiveFormatsConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("avro.native-reader.enabled", "false")
                 .put("avro.native-writer.enabled", "false")
-                .put("csv.native-reader.enabled", "false")
                 .put("csv.native-writer.enabled", "false")
-                .put("json.native-reader.enabled", "false")
                 .put("json.native-writer.enabled", "false")
-                .put("openx-json.native-reader.enabled", "false")
                 .put("openx-json.native-writer.enabled", "false")
-                .put("regex.native-reader.enabled", "false")
-                .put("text-file.native-reader.enabled", "false")
                 .put("text-file.native-writer.enabled", "false")
-                .put("sequence-file.native-reader.enabled", "false")
                 .put("sequence-file.native-writer.enabled", "false")
                 .buildOrThrow();
 
         HiveFormatsConfig expected = new HiveFormatsConfig()
-                .setAvroFileNativeReaderEnabled(false)
                 .setAvroFileNativeWriterEnabled(false)
-                .setCsvNativeReaderEnabled(false)
                 .setCsvNativeWriterEnabled(false)
-                .setJsonNativeReaderEnabled(false)
                 .setJsonNativeWriterEnabled(false)
-                .setOpenXJsonNativeReaderEnabled(false)
                 .setOpenXJsonNativeWriterEnabled(false)
-                .setRegexNativeReaderEnabled(false)
-                .setTextFileNativeReaderEnabled(false)
                 .setTextFileNativeWriterEnabled(false)
-                .setSequenceFileNativeReaderEnabled(false)
                 .setSequenceFileNativeWriterEnabled(false);
 
         assertFullMapping(properties, expected);
