@@ -46,7 +46,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -157,11 +156,8 @@ public class TestNodeLocalDynamicSplitPruning
 
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
-                HDFS_ENVIRONMENT,
                 hiveConfig,
-                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, hiveConfig),
-                getDefaultHiveRecordCursorProviders(hiveConfig, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, hiveConfig));
+                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, hiveConfig));
 
         return provider.createPageSource(
                 transaction,

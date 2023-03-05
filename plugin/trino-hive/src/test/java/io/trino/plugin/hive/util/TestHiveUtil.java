@@ -20,10 +20,7 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
-import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
-import org.apache.hadoop.hive.serde2.thrift.test.IntString;
 import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.thrift.protocol.TBinaryProtocol;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
@@ -39,7 +36,6 @@ import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
-import static io.trino.plugin.hive.util.HiveReaderUtil.getDeserializer;
 import static io.trino.plugin.hive.util.HiveReaderUtil.getInputFormat;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
@@ -47,8 +43,6 @@ import static io.trino.plugin.hive.util.HiveUtil.parseHiveTimestamp;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -65,17 +59,6 @@ public class TestHiveUtil
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time, 3));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS"), unixTime(time, 6));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"), unixTime(time, 7));
-    }
-
-    @Test
-    public void testGetThriftDeserializer()
-    {
-        Properties schema = new Properties();
-        schema.setProperty(SERIALIZATION_LIB, ThriftDeserializer.class.getName());
-        schema.setProperty(SERIALIZATION_CLASS, IntString.class.getName());
-        schema.setProperty(SERIALIZATION_FORMAT, TBinaryProtocol.class.getName());
-
-        assertInstanceOf(getDeserializer(newEmptyConfiguration(), schema), ThriftDeserializer.class);
     }
 
     @Test

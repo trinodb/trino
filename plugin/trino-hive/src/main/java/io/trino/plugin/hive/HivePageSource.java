@@ -27,7 +27,6 @@ import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -368,21 +367,6 @@ public class HivePageSource
                             format("Hive table is corrupt. File '%s' is for bucket %s, but contains a row for bucket %s.", path, expectedBucket, bucket));
                 }
             }
-        }
-
-        public RecordCursor wrapRecordCursor(RecordCursor delegate, TypeManager typeManager)
-        {
-            return new HiveBucketValidationRecordCursor(
-                    path,
-                    bucketColumnIndices,
-                    bucketColumnTypes.stream()
-                            .map(HiveType::toHiveType)
-                            .collect(toImmutableList()),
-                    bucketingVersion,
-                    bucketCount,
-                    expectedBucket,
-                    typeManager,
-                    delegate);
         }
     }
 }

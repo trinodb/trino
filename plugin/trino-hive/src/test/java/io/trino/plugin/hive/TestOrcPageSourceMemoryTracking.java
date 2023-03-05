@@ -568,8 +568,6 @@ public class TestOrcPageSourceMemoryTracking
 
             ConnectorPageSource connectorPageSource = HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),
-                    ImmutableSet.of(),
-                    newEmptyConfiguration(),
                     session,
                     Location.of(fileSplit.getPath().toString()),
                     OptionalInt.empty(),
@@ -578,7 +576,6 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getLength(),
                     schema,
                     TupleDomain.all(),
-                    columns,
                     TESTING_TYPE_MANAGER,
                     Optional.empty(),
                     Optional.empty(),
