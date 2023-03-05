@@ -19,15 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HivePageSource.BucketValidator;
-import io.trino.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -37,15 +35,10 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
-import io.trino.spi.connector.RecordCursor;
-import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,12 +61,15 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
+import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -86,28 +82,15 @@ public class HivePageSourceProvider
     private static final Pattern ORIGINAL_FILE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<filename>(?<bucketNumber>\\d+)_(?<rest>.*)?)$");
 
     private final TypeManager typeManager;
-    private final HdfsEnvironment hdfsEnvironment;
     private final int domainCompactionThreshold;
     private final Set<HivePageSourceFactory> pageSourceFactories;
-    private final Set<HiveRecordCursorProvider> cursorProviders;
 
     @Inject
-    public HivePageSourceProvider(
-            TypeManager typeManager,
-            HdfsEnvironment hdfsEnvironment,
-            HiveConfig hiveConfig,
-            Set<HivePageSourceFactory> pageSourceFactories,
-            Set<HiveRecordCursorProvider> cursorProviders,
-            GenericHiveRecordCursorProvider genericCursorProvider)
+    public HivePageSourceProvider(TypeManager typeManager, HiveConfig hiveConfig, Set<HivePageSourceFactory> pageSourceFactories)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
-        this.cursorProviders = ImmutableSet.<HiveRecordCursorProvider>builder()
-                .addAll(requireNonNull(cursorProviders, "cursorProviders is null"))
-                .add(genericCursorProvider) // generic should be last, as a fallback option
-                .build();
     }
 
     @Override
@@ -149,12 +132,8 @@ public class HivePageSourceProvider
             return new EmptyPageSource();
         }
 
-        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(hiveSplit.getPath()));
-
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
-                cursorProviders,
-                configuration,
                 session,
                 Location.of(hiveSplit.getPath()),
                 hiveSplit.getTableBucketNumber(),
@@ -165,7 +144,6 @@ public class HivePageSourceProvider
                 hiveTable.getCompactEffectivePredicate().intersect(
                                 dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast))
                         .simplify(domainCompactionThreshold),
-                hiveColumns,
                 typeManager,
                 hiveSplit.getBucketConversion(),
                 hiveSplit.getBucketValidation(),
@@ -178,13 +156,16 @@ public class HivePageSourceProvider
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
-        throw new RuntimeException("Could not find a file reader for split " + hiveSplit);
+
+        throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unsupported input format: serde=%s, format=%s, partition=%s, path=%s".formatted(
+                getDeserializerClassName(hiveSplit.getSchema()),
+                getInputFormatName(hiveSplit.getSchema()).orElse(null),
+                hiveSplit.getPartitionName(),
+                hiveSplit.getPath()));
     }
 
     public static Optional<ConnectorPageSource> createHivePageSource(
             Set<HivePageSourceFactory> pageSourceFactories,
-            Set<HiveRecordCursorProvider> cursorProviders,
-            Configuration configuration,
             ConnectorSession session,
             Location path,
             OptionalInt tableBucketNumber,
@@ -193,7 +174,6 @@ public class HivePageSourceProvider
             long estimatedFileSize,
             Properties schema,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            List<HiveColumnHandle> columns,
             TypeManager typeManager,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
@@ -215,7 +195,7 @@ public class HivePageSourceProvider
         HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
 
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
-            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager, timestampPrecision);
+            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, typeManager, timestampPrecision);
 
             Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
                     session,
@@ -248,58 +228,6 @@ public class HivePageSourceProvider
                         typeManager,
                         timestampPrecision,
                         pageSource));
-            }
-        }
-
-        for (HiveRecordCursorProvider provider : cursorProviders) {
-            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, false, typeManager, timestampPrecision);
-            Optional<ReaderRecordCursorWithProjections> readerWithProjections = provider.createRecordCursor(
-                    configuration,
-                    session,
-                    path,
-                    start,
-                    length,
-                    estimatedFileSize,
-                    schema,
-                    desiredColumns,
-                    effectivePredicate,
-                    typeManager,
-                    s3SelectPushdownEnabled);
-
-            if (readerWithProjections.isPresent()) {
-                RecordCursor delegate = readerWithProjections.get().getRecordCursor();
-                Optional<ReaderColumns> projections = readerWithProjections.get().getProjectedReaderColumns();
-
-                if (projections.isPresent()) {
-                    ReaderProjectionsAdapter projectionsAdapter = hiveProjectionsAdapter(desiredColumns, projections.get());
-                    delegate = new HiveReaderProjectionsAdaptingRecordCursor(delegate, projectionsAdapter);
-                }
-
-                checkArgument(acidInfo.isEmpty(), "Acid is not supported");
-
-                if (bucketAdaptation.isPresent()) {
-                    delegate = new HiveBucketAdapterRecordCursor(
-                            bucketAdaptation.get().getBucketColumnIndices(),
-                            bucketAdaptation.get().getBucketColumnHiveTypes(),
-                            bucketAdaptation.get().getBucketingVersion(),
-                            bucketAdaptation.get().getTableBucketCount(),
-                            bucketAdaptation.get().getPartitionBucketCount(),
-                            bucketAdaptation.get().getBucketToKeep(),
-                            typeManager,
-                            delegate);
-                }
-
-                // bucket adaptation already validates that data is in the right bucket
-                if (bucketAdaptation.isEmpty() && bucketValidator.isPresent()) {
-                    delegate = bucketValidator.get().wrapRecordCursor(delegate, typeManager);
-                }
-
-                HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(columnMappings, delegate);
-                List<Type> columnTypes = columns.stream()
-                        .map(HiveColumnHandle::getType)
-                        .collect(toList());
-
-                return Optional.of(new RecordPageSource(columnTypes, hiveRecordCursor));
             }
         }
 
@@ -547,12 +475,12 @@ public class HivePageSourceProvider
                     .collect(toImmutableList());
         }
 
-        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
+        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
         {
             return regularColumnMappings.stream()
                     .map(columnMapping -> {
                         HiveColumnHandle columnHandle = columnMapping.getHiveColumnHandle();
-                        if (!doCoercion || columnMapping.getBaseTypeCoercionFrom().isEmpty()) {
+                        if (columnMapping.getBaseTypeCoercionFrom().isEmpty()) {
                             return columnHandle;
                         }
                         HiveType fromHiveTypeBase = columnMapping.getBaseTypeCoercionFrom().get();
