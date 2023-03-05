@@ -83,10 +83,6 @@ Configuration properties
       - Disables using the address published by Elasticsearch to connect for
         queries.
       -
-    * - ``elasticsearch.legacy-pass-through-query.enabled``
-      - Enables legacy pass-through query. Deprecated, use the :ref:`raw_query
-        table function <elasticsearch-raw-query-function>` instead.
-      - false
 
 TLS security
 ------------

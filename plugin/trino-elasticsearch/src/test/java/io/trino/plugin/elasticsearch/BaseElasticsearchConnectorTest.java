@@ -16,7 +16,6 @@ package io.trino.plugin.elasticsearch;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 import io.trino.Session;
 import io.trino.spi.type.VarcharType;
@@ -81,7 +80,7 @@ public abstract class BaseElasticsearchConnectorTest
                 elasticsearch.getAddress(),
                 TpchTable.getTables(),
                 ImmutableMap.of(),
-                ImmutableMap.of("elasticsearch.legacy-pass-through-query.enabled", "true"),
+                ImmutableMap.of(),
                 3,
                 catalogName);
     }
@@ -1741,49 +1740,6 @@ public abstract class BaseElasticsearchConnectorTest
     }
 
     @Test
-    public void testPassthroughQuery()
-    {
-        @Language("JSON")
-        String query = "{\n" +
-                "    \"size\": 0,\n" +
-                "    \"aggs\" : {\n" +
-                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
-                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
-                "    }\n" +
-                "}";
-
-        assertQuery(
-                format("WITH data(r) AS (" +
-                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        "   FROM \"orders$query:%s\") " +
-                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                        "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8))),
-                "VALUES (60000, 449872500)");
-
-        // assert that query pass-through returns the same result as the raw_query table function
-        assertThat(query(format("WITH data(r) AS (" +
-                "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                "   FROM \"orders$query:%s\") " +
-                "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                "FROM data", BaseEncoding.base32().encode(query.getBytes(UTF_8)))))
-                .matches(format("WITH data(r) AS (" +
-                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
-                        format("   FROM TABLE(%s.system.raw_query(", catalogName) +
-                        "                        schema => 'tpch', " +
-                        "                        index => 'orders', " +
-                        "                        query => '%s'))) " +
-                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
-                        "FROM data", query));
-
-        assertQueryFails(
-                "SELECT * FROM \"orders$query:invalid-base32-encoding\"",
-                "Elasticsearch query for 'orders' is not base32-encoded correctly");
-        assertQueryFails(
-                format("SELECT * FROM \"orders$query:%s\"", BaseEncoding.base32().encode("invalid json".getBytes(UTF_8))),
-                "Elasticsearch query for 'orders' is not valid JSON");
-    }
-
-    @Test
     public void testEmptyIndexWithMappings()
             throws IOException
     {
@@ -1861,6 +1817,27 @@ public abstract class BaseElasticsearchConnectorTest
                         "index => 'nation', " +
                         "query => '{\"query\": {\"range\": {\"nationkey\": {\"gte\": 0,\"lte\": 3}}}}')) t(result)",
                 "VALUES ARRAY['ALGERIA', 'ARGENTINA', 'BRAZIL', 'CANADA']");
+
+        // use aggregations
+        @Language("JSON")
+        String query = "{\n" +
+                "    \"size\": 0,\n" +
+                "    \"aggs\" : {\n" +
+                "        \"max_orderkey\" : { \"max\" : { \"field\" : \"orderkey\" } },\n" +
+                "        \"sum_orderkey\" : { \"sum\" : { \"field\" : \"orderkey\" } }\n" +
+                "    }\n" +
+                "}";
+
+        assertQuery(
+                format("WITH data(r) AS (" +
+                        "   SELECT CAST(json_parse(result) AS ROW(aggregations ROW(max_orderkey ROW(value BIGINT), sum_orderkey ROW(value BIGINT)))) " +
+                        "   FROM TABLE(%s.system.raw_query(" +
+                        "                        schema => 'tpch', " +
+                        "                        index => 'orders', " +
+                        "                        query => '%s'))) " +
+                        "SELECT r.aggregations.max_orderkey.value, r.aggregations.sum_orderkey.value " +
+                        "FROM data", catalogName, query),
+                "VALUES (60000, 449872500)");
 
         // no matches
         assertQuery("SELECT json_query(result, 'lax $[0][0].hits.hits') " +
