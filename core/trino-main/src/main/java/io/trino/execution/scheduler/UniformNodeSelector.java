@@ -59,6 +59,7 @@ import static io.trino.execution.scheduler.NodeScheduler.selectDistributionNodes
 import static io.trino.execution.scheduler.NodeScheduler.selectExactNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectNodes;
 import static io.trino.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.CacheAffinityPolicy.NONE;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
@@ -80,6 +81,7 @@ public class UniformNodeSelector
     private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
     private final QueueSizeAdjuster queueSizeAdjuster;
+    private final NodeSchedulerConfig.CacheAffinityPolicy cacheAffinityPolicy;
 
     public UniformNodeSelector(
             InternalNodeManager nodeManager,
@@ -92,7 +94,8 @@ public class UniformNodeSelector
             long maxAdjustedPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             SplitsBalancingPolicy splitsBalancingPolicy,
-            boolean optimizedLocalScheduling)
+            boolean optimizedLocalScheduling,
+            NodeSchedulerConfig.CacheAffinityPolicy cacheAffinityPolicy)
     {
         this(nodeManager,
                 nodeTaskMap,
@@ -104,6 +107,7 @@ public class UniformNodeSelector
                 maxUnacknowledgedSplitsPerTask,
                 splitsBalancingPolicy,
                 optimizedLocalScheduling,
+                cacheAffinityPolicy,
                 new QueueSizeAdjuster(minPendingSplitsWeightPerTask, maxAdjustedPendingSplitsWeightPerTask));
     }
 
@@ -119,6 +123,7 @@ public class UniformNodeSelector
             int maxUnacknowledgedSplitsPerTask,
             SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling,
+            NodeSchedulerConfig.CacheAffinityPolicy cacheAffinityPolicy,
             QueueSizeAdjuster queueSizeAdjuster)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -133,6 +138,7 @@ public class UniformNodeSelector
         this.splitsBalancingPolicy = requireNonNull(splitsBalancingPolicy, "splitsBalancingPolicy is null");
         this.optimizedLocalScheduling = optimizedLocalScheduling;
         this.queueSizeAdjuster = queueSizeAdjuster;
+        this.cacheAffinityPolicy = cacheAffinityPolicy;
     }
 
     @Override
@@ -177,19 +183,27 @@ public class UniformNodeSelector
         ResettableRandomizedIterator<InternalNode> randomCandidates = new ResettableRandomizedIterator<>(filteredNodes);
         Set<InternalNode> schedulableNodes = new HashSet<>(filteredNodes);
 
+        if (cacheAffinityPolicy != NONE) {
+            SimpleNodeProvider nodeProvider = new SimpleNodeProvider(filteredNodes);
+            for (Split split : splits) {
+                if (split.getConnectorSplit().getCacheIdentifier().isPresent()) {
+                    List<InternalNode> candidateNodes = selectExactNodes(nodeMap,
+                            nodeProvider.get(split.getConnectorSplit().getCacheIdentifier().get(), 2), includeCoordinator);
+                    if (assign(assignment, assignmentStats, split, candidateNodes)) {
+                        splitsToBeRedistributed = true;
+                        continue;
+                    }
+                }
+                remainingSplits.add(split);
+            }
+        }
         // optimizedLocalScheduling enables prioritized assignment of splits to local nodes when splits contain locality information
         if (optimizedLocalScheduling) {
             for (Split split : splits) {
                 if (split.isRemotelyAccessible() && !split.getAddresses().isEmpty()) {
                     List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
 
-                    Optional<InternalNode> chosenNode = candidateNodes.stream()
-                            .filter(ownerNode -> assignmentStats.getTotalSplitsWeight(ownerNode) < maxSplitsWeightPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(ownerNode) < maxUnacknowledgedSplitsPerTask)
-                            .min(comparingLong(assignmentStats::getTotalSplitsWeight));
-
-                    if (chosenNode.isPresent()) {
-                        assignment.put(chosenNode.get(), split);
-                        assignmentStats.addAssignedSplit(chosenNode.get(), split.getSplitWeight());
+                    if (assign(assignment, assignmentStats, split, candidateNodes)) {
                         splitsToBeRedistributed = true;
                         continue;
                     }
@@ -266,6 +280,20 @@ public class UniformNodeSelector
             equateDistribution(assignment, assignmentStats, nodeMap, includeCoordinator);
         }
         return new SplitPlacementResult(blocked, assignment);
+    }
+
+    private boolean assign(Multimap<InternalNode, Split> assignment, NodeAssignmentStats assignmentStats, Split split, List<InternalNode> candidateNodes)
+    {
+        Optional<InternalNode> chosenNode = candidateNodes.stream()
+                .filter(ownerNode -> assignmentStats.getTotalSplitsWeight(ownerNode) < maxSplitsWeightPerNode && assignmentStats.getUnacknowledgedSplitCountForStage(ownerNode) < maxUnacknowledgedSplitsPerTask)
+                .min(comparingLong(assignmentStats::getTotalSplitsWeight));
+
+        if (chosenNode.isPresent()) {
+            assignment.put(chosenNode.get(), split);
+            assignmentStats.addAssignedSplit(chosenNode.get(), split.getSplitWeight());
+            return true;
+        }
+        return false;
     }
 
     @Override

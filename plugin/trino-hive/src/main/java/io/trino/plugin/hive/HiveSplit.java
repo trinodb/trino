@@ -310,6 +310,12 @@ public class HiveSplit
     }
 
     @Override
+    public Optional<String> getCacheIdentifier()
+    {
+        return Optional.of(path);
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

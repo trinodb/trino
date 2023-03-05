@@ -54,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.CacheAffinityPolicy.NONE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -134,6 +135,7 @@ public class TestUniformNodeSelector
                 500,
                 NodeSchedulerConfig.SplitsBalancingPolicy.STAGE,
                 false,
+                NONE,
                 queueSizeAdjuster);
 
         Set<Split> splits = new LinkedHashSet<>();

@@ -21,6 +21,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -88,5 +89,10 @@ public final class Split
         return INSTANCE_SIZE
                 + catalogHandle.getRetainedSizeInBytes()
                 + connectorSplit.getRetainedSizeInBytes();
+    }
+
+    public Optional<String> getCacheIdentifier()
+    {
+        return connectorSplit.getCacheIdentifier();
     }
 }

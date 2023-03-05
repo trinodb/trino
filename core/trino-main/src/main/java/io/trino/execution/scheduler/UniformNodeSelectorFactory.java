@@ -66,6 +66,7 @@ public class UniformNodeSelectorFactory
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
     private final Duration nodeMapMemoizationDuration;
+    private final NodeSchedulerConfig.CacheAffinityPolicy cacheAffinityPolicy;
 
     @Inject
     public UniformNodeSelectorFactory(
@@ -98,6 +99,7 @@ public class UniformNodeSelectorFactory
         this.minPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(minPendingSplitsPerTask);
         this.maxAdjustedPendingSplitsWeightPerTask = SplitWeight.rawValueForStandardSplitCount(maxAdjustedPendingSplitsWeightPerTask);
         this.nodeMapMemoizationDuration = nodeMapMemoizationDuration;
+        this.cacheAffinityPolicy = config.getCacheAffinityPolicy();
     }
 
     @Override
@@ -128,7 +130,8 @@ public class UniformNodeSelectorFactory
                 maxAdjustedPendingSplitsWeightPerTask,
                 getMaxUnacknowledgedSplitsPerTask(session),
                 splitsBalancingPolicy,
-                optimizedLocalScheduling);
+                optimizedLocalScheduling,
+                cacheAffinityPolicy);
     }
 
     private NodeMap createNodeMap(Optional<CatalogHandle> catalogHandle)

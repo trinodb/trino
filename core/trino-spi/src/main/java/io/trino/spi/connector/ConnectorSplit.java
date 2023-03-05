@@ -17,6 +17,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ConnectorSplit
 {
@@ -41,5 +42,10 @@ public interface ConnectorSplit
     default long getRetainedSizeInBytes()
     {
         throw new UnsupportedOperationException("This connector does not provide memory accounting capabilities for ConnectorSplit");
+    }
+
+    default Optional<String> getCacheIdentifier()
+    {
+        return Optional.empty();
     }
 }

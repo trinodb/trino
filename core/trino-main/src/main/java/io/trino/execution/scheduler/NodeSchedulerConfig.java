@@ -44,6 +44,10 @@ public class NodeSchedulerConfig
         NODE, STAGE
     }
 
+    public enum CacheAffinityPolicy {
+        NONE, HARD, SOFT
+    }
+
     private int minCandidates = 10;
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
@@ -54,6 +58,8 @@ public class NodeSchedulerConfig
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
     private int maxUnacknowledgedSplitsPerTask = 2000;
     private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
+    private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.BIN_PACKING;
+    private CacheAffinityPolicy cacheAffinityPolicy = CacheAffinityPolicy.NONE;
 
     @NotNull
     public NodeSchedulerPolicy getNodeSchedulerPolicy()
@@ -198,5 +204,47 @@ public class NodeSchedulerConfig
     public Duration getAllowedNoMatchingNodePeriod()
     {
         return allowedNoMatchingNodePeriod;
+    }
+
+    public enum NodeAllocatorType
+    {
+        FIXED_COUNT,
+        BIN_PACKING
+    }
+
+    @NotNull
+    public NodeAllocatorType getNodeAllocatorType()
+    {
+        return nodeAllocatorType;
+    }
+
+    @Config("node-scheduler.allocator-type")
+    public NodeSchedulerConfig setNodeAllocatorType(String nodeAllocatorType)
+    {
+        this.nodeAllocatorType = toNodeAllocatorType(nodeAllocatorType);
+        return this;
+    }
+
+    private static NodeAllocatorType toNodeAllocatorType(String nodeAllocatorType)
+    {
+        switch (nodeAllocatorType.toLowerCase(ENGLISH)) {
+            case "fixed_count":
+                return NodeAllocatorType.FIXED_COUNT;
+            case "bin_packing":
+                return NodeAllocatorType.BIN_PACKING;
+        }
+        throw new IllegalArgumentException("Unknown node allocator type: " + nodeAllocatorType);
+    }
+
+    public CacheAffinityPolicy getCacheAffinityPolicy()
+    {
+        return cacheAffinityPolicy;
+    }
+
+    @Config("node-scheduler.cache-affinity-policy")
+    public NodeSchedulerConfig setCacheAffinityPolicy(CacheAffinityPolicy cacheAffinityPolicy)
+    {
+        this.cacheAffinityPolicy = cacheAffinityPolicy;
+        return this;
     }
 }

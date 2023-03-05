@@ -23,6 +23,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.CacheAffinityPolicy.NONE;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.CacheAffinityPolicy.SOFT;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.SplitsBalancingPolicy.NODE;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -59,6 +61,8 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.splits-balancing-policy", "node")
                 .put("node-scheduler.optimized-local-scheduling", "false")
                 .put("node-scheduler.allowed-no-matching-node-period", "1m")
+                .put("node-scheduler.allocator-type", "fixed_count")
+                .put("node-scheduler.cache-affinity-policy", "SOFT")
                 .buildOrThrow();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
@@ -71,7 +75,9 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(11)
                 .setSplitsBalancingPolicy(NODE)
                 .setOptimizedLocalScheduling(false)
-                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES));
+                .setAllowedNoMatchingNodePeriod(new Duration(1, MINUTES))
+                .setNodeAllocatorType("fixed_count")
+                .setCacheAffinityPolicy(SOFT);
 
         assertFullMapping(properties, expected);
     }
