@@ -557,6 +557,7 @@ jobs:
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
+            - { modules: plugin/trino-filesystem-s3, profile: cloud-tests }
             - { modules: plugin/trino-hive }
             - { modules: plugin/trino-hive, profile: fte-tests }
             - { modules: plugin/trino-hive, profile: test-parquet }
@@ -634,6 +635,17 @@ jobs:
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
+      - name: S3 FileSystem Cloud Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-2
+          S3_BUCKET: trino-ci-s3fs-test
+        if: >-
+          contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests') &&
+          (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }}
       - name: Cloud Delta Lake Tests
       # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
         env:
