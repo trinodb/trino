@@ -49,7 +49,7 @@ The constructor
 
 The constructor takes the following arguments:
 
-- schema name
+- **schema name**
 
 The schema name helps you organize functions, and it is used for function
 resolution. When a table function is invoked, the right implementation is
@@ -58,8 +58,8 @@ identified by the catalog name, the schema name, and the function name.
 The function can use the schema name, for example to use data from the
 indicated schema, or ignore it.
 
-- function name
-- list of expected arguments
+- **function name**
+- **list of expected arguments**
 
 You can specify default values for some arguments, and those arguments can be
 skipped during invocation:
@@ -82,7 +82,7 @@ invocation:
             .type(INTEGER)
             .build()
 
-- returned row type
+- **returned row type**
 
 In the example, the returned row type is ``GENERIC_TABLE``, which means that
 the row type is not known statically, and it is determined dynamically based on
