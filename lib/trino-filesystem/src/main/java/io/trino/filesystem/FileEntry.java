@@ -26,19 +26,19 @@ import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public record FileEntry(String path, long length, Instant lastModified, Optional<List<BlockLocation>> blockLocations)
+public record FileEntry(String path, long length, Instant lastModified, Optional<List<Block>> blocks)
 {
     public FileEntry
     {
         checkArgument(length >= 0, "length is negative");
         requireNonNull(path, "path is null");
-        requireNonNull(blockLocations, "blockLocations is null");
-        blockLocations = blockLocations.map(locations -> validatedBlockLocations(locations, length));
+        requireNonNull(blocks, "blocks is null");
+        blocks = blocks.map(locations -> validatedBlocks(locations, length));
     }
 
-    public record BlockLocation(List<String> hosts, long offset, long length)
+    public record Block(List<String> hosts, long offset, long length)
     {
-        public BlockLocation
+        public Block
         {
             hosts = ImmutableList.copyOf(requireNonNull(hosts, "hosts is null"));
             checkArgument(offset >= 0, "offset is negative");
@@ -46,20 +46,20 @@ public record FileEntry(String path, long length, Instant lastModified, Optional
         }
     }
 
-    private static List<BlockLocation> validatedBlockLocations(List<BlockLocation> blockLocations, long length)
+    private static List<Block> validatedBlocks(List<Block> blocks, long length)
     {
-        checkArgument(!blockLocations.isEmpty(), "blockLocations is empty");
-        blockLocations = blockLocations.stream()
-                .sorted(comparing(BlockLocation::offset))
+        checkArgument(!blocks.isEmpty(), "blocks is empty");
+        blocks = blocks.stream()
+                .sorted(comparing(Block::offset))
                 .collect(toImmutableList());
 
         long position = 0;
-        for (BlockLocation location : blockLocations) {
-            checkArgument(location.offset() <= position, "blockLocations has a gap");
-            position = max(position, addExact(location.offset(), location.length()));
+        for (Block block : blocks) {
+            checkArgument(block.offset() <= position, "blocks have a gap");
+            position = max(position, addExact(block.offset(), block.length()));
         }
-        checkArgument(position >= length, "blockLocations does not cover file");
+        checkArgument(position >= length, "blocks do not cover file");
 
-        return blockLocations;
+        return blocks;
     }
 }
