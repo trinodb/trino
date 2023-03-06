@@ -84,14 +84,30 @@ invocation:
 
 - **returned row type**
 
+It describes the row type produced by the table function.
+
+If a table function takes table arguments, it can additionally pass the columns
+of the input tables to output using the *pass-through mechanism*. The returned
+row type is supposed to describe only the columns produced by the function, as
+opposed to the pass-through columns.
+
 In the example, the returned row type is ``GENERIC_TABLE``, which means that
 the row type is not known statically, and it is determined dynamically based on
-the passed arguments. When the returned row type is known statically, you can
-declare it using:
+the passed arguments.
+
+When the returned row type is known statically, you can declare it using:
 
 .. code-block:: java
 
     new DescribedTable(descriptor)
+
+If a table function does not produce any columns, and it only outputs the
+pass-through columns, use ``ONLY_PASS_THROUGH`` as the returned row type.
+
+.. note::
+
+    A table function must return at least one column. It can either be a proper
+    column, i.e. produced by the function, or a pass-through column.
 
 The ``analyze()`` method
 ^^^^^^^^^^^^^^^^^^^^^^^^
