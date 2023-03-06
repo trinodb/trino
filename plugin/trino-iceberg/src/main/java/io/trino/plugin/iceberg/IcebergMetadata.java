@@ -910,7 +910,7 @@ public class IcebergMetadata
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
                 FileEntry entry = iterator.next();
-                String name = fileName(entry.path());
+                String name = fileName(entry.location());
                 if (name.startsWith(queryId + "-") && !fileNamesToKeep.contains(name)) {
                     filesToDelete.add(name);
                 }
@@ -1416,8 +1416,8 @@ public class IcebergMetadata
             FileIterator allFiles = fileSystem.listFiles(table.location() + "/" + subfolder);
             while (allFiles.hasNext()) {
                 FileEntry entry = allFiles.next();
-                if (entry.lastModified().isBefore(expiration) && !validFiles.contains(fileName(entry.path()))) {
-                    filesToDelete.add(entry.path());
+                if (entry.lastModified().isBefore(expiration) && !validFiles.contains(fileName(entry.location()))) {
+                    filesToDelete.add(entry.location());
                     if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
                         log.debug("Deleting files while removing orphan files for table %s [%s]", schemaTableName, filesToDelete);
                         fileSystem.deleteFiles(filesToDelete);
@@ -1425,7 +1425,7 @@ public class IcebergMetadata
                     }
                 }
                 else {
-                    log.debug("%s file retained while removing orphan files %s", entry.path(), schemaTableName.getTableName());
+                    log.debug("%s file retained while removing orphan files %s", entry.location(), schemaTableName.getTableName());
                 }
             }
             if (!filesToDelete.isEmpty()) {

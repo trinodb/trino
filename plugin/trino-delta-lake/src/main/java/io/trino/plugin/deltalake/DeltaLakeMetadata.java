@@ -2410,7 +2410,7 @@ public class DeltaLakeMetadata
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
                 FileEntry file = iterator.next();
-                String fileName = new Path(file.path()).getName();
+                String fileName = new Path(file.location()).getName();
                 if (isFileCreatedByQuery(fileName, queryId) && !filesToKeep.contains(location + "/" + fileName)) {
                     filesToDelete.add(fileName);
                 }

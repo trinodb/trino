@@ -128,13 +128,13 @@ public class TestAcidTables
 
         List<FileEntry> files = state.originalFiles();
         assertEquals(files.size(), 7);
-        assertEquals(files.get(0).path(), "mock:/tbl/part1/000000_0");
-        assertEquals(files.get(1).path(), "mock:/tbl/part1/000000_0_copy_1");
-        assertEquals(files.get(2).path(), "mock:/tbl/part1/000000_0_copy_2");
-        assertEquals(files.get(3).path(), "mock:/tbl/part1/000001_1");
-        assertEquals(files.get(4).path(), "mock:/tbl/part1/000002_0");
-        assertEquals(files.get(5).path(), "mock:/tbl/part1/random");
-        assertEquals(files.get(6).path(), "mock:/tbl/part1/subdir/000000_0");
+        assertEquals(files.get(0).location(), "mock:/tbl/part1/000000_0");
+        assertEquals(files.get(1).location(), "mock:/tbl/part1/000000_0_copy_1");
+        assertEquals(files.get(2).location(), "mock:/tbl/part1/000000_0_copy_2");
+        assertEquals(files.get(3).location(), "mock:/tbl/part1/000001_1");
+        assertEquals(files.get(4).location(), "mock:/tbl/part1/000002_0");
+        assertEquals(files.get(5).location(), "mock:/tbl/part1/random");
+        assertEquals(files.get(6).location(), "mock:/tbl/part1/subdir/000000_0");
     }
 
     @Test
@@ -162,11 +162,11 @@ public class TestAcidTables
 
         List<FileEntry> files = state.originalFiles();
         assertEquals(files.size(), 5);
-        assertEquals(files.get(0).path(), "mock:/tbl/part1/000000_0");
-        assertEquals(files.get(1).path(), "mock:/tbl/part1/000001_1");
-        assertEquals(files.get(2).path(), "mock:/tbl/part1/000002_0");
-        assertEquals(files.get(3).path(), "mock:/tbl/part1/random");
-        assertEquals(files.get(4).path(), "mock:/tbl/part1/subdir/000000_0");
+        assertEquals(files.get(0).location(), "mock:/tbl/part1/000000_0");
+        assertEquals(files.get(1).location(), "mock:/tbl/part1/000001_1");
+        assertEquals(files.get(2).location(), "mock:/tbl/part1/000002_0");
+        assertEquals(files.get(3).location(), "mock:/tbl/part1/random");
+        assertEquals(files.get(4).location(), "mock:/tbl/part1/subdir/000000_0");
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 2);

@@ -720,7 +720,7 @@ public class BackgroundHiveSplitLoader
 
         for (FileEntry entry : acidState.originalFiles()) {
             // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern, to match them with delete deltas.
-            acidInfoBuilder.addOriginalFile(new Path(entry.path()), entry.length(), getRequiredBucketNumber(entry.path()));
+            acidInfoBuilder.addOriginalFile(new Path(entry.location()), entry.length(), getRequiredBucketNumber(entry.location()));
         }
 
         if (tableBucketInfo.isPresent()) {
@@ -728,7 +728,7 @@ public class BackgroundHiveSplitLoader
 
             for (FileEntry entry : acidState.originalFiles()) {
                 List<TrinoFileStatus> fileStatuses = ImmutableList.of(new TrinoFileStatus(entry));
-                Optional<AcidInfo> acidInfo = acidInfoForOriginalFiles(fullAcid, acidInfoBuilder, entry.path());
+                Optional<AcidInfo> acidInfo = acidInfoForOriginalFiles(fullAcid, acidInfoBuilder, entry.location());
                 hiveSplitSource.addToQueue(getBucketedSplits(fileStatuses, splitFactory, bucketInfo, bucketConversion, splittable, acidInfo));
             }
 
@@ -755,7 +755,7 @@ public class BackgroundHiveSplitLoader
                 .map(entry -> createInternalHiveSplit(
                         splitFactory,
                         splittable,
-                        acidInfoForOriginalFiles(fullAcid, acidInfoBuilder, entry.path()),
+                        acidInfoForOriginalFiles(fullAcid, acidInfoBuilder, entry.location()),
                         new TrinoFileStatus(entry)))
                 .flatMap(Optional::stream)
                 .iterator();

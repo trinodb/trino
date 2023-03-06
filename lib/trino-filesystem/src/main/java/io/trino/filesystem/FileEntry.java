@@ -26,12 +26,12 @@ import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public record FileEntry(String path, long length, Instant lastModified, Optional<List<Block>> blocks)
+public record FileEntry(String location, long length, Instant lastModified, Optional<List<Block>> blocks)
 {
     public FileEntry
     {
         checkArgument(length >= 0, "length is negative");
-        requireNonNull(path, "path is null");
+        requireNonNull(location, "location is null");
         requireNonNull(blocks, "blocks is null");
         blocks = blocks.map(locations -> validatedBlocks(locations, length));
     }
