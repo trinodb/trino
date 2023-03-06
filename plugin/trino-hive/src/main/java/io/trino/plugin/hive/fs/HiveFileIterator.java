@@ -150,7 +150,7 @@ public class HiveFileIterator
     {
         String pathString = path.toUri().getPath();
         checkArgument(pathString.startsWith(prefix), "path %s does not start with prefix %s", pathString, prefix);
-        return containsHiddenPathPartAfterIndex(pathString, prefix.length() + 1);
+        return containsHiddenPathPartAfterIndex(pathString, prefix.endsWith("/") ? prefix.length() : prefix.length() + 1);
     }
 
     @VisibleForTesting
