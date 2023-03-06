@@ -153,7 +153,7 @@ public class DruidJdbcClient
     @Inject
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
     }
 
     @Override

@@ -93,7 +93,7 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
     {
-        super(config, "\"", connectionFactory, new DefaultQueryBuilder(RemoteQueryModifier.NONE), identifierMapping, RemoteQueryModifier.NONE);
+        super("\"", connectionFactory, new DefaultQueryBuilder(RemoteQueryModifier.NONE), config.getJdbcTypesMappedToVarchar(), identifierMapping, RemoteQueryModifier.NONE, false);
     }
 
     @Override

@@ -106,26 +106,7 @@ public abstract class BaseJdbcClient
     protected final Set<String> jdbcTypesMappedToVarchar;
     protected final RemoteQueryModifier queryModifier;
     private final IdentifierMapping identifierMapping;
-
     private final boolean supportsRetries;
-
-    public BaseJdbcClient(
-            BaseJdbcConfig config,
-            String identifierQuote,
-            ConnectionFactory connectionFactory,
-            QueryBuilder queryBuilder,
-            IdentifierMapping identifierMapping,
-            RemoteQueryModifier remoteQueryModifier)
-    {
-        this(
-                identifierQuote,
-                connectionFactory,
-                queryBuilder,
-                config.getJdbcTypesMappedToVarchar(),
-                identifierMapping,
-                remoteQueryModifier,
-                false);
-    }
 
     public BaseJdbcClient(
             String identifierQuote,
