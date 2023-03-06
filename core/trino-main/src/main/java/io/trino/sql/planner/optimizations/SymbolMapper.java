@@ -403,6 +403,7 @@ public class SymbolMapper
         return new TableFunctionProcessorNode(
                 node.getId(),
                 node.getName(),
+                node.getFunctionCatalog(),
                 map(node.getProperOutputs()),
                 Optional.of(source),
                 node.isPruneWhenEmpty(),

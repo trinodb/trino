@@ -548,6 +548,7 @@ public class AddLocalExchanges
             TableFunctionProcessorNode result = new TableFunctionProcessorNode(
                     node.getId(),
                     node.getName(),
+                    node.getFunctionCatalog(),
                     node.getProperOutputs(),
                     Optional.of(child.getNode()),
                     node.isPruneWhenEmpty(),

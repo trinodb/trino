@@ -468,6 +468,7 @@ class RelationPlanner
         PlanNode root = new TableFunctionNode(
                 idAllocator.getNextId(),
                 functionAnalysis.getFunctionName(),
+                functionAnalysis.getCatalogHandle(),
                 functionAnalysis.getArguments(),
                 properOutputs,
                 sources.build(),

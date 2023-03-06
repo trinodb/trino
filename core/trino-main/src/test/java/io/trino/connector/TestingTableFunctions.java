@@ -1139,7 +1139,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).getValue());
             }
@@ -1308,7 +1308,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return new EmptySourceFunctionProcessor();
             }
