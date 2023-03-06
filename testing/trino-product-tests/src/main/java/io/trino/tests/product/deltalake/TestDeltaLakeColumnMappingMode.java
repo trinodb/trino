@@ -103,6 +103,10 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(ImmutableList.of(row("ala")));
             assertThat(onTrino().executeQuery("SELECT a_number FROM delta.default." + tableName + " WHERE nested.field1 = 'databricks 1'"))
                     .containsOnly(ImmutableList.of(row(1)));
+            assertThat(onTrino().executeQuery("SELECT a_number FROM delta.default." + tableName + " WHERE part = 'part1'"))
+                    .containsOnly(row(1));
+            assertThat(onDelta().executeQuery("SELECT a_number FROM default." + tableName + " WHERE part = 'part1'"))
+                    .containsOnly(row(1));
 
             // Verify the connector can read renamed columns correctly
             onDelta().executeQuery("ALTER TABLE default." + tableName + " RENAME COLUMN a_number TO new_a_column");
