@@ -50,7 +50,7 @@ public class OptimizerConfig
     private double filterConjunctionIndependenceFactor = 0.75;
     private boolean nonEstimatablePredicateApproximationEnabled = true;
 
-    private boolean colocatedJoinsEnabled;
+    private boolean colocatedJoinsEnabled = true;
     private boolean spatialJoinsEnabled = true;
     private boolean distributedSort = true;
 
@@ -327,7 +327,7 @@ public class OptimizerConfig
     }
 
     @Config("colocated-joins-enabled")
-    @ConfigDescription("Experimental: Use a colocated join when possible")
+    @ConfigDescription("Use a colocated join when possible")
     public OptimizerConfig setColocatedJoinsEnabled(boolean colocatedJoinsEnabled)
     {
         this.colocatedJoinsEnabled = colocatedJoinsEnabled;
