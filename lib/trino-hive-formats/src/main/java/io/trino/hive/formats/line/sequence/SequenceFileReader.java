@@ -21,8 +21,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.formats.DataSeekableInputStream;
 import io.trino.hive.formats.FileCorruptionException;
+import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
@@ -61,7 +61,7 @@ public final class SequenceFileReader
     private static final int MAX_METADATA_STRING_LENGTH = 1024 * 1024;
 
     private final String location;
-    private final DataSeekableInputStream input;
+    private final TrinoDataInputStream input;
 
     private final String keyClassName;
     private final String valueClassName;
@@ -84,7 +84,7 @@ public final class SequenceFileReader
         try {
             requireNonNull(inputFile, "inputFile is null");
             this.location = inputFile.location();
-            this.input = new DataSeekableInputStream(inputFile.newStream());
+            this.input = new TrinoDataInputStream(inputFile.newStream());
             closer.register(input);
 
             verify(offset >= 0, "offset is negative");
@@ -282,7 +282,7 @@ public final class SequenceFileReader
 
         private final String location;
         private final long fileSize;
-        private final DataSeekableInputStream input;
+        private final TrinoDataInputStream input;
         private final ValueDecompressor decompressor;
         private final long end;
 
@@ -295,7 +295,7 @@ public final class SequenceFileReader
         public SingleValueReader(
                 String location,
                 long fileSize,
-                DataSeekableInputStream input,
+                TrinoDataInputStream input,
                 ValueDecompressor decompressor,
                 long end,
                 long syncFirst,
@@ -395,7 +395,7 @@ public final class SequenceFileReader
 
         private final String location;
         private final long fileSize;
-        private final DataSeekableInputStream input;
+        private final TrinoDataInputStream input;
         private final long end;
 
         private final long syncFirst;
@@ -409,7 +409,7 @@ public final class SequenceFileReader
         public BlockCompressedValueReader(
                 String location,
                 long fileSize,
-                DataSeekableInputStream input,
+                TrinoDataInputStream input,
                 ValueDecompressor decompressor,
                 long end,
                 long syncFirst,
@@ -545,12 +545,12 @@ public final class SequenceFileReader
     {
         private static final int INSTANCE_SIZE = instanceSize(ReadBuffer.class);
 
-        private final DataSeekableInputStream input;
+        private final TrinoDataInputStream input;
         private final ValueDecompressor decompressor;
         private final DynamicSliceOutput compressedBuffer = new DynamicSliceOutput(0);
         private final DynamicSliceOutput uncompressedBuffer = new DynamicSliceOutput(0);
 
-        public ReadBuffer(DataSeekableInputStream input, ValueDecompressor decompressor)
+        public ReadBuffer(TrinoDataInputStream input, ValueDecompressor decompressor)
         {
             this.input = requireNonNull(input, "input is null");
             this.decompressor = decompressor;
@@ -578,7 +578,7 @@ public final class SequenceFileReader
         }
     }
 
-    private Slice readLengthPrefixedString(DataSeekableInputStream in)
+    private Slice readLengthPrefixedString(TrinoDataInputStream in)
             throws IOException
     {
         int length = toIntExact(readVInt(in));
