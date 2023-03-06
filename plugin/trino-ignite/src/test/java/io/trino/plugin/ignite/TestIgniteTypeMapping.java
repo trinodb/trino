@@ -21,17 +21,22 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
+import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.LocalDate;
 import java.time.ZoneId;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createSession;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -72,6 +77,15 @@ public class TestIgniteTypeMapping
                 ImmutableList.of());
     }
 
+    @BeforeClass
+    public void setUp()
+    {
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        checkIsGap(jvmZone, LocalDate.of(1970, 1, 1));
+        checkIsGap(vilnius, LocalDate.of(1983, 4, 1));
+        verify(vilnius.getRules().getValidOffsets(LocalDate.of(1983, 10, 1).atStartOfDay().minusMinutes(1)).size() == 2);
+    }
+
     @Test
     public void testBoolean()
     {
@@ -80,6 +94,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("boolean", "false", BOOLEAN)
                 .addRoundTrip("boolean", "NULL", BOOLEAN, "CAST(NULL AS BOOLEAN)")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_boolean"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_boolean"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_boolean"));
     }
 
@@ -92,6 +107,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("tinyint", "127", TINYINT, "TINYINT '127'") // max value in Ignite and Trino
                 .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_tinyint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_tinyint"))
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_tinyint"));
     }
 
@@ -104,6 +120,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("smallint", "32767", SMALLINT, "SMALLINT '32767'") // max value in Ignite and Trino
                 .addRoundTrip("smallint", "NULL", SMALLINT, "CAST(NULL AS SMALLINT)")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_smallint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_smallint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_smallint"));
     }
 
@@ -116,6 +133,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("int", "2147483647", INTEGER, "2147483647") // max value in Ignite and Trino
                 .addRoundTrip("int", "NULL", INTEGER, "CAST(NULL AS INTEGER)")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_int"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_int"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_int"));
     }
 
@@ -128,6 +146,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("bigint", "9223372036854775807", BIGINT, "9223372036854775807") // max value in Ignite and Trino
                 .addRoundTrip("bigint", "NULL", BIGINT, "CAST(NULL AS BIGINT)")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_bigint"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_bigint"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_bigint"));
     }
 
@@ -193,6 +212,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS real)")
                 .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
                 .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS real)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_real"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("trino_test_real"));
     }
 
@@ -215,6 +235,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("double", "nan()", DOUBLE, "nan()")
                 .addRoundTrip("double", "+infinity()", DOUBLE, "+infinity()")
                 .addRoundTrip("double", "-infinity()", DOUBLE, "-infinity()")
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"))
                 .execute(getQueryRunner(), trinoCreateAndInsert(createSession(), "trino_test_double"));
     }
 
@@ -240,6 +261,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_decimal"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_decimal"));
     }
 
@@ -251,6 +273,7 @@ public class TestIgniteTypeMapping
 
         binaryTest("varbinary")
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_varbinary"));
     }
 
@@ -286,6 +309,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("date", "DATE '9983-10-01'", DATE, "DATE '9983-10-01'")
                 .addRoundTrip("date", "DATE '9999-01-01'", DATE, "DATE '9999-01-01'")
                 .addRoundTrip("date", "DATE '9999-12-31'", DATE, "DATE '9999-12-31'")
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"))
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"))
                 .execute(getQueryRunner(), session, igniteCreateAndInsert("test_date"));
     }
@@ -323,6 +347,7 @@ public class TestIgniteTypeMapping
     {
         charVarcharTest("char")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_char"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_char"));
     }
 
@@ -333,6 +358,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("varchar(20000)", "'攻殻機動隊'", createVarcharType(20000), "CAST('攻殻機動隊' AS varchar(20000))")
                 .addRoundTrip("varchar(16777215)", "'text_f'", createVarcharType(16777215), "CAST('text_f' AS varchar(16777215))")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_varchar"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_varchar"));
     }
 
@@ -374,6 +400,7 @@ public class TestIgniteTypeMapping
                 .addRoundTrip("varchar", "'Ну, погоди!'", createUnboundedVarcharType(), "CAST('Ну, погоди!' AS varchar)")
                 .addRoundTrip("varchar", "'+-*/!234=1'", createUnboundedVarcharType(), "CAST('+-*/!234=1' AS varchar)")
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_unbounded_varchar"))
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_unbounded_varchar"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_unbounded_varchar"));
     }
 
@@ -400,8 +427,23 @@ public class TestIgniteTypeMapping
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
     private DataSetup igniteCreateAndInsert(String tableNamePrefix)
     {
         return new IgniteCreateAndInsertDataSetup(new JdbcSqlExecutor(igniteServer.getJdbcUrl()), tableNamePrefix);
+    }
+
+    private static void checkIsGap(ZoneId zone, LocalDate date)
+    {
+        verify(isGap(zone, date), "Expected %s to be a gap in %s", date, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDate date)
+    {
+        return zone.getRules().getValidOffsets(date.atStartOfDay()).isEmpty();
     }
 }
