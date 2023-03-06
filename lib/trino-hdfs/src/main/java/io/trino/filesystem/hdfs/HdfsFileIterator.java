@@ -15,8 +15,9 @@ package io.trino.filesystem.hdfs;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.FileEntry;
-import io.trino.filesystem.FileEntry.BlockLocation;
+import io.trino.filesystem.FileEntry.Block;
 import io.trino.filesystem.FileIterator;
+import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -75,23 +76,21 @@ class HdfsFileIterator
             path += relativeUri.getPath();
         }
 
-        List<BlockLocation> locations = Stream.of(status.getBlockLocations())
-                .map(HdfsFileIterator::toTrinoBlockLocation)
+        List<Block> blocks = Stream.of(status.getBlockLocations())
+                .map(HdfsFileIterator::toTrinoBlock)
                 .collect(toImmutableList());
-
-        Optional<List<BlockLocation>> blockLocations = locations.isEmpty() ? Optional.empty() : Optional.of(locations);
 
         return new FileEntry(
                 path,
                 status.getLen(),
                 Instant.ofEpochMilli(status.getModificationTime()),
-                blockLocations);
+                blocks.isEmpty() ? Optional.empty() : Optional.of(blocks));
     }
 
-    private static BlockLocation toTrinoBlockLocation(org.apache.hadoop.fs.BlockLocation location)
+    private static Block toTrinoBlock(BlockLocation location)
     {
         try {
-            return new BlockLocation(ImmutableList.copyOf(location.getHosts()), location.getOffset(), location.getLength());
+            return new Block(ImmutableList.copyOf(location.getHosts()), location.getOffset(), location.getLength());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
