@@ -83,6 +83,7 @@ public class TestSynapseConnectorTest
                 return false;
             // Overridden Until equality predicate pushdown is implemented for Synapse
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
+            case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);

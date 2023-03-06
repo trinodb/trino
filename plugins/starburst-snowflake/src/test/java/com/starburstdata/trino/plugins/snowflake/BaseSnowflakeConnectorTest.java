@@ -46,7 +46,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -176,7 +175,7 @@ public abstract class BaseSnowflakeConnectorTest
                 .row("comment", "varchar(79)", "", "")
                 .build();
 
-        assertEquals(actual, expectedParametrizedVarchar);
+        assertThat(actual).containsExactlyElementsOf(expectedParametrizedVarchar);
     }
 
     @Test
@@ -265,7 +264,7 @@ public abstract class BaseSnowflakeConnectorTest
                 .row("comment", "varchar(79)", "", "")
                 .build();
 
-        assertEquals(actualColumns, expectedColumns);
+        assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
     }
 
     @Test
