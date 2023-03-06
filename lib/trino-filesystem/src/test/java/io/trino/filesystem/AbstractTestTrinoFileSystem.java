@@ -55,6 +55,21 @@ public abstract class AbstractTestTrinoFileSystem
 
     protected abstract void verifyFileSystemIsEmpty();
 
+    protected boolean supportsCreateWithoutOverwrite()
+    {
+        return true;
+    }
+
+    protected boolean supportsRenameFile()
+    {
+        return true;
+    }
+
+    protected boolean deleteFileFailsIfNotExists()
+    {
+        return true;
+    }
+
     protected Location createLocation(String path)
     {
         if (path.isEmpty()) {
@@ -176,7 +191,7 @@ public abstract class AbstractTestTrinoFileSystem
     }
 
     @Test
-    void testInputFile()
+    public void testInputFile()
             throws IOException
     {
         try (TempBlob tempBlob = randomBlobLocation("inputStream")) {
@@ -437,13 +452,24 @@ public abstract class AbstractTestTrinoFileSystem
                 outputStream.write("initial".getBytes(UTF_8));
             }
 
-            // re-create without overwrite is an error
-            assertThatThrownBy(outputFile::create)
-                    .isInstanceOf(FileAlreadyExistsException.class)
-                    .hasMessageContaining(tempBlob.location().toString());
+            if (supportsCreateWithoutOverwrite()) {
+                // re-create without overwrite is an error
+                assertThatThrownBy(outputFile::create)
+                        .isInstanceOf(FileAlreadyExistsException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
 
-            // verify nothing changed
-            assertThat(tempBlob.read()).isEqualTo("initial");
+                // verify nothing changed
+                assertThat(tempBlob.read()).isEqualTo("initial");
+            }
+            else {
+                // re-create without overwrite succeeds
+                try (OutputStream outputStream = outputFile.create()) {
+                    outputStream.write("replaced".getBytes(UTF_8));
+                }
+
+                // verify contents changed
+                assertThat(tempBlob.read()).isEqualTo("replaced");
+            }
 
             // overwrite file
             try (OutputStream outputStream = outputFile.createOrOverwrite()) {
@@ -535,7 +561,7 @@ public abstract class AbstractTestTrinoFileSystem
     protected void testPathBlob()
             throws IOException
     {
-        try (TempBlob tempBlob = new TempBlob(createLocation(".././/file"))) {
+        try (TempBlob tempBlob = new TempBlob(createLocation("test/.././/file"))) {
             TrinoInputFile inputFile = getFileSystem().newInputFile(tempBlob.location());
             assertThat(inputFile.location()).isEqualTo(tempBlob.location());
             assertThat(inputFile.exists()).isFalse();
@@ -544,15 +570,17 @@ public abstract class AbstractTestTrinoFileSystem
             assertThat(inputFile.length()).isEqualTo(tempBlob.location().toString().length());
             assertThat(tempBlob.read()).isEqualTo(tempBlob.location().toString());
 
-            assertThat(listPath("..")).containsExactly(tempBlob.location());
+            assertThat(listPath("test/..")).containsExactly(tempBlob.location());
 
-            getFileSystem().renameFile(tempBlob.location(), createLocation("file"));
-            assertThat(inputFile.exists()).isFalse();
-            assertThat(readLocation(createLocation("file"))).isEqualTo(tempBlob.location().toString());
+            if (supportsRenameFile()) {
+                getFileSystem().renameFile(tempBlob.location(), createLocation("file"));
+                assertThat(inputFile.exists()).isFalse();
+                assertThat(readLocation(createLocation("file"))).isEqualTo(tempBlob.location().toString());
 
-            getFileSystem().renameFile(createLocation("file"), tempBlob.location());
-            assertThat(inputFile.exists()).isTrue();
-            assertThat(tempBlob.read()).isEqualTo(tempBlob.location().toString());
+                getFileSystem().renameFile(createLocation("file"), tempBlob.location());
+                assertThat(inputFile.exists()).isTrue();
+                assertThat(tempBlob.read()).isEqualTo(tempBlob.location().toString());
+            }
 
             getFileSystem().deleteFile(tempBlob.location());
             assertThat(inputFile.exists()).isFalse();
@@ -583,10 +611,16 @@ public abstract class AbstractTestTrinoFileSystem
                 .hasMessageContaining(createLocation("foo\t").toString());
 
         try (TempBlob tempBlob = randomBlobLocation("delete")) {
-            // deleting a non-existent file is an error
-            assertThatThrownBy(() -> getFileSystem().deleteFile(tempBlob.location()))
-                    .isInstanceOf(FileNotFoundException.class)
-                    .hasMessageContaining(tempBlob.location().toString());
+            if (deleteFileFailsIfNotExists()) {
+                // deleting a non-existent file is an error
+                assertThatThrownBy(() -> getFileSystem().deleteFile(tempBlob.location()))
+                        .isInstanceOf(FileNotFoundException.class)
+                        .hasMessageContaining(tempBlob.location().toString());
+            }
+            else {
+                // deleting a non-existent file is a no-op
+                getFileSystem().deleteFile(tempBlob.location());
+            }
 
             tempBlob.createOrOverwrite("delete me");
 
@@ -654,6 +688,17 @@ public abstract class AbstractTestTrinoFileSystem
     void testRenameFile()
             throws IOException
     {
+        if (!supportsRenameFile()) {
+            try (TempBlob sourceBlob = randomBlobLocation("renameSource");
+                    TempBlob targetBlob = randomBlobLocation("renameTarget")) {
+                sourceBlob.createOrOverwrite("data");
+                assertThatThrownBy(() -> getFileSystem().renameFile(sourceBlob.location(), targetBlob.location()))
+                        .isInstanceOf(IOException.class)
+                        .hasMessageContaining("does not support renames");
+            }
+            return;
+        }
+
         // rename file locations cannot be the root of the file system
         assertThatThrownBy(() -> getFileSystem().renameFile(getRootLocation(), createLocation("file")))
                 .isInstanceOf(IllegalStateException.class)
@@ -847,7 +892,7 @@ public abstract class AbstractTestTrinoFileSystem
         return location;
     }
 
-    private TempBlob randomBlobLocation(String nameHint)
+    protected TempBlob randomBlobLocation(String nameHint)
     {
         TempBlob tempBlob = new TempBlob(createLocation("%s/%s".formatted(nameHint, UUID.randomUUID())));
         assertThat(tempBlob.exists()).isFalse();
@@ -878,7 +923,7 @@ public abstract class AbstractTestTrinoFileSystem
         return locations;
     }
 
-    private class TempBlob
+    protected class TempBlob
             implements Closeable
     {
         private final Location location;
