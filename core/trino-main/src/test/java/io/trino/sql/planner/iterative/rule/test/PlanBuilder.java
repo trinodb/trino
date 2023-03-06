@@ -1215,6 +1215,7 @@ public class PlanBuilder
         return new TableFunctionNode(
                 idAllocator.getNextId(),
                 name,
+                TEST_CATALOG_HANDLE,
                 ImmutableMap.of(),
                 properOutputs,
                 sources,

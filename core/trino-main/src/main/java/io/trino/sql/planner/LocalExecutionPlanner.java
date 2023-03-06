@@ -1674,7 +1674,12 @@ public class LocalExecutionPlanner
             TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle());
 
             if (node.getSource().isEmpty()) {
-                OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(context.getNextOperatorId(), node.getId(), processorProvider, node.getHandle().getFunctionHandle());
+                OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        node.getFunctionCatalog(),
+                        processorProvider,
+                        node.getHandle().getFunctionHandle());
                 return new PhysicalOperation(operatorFactory, makeLayout(node), context);
             }
 
