@@ -4986,12 +4986,18 @@ public abstract class BaseHiveConnectorTest
         ImmutableList.Builder<SetColumnTypeSetup> setup = ImmutableList.builder();
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
             if (storageFormat == REGEX) {
-                // REGEX format is read-only
+                // Cannot prepare test data with REGEX table
                 continue;
             }
-            setup.addAll(super.setColumnTypeSetupData().stream()
-                    .map(data -> data.withTableProperty("format = '%s'".formatted(storageFormat)))
-                    .collect(toImmutableList()));
+            if (storageFormat == HiveStorageFormat.ORC || storageFormat == HiveStorageFormat.PARQUET) {
+                setup.addAll(super.setColumnTypeSetupData().stream()
+                        .map(data -> data.withTableProperty("format = '%s'".formatted(storageFormat)))
+                        .collect(toImmutableList()));
+            }
+            else {
+                setup.add(new SetColumnTypeSetup("integer", "2147483647", "bigint")
+                        .withTableProperty("format = '%s'".formatted(storageFormat)));
+            }
         }
         return setup.build();
     }
@@ -4999,7 +5005,7 @@ public abstract class BaseHiveConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        String tableProperty = setup.tableProperty().orElseThrow();
+        String tableProperty = setup.tableProperties();
         String columnMapping = "%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType());
 
         if (columnMapping.equals("timestamp(6) -> timestamp(3)")) {
@@ -5008,13 +5014,13 @@ public abstract class BaseHiveConnectorTest
         }
 
         switch (tableProperty) {
-            case "WITH (format = 'AVRO')":
-            case "WITH (format = 'RCBINARY')":
-            case "WITH (format = 'RCTEXT')":
-            case "WITH (format = 'SEQUENCEFILE')":
-            case "WITH (format = 'JSON')":
-            case "WITH (format = 'TEXTFILE')":
-            case "WITH (format = 'CSV')":
+            case "format = 'AVRO'":
+            case "format = 'RCBINARY'":
+            case "format = 'RCTEXT'":
+            case "format = 'SEQUENCEFILE'":
+            case "format = 'JSON'":
+            case "format = 'TEXTFILE'":
+            case "format = 'CSV'":
                 return Optional.of(setup.asUnsupported());
         }
 
@@ -5029,7 +5035,7 @@ public abstract class BaseHiveConnectorTest
                 // Char values are stored with trailing spaces trimmed, so after the conversion the varchar values don't have them.
                 return Optional.of(setup.withNewValueLiteral("rtrim(%s)".formatted(setup.newValueLiteral())));
             case "row(x integer) -> row(y integer)":
-                if (tableProperty.equals("WITH (format = 'PARQUET')")) {
+                if (tableProperty.equals("format = 'PARQUET'")) {
                     // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
                     return Optional.of(setup.withNewValueLiteral("NULL"));
                 }

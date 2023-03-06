@@ -75,6 +75,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -2364,9 +2365,13 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
+        String tableConfiguration = "";
+        if (!isNullOrEmpty(setup.tableProperties)) {
+            tableConfiguration += "WITH(%s)".formatted(setup.tableProperties);
+        }
         TestTable table;
         try {
-            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", setup.tableProperty.orElse("") + " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col");
+            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", tableConfiguration + " AS SELECT CAST(" + setup.sourceValueLiteral + " AS " + setup.sourceColumnType + ") AS col");
         }
         catch (Exception e) {
             verifyUnsupportedTypeException(e, setup.sourceColumnType);
@@ -2443,7 +2448,7 @@ public abstract class BaseConnectorTest
                 .build();
     }
 
-    public record SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral, boolean unsupportedType, Optional<String> tableProperty)
+    public record SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral, boolean unsupportedType, String tableProperties)
     {
         public SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType)
         {
@@ -2452,7 +2457,7 @@ public abstract class BaseConnectorTest
 
         public SetColumnTypeSetup(String sourceColumnType, String sourceValueLiteral, String newColumnType, String newValueLiteral)
         {
-            this(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, false, Optional.empty());
+            this(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, false, null);
         }
 
         public SetColumnTypeSetup
@@ -2461,23 +2466,22 @@ public abstract class BaseConnectorTest
             requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
             requireNonNull(newColumnType, "newColumnType is null");
             requireNonNull(newValueLiteral, "newValueLiteral is null");
-            requireNonNull(tableProperty, "tableProperty is null");
         }
 
         public SetColumnTypeSetup withNewValueLiteral(String newValueLiteral)
         {
             checkState(!unsupportedType);
-            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType, tableProperty);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType, tableProperties);
         }
 
-        public SetColumnTypeSetup withTableProperty(String tableProperty)
+        public SetColumnTypeSetup withTableProperty(String tableProperties)
         {
-            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType, Optional.of("WITH (%s)".formatted(tableProperty)));
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType, tableProperties);
         }
 
         public SetColumnTypeSetup asUnsupported()
         {
-            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, true, tableProperty);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, true, tableProperties);
         }
     }
 

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
@@ -171,6 +172,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
@@ -1359,23 +1361,70 @@ public class HiveMetadata
     {
         HiveTableHandle table = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(table);
-        HiveColumnHandle column = (HiveColumnHandle) columnHandle;
+        HiveColumnHandle hiveColumn = (HiveColumnHandle) columnHandle;
 
         HiveStorageFormat storageFormat = extractHiveStorageFormat(metastore.getTable(table.getSchemaName(), table.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName())));
+        verifyStorageFormatForColumnTypeChange(storageFormat);
+        verifySupportedColumnTypeChange(hiveColumn.getType(), type);
+        if (table.getPartitionColumns().stream().anyMatch(partition -> partition.getName().equals(hiveColumn.getName()))) {
+            throw new TrinoException(NOT_SUPPORTED, "Changing partition column types is not supported");
+        }
+        ImmutableList.Builder<Partition> partitionsBuilder = ImmutableList.builder();
+        List<String> partitionsNames = metastore.getPartitionNames(table.getSchemaName(), table.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName()));
+        for (List<String> partitionsNamesBatch : Lists.partition(partitionsNames, 1000)) {
+            metastore.getPartitionsByNames(table.getSchemaName(), table.getTableName(), partitionsNamesBatch).values().stream()
+                    .filter(Optional::isPresent).map(Optional::get)
+                    .forEach(partition -> {
+                        boolean skipUpdatePartition = false;
+                        verifyStorageFormatForColumnTypeChange(extractHiveStorageFormat(partition.getStorage().getStorageFormat()));
+                        ImmutableList.Builder<Column> columns = ImmutableList.builder();
+                        for (Column column : partition.getColumns()) {
+                            if (column.getName().equals(hiveColumn.getName())) {
+                                Type sourceType = column.getType().getType(typeManager, getTimestampPrecision(session));
+                                verifySupportedColumnTypeChange(sourceType, type);
+                                columns.add(column);
+                                skipUpdatePartition = sourceType.equals(type);
+                            }
+                            else {
+                                columns.add(column);
+                            }
+                        }
+                        if (!skipUpdatePartition) {
+                            partitionsBuilder.add(Partition.builder(partition).setColumns(columns.build()).build());
+                        }
+                    });
+        }
+        List<Partition> partitions = partitionsBuilder.build();
+        metastore.setColumnType(table.getSchemaName(), table.getTableName(), hiveColumn.getName(), toHiveType(type));
+        if (!partitions.isEmpty()) {
+            // Hive changes a column definition in each partitions unless the ALTER TABLE statement doesn't contain partition condition
+            // Trino doesn't support specifying partitions in ALTER TABLE, so SET DATA TYPE updates all partitions
+            // https://cwiki.apache.org/confluence/display/hive/languagemanual+ddl#LanguageManualDDL-AlterPartition
+            metastore.alterPartitions(table.getSchemaName(), table.getTableName(), partitions, OptionalLong.empty());
+        }
+    }
+
+    private void verifyStorageFormatForColumnTypeChange(HiveStorageFormat storageFormat)
+    {
+        // TODO: Support other storage format except for CSV and REGEX
+        //  AVRO leads to query failure after converting varchar to char(20)
+        //  RCBINARY leads to query failure and incorrect results
+        //  RCTEXT returns incorrect results on row types
+        //  SEQUENCEFILE returns incorrect results on row types
+        //  JSON leads to query failure for NaN after changing real to double type
+        //  TEXTFILE returns incorrect results on row types
         if (storageFormat != HiveStorageFormat.ORC && storageFormat != HiveStorageFormat.PARQUET) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported storage format for changing column type: " + storageFormat);
         }
+    }
 
-        table.getPartitionNames().ifPresent(partitionNames -> {
-            if (partitionNames.contains(column.getName())) {
-                throw new TrinoException(NOT_SUPPORTED, "Changing partition column types is not supported");
-            }
-        });
-        if (!canChangeColumnType(column.getType(), type)) {
-            throw new TrinoException(NOT_SUPPORTED, "Cannot change type from %s to %s".formatted(column.getType(), type));
+    private void verifySupportedColumnTypeChange(Type sourceType, Type targetType)
+    {
+        if (!canChangeColumnType(sourceType, targetType)) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot change type from %s to %s".formatted(sourceType, targetType));
         }
-        metastore.setColumnType(table.getSchemaName(), table.getTableName(), column.getName(), toHiveType(type));
     }
 
     private static boolean canChangeColumnType(Type sourceType, Type targetType)
@@ -1396,6 +1445,7 @@ public class HiveMetadata
             return targetType == DOUBLE;
         }
         if (sourceType instanceof VarcharType || sourceType instanceof CharType) {
+            // Truncation characters is supported
             return targetType instanceof VarcharType || targetType instanceof CharType;
         }
         if (sourceType instanceof DecimalType sourceDecimal && targetType instanceof DecimalType targetDecimal) {
@@ -1415,7 +1465,7 @@ public class HiveMetadata
                 boolean allowedChange = findFieldByName(sourceRowType.getFields(), fieldName)
                         .flatMap(sourceField -> findFieldByName(targetRowType.getFields(), fieldName)
                                 .map(targetField -> canChangeColumnType(sourceField.getType(), targetField.getType())))
-                        // Allow removal and addition of fields
+                        // Allow removal and addition of fields as the connector supports dropping and re-adding a column
                         .orElse(true);
                 if (!allowedChange) {
                     return false;
@@ -1430,7 +1480,7 @@ public class HiveMetadata
     {
         return fields.stream()
                 .filter(field -> field.getName().orElseThrow().equals(fieldName))
-                .findAny();
+                .collect(toOptional());
     }
 
     @Override
@@ -3551,7 +3601,11 @@ public class HiveMetadata
 
     private static HiveStorageFormat extractHiveStorageFormat(Table table)
     {
-        StorageFormat storageFormat = table.getStorage().getStorageFormat();
+        return extractHiveStorageFormat(table.getStorage().getStorageFormat());
+    }
+
+    private static HiveStorageFormat extractHiveStorageFormat(StorageFormat storageFormat)
+    {
         String outputFormat = storageFormat.getOutputFormat();
         String serde = storageFormat.getSerde();
 

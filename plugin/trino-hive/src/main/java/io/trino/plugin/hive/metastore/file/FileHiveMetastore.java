@@ -769,11 +769,6 @@ public class FileHiveMetastore
                 SchemaTableName name = new SchemaTableName(databaseName, tableName);
                 throw new ColumnNotFoundException(name, columnName);
             }
-            for (Column column : oldTable.getPartitionColumns()) {
-                if (column.getName().equals(columnName)) {
-                    throw new TrinoException(NOT_SUPPORTED, "Changing partition column types is not supported");
-                }
-            }
 
             ImmutableList.Builder<Column> newDataColumns = ImmutableList.builderWithExpectedSize(oldTable.getDataColumns().size());
             for (Column fieldSchema : oldTable.getDataColumns()) {
