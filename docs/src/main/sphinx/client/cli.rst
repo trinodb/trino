@@ -285,7 +285,21 @@ and prompts the CLI for your password:
 
 .. code-block:: text
 
-  ./trino --server https://trino.example.com --user=myusername --password
+  ./trino --server https://trino.example.com --user=exampleusername --password
+
+Alternatively, set the password as the value of the ``TRINO_PASSWORD``
+environment variables. Typically use single quotes to avoid problems with
+special characters such as ``$``:
+
+.. code-block:: text
+
+  export TRINO_PASSWORD='LongSecurePassword123!@#'
+
+The password is automatically used in any following start of the CLI:
+
+.. code-block:: text
+
+  ./trino --server https://trino.example.com --user=exampleusername
 
 .. _cli-external-sso-auth:
 
