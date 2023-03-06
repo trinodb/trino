@@ -17,11 +17,11 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -146,7 +146,7 @@ public final class AccessTrackingFileSystemFactory
         }
 
         @Override
-        public SeekableInputStream newStream()
+        public TrinoInputStream newStream()
                 throws IOException
         {
             fileOpened.accept(location());

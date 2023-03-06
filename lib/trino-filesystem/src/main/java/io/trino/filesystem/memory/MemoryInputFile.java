@@ -14,9 +14,9 @@
 package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
-import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoInputStream;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -43,10 +43,10 @@ public class MemoryInputFile
     }
 
     @Override
-    public SeekableInputStream newStream()
+    public TrinoInputStream newStream()
             throws IOException
     {
-        return new MemorySeekableInputStream(data);
+        return new MemoryTrinoInputStream(data);
     }
 
     @Override

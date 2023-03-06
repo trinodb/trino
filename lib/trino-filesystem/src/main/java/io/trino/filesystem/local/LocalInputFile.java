@@ -13,9 +13,9 @@
  */
 package io.trino.filesystem.local;
 
-import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoInputStream;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,10 +41,10 @@ public class LocalInputFile
     }
 
     @Override
-    public SeekableInputStream newStream()
+    public TrinoInputStream newStream()
             throws IOException
     {
-        return new FileSeekableInputStream(file);
+        return new FileTrinoInputStream(file);
     }
 
     @Override
