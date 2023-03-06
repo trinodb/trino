@@ -101,7 +101,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHD
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
@@ -347,7 +346,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult actual = computeActual("SELECT orderkey__c FROM orders__c LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
-        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
         assertContains(all, actual);
     }
 
@@ -357,7 +356,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult actual = computeActual("SELECT custkey__c, SUM(CAST(totalprice__c * 100 AS BIGINT)) FROM orders__c GROUP BY custkey__c LIMIT 10");
         MaterializedResult all = computeExpected("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM orders GROUP BY custkey", actual.getTypes());
 
-        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
         assertContains(all, actual);
     }
 
@@ -367,7 +366,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult actual = computeActual("SELECT orderkey__c FROM (SELECT orderkey__c FROM orders__c LIMIT 100) T LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
-        assertEquals(actual.getMaterializedRows().size(), 10);
+        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
         assertContains(all, actual);
     }
 
@@ -511,7 +510,7 @@ public class TestSalesforceConnectorTest
                 .build();
 
         // Until we migrate all connectors to parametrized varchar we check two options
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
     }
 
     @Test
@@ -631,7 +630,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTypes());
 
         assertContains(all, fullSample);
-        assertEquals(emptySample.getMaterializedRows().size(), 0);
+        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
     }
 
     @Test
@@ -1432,7 +1431,7 @@ public class TestSalesforceConnectorTest
                 .row("y", "varchar(3)", "", "")
                 .build();
 
-        assertEquals(actual, expected);
+        assertThat(actual).containsExactlyElementsOf(expected);
 
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
@@ -1487,7 +1486,7 @@ public class TestSalesforceConnectorTest
                 viewName);
         assertUpdate(ddl);
 
-        assertEquals(computeActual("SHOW CREATE VIEW " + viewName).getOnlyValue(), ddl);
+        assertThat(computeActual("SHOW CREATE VIEW " + viewName).getOnlyValue()).isEqualTo(ddl);
 
         assertUpdate("DROP VIEW " + viewName);
     }
@@ -2239,7 +2238,7 @@ public class TestSalesforceConnectorTest
                 .row("clerk__c", "varchar(15)", "", "Label clerk corresponds to this field.")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders__c");
-        assertEquals(actualColumns, expectedColumns);
+        assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
     }
 
     @Test
@@ -2280,7 +2279,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult all = computeActual("SELECT orderkey__c FROM orders__c");
 
         assertContains(all, fullSample);
-        assertEquals(emptySample.getMaterializedRows().size(), 0);
+        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
         assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
     }
 
@@ -2291,7 +2290,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey__c, orderdate__c FROM orders__c TABLESAMPLE SYSTEM (50) WHERE orderkey__c BETWEEN 0 AND 9999999999");
         MaterializedResult all = computeActual("SELECT orderkey__c, orderdate__c FROM orders__c");
 
-        assertEquals(emptySample.getMaterializedRows().size(), 0);
+        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
         // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
         // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
         assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
@@ -2823,7 +2822,7 @@ public class TestSalesforceConnectorTest
             // Assert values in table if it already exists
             // The values returned from Salesforce are doubles
             MaterializedResult results = getQueryRunner().execute(format("SELECT orderkey__c FROM %s__c", tableName));
-            assertEquals(results.getOnlyColumnAsSet(), ImmutableSet.of(30000.0, 60000.0));
+            assertThat(results.getOnlyColumnAsSet()).containsExactlyElementsOf(ImmutableSet.of(30000.0, 60000.0));
         }
 
         @Language("SQL") String query = "SELECT * FROM orders__c a JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
@@ -2875,7 +2874,7 @@ public class TestSalesforceConnectorTest
             // Assert values in table if it already exists
             // The values returned from Salesforce are doubles
             MaterializedResult results = getQueryRunner().execute(format("SELECT id__c FROM %s__c", tableName));
-            assertEquals(results.getOnlyColumnAsSet(), ImmutableSet.of("0", "a", "B"));
+            assertThat(results.getOnlyColumnAsSet()).containsExactlyElementsOf(ImmutableSet.of("0", "a", "B"));
         }
 
         assertThat(computeActual(
