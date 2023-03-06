@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.ptf.TableFunctionProcessorProvider;
@@ -78,6 +79,7 @@ public class LeafTableFunctionOperator
     private final PlanNodeId sourceId;
     private final TableFunctionProcessorProvider tableFunctionProvider;
     private final ConnectorTableFunctionHandle functionHandle;
+    private final ConnectorSession session;
 
     private ConnectorSplit currentSplit;
     private final List<ConnectorSplit> pendingSplits = new ArrayList<>();
@@ -94,11 +96,12 @@ public class LeafTableFunctionOperator
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.tableFunctionProvider = requireNonNull(tableFunctionProvider, "tableFunctionProvider is null");
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
+        this.session = operatorContext.getSession().toConnectorSession();
     }
 
     private void resetProcessor()
     {
-        this.processor = tableFunctionProvider.getSplitProcessor(functionHandle);
+        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle);
         this.processorUsedData = false;
         this.processorFinishedSplit = false;
         this.processorBlocked = NOT_BLOCKED;
