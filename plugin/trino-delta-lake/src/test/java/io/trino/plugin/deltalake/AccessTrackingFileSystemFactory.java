@@ -75,39 +75,39 @@ public final class AccessTrackingFileSystemFactory
         }
 
         @Override
-        public TrinoInputFile newInputFile(String path)
+        public TrinoInputFile newInputFile(String location)
         {
-            TrinoInputFile inputFile = delegate.newInputFile(path);
+            TrinoInputFile inputFile = delegate.newInputFile(location);
             return new TrackingInputFile(inputFile, fileOpened);
         }
 
         @Override
-        public TrinoInputFile newInputFile(String path, long length)
+        public TrinoInputFile newInputFile(String location, long length)
         {
-            TrinoInputFile inputFile = delegate.newInputFile(path, length);
+            TrinoInputFile inputFile = delegate.newInputFile(location, length);
             return new TrackingInputFile(inputFile, fileOpened);
         }
 
         @Override
-        public TrinoOutputFile newOutputFile(String path)
+        public TrinoOutputFile newOutputFile(String location)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void deleteFile(String path)
+        public void deleteFile(String location)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void deleteFiles(Collection<String> paths)
+        public void deleteFiles(Collection<String> locations)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void deleteDirectory(String path)
+        public void deleteDirectory(String location)
         {
             throw new UnsupportedOperationException();
         }
@@ -119,7 +119,7 @@ public final class AccessTrackingFileSystemFactory
         }
 
         @Override
-        public FileIterator listFiles(String path)
+        public FileIterator listFiles(String location)
         {
             throw new UnsupportedOperationException();
         }
