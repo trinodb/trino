@@ -3633,7 +3633,7 @@ public class SemiTransactionalHiveMetastore
             log.debug("Deleting failed attempt files from %s for query %s", path, queryId);
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
             if (!fileSystem.exists(path)) {
-                // directory may nat exit if no files were actually written
+                // directory may not exit if no files were actually written
                 return;
             }
 

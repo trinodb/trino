@@ -1370,7 +1370,7 @@ public class TestHiveGlueMetastore
             List<List<PartitionValues>> expectedValuesList)
             throws Exception
     {
-        try (CloseableSchamaTableName closeableTableName = new CloseableSchamaTableName(temporaryTable(("get_partitions")))) {
+        try (CloseableSchemaTableName closeableTableName = new CloseableSchemaTableName(temporaryTable(("get_partitions")))) {
             SchemaTableName tableName = closeableTableName.getSchemaTableName();
             createDummyPartitionedTable(tableName, columnMetadata, partitionColumnNames, partitionValues);
             HiveMetastore metastoreClient = getMetastoreClient();
@@ -1419,12 +1419,12 @@ public class TestHiveGlueMetastore
                         tableName.getSchemaName(), tableName.getTableName(), partitionName, currentStatistics -> EMPTY_TABLE_STATISTICS));
     }
 
-    private class CloseableSchamaTableName
+    private class CloseableSchemaTableName
             implements AutoCloseable
     {
         private final SchemaTableName schemaTableName;
 
-        private CloseableSchamaTableName(SchemaTableName schemaTableName)
+        private CloseableSchemaTableName(SchemaTableName schemaTableName)
         {
             this.schemaTableName = schemaTableName;
         }
