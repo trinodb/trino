@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
@@ -36,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
@@ -46,6 +48,7 @@ import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -80,7 +83,9 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.TopNNode.Step.FINAL;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAddExchangesPlans
         extends BasePlanTest
@@ -752,28 +757,30 @@ public class TestAddExchangesPlans
                                                                                 "orderdate", "orderdate"))))))))));
     }
 
-    // Negative test for use-exact-partitioning
+    // Negative test for use-exact-partitioning when colocated join is disabled
     @Test
-    public void testJoinNotExactlyPartitioned()
+    public void testJoinNotExactlyPartitionedWhenColocatedJoinDisabled()
     {
         assertDistributedPlan(
-                "SELECT\n" +
-                        "    orders.orderkey,\n" +
-                        "    orders.orderstatus\n" +
-                        "FROM (\n" +
-                        "    SELECT\n" +
-                        "        orderkey,\n" +
-                        "        ARBITRARY(orderstatus) AS orderstatus,\n" +
-                        "        COUNT(*)\n" +
-                        "    FROM orders\n" +
-                        "    GROUP BY\n" +
-                        "        orderkey\n" +
-                        ") t,\n" +
-                        "orders\n" +
-                        "WHERE\n" +
-                        "    orders.orderkey = t.orderkey\n" +
-                        "    AND orders.orderstatus = t.orderstatus",
-                noJoinReordering(),
+                """
+                        SELECT
+                            orders.orderkey,
+                            orders.orderstatus
+                        FROM (
+                            SELECT
+                                orderkey,
+                                ARBITRARY(orderstatus) AS orderstatus,
+                                COUNT(*)
+                            FROM orders
+                        GROUP BY
+                            orderkey
+                        ) t,
+                        orders
+                        WHERE
+                            orders.orderkey = t.orderkey
+                            AND orders.orderstatus = t.orderstatus
+                """,
+                noJoinReorderingColocatedJoinDisabled(),
                 anyTree(
                         project(
                                 anyTree(
@@ -782,6 +789,51 @@ public class TestAddExchangesPlans
                                 exchange(REMOTE, REPARTITION,
                                         anyTree(
                                                 tableScan("orders"))))));
+    }
+
+    // Negative test for use-exact-partitioning when colocated join is enabled (default)
+    @Test
+    public void testJoinNotExactlyPartitioned()
+    {
+        QueryAssertions queryAssertions = new QueryAssertions(getQueryRunner());
+        assertThat(queryAssertions.query("SHOW SESSION LIKE 'colocated_join'")).matches(
+                resultBuilder(
+                        getQueryRunner().getDefaultSession(),
+                        createVarcharType(56),
+                        createVarcharType(14),
+                        createVarcharType(14),
+                        createVarcharType(7),
+                        createVarcharType(151))
+                .row("colocated_join", "true", "true", "boolean", "Use a colocated join when possible")
+                .build());
+
+        assertDistributedPlan(
+                """
+                    SELECT
+                        orders.orderkey,
+                        orders.orderstatus
+                    FROM (
+                        SELECT
+                            orderkey,
+                            ARBITRARY(orderstatus) AS orderstatus,
+                            COUNT(*)
+                        FROM orders
+                        GROUP BY
+                            orderkey
+                    ) t,
+                    orders
+                    WHERE
+                        orders.orderkey = t.orderkey
+                        AND orders.orderstatus = t.orderstatus
+                """,
+                noJoinReordering(),
+                anyTree(
+                        project(
+                                anyTree(
+                                        tableScan("orders"))),
+                        exchange(LOCAL, GATHER,
+                                    anyTree(
+                                            tableScan("orders")))));
     }
 
     private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)
@@ -800,6 +852,16 @@ public class TestAddExchangesPlans
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(SPILL_ENABLED, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "16")
+                .build();
+    }
+
+    private Session noJoinReorderingColocatedJoinDisabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
+                .setSystemProperty(TASK_CONCURRENCY, "16")
+                .setSystemProperty(COLOCATED_JOIN, "false")
                 .build();
     }
 
