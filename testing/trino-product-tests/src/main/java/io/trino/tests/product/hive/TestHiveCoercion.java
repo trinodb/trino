@@ -38,7 +38,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -55,7 +54,6 @@ import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CR
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
-import static io.trino.tests.product.hive.TestHiveCoercion.ColumnContext.columnContext;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -546,8 +544,8 @@ public class TestHiveCoercion
 
         String hiveVersion = getHiveVersionMajor() + "." + getHiveVersionMinor();
         Set<String> unsupportedColumns = expectedExceptions.keySet().stream()
-                .filter(context -> context.getHiveVersion().orElseThrow().equals(hiveVersion) && tableName.contains(context.getFormat()))
-                .map(ColumnContext::getColumn)
+                .filter(context -> context.hiveVersion().orElseThrow().equals(hiveVersion) && tableName.contains(context.format()))
+                .map(ColumnContext::column)
                 .collect(toImmutableSet());
 
         return columns.stream()
@@ -879,58 +877,18 @@ public class TestHiveCoercion
                 .collect(toImmutableList());
     }
 
-    public static class ColumnContext
+    public static ColumnContext columnContext(String version, String format, String column)
     {
-        private final Optional<String> hiveVersion;
-        private final String format;
-        private final String column;
+        return new ColumnContext(Optional.of(version), format, column);
+    }
 
-        public ColumnContext(Optional<String> hiveVersion, String format, String column)
+    public record ColumnContext(Optional<String> hiveVersion, String format, String column)
+    {
+        public ColumnContext
         {
-            this.hiveVersion = requireNonNull(hiveVersion, "hiveVersion is null");
-            this.format = requireNonNull(format, "format is null");
-            this.column = requireNonNull(column, "column is null");
-        }
-
-        public static ColumnContext columnContext(String version, String format, String column)
-        {
-            return new ColumnContext(Optional.of(version), format, column);
-        }
-
-        public Optional<String> getHiveVersion()
-        {
-            return hiveVersion;
-        }
-
-        public String getFormat()
-        {
-            return format;
-        }
-
-        public String getColumn()
-        {
-            return column;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ColumnContext that = (ColumnContext) o;
-            return Objects.equals(hiveVersion, that.hiveVersion) &&
-                    Objects.equals(format, that.format) &&
-                    Objects.equals(column, that.column);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(hiveVersion, format, column);
+            requireNonNull(hiveVersion, "hiveVersion is null");
+            requireNonNull(format, "format is null");
+            requireNonNull(column, "column is null");
         }
     }
 
