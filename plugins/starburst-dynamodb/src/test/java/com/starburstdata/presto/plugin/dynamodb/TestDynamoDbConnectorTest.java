@@ -14,13 +14,11 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.assertions.Assert;
 
 import java.util.Optional;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -91,7 +89,7 @@ public class TestDynamoDbConnectorTest
                 .row("comment", "varchar(79)", "", "comment")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
     }
 
     @Override
@@ -158,7 +156,9 @@ public class TestDynamoDbConnectorTest
                 .row("comment", "varchar(79)", "", "comment")
                 .build();
 
-        assertEquals(expectedParametrizedVarchar, actual, format("%s does not match %s", actual, expectedParametrizedVarchar));
+        assertThat(expectedParametrizedVarchar)
+                .withFailMessage(format("%s does not match %s", actual, expectedParametrizedVarchar))
+                .containsExactlyElementsOf(actual);
     }
 
     @Override
