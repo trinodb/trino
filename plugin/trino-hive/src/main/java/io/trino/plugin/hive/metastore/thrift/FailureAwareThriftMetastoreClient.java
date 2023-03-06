@@ -34,6 +34,7 @@ import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -412,7 +413,7 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, OptionalLong writeId)
             throws TException
     {
         runWithHandle(() -> delegate.alterPartitions(dbName, tableName, partitions, writeId));

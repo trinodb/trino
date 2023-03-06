@@ -427,7 +427,7 @@ public abstract class ForwardingHiveMetastore
             String dbName,
             String tableName,
             List<Partition> partitions,
-            long writeId)
+            OptionalLong writeId)
     {
         delegate.alterPartitions(dbName, tableName, partitions, writeId);
     }

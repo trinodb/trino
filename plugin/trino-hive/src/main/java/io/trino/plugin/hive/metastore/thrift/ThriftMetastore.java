@@ -211,7 +211,7 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, OptionalLong writeId)
     {
         throw new UnsupportedOperationException();
     }

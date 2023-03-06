@@ -1132,7 +1132,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, OptionalLong writeId)
     {
         try {
             delegate.alterPartitions(dbName, tableName, partitions, writeId);

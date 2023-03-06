@@ -3611,7 +3611,7 @@ public class SemiTransactionalHiveMetastore
         delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
     }
 
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, OptionalLong writeId)
     {
         delegate.alterPartitions(dbName, tableName, partitions, writeId);
     }

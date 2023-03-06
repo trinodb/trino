@@ -73,6 +73,7 @@ import org.apache.thrift.transport.TTransportException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -685,7 +686,7 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, OptionalLong writeId)
             throws TException
     {
         alternativeCall(
@@ -693,7 +694,7 @@ public class ThriftHiveMetastoreClient
                 chosenAlterPartitionsAlternative,
                 () -> {
                     AlterPartitionsRequest request = new AlterPartitionsRequest(dbName, tableName, partitions);
-                    request.setWriteId(writeId);
+                    writeId.ifPresent(request::setWriteId);
                     client.alterPartitionsReq(request);
                     return null;
                 },

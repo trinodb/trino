@@ -525,11 +525,11 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, OptionalLong writeId)
     {
         List<io.trino.hive.thrift.metastore.Partition> hadoopPartitions = partitions.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiPartition)
-                .peek(partition -> partition.setWriteId(writeId))
+                .peek(partition -> writeId.ifPresent(partition::setWriteId))
                 .collect(toImmutableList());
         delegate.alterPartitions(dbName, tableName, hadoopPartitions, writeId);
     }
