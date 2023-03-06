@@ -160,7 +160,7 @@ public class MariaDbClient
     @Inject
     public MariaDbClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
-        super(config, "`", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         ConnectorExpressionRewriter<String> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()

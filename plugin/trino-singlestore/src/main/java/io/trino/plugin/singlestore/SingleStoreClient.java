@@ -155,7 +155,7 @@ public class SingleStoreClient
     @Inject
     public SingleStoreClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
-        super(config, "`", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
         requireNonNull(typeManager, "typeManager is null");
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
