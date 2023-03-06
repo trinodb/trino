@@ -80,7 +80,7 @@ public interface TrinoFileSystem
      * a slash or whitespace. If the file is a director, an exception is raised.
      *
      * @throws IllegalArgumentException if location is not valid for this file system
-     * @throws IOException if the file does not exist or was not deleted.
+     * @throws IOException if the file does not exist (optional) or was not deleted
      */
     void deleteFile(Location location)
             throws IOException;
@@ -91,7 +91,7 @@ public interface TrinoFileSystem
      * looping over the locations as some file systems support batch delete operations natively.
      *
      * @throws IllegalArgumentException if location is not valid for this file system
-     * @throws IOException if a file does not exist or was not deleted.
+     * @throws IOException if a file does not exist (optional) or was not deleted
      */
     default void deleteFiles(Collection<Location> locations)
             throws IOException
