@@ -61,26 +61,10 @@ indicated schema, or ignore it.
 - **function name**
 - **list of expected arguments**
 
-You can specify default values for some arguments, and those arguments can be
-skipped during invocation:
-
-.. code-block:: java
-
-    ScalarArgumentSpecification.builder()
-            .name("COLUMN_COUNT")
-            .type(INTEGER)
-            .defaultValue(2)
-            .build()
-
-If you do not specify the default value, the argument is required during
-invocation:
-
-.. code-block:: java
-
-    ScalarArgumentSpecification.builder()
-            .name("ROW_COUNT")
-            .type(INTEGER)
-            .build()
+Three different types of arguments are supported: scalar arguments, descriptor
+arguments, and table arguments. See :ref:`tf_argument_types` for details. You can
+specify default values for scalar and descriptor arguments. The arguments with
+specified default can be skipped during table function invocation.
 
 - **returned row type**
 
@@ -108,6 +92,105 @@ pass-through columns, use ``ONLY_PASS_THROUGH`` as the returned row type.
 
     A table function must return at least one column. It can either be a proper
     column, i.e. produced by the function, or a pass-through column.
+
+.. _tf_argument_types:
+
+Argument types
+^^^^^^^^^^^^^^
+
+Table functions take three types of arguments:
+:ref:`scalar arguments<tf_scalar_arguments>`,
+:ref:`descriptor arguments<tf_descriptor_arguments>`, and
+:ref:`table arguments<tf_table_arguments>`.
+
+.. _tf_scalar_arguments:
+
+Scalar arguments
+++++++++++++++++
+
+They can be of any supported data type. You can specify a default value.
+
+.. code-block:: java
+
+    ScalarArgumentSpecification.builder()
+            .name("COLUMN_COUNT")
+            .type(INTEGER)
+            .defaultValue(2)
+            .build()
+
+.. code-block:: java
+
+    ScalarArgumentSpecification.builder()
+            .name("ROW_COUNT")
+            .type(INTEGER)
+            .build()
+
+.. _tf_descriptor_arguments:
+
+Descriptor arguments
+++++++++++++++++++++
+
+Descriptors consist of fields with names and optional data types. They are a
+convenient way to pass the required result row type to the function, or for
+example inform the function which input columns it should use. You can specify
+default values for descriptor arguments. Descriptor argument can be ``null``.
+
+.. code-block:: java
+
+    DescriptorArgumentSpecification.builder()
+            .name("SCHEMA")
+            .defaultValue(null)
+            .build()
+
+.. _tf_table_arguments:
+
+Table arguments
++++++++++++++++
+
+A table function can take any number of input relations. It allows you to
+process multiple data sources simultaneously.
+
+When declaring a table argument, you must specify characteristics to determine
+how the input table is processed. Also note that you cannot specify a default
+value for a table argument.
+
+.. code-block:: java
+
+    TableArgumentSpecification.builder()
+            .name("INPUT")
+            .rowSemantics()
+            .pruneWhenEmpty()
+            .passThroughColumns()
+            .build()
+
+Set or row semantics
+====================
+
+Set semantics is the default for table arguments. A table argument with set
+semantics is processed on a partition-by-partition basis. During function
+invocation, the user can specify partitioning and ordering for the argument. If
+no partitioning is specified, the argument is processed as a single partition.
+
+A table argument with row semantics is processed on a row-by-row basis.
+Partitioning or ordering is not applicable.
+
+Prune or keep when empty
+========================
+
+The *prune when empty* property indicates that if the given table argument is
+empty, the function returns empty result. This property is used to optimize
+queries involving table functions. The *keep when empty* property indicates
+that the function should be executed even if the table argument is empty. The
+user can override this property when invoking the function. Using the *keep
+when empty* property can negatively affect performance when the table argument
+is not empty.
+
+Pass-through columns
+====================
+
+If a table argument has *pass-through columns*, all of its columns are passed
+on output. For a table argument without this property, only the partitioning
+columns are passed on output.
 
 The ``analyze()`` method
 ^^^^^^^^^^^^^^^^^^^^^^^^
