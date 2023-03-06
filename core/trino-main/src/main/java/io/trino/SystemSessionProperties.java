@@ -429,7 +429,7 @@ public final class SystemSessionProperties
                         value -> value),
                 booleanProperty(
                         COLOCATED_JOIN,
-                        "Experimental: Use a colocated join when possible",
+                        "Use a colocated join when possible",
                         optimizerConfig.isColocatedJoinsEnabled(),
                         false),
                 booleanProperty(
