@@ -32,7 +32,7 @@ public class TestFileEntry
     {
         assertThat(new FileEntry("/test", 123, MODIFIED, Optional.empty()))
                 .satisfies(entry -> {
-                    assertThat(entry.path()).isEqualTo("/test");
+                    assertThat(entry.location()).isEqualTo("/test");
                     assertThat(entry.length()).isEqualTo(123);
                     assertThat(entry.lastModified()).isEqualTo(MODIFIED);
                     assertThat(entry.blocks()).isEmpty();

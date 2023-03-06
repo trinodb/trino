@@ -20,7 +20,6 @@ import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
-import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
@@ -207,16 +206,13 @@ public class TestDeltaLakeGcsConnectorSmokeTest
 
     private List<String> listAllFilesRecursive(String directory)
     {
-        String path = bucketUrl() + directory;
-        ImmutableList.Builder<String> paths = ImmutableList.builder();
-
+        ImmutableList.Builder<String> locations = ImmutableList.builder();
         try {
-            FileIterator files = fileSystem.listFiles(path);
+            FileIterator files = fileSystem.listFiles(bucketUrl() + directory);
             while (files.hasNext()) {
-                FileEntry file = files.next();
-                paths.add(file.path());
+                locations.add(files.next().location());
             }
-            return paths.build();
+            return locations.build();
         }
         catch (FileNotFoundException e) {
             return ImmutableList.of();
