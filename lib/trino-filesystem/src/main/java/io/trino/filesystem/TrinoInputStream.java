@@ -16,7 +16,7 @@ package io.trino.filesystem;
 import java.io.IOException;
 import java.io.InputStream;
 
-public abstract class SeekableInputStream
+public abstract class TrinoInputStream
         extends InputStream
 {
     /**

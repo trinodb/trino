@@ -11,73 +11,64 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.filesystem.local;
+package io.trino.filesystem.hdfs;
 
-import com.google.common.primitives.Ints;
-import io.trino.filesystem.SeekableInputStream;
+import io.trino.filesystem.TrinoInputStream;
+import org.apache.hadoop.fs.FSDataInputStream;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 
-class FileSeekableInputStream
-        extends SeekableInputStream
+import static java.util.Objects.requireNonNull;
+
+class HdfsTrinoInputStream
+        extends TrinoInputStream
 {
-    private final RandomAccessFile input;
+    private final FSDataInputStream stream;
 
-    public FileSeekableInputStream(File file)
-            throws FileNotFoundException
+    HdfsTrinoInputStream(FSDataInputStream stream)
     {
-        this.input = new RandomAccessFile(file, "r");
+        this.stream = requireNonNull(stream, "stream is null");
     }
 
     @Override
     public long getPosition()
             throws IOException
     {
-        return input.getFilePointer();
+        return stream.getPos();
     }
 
     @Override
     public void seek(long position)
             throws IOException
     {
-        input.seek(position);
+        stream.seek(position);
     }
 
     @Override
     public int read()
             throws IOException
     {
-        return input.read();
+        return stream.read();
     }
 
     @Override
     public int read(byte[] b)
             throws IOException
     {
-        return input.read(b);
+        return stream.read(b);
     }
 
     @Override
     public int read(byte[] b, int off, int len)
             throws IOException
     {
-        return input.read(b, off, len);
-    }
-
-    @Override
-    public long skip(long n)
-            throws IOException
-    {
-        return input.skipBytes(Ints.saturatedCast(n));
+        return stream.read(b, off, len);
     }
 
     @Override
     public void close()
             throws IOException
     {
-        input.close();
+        stream.close();
     }
 }
