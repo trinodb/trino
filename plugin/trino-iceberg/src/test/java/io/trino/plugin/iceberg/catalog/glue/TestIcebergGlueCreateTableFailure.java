@@ -170,8 +170,8 @@ public class TestIcebergGlueCreateTableFailure
         boolean metadataFileFound = false;
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
-            String path = fileEntry.path();
-            if (path.startsWith(tableLocationPrefix) && path.endsWith(".metadata.json")) {
+            String location = fileEntry.location();
+            if (location.startsWith(tableLocationPrefix) && location.endsWith(".metadata.json")) {
                 metadataFileFound = true;
                 break;
             }

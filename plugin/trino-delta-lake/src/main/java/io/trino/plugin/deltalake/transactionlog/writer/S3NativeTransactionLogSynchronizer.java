@@ -189,9 +189,9 @@ public class S3NativeTransactionLogSynchronizer
 
         while (files.hasNext()) {
             FileEntry entry = files.next();
-            String name = entry.path().substring(entry.path().lastIndexOf('/') + 1);
+            String name = entry.location().substring(entry.location().lastIndexOf('/') + 1);
             if (LOCK_FILENAME_PATTERN.matcher(name).matches()) {
-                Optional<LockInfo> lockInfo = parseLockFile(fileSystem, entry.path(), name);
+                Optional<LockInfo> lockInfo = parseLockFile(fileSystem, entry.location(), name);
                 lockInfo.ifPresent(lockInfos::add);
             }
         }
