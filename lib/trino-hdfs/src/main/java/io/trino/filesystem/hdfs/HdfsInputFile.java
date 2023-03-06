@@ -13,9 +13,9 @@
  */
 package io.trino.filesystem.hdfs;
 
-import io.trino.filesystem.SeekableInputStream;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.TrinoInputStream;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -58,10 +58,10 @@ class HdfsInputFile
     }
 
     @Override
-    public SeekableInputStream newStream()
+    public TrinoInputStream newStream()
             throws IOException
     {
-        return new HdfsSeekableInputStream(openFile());
+        return new HdfsTrinoInputStream(openFile());
     }
 
     @Override

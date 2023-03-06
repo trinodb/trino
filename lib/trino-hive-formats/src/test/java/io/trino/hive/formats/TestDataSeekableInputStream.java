@@ -18,8 +18,8 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.filesystem.SeekableInputStream;
-import io.trino.filesystem.memory.MemorySeekableInputStream;
+import io.trino.filesystem.TrinoInputStream;
+import io.trino.filesystem.memory.MemoryTrinoInputStream;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -590,7 +590,7 @@ public class TestDataSeekableInputStream
     public void testRetainedSize()
     {
         int bufferSize = 1024;
-        SeekableInputStream inputStream = new MemorySeekableInputStream(Slices.wrappedBuffer(new byte[] {0, 1}));
+        TrinoInputStream inputStream = new MemoryTrinoInputStream(Slices.wrappedBuffer(new byte[] {0, 1}));
         DataSeekableInputStream input = new DataSeekableInputStream(inputStream, bufferSize);
         assertEquals(input.getRetainedSize(), instanceSize(DataSeekableInputStream.class) + sizeOfByteArray(bufferSize));
     }
@@ -727,7 +727,7 @@ public class TestDataSeekableInputStream
 
     private static DataSeekableInputStream createDataSeekableInputStream(byte[] bytes)
     {
-        SeekableInputStream inputStream = new MemorySeekableInputStream(Slices.wrappedBuffer(bytes));
+        TrinoInputStream inputStream = new MemoryTrinoInputStream(Slices.wrappedBuffer(bytes));
         return new DataSeekableInputStream(inputStream, 16 * 1024);
     }
 }

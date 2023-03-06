@@ -15,16 +15,16 @@ package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-import io.trino.filesystem.SeekableInputStream;
+import io.trino.filesystem.TrinoInputStream;
 
 import java.io.IOException;
 
-public class MemorySeekableInputStream
-        extends SeekableInputStream
+public class MemoryTrinoInputStream
+        extends TrinoInputStream
 {
     private final SliceInput input;
 
-    public MemorySeekableInputStream(Slice data)
+    public MemoryTrinoInputStream(Slice data)
     {
         input = data.getInput();
     }
