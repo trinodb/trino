@@ -546,7 +546,7 @@ public class TestHiveCoercion
 
         String hiveVersion = getHiveVersionMajor() + "." + getHiveVersionMinor();
         Set<String> unsupportedColumns = expectedExceptions.keySet().stream()
-                .filter(context -> context.getHiveVersion().equals(hiveVersion) && tableName.contains(context.getFormat()))
+                .filter(context -> context.getHiveVersion().orElseThrow().equals(hiveVersion) && tableName.contains(context.getFormat()))
                 .map(ColumnContext::getColumn)
                 .collect(toImmutableSet());
 
@@ -881,11 +881,11 @@ public class TestHiveCoercion
 
     public static class ColumnContext
     {
-        private final String hiveVersion;
+        private final Optional<String> hiveVersion;
         private final String format;
         private final String column;
 
-        public ColumnContext(String hiveVersion, String format, String column)
+        public ColumnContext(Optional<String> hiveVersion, String format, String column)
         {
             this.hiveVersion = requireNonNull(hiveVersion, "hiveVersion is null");
             this.format = requireNonNull(format, "format is null");
@@ -894,10 +894,10 @@ public class TestHiveCoercion
 
         public static ColumnContext columnContext(String version, String format, String column)
         {
-            return new ColumnContext(version, format, column);
+            return new ColumnContext(Optional.of(version), format, column);
         }
 
-        public String getHiveVersion()
+        public Optional<String> getHiveVersion()
         {
             return hiveVersion;
         }
