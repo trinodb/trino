@@ -819,23 +819,29 @@ public class GlueHiveMetastore
 
         // Do parallel partition fetch.
         CompletionService<List<List<String>>> completionService = new ExecutorCompletionService<>(partitionsReadExecutor);
-        for (int i = 0; i < partitionSegments; i++) {
-            Segment segment = new Segment().withSegmentNumber(i).withTotalSegments(partitionSegments);
-            completionService.submit(() -> getPartitionValues(databaseName, tableName, expression, segment));
-        }
-
+        List<Future<?>> futures = new ArrayList<>(partitionSegments);
         List<List<String>> partitions = new ArrayList<>();
         try {
+            for (int i = 0; i < partitionSegments; i++) {
+                Segment segment = new Segment().withSegmentNumber(i).withTotalSegments(partitionSegments);
+                futures.add(completionService.submit(() -> getPartitionValues(databaseName, tableName, expression, segment)));
+            }
             for (int i = 0; i < partitionSegments; i++) {
                 Future<List<List<String>>> futurePartitions = completionService.take();
                 partitions.addAll(futurePartitions.get());
             }
+            // All futures completed normally
+            futures.clear();
         }
         catch (ExecutionException | InterruptedException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
             throw new TrinoException(HIVE_METASTORE_ERROR, "Failed to fetch partitions from Glue Data Catalog", e);
+        }
+        finally {
+            // Ensure any futures still running are canceled in case of failure
+            futures.forEach(future -> future.cancel(true));
         }
 
         partitions.sort(PARTITION_VALUE_COMPARATOR);
@@ -914,6 +920,7 @@ public class GlueHiveMetastore
 
     private List<Partition> batchGetPartition(Table table, List<String> partitionNames)
     {
+        List<Future<BatchGetPartitionResult>> batchGetPartitionFutures = new ArrayList<>();
         try {
             List<PartitionValueList> pendingPartitions = partitionNames.stream()
                     .map(partitionName -> new PartitionValueList().withValues(toPartitionValues(partitionName)))
@@ -925,7 +932,6 @@ public class GlueHiveMetastore
             GluePartitionConverter converter = new GluePartitionConverter(table);
 
             while (!pendingPartitions.isEmpty()) {
-                List<Future<BatchGetPartitionResult>> batchGetPartitionFutures = new ArrayList<>();
                 for (List<PartitionValueList> partitions : Lists.partition(pendingPartitions, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
                     batchGetPartitionFutures.add(glueClient.batchGetPartitionAsync(new BatchGetPartitionRequest()
                                     .withDatabaseName(table.getDatabaseName())
@@ -951,6 +957,7 @@ public class GlueHiveMetastore
                             .forEach(resultsBuilder::add);
                     pendingPartitions.addAll(unprocessedKeys);
                 }
+                batchGetPartitionFutures.clear();
             }
 
             return resultsBuilder.build();
@@ -960,6 +967,10 @@ public class GlueHiveMetastore
                 Thread.currentThread().interrupt();
             }
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        finally {
+            // Ensure any futures still running are canceled in case of failure
+            batchGetPartitionFutures.forEach(future -> future.cancel(true));
         }
     }
 
