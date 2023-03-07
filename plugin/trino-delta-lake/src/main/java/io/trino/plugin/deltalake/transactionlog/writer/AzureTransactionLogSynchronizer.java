@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.transactionlog.writer;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
@@ -41,10 +40,9 @@ public class AzureTransactionLogSynchronizer
     // This approach should be compatible with OSS Delta Lake.
     // We assume ADLS Gen2 supports atomic renames which will not overwrite existing files
     @Override
-    public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, String newLogEntryPath, byte[] entryContents)
     {
-        String tmpFileName = newLogEntryPath.getName() + "." + UUID.randomUUID() + ".tmp";
-        String tmpFilePath = new Path(newLogEntryPath.getParent(), tmpFileName).toString();
+        String tmpFilePath = newLogEntryPath + "." + UUID.randomUUID() + ".tmp";
 
         boolean conflict = false;
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -53,7 +51,7 @@ public class AzureTransactionLogSynchronizer
                 outputStream.write(entryContents);
             }
             try {
-                fileSystem.renameFile(tmpFilePath, newLogEntryPath.toString());
+                fileSystem.renameFile(tmpFilePath, newLogEntryPath);
             }
             catch (IOException e) {
                 conflict = true;

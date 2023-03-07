@@ -17,7 +17,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
@@ -39,12 +38,12 @@ public class NoIsolationSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, String newLogEntryPath, byte[] entryContents)
             throws UncheckedIOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath.toString());
+            TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath);
             try (OutputStream outputStream = outputFile.create()) {
                 outputStream.write(entryContents);
             }
