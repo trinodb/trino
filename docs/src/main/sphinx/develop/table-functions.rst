@@ -226,6 +226,7 @@ is also the place to perform custom checks on the arguments:
 
         return TableFunctionAnalysis.builder()
                 .returnedType(returnedType)
+                .handle(new MyHandle(columnCount, rowCount))
                 .build();
     }
 
