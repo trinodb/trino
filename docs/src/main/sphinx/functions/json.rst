@@ -1448,12 +1448,9 @@ the following requirements are met:
 .. note::
 
     Cast operations with supported :ref:`character string types
-    <string-data-types>` treat the input as a string, not validated as JSON.
-    This means that a cast operation with a string-type input of invalid JSON
-    results in a succesful cast to invalid JSON.
-
-    Instead, consider using the :func:`json_parse` function to
-    create validated JSON from a string.
+    <string-data-types>` treat the input as a SQL string, not validated as JSON.
+    This means that a cast operation with a SQL string-type input results in a
+    successful cast to a JSON object with a string value.
 
 The following examples show the behavior of casting to JSON with these types::
 
