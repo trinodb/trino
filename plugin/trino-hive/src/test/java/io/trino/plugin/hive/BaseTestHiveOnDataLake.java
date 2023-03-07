@@ -55,6 +55,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
@@ -1624,6 +1625,33 @@ public abstract class BaseTestHiveOnDataLake
         assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
     }
 
+    @Test
+    public void testExternalLocationWithTrailingSpace()
+    {
+        String tableName = "test_external_location_with_trailing_space_" + randomNameSuffix();
+        String tableLocationDirWithTrailingSpace = tableName + " ";
+        String tableLocation = format("s3a://%s/%s/%s", bucketName, HIVE_TEST_SCHEMA, tableLocationDirWithTrailingSpace);
+
+        byte[] contents = "hello\u0001world\nbye\u0001world".getBytes(UTF_8);
+        String targetPath = format("%s/%s/test.txt", HIVE_TEST_SCHEMA, tableLocationDirWithTrailingSpace);
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, contents, targetPath);
+
+        assertUpdate(format(
+                "CREATE TABLE %s (" +
+                        "  a varchar, " +
+                        "  b varchar) " +
+                        "WITH (format='TEXTFILE', external_location='%s')",
+                tableName,
+                tableLocation));
+
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES ('hello', 'world'), ('bye', 'world')");
+
+        String actualTableLocation = getTableLocation(tableName);
+        assertThat(actualTableLocation).isEqualTo(tableLocation);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
     {
         String partitionName = format("%s=%s", partitionColumn, regionKey);
@@ -1813,5 +1841,10 @@ public abstract class BaseTestHiveOnDataLake
                                 e.getKey(),
                                 PartitionStatistics.empty()))
                         .collect(toImmutableList()));
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
     }
 }
