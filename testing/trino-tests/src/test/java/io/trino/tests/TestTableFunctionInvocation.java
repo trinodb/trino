@@ -112,34 +112,34 @@ public class TestTableFunctionInvocation
                         if (name.equals(new SchemaFunctionName("system", "identity_function"))) {
                             return new IdentityFunctionProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "identity_pass_through_function"))) {
+                        if (name.equals(new SchemaFunctionName("system", "identity_pass_through_function"))) {
                             return new IdentityPassThroughFunctionProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "repeat"))) {
+                        if (name.equals(new SchemaFunctionName("system", "repeat"))) {
                             return new RepeatFunctionProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "empty_output"))) {
+                        if (name.equals(new SchemaFunctionName("system", "empty_output"))) {
                             return new EmptyOutputProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "empty_output_with_pass_through"))) {
+                        if (name.equals(new SchemaFunctionName("system", "empty_output_with_pass_through"))) {
                             return new EmptyOutputWithPassThroughProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "test_inputs_function"))) {
+                        if (name.equals(new SchemaFunctionName("system", "test_inputs_function"))) {
                             return new TestInputsFunctionProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "pass_through"))) {
+                        if (name.equals(new SchemaFunctionName("system", "pass_through"))) {
                             return new PassThroughInputProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "test_input"))) {
+                        if (name.equals(new SchemaFunctionName("system", "test_input"))) {
                             return new TestInputProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "test_single_input_function"))) {
+                        if (name.equals(new SchemaFunctionName("system", "test_single_input_function"))) {
                             return new TestSingleInputFunctionProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "constant"))) {
+                        if (name.equals(new SchemaFunctionName("system", "constant"))) {
                             return new ConstantFunctionProcessorProvider();
                         }
-                        else if (name.equals(new SchemaFunctionName("system", "empty_source"))) {
+                        if (name.equals(new SchemaFunctionName("system", "empty_source"))) {
                             return new EmptySourceFunctionProcessorProvider();
                         }
 
