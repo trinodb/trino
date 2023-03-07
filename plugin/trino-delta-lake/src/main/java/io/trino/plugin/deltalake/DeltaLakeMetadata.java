@@ -158,6 +158,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.primitives.Ints.max;
+import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.filesystem.Locations.getFileName;
+import static io.trino.filesystem.Locations.getParent;
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getFilesModifiedAfterProperty;
@@ -705,8 +708,8 @@ public class DeltaLakeMetadata
             if (useUniqueTableLocation) {
                 tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
             }
-            location = new Path(schemaLocation, tableNameForLocation).toString();
-            checkPathContainsNoFiles(session, new Path(location));
+            location = appendPath(schemaLocation, tableNameForLocation);
+            checkPathContainsNoFiles(session, location);
             external = false;
         }
         String deltaLogDirectory = getTransactionLogDir(location);
@@ -834,13 +837,13 @@ public class DeltaLakeMetadata
             if (useUniqueTableLocation) {
                 tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
             }
-            location = new Path(schemaLocation, tableNameForLocation).toString();
+            location = appendPath(schemaLocation, tableNameForLocation);
             external = false;
         }
-        Path targetPath = new Path(location);
-        checkPathContainsNoFiles(session, targetPath);
+        checkPathContainsNoFiles(session, location);
 
-        setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), targetPath.toString()));
+        String finalLocation = location;
+        setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), finalLocation));
 
         return new DeltaLakeOutputTableHandle(
                 schemaName,
@@ -864,11 +867,11 @@ public class DeltaLakeMetadata
         return schemaLocation;
     }
 
-    private void checkPathContainsNoFiles(ConnectorSession session, Path targetPath)
+    private void checkPathContainsNoFiles(ConnectorSession session, String targetPath)
     {
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            if (fileSystem.listFiles(targetPath.toString()).hasNext()) {
+            if (fileSystem.listFiles(targetPath).hasNext()) {
                 throw new TrinoException(NOT_SUPPORTED, "Target location cannot contain any files: " + targetPath);
             }
         }
@@ -1633,8 +1636,8 @@ public class DeltaLakeMetadata
         String tableLocation = executeHandle.getTableLocation();
 
         // paths to be deleted
-        Set<Path> scannedPaths = splitSourceInfo.stream()
-                .map(file -> new Path((String) file))
+        Set<String> scannedPaths = splitSourceInfo.stream()
+                .map(String.class::cast)
                 .collect(toImmutableSet());
 
         // files to be added
@@ -1659,8 +1662,8 @@ public class DeltaLakeMetadata
 
             long writeTimestamp = Instant.now().toEpochMilli();
 
-            for (Path scannedPath : scannedPaths) {
-                String relativePath = new Path(tableLocation).toUri().relativize(scannedPath.toUri()).toString();
+            for (String scannedPath : scannedPaths) {
+                String relativePath = new Path(tableLocation).toUri().relativize(new Path(scannedPath).toUri()).toString();
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(relativePath, writeTimestamp, false));
             }
 
@@ -1686,8 +1689,8 @@ public class DeltaLakeMetadata
     {
         try {
             String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName());
-            Path tableMetadataDirectory = new Path(new Path(tableLocation).getParent().toString(), tableHandle.getTableName());
-            boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableMetadataDirectory.toString()).isUnsafe();
+            String tableMetadataDirectory = appendPath(getParent(tableLocation), tableHandle.getTableName());
+            boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableMetadataDirectory).isUnsafe();
             return !requiresOptIn || unsafeWritesEnabled;
         }
         catch (TrinoException e) {
@@ -1764,7 +1767,7 @@ public class DeltaLakeMetadata
     private void cleanupFailedWrite(ConnectorSession session, String tableLocation, List<DataFileInfo> dataFiles)
     {
         List<String> filesToDelete = dataFiles.stream()
-                .map(dataFile -> new Path(tableLocation, dataFile.getPath()).toString())
+                .map(dataFile -> appendPath(tableLocation, dataFile.getPath()))
                 .collect(toImmutableList());
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -1773,7 +1776,7 @@ public class DeltaLakeMetadata
         catch (Exception e) {
             // Can be safely ignored since a VACUUM from DeltaLake will take care of such orphaned files
             LOG.warn(e, "Failed cleanup of leftover files from failed write, files are: %s", dataFiles.stream()
-                    .map(dataFileInfo -> new Path(tableLocation, dataFileInfo.getPath()))
+                    .map(dataFileInfo -> appendPath(tableLocation, dataFileInfo.getPath()))
                     .collect(toImmutableList()));
         }
     }
@@ -2422,7 +2425,7 @@ public class DeltaLakeMetadata
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
                 FileEntry file = iterator.next();
-                String fileName = new Path(file.location()).getName();
+                String fileName = getFileName(file.location());
                 if (isFileCreatedByQuery(fileName, queryId) && !filesToKeep.contains(location + "/" + fileName)) {
                     filesToDelete.add(fileName);
                 }

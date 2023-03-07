@@ -41,9 +41,9 @@ public class TransactionLogSynchronizerManager
         this.noIsolationSynchronizer = requireNonNull(noIsolationSynchronizer, "noIsolationSynchronizer is null");
     }
 
-    public TransactionLogSynchronizer getSynchronizer(Path tableLocation)
+    public TransactionLogSynchronizer getSynchronizer(String tableLocation)
     {
-        String uriScheme = tableLocation.toUri().getScheme();
+        String uriScheme = new Path(tableLocation).toUri().getScheme();
         checkArgument(uriScheme != null, "URI scheme undefined for " + tableLocation);
         TransactionLogSynchronizer synchronizer = synchronizers.get(uriScheme.toLowerCase(ENGLISH));
         if (synchronizer == null) {

@@ -15,7 +15,6 @@
 package io.trino.plugin.deltalake.transactionlog.writer;
 
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
@@ -33,7 +32,7 @@ public class TransactionLogWriterFactory
 
     public TransactionLogWriter newWriter(ConnectorSession session, String tableLocation)
     {
-        TransactionLogSynchronizer synchronizer = synchronizerManager.getSynchronizer(new Path(tableLocation));
+        TransactionLogSynchronizer synchronizer = synchronizerManager.getSynchronizer(tableLocation);
         return new TransactionLogWriter(synchronizer, session, tableLocation);
     }
 

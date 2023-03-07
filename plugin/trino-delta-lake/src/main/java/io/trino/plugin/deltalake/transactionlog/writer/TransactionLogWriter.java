@@ -23,7 +23,6 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -107,7 +106,7 @@ public class TransactionLogWriter
         }
 
         String clusterId = commitInfoEntry.get().getCommitInfo().getClusterId();
-        logSynchronizer.write(session, clusterId, new Path(logEntry), bos.toByteArray());
+        logSynchronizer.write(session, clusterId, logEntry, bos.toByteArray());
     }
 
     private void writeEntry(OutputStream outputStream, DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry)
