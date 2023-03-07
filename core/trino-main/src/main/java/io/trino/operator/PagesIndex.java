@@ -300,8 +300,10 @@ public class PagesIndex
         elements[b] = temp;
     }
 
-    private int buildPage(int position, int endPosition, PageBuilder pageBuilder)
+    private int buildPage(int position, OptionalInt end, PageBuilder pageBuilder)
     {
+        int endPosition = end.orElse(positionCount);
+
         while (!pageBuilder.isFull() && position < endPosition) {
             long pageAddress = valueAddresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
@@ -601,7 +603,23 @@ public class PagesIndex
 
     public Iterator<Page> getSortedPages()
     {
-        return getSortedPagesFromRange(0, positionCount);
+        return new AbstractIterator<>()
+        {
+            private int currentPosition;
+            private final PageBuilder pageBuilder = new PageBuilder(types);
+
+            @Override
+            public Page computeNext()
+            {
+                currentPosition = buildPage(currentPosition, OptionalInt.empty(), pageBuilder);
+                if (pageBuilder.isEmpty()) {
+                    return endOfData();
+                }
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return page;
+            }
+        };
     }
 
     /**
@@ -615,11 +633,7 @@ public class PagesIndex
     {
         checkArgument(start >= 0 && end <= positionCount, "position range out of bounds");
         checkArgument(start <= end, "invalid position range");
-        return getSortedPagesFromRange(start, end);
-    }
 
-    private Iterator<Page> getSortedPagesFromRange(int start, int end)
-    {
         return new AbstractIterator<>()
         {
             private int currentPosition = start;
@@ -628,7 +642,7 @@ public class PagesIndex
             @Override
             public Page computeNext()
             {
-                currentPosition = buildPage(currentPosition, end, pageBuilder);
+                currentPosition = buildPage(currentPosition, OptionalInt.of(end), pageBuilder);
                 if (pageBuilder.isEmpty()) {
                     return endOfData();
                 }
