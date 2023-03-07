@@ -78,6 +78,9 @@ public abstract class BaseClickHouseConnectorTest
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE:
+                return true;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
