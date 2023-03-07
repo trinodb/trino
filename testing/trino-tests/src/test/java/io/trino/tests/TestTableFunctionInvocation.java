@@ -45,15 +45,8 @@ import io.trino.connector.TestingTableFunctions.TestSingleInputRowSemanticsFunct
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableFunctionApplicationResult;
-import io.trino.spi.function.AggregationImplementation;
-import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.FunctionDependencies;
-import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionProvider;
-import io.trino.spi.function.InvocationConvention;
-import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.SchemaFunctionName;
-import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -113,24 +106,6 @@ public class TestTableFunctionInvocation
                 })
                 .withFunctionProvider(Optional.of(new FunctionProvider()
                 {
-                    @Override
-                    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
-                    {
-                        return null;
-                    }
-
-                    @Override
-                    public AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
-                    {
-                        return null;
-                    }
-
-                    @Override
-                    public WindowFunctionSupplier getWindowFunctionSupplier(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
-                    {
-                        return null;
-                    }
-
                     @Override
                     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(SchemaFunctionName name)
                     {
