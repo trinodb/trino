@@ -38,6 +38,8 @@ import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.executeWithRedshift;
+import static io.trino.testing.DataProviders.cartesianProduct;
+import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -151,6 +153,30 @@ public class TestRedshiftConnectorTest
         }
     }
 
+    @Test(dataProvider = "testReadNullFromViewDataProvider")
+    public void testReadNullFromView(String redshiftType, String trinoType, boolean lateBindingView)
+    {
+        try (TestView view = new TestView(
+                onRemoteDatabase(),
+                TEST_SCHEMA + ".cast_null_view",
+                "SELECT CAST(NULL AS %s) AS value %s".formatted(redshiftType, lateBindingView ? "WITH NO SCHEMA BINDING" : ""))) {
+            assertThat(query("SELECT value FROM %s".formatted(view.getName())))
+                    .skippingTypesCheck() // trino returns 'unknown' for null
+                    .matches("VALUES null");
+
+            assertThat(query("SHOW COLUMNS FROM %s LIKE 'value'".formatted(view.getName())))
+                    .projected(1)
+                    .skippingTypesCheck()
+                    .matches("VALUES '%s'".formatted(trinoType));
+        }
+    }
+
+    @DataProvider
+    public Object[][] testReadNullFromViewDataProvider()
+    {
+        return cartesianProduct(redshiftTypeToTrinoTypes(), trueFalse());
+    }
+
     @DataProvider
     public Object[][] redshiftTypeToTrinoTypes()
     {
@@ -164,6 +190,8 @@ public class TestRedshiftConnectorTest
                 {"BOOLEAN", "boolean"},
                 {"CHAR(1)", "char(1)"},
                 {"VARCHAR(1)", "varchar(1)"},
+                // consider to extract "CHARACTER VARYING" type from here as it requires exact length, 0 - is for the empty string
+                {"CHARACTER VARYING", "varchar(0)"},
                 {"TIME", "time(6)"},
                 {"TIMESTAMP", "timestamp(6)"},
                 {"TIMESTAMPTZ", "timestamp(6) with time zone"}};
