@@ -48,6 +48,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.operator.Operator.NOT_BLOCKED;
@@ -407,7 +408,7 @@ public class Driver
             }
 
             // if current operator is finished...
-            if (current.isFinished()) {
+            if (current.isFinished() && !revokingOperators.containsKey(next)) {
                 // let next operator know there will be no more data
                 next.finish();
                 next.getOperatorContext().recordFinish(operationTimer);
@@ -427,8 +428,10 @@ public class Driver
                 // Finish the next operator, which is now the first operator.
                 if (!activeOperators.isEmpty()) {
                     Operator newRootOperator = activeOperators.get(0);
-                    newRootOperator.finish();
-                    newRootOperator.getOperatorContext().recordFinish(operationTimer);
+                    if (!revokingOperators.containsKey(newRootOperator)) {
+                        newRootOperator.finish();
+                        newRootOperator.getOperatorContext().recordFinish(operationTimer);
+                    }
                 }
                 break;
             }
@@ -479,6 +482,7 @@ public class Driver
             }
             else if (operator.getOperatorContext().isMemoryRevokingRequested()) {
                 ListenableFuture<Void> future = operator.startMemoryRevoke();
+                verifyNotNull(future, "startMemoryRevoke returned null for %s", operator);
                 revokingOperators.put(operator, future);
                 checkOperatorFinishedRevoking(operator);
             }

@@ -63,7 +63,7 @@ public interface Operator
      * must gracefully handle the case when there no longer is any revocable memory allocated.
      * <p>
      * After this method is called on Operator the Driver is disallowed to call any
-     * processing methods on it (isBlocked/needsInput/addInput/getOutput) until
+     * processing methods on it (isBlocked/needsInput/addInput/getOutput/finish) until
      * {@link #finishMemoryRevoke()} is called.
      */
     default ListenableFuture<Void> startMemoryRevoke()

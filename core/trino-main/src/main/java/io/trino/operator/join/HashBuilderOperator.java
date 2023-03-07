@@ -445,9 +445,7 @@ public class HashBuilderOperator
             return;
         }
 
-        if (finishMemoryRevoke.isPresent()) {
-            return;
-        }
+        verify(finishMemoryRevoke.isEmpty(), "finish called between startMemoryRevoke and finishMemoryRevoke");
 
         switch (state) {
             case CONSUMING_INPUT:

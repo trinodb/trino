@@ -140,6 +140,8 @@ public class OrderByOperator
         FINISHED
     }
 
+    private static final Runnable NOOP = () -> {};
+
     private final OperatorContext operatorContext;
     private final List<Integer> sortChannels;
     private final List<SortOrder> sortOrder;
@@ -157,7 +159,7 @@ public class OrderByOperator
 
     private Optional<Spiller> spiller = Optional.empty();
     private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
-    private Runnable finishMemoryRevoke = () -> {};
+    private Runnable finishMemoryRevoke = NOOP;
 
     private Iterator<Optional<Page>> sortedPages;
 
@@ -201,10 +203,9 @@ public class OrderByOperator
     @Override
     public void finish()
     {
-        if (!spillInProgress.isDone()) {
-            return;
-        }
+        verify(spillInProgress.isDone(), "finish called before spill completed");
         checkSuccess(spillInProgress, "spilling failed");
+        verify(finishMemoryRevoke == NOOP, "finish called between startMemoryRevoke and finishMemoryRevoke");
 
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
@@ -221,6 +222,7 @@ public class OrderByOperator
                     // TODO: this should be asynchronous
                     getFutureValue(spillToDisk());
                     finishMemoryRevoke.run();
+                    finishMemoryRevoke = NOOP;
                 }
             }
 
@@ -329,7 +331,7 @@ public class OrderByOperator
     public void finishMemoryRevoke()
     {
         finishMemoryRevoke.run();
-        finishMemoryRevoke = () -> {};
+        finishMemoryRevoke = NOOP;
     }
 
     private List<WorkProcessor<Page>> getSpilledPages()
