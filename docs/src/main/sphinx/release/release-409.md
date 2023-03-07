@@ -5,6 +5,7 @@
 * Add support for dropping nested fields with a `DROP COLUMN` statement. ({issue}`15975`)
 * Add queue, analysis, planning, and execution time to the output of
   `EXPLAIN ANALYZE`. ({issue}`16329`)
+* Add support for executing table functions with any number of table arguments. ({issue}`1839`)
 * Improve output of `EXPLAIN` queries to show statistics when a query contains
   aggregations. ({issue}`16201`)
 * Improve performance of queries with aggregations containing a `DISTINCT`
