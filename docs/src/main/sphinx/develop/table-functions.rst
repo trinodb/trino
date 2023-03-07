@@ -247,12 +247,35 @@ execute the table function invocation:
 Table function execution
 ------------------------
 
-Table functions are executed as pushdown to the connector. The connector that
-provides a table function should implement the ``applyTableFunction()`` method.
-This method is called during the optimization phase of query processing. It
-returns a ``ConnectorTableHandle`` and a list of ``ColumnHandle`` s
-representing the table function result. The table function invocation is then
-replaced with a ``TableScanNode``.
+There are two paths of execution available for table functions.
+
+1. Pushdown to the connector
+
+The connector that provides the table function implements the
+``applyTableFunction()`` method. This method is called during the optimization
+phase of query processing. It returns a ``ConnectorTableHandle`` and a list of
+``ColumnHandle`` s representing the table function result. The table function
+invocation is then replaced with a ``TableScanNode``.
+
+This execution path is convenient for table functions whose results are easy to
+represent as a ``ConnectorTableHandle``, for example query pass-through. It
+only supports scalar and descriptor arguments.
+
+2. Execution by operator
+
+Trino has a dedicated operator for table functions. It can handle table
+functions with any number of table arguments as well as scalar and descriptor
+arguments. To use this execution path, you provide an implementation of a
+processor.
+
+If your table function has one or more table arguments, you must implement
+``TableFunctionDataProcessor``. It processes pages of input data.
+
+If your table function is a source operator (it does not have table arguments),
+you must implement ``TableFunctionSplitProcessor``. It processes splits. The
+connector that provides the function must provide a ``ConnectorSplitSource``
+for the function. With splits, the task can be divided so that each split
+represents a subtask.
 
 Access control
 --------------
