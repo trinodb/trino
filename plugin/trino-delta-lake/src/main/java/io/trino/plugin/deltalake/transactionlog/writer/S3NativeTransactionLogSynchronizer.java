@@ -24,7 +24,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
@@ -41,6 +40,9 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.filesystem.Locations.getFileName;
+import static io.trino.filesystem.Locations.getParent;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
@@ -77,15 +79,15 @@ public class S3NativeTransactionLogSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, String newLogEntryPath, byte[] entryContents)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        Path locksDirectory = new Path(newLogEntryPath.getParent(), LOCK_DIRECTORY);
-        String newEntryFilename = newLogEntryPath.getName();
+        String locksDirectory = appendPath(getParent(newLogEntryPath), LOCK_DIRECTORY);
+        String newEntryFilename = getFileName(newLogEntryPath);
         Optional<LockInfo> myLockInfo = Optional.empty();
 
         try {
-            if (fileSystem.newInputFile(newLogEntryPath.toString()).exists()) {
+            if (fileSystem.newInputFile(newLogEntryPath).exists()) {
                 throw new TransactionConflictException(newLogEntryPath + " already exists");
             }
 
@@ -137,10 +139,10 @@ public class S3NativeTransactionLogSynchronizer
             }
 
             // extra check if target file did not appear concurrently; e.g. due to conflict with TL writer which uses different synchronization mechanism (like DB)
-            checkState(!fileSystem.newInputFile(newLogEntryPath.toString()).exists(), format("Target file %s was created during locking", newLogEntryPath));
+            checkState(!fileSystem.newInputFile(newLogEntryPath).exists(), format("Target file %s was created during locking", newLogEntryPath));
 
             // write transaction log entry
-            try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath.toString()).create()) {
+            try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath).create()) {
                 outputStream.write(entryContents);
             }
         }
@@ -160,14 +162,14 @@ public class S3NativeTransactionLogSynchronizer
         }
     }
 
-    private LockInfo writeNewLockInfo(TrinoFileSystem fileSystem, Path lockDirectory, String logEntryFilename, String clusterId, String queryId)
+    private LockInfo writeNewLockInfo(TrinoFileSystem fileSystem, String lockDirectory, String logEntryFilename, String clusterId, String queryId)
             throws IOException
     {
         String lockFilename = logEntryFilename + "." + LOCK_INFIX + queryId;
         Instant expiration = Instant.now().plus(EXPIRATION_DURATION);
         LockFileContents contents = new LockFileContents(clusterId, queryId, expiration.toEpochMilli());
-        Path lockPath = new Path(lockDirectory, lockFilename);
-        TrinoOutputFile lockFile = fileSystem.newOutputFile(lockPath.toString());
+        String lockPath = appendPath(lockDirectory, lockFilename);
+        TrinoOutputFile lockFile = fileSystem.newOutputFile(lockPath);
         byte[] contentsBytes = lockFileContentsJsonCodec.toJsonBytes(contents);
         try (OutputStream outputStream = lockFile.create()) {
             outputStream.write(contentsBytes);
@@ -175,17 +177,17 @@ public class S3NativeTransactionLogSynchronizer
         return new LockInfo(lockFilename, contents);
     }
 
-    private static void deleteLock(TrinoFileSystem fileSystem, Path lockDirectoryPath, LockInfo lockInfo)
+    private static void deleteLock(TrinoFileSystem fileSystem, String lockDirectoryPath, LockInfo lockInfo)
             throws IOException
     {
-        Path lockPath = new Path(lockDirectoryPath, lockInfo.getLockFilename());
-        fileSystem.deleteFile(lockPath.toString());
+        String lockPath = appendPath(lockDirectoryPath, lockInfo.getLockFilename());
+        fileSystem.deleteFile(lockPath);
     }
 
-    private List<LockInfo> listLockInfos(TrinoFileSystem fileSystem, Path lockDirectoryPath)
+    private List<LockInfo> listLockInfos(TrinoFileSystem fileSystem, String lockDirectoryPath)
             throws IOException
     {
-        FileIterator files = fileSystem.listFiles(lockDirectoryPath.toString());
+        FileIterator files = fileSystem.listFiles(lockDirectoryPath);
         ImmutableList.Builder<LockInfo> lockInfos = ImmutableList.builder();
 
         while (files.hasNext()) {

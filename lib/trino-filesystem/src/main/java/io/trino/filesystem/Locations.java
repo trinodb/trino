@@ -29,6 +29,27 @@ public final class Locations
         return location + path;
     }
 
+    public static String getParent(String location)
+    {
+        validateLocation(location);
+
+        int lastIndexOfSlash = location.lastIndexOf('/');
+        if (lastIndexOfSlash > 0) {
+            String parent = location.substring(0, lastIndexOfSlash);
+            if (!parent.endsWith("/") && !parent.endsWith(":")) {
+                return parent;
+            }
+        }
+        throw new IllegalArgumentException("Location does not have parent: " + location);
+    }
+
+    public static String getFileName(String location)
+    {
+        validateLocation(location);
+
+        return location.substring(location.lastIndexOf('/') + 1);
+    }
+
     private static void validateLocation(String location)
     {
         checkArgument(location.indexOf('?') < 0, "location contains a query string: %s", location);

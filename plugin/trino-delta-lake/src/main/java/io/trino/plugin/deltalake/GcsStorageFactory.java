@@ -70,10 +70,10 @@ public class GcsStorageFactory
         }
     }
 
-    public Storage create(ConnectorSession session, Path path)
+    public Storage create(ConnectorSession session, String path)
     {
         try {
-            GoogleCloudStorageOptions gcsOptions = TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder(hdfsEnvironment.getConfiguration(new HdfsContext(session), path)).build();
+            GoogleCloudStorageOptions gcsOptions = TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(path))).build();
             HttpTransport httpTransport = HttpTransportFactory.createHttpTransport(
                     gcsOptions.getTransportType(),
                     gcsOptions.getProxyAddress(),
