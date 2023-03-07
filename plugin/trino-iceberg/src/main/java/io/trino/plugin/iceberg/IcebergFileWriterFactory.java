@@ -239,7 +239,6 @@ public class IcebergFileWriterFactory
 
             return new IcebergOrcFileWriter(
                     metricsConfig,
-                    icebergSchema,
                     orcDataSink,
                     rollbackAction,
                     fileColumnNames,
@@ -259,7 +258,9 @@ public class IcebergFileWriterFactory
                             .buildOrThrow(),
                     validationInputFactory,
                     getOrcWriterValidateMode(session),
-                    orcWriterStats);
+                    orcWriterStats,
+                    outputPath,
+                    fileSystem);
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e);
