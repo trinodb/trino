@@ -43,7 +43,7 @@ public class EnvSinglenodeSparkIcebergRest
     private static final int REST_SERVER_PORT = 8181;
     private static final String SPARK_CONTAINER_NAME = "spark";
     private static final String REST_CONTAINER_NAME = "iceberg-with-rest";
-    private static final String REST_SERVER_IMAGE = "tabulario/iceberg-rest:0.3.0";
+    private static final String REST_SERVER_IMAGE = "tabulario/iceberg-rest:0.4.0";
     private static final String CATALOG_WAREHOUSE = "hdfs://hadoop-master:9000/user/hive/warehouse";
 
     private final DockerFiles dockerFiles;
