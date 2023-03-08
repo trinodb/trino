@@ -45,6 +45,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import javax.inject.Inject;
 
+import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -92,6 +93,7 @@ public class PagesIndex
     private final IntArrayList positionCounts;
     private final boolean eagerCompact;
 
+    private int modificationCount; // may overflow, doesn't matter
     private int pageCount;
     private int nextBlockToCompact;
     private int positionCount;
@@ -202,6 +204,7 @@ public class PagesIndex
 
     public void clear()
     {
+        modificationCount++;
         for (ObjectArrayList<Block> channel : channels) {
             channel.clear();
             channel.trim();
@@ -220,6 +223,7 @@ public class PagesIndex
 
     public void addPage(Page page)
     {
+        modificationCount++;
         // ignore empty pages
         if (page.getPositionCount() == 0) {
             return;
@@ -258,6 +262,7 @@ public class PagesIndex
 
     public void compact()
     {
+        modificationCount++;
         if (eagerCompact || channels.length == 0) {
             return;
         }
@@ -294,6 +299,8 @@ public class PagesIndex
     @Override
     public void swap(int a, int b)
     {
+        // Not changing modificationCount. This is part of sorting and we change modificationCount for sorting only once.
+        // TODO remove the method from PagesIndex interface
         long[] elements = valueAddresses.elements();
         long temp = elements[a];
         elements[a] = elements[b];
@@ -413,6 +420,7 @@ public class PagesIndex
 
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders, int startPosition, int endPosition)
     {
+        modificationCount++;
         createPagesIndexComparator(sortChannels, sortOrders).sort(this, startPosition, endPosition);
     }
 
@@ -579,12 +587,16 @@ public class PagesIndex
     {
         return new AbstractIterator<>()
         {
+            private final int startingModificationCount = modificationCount;
             private int currentPage;
 
             @Override
             protected Page computeNext()
             {
                 if (currentPage == pageCount) {
+                    if (startingModificationCount != modificationCount) {
+                        throw new ConcurrentModificationException("PagesIndex mutated during iteration: %s != %s".formatted(startingModificationCount, modificationCount));
+                    }
                     return endOfData();
                 }
 
@@ -622,6 +634,7 @@ public class PagesIndex
     {
         return new AbstractIterator<>()
         {
+            private final int startingModificationCount = modificationCount;
             private int currentPosition = start;
             private final PageBuilder pageBuilder = new PageBuilder(types);
 
@@ -630,6 +643,9 @@ public class PagesIndex
             {
                 currentPosition = buildPage(currentPosition, end, pageBuilder);
                 if (pageBuilder.isEmpty()) {
+                    if (startingModificationCount != modificationCount) {
+                        throw new ConcurrentModificationException("PagesIndex mutated during iteration: %s != %s".formatted(startingModificationCount, modificationCount));
+                    }
                     return endOfData();
                 }
                 Page page = pageBuilder.build();
