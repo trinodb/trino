@@ -611,7 +611,7 @@ public class HiveWriterFactory
 
             hiveFileWriter = new SortingFileWriter(
                     fileSystem,
-                    tempFilePath,
+                    tempFilePath.toString(),
                     hiveFileWriter,
                     sortBufferSize,
                     maxOpenSortFiles,
@@ -652,7 +652,7 @@ public class HiveWriterFactory
 
         return new SortingFileWriter(
                 fileSystem,
-                tempFilePath,
+                tempFilePath.toString(),
                 deleteFileWriter,
                 sortBufferSize,
                 maxOpenSortFiles,

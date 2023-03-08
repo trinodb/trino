@@ -59,7 +59,6 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -82,6 +81,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
@@ -542,7 +542,6 @@ public class TrinoGlueCatalog
 
         String tableName = createNewTableName(schemaTableName.getTableName());
 
-        Path location;
         if (databaseLocation == null) {
             if (defaultSchemaLocation.isEmpty()) {
                 throw new TrinoException(
@@ -553,13 +552,10 @@ public class TrinoGlueCatalog
                                 schemaTableName.getSchemaName()));
             }
             String schemaDirectoryName = schemaTableName.getSchemaName() + ".db";
-            location = new Path(new Path(defaultSchemaLocation.get(), schemaDirectoryName), tableName);
-        }
-        else {
-            location = new Path(databaseLocation, tableName);
+            databaseLocation = appendPath(defaultSchemaLocation.get(), schemaDirectoryName);
         }
 
-        return location.toString();
+        return appendPath(databaseLocation, tableName);
     }
 
     @Override

@@ -43,7 +43,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -68,6 +67,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isSortedWritingEnabled;
@@ -111,7 +111,7 @@ public class IcebergPageSink
     private final boolean sortedWritingEnabled;
     private final DataSize sortingFileWriterBufferSize;
     private final Integer sortingFileWriterMaxOpenFiles;
-    private final Path tempDirectory;
+    private final String tempDirectory;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final List<Type> columnTypes;
@@ -163,8 +163,7 @@ public class IcebergPageSink
         this.sortedWritingEnabled = isSortedWritingEnabled(session);
         this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterBufferSize, "sortingFileWriterBufferSize is null");
         this.sortingFileWriterMaxOpenFiles = sortingFileWriterMaxOpenFiles;
-        String tempDirectoryPath = locationProvider.newDataLocation("trino-tmp-files");
-        this.tempDirectory = new Path(tempDirectoryPath);
+        this.tempDirectory = locationProvider.newDataLocation("trino-tmp-files");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.columnTypes = getColumns(outputSchema, typeManager).stream()
@@ -348,7 +347,8 @@ public class IcebergPageSink
                     .orElseGet(() -> locationProvider.newDataLocation(fileName));
 
             if (!sortOrder.isEmpty() && sortedWritingEnabled) {
-                Path tempFilePrefix = new Path(tempDirectory, "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID()));
+                String tempName = "sorting-file-writer-%s-%s".formatted(session.getQueryId(), randomUUID());
+                String tempFilePrefix = appendPath(tempDirectory, tempName);
                 WriteContext writerContext = createWriter(outputPath, partitionData);
                 IcebergFileWriter sortedFileWriter = new IcebergSortingFileWriter(
                         fileSystem,

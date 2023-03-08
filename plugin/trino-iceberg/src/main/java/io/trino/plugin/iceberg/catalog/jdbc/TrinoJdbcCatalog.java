@@ -30,7 +30,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -51,6 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.transformValues;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
@@ -257,23 +257,16 @@ public class TrinoJdbcCatalog
     {
         Namespace namespace = Namespace.of(schemaTableName.getSchemaName());
         String tableName = createNewTableName(schemaTableName.getTableName());
-        Optional<String> databaseLocation;
-        if (!jdbcCatalog.namespaceExists(namespace)) {
-            databaseLocation = Optional.empty();
-        }
-        else {
+
+        Optional<String> databaseLocation = Optional.empty();
+        if (jdbcCatalog.namespaceExists(namespace)) {
             databaseLocation = Optional.ofNullable(jdbcCatalog.loadNamespaceMetadata(namespace).get(LOCATION_PROPERTY));
         }
 
-        Path location;
-        if (databaseLocation.isEmpty()) {
-            location = new Path(new Path(defaultWarehouseDir, schemaTableName.getSchemaName()), tableName);
-        }
-        else {
-            location = new Path(databaseLocation.get(), tableName);
-        }
+        String schemaLocation = databaseLocation.orElseGet(() ->
+                appendPath(defaultWarehouseDir, schemaTableName.getSchemaName()));
 
-        return location.toString();
+        return appendPath(schemaLocation, tableName);
     }
 
     @Override
