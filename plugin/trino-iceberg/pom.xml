@@ -73,12 +73,6 @@
             <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
-        <!-- TODO: move to runtime scope and remove dependency plugin exclusion below -->
-        <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>io.trino.hive</groupId>
             <artifactId>hive-apache</artifactId>
@@ -176,6 +170,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
@@ -245,6 +244,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
             <scope>runtime</scope>
@@ -256,7 +261,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>node</artifactId>
@@ -278,14 +282,14 @@
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.1</version>
+            <version>5.2.1</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents.core5</groupId>
             <artifactId>httpcore5</artifactId>
-            <version>5.1.1</version>
+            <version>5.2.1</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -518,16 +522,6 @@
                             <bannedImport>org.apache.hadoop.**</bannedImport>
                         </RestrictImports>
                     </rules>
-                </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <ignoredNonTestScopedDependencies>
-                        <ignoredDependency>io.trino.hadoop:hadoop-apache</ignoredDependency>
-                    </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
 
