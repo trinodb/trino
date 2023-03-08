@@ -823,15 +823,15 @@ public class TestLogicalPlanner
                 "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation) n ON NULL",
                 CREATED,
                 anyTree(
-                    correlatedJoin(
-                            List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
-                            "CAST(null AS boolean)",
-                            tableScan("region", Map.of(
-                                    "r_row_number", "row_number",
-                                    "r_regionkey", "regionkey",
-                                    "r_name", "name",
-                                    "r_comment", "comment")),
-                            anyTree(tableScan("nation")))));
+                        correlatedJoin(
+                                List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
+                                "CAST(null AS boolean)",
+                                tableScan("region", Map.of(
+                                        "r_row_number", "row_number",
+                                        "r_regionkey", "regionkey",
+                                        "r_name", "name",
+                                        "r_comment", "comment")),
+                                anyTree(tableScan("nation")))));
         assertPlan(
                 "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation) n ON NULL",
                 any(
