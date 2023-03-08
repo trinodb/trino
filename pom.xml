@@ -71,6 +71,7 @@
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
         <module>plugin/trino-example-jdbc</module>
+        <module>plugin/trino-exasol</module>
         <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-exchange-hdfs</module>
         <module>plugin/trino-geospatial</module>
@@ -487,6 +488,12 @@
                         <artifactId>jackson-core</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exasol</groupId>
+                <artifactId>exasol-jdbc</artifactId>
+                <version>7.1.20</version>
             </dependency>
 
             <dependency>
