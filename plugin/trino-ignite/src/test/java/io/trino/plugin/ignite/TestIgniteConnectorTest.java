@@ -59,35 +59,39 @@ public class TestIgniteConnectorTest
         return igniteServer::execute;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             case SUPPORTS_CREATE_SCHEMA:
-            case SUPPORTS_CREATE_VIEW:
             case SUPPORTS_RENAME_TABLE:
+            case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
+            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
+                return false;
 
-                // https://issues.apache.org/jira/browse/IGNITE-18829
-                // Add not null column to non-empty table Ignite doesn't give the default value
+            case SUPPORTS_DROP_COLUMN:
+                return true;
+
+            // https://issues.apache.org/jira/browse/IGNITE-18829
+            // Add not null column to non-empty table Ignite doesn't give the default value
             case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+            case SUPPORTS_SET_COLUMN_TYPE:
+                return false;
+
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
-            case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
-            case SUPPORTS_RENAME_COLUMN:
-            case SUPPORTS_TRUNCATE:
-            case SUPPORTS_SET_COLUMN_TYPE:
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
             case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-            case SUPPORTS_DROP_COLUMN:
-            case SUPPORTS_LIMIT_PUSHDOWN:
-            case SUPPORTS_TOPN_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return true;
