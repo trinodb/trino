@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hudi;
 
-import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -29,7 +28,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.fs.Path;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -95,9 +93,9 @@ public class HudiSplitManager
         HudiSplitSource splitSource = new HudiSplitSource(
                 session,
                 metastore,
+                hdfsEnvironment,
                 table,
                 hudiTableHandle,
-                hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(table.getStorage().getLocation())),
                 partitionColumnHandles,
                 executor,
                 maxSplitsPerSecond,

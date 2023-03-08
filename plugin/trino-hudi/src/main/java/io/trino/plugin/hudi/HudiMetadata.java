@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -199,7 +200,10 @@ public class HudiMetadata
         String basePath = table.getStorage().getLocation();
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath));
         try {
-            checkTableValidity(getFs(basePath, configuration), new Path(basePath), new Path(basePath, METAFOLDER_NAME));
+            hdfsEnvironment.doAs(session.getIdentity(), (GenericExceptionAction<Void, org.apache.hudi.exception.TableNotFoundException>) () -> {
+                checkTableValidity(getFs(basePath, configuration), new Path(basePath), new Path(basePath, METAFOLDER_NAME));
+                return null;
+            });
         }
         catch (org.apache.hudi.exception.TableNotFoundException e) {
             log.warn("Could not find Hudi table at path '%s'", basePath);

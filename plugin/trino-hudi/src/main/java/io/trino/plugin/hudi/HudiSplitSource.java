@@ -15,6 +15,9 @@ package io.trino.plugin.hudi;
 
 import com.google.common.util.concurrent.Futures;
 import io.airlift.units.DataSize;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -30,10 +33,12 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.exception.TableNotFoundException;
 
 import java.util.List;
 import java.util.Map;
@@ -59,16 +64,17 @@ public class HudiSplitSource
     public HudiSplitSource(
             ConnectorSession session,
             HiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
             Table table,
             HudiTableHandle tableHandle,
-            Configuration configuration,
             Map<String, HiveColumnHandle> partitionColumnHandleMap,
             ExecutorService executor,
             int maxSplitsPerSecond,
             int maxOutstandingSplits)
     {
         boolean metadataEnabled = isHudiMetadataEnabled(session);
-        HoodieTableMetaClient metaClient = buildTableMetaClient(configuration, tableHandle.getBasePath());
+        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(table.getStorage().getLocation()));
+        HoodieTableMetaClient metaClient = buildTableMetaClient(session, hdfsEnvironment, configuration, tableHandle.getBasePath());
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(configuration);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
@@ -128,9 +134,10 @@ public class HudiSplitSource
         return queue.isFinished();
     }
 
-    private static HoodieTableMetaClient buildTableMetaClient(Configuration configuration, String basePath)
+    private static HoodieTableMetaClient buildTableMetaClient(ConnectorSession session, HdfsEnvironment hdfsEnvironment, Configuration configuration, String basePath)
     {
-        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(configuration).setBasePath(basePath).build();
+        HoodieTableMetaClient client = hdfsEnvironment.doAs(session.getIdentity(),
+                (GenericExceptionAction<HoodieTableMetaClient, TableNotFoundException>) () -> HoodieTableMetaClient.builder().setConf(configuration).setBasePath(basePath).build());
         client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
         return client;
     }
