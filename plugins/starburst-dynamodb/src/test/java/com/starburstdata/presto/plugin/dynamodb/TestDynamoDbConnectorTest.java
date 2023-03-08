@@ -75,9 +75,9 @@ public class TestDynamoDbConnectorTest
     }
 
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "orderkey")
                 .row("custkey", "bigint", "", "custkey")
                 .row("orderstatus", "varchar(1)", "", "orderstatus")
@@ -88,8 +88,6 @@ public class TestDynamoDbConnectorTest
                 .row("shippriority", "integer", "", "shippriority")
                 .row("comment", "varchar(79)", "", "comment")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertThat(actualColumns).containsExactlyElementsOf(expectedColumns);
     }
 
     @Override
