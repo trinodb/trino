@@ -53,11 +53,11 @@ public class EqualityInference
 {
     // Comparator used to determine Expression preference when determining canonicals
     private static final Comparator<Expression> CANONICAL_COMPARATOR = Comparator
-        // Current cost heuristic:
-        // 1) Prefer fewer input symbols
-        // 2) Prefer smaller expression trees
-        // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
-        // TODO: be more precise in determining the cost of an expression
+            // Current cost heuristic:
+            // 1) Prefer fewer input symbols
+            // 2) Prefer smaller expression trees
+            // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
+            // TODO: be more precise in determining the cost of an expression
             .comparingInt((ToIntFunction<Expression>) (expression -> SymbolsExtractor.extractAll(expression).size()))
             .thenComparingLong(expression -> SubExpressionExtractor.extract(expression).count())
             .thenComparing(Expression::toString);
