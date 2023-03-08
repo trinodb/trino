@@ -152,7 +152,7 @@ public class TableChangesFunction
         columns.add(new Descriptor.Field(DATA_CHANGE_ORDINAL_NAME, Optional.of(INTEGER)));
 
         ImmutableList.Builder<IcebergColumnHandle> columnHandlesBuilder = ImmutableList.builder();
-        IcebergUtil.getColumns(tableSchema, typeManager).forEach(columnHandlesBuilder::add);
+        IcebergUtil.getTopLevelColumns(tableSchema, typeManager).forEach(columnHandlesBuilder::add);
         columnHandlesBuilder.add(new IcebergColumnHandle(
                 new ColumnIdentity(DATA_CHANGE_TYPE_ID, DATA_CHANGE_TYPE_NAME, PRIMITIVE, ImmutableList.of()),
                 VARCHAR,
