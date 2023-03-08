@@ -63,7 +63,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isSortedWritingEnabled;
-import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
 import static io.trino.plugin.iceberg.util.Timestamps.getTimestampTz;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
@@ -172,7 +172,7 @@ public class IcebergPageSink
         this.tempDirectory = Location.of(locationProvider.newDataLocation("trino-tmp-files"));
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        this.columnTypes = getColumns(outputSchema, typeManager).stream()
+        this.columnTypes = getTopLevelColumns(outputSchema, typeManager).stream()
                 .map(IcebergColumnHandle::getType)
                 .collect(toImmutableList());
 
