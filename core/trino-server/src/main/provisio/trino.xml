@@ -89,6 +89,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/exasol">
+        <artifact id="${project.groupId}:trino-exasol:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/exchange-filesystem">
         <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
             <unpack />
