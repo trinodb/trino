@@ -46,7 +46,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TypeSignature;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -89,7 +88,6 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALUE;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_MISSING_DATA;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
 import static io.trino.plugin.hudi.HudiSessionProperties.isParquetOptimizedNestedReaderEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.isParquetOptimizedReaderEnabled;
@@ -264,16 +262,10 @@ public class HudiPageSourceProvider
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
             }
-            String message = format("Error opening Hudi split %s (offset=%s, length=%s): %s",
-                    path, start, length, e.getMessage());
-
             if (e instanceof ParquetCorruptionException) {
-                throw new TrinoException(HUDI_BAD_DATA, message, e);
+                throw new TrinoException(HUDI_BAD_DATA, e);
             }
-
-            if (e instanceof BlockMissingException) {
-                throw new TrinoException(HUDI_MISSING_DATA, message, e);
-            }
+            String message = "Error opening Hudi split %s (offset=%s, length=%s): %s".formatted(path, start, length, e.getMessage());
             throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, message, e);
         }
     }
