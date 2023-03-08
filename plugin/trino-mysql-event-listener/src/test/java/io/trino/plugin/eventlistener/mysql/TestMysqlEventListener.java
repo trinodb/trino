@@ -110,6 +110,7 @@ public class TestMysqlEventListener
             125L,
             126L,
             127L,
+            1271L,
             128.0,
             129.0,
             // not stored
@@ -257,6 +258,7 @@ public class TestMysqlEventListener
             125L,
             126L,
             127L,
+            1271L,
             128.0,
             129.0,
             // not stored
