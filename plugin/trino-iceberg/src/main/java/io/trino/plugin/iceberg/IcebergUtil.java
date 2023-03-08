@@ -289,7 +289,7 @@ public final class IcebergUtil
                 .findFirst();
     }
 
-    public static List<IcebergColumnHandle> getColumns(Schema schema, TypeManager typeManager)
+    public static List<IcebergColumnHandle> getTopLevelColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
                 .map(column -> getColumnHandle(column, typeManager))
@@ -707,7 +707,7 @@ public final class IcebergUtil
 
     public static List<ViewColumn> viewColumnsFromSchema(TypeManager typeManager, Schema schema)
     {
-        return IcebergUtil.getColumns(schema, typeManager).stream()
+        return IcebergUtil.getTopLevelColumns(schema, typeManager).stream()
                 .map(column -> new ViewColumn(column.getName(), column.getType().getTypeId(), column.getComment()))
                 .toList();
     }

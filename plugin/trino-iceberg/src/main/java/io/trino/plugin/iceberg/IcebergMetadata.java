@@ -254,12 +254,12 @@ import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshot;
 import static io.trino.plugin.iceberg.IcebergUtil.firstSnapshotAfter;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
-import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
+import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -614,7 +614,7 @@ public class IcebergMetadata
         DiscretePredicates discretePredicates = null;
         if (!partitionSourceIds.isEmpty()) {
             // Extract identity partition columns
-            Map<Integer, IcebergColumnHandle> columns = getColumns(icebergTable.schema(), typeManager).stream()
+            Map<Integer, IcebergColumnHandle> columns = getTopLevelColumns(icebergTable.schema(), typeManager).stream()
                     .filter(column -> partitionSourceIds.contains(column.getId()))
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
@@ -715,7 +715,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = checkValidTableHandle(tableHandle);
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (IcebergColumnHandle columnHandle : getColumns(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager)) {
+        for (IcebergColumnHandle columnHandle : getTopLevelColumns(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager)) {
             columnHandles.put(columnHandle.getName(), columnHandle);
         }
         columnHandles.put(FILE_PATH.getColumnName(), pathColumnHandle());
@@ -1042,7 +1042,7 @@ public class IcebergMetadata
         }
 
         validateNotPartitionedByNestedField(tableSchema, partitionSpec);
-        Map<Integer, IcebergColumnHandle> columnById = getColumns(tableSchema, typeManager).stream()
+        Map<Integer, IcebergColumnHandle> columnById = getTopLevelColumns(tableSchema, typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
         List<IcebergColumnHandle> partitioningColumns = partitionSpec.fields().stream()
@@ -1084,7 +1084,7 @@ public class IcebergMetadata
                 transformValues(table.specs(), PartitionSpecParser::toJson),
                 table.spec().specId(),
                 getSupportedSortFields(table.schema(), table.sortOrder()),
-                getColumns(table.schema(), typeManager),
+                getTopLevelColumns(table.schema(), typeManager),
                 table.location(),
                 getFileFormat(table),
                 table.properties(),
@@ -1330,7 +1330,7 @@ public class IcebergMetadata
                         tableHandle.getSnapshotId(),
                         tableHandle.getTableSchemaJson(),
                         tableHandle.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")),
-                        getColumns(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager),
+                        getTopLevelColumns(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager),
                         icebergTable.sortOrder().fields().stream()
                                 .map(TrinoSortField::fromIceberg)
                                 .collect(toImmutableList()),
