@@ -59,6 +59,7 @@ public class QueryStatistics
     private final long outputRows;
     private final long writtenBytes;
     private final long writtenRows;
+    private final long spilledBytes;
 
     private final double cumulativeMemory;
     private final double failedCumulativeMemory;
@@ -115,6 +116,7 @@ public class QueryStatistics
             long outputRows,
             long writtenBytes,
             long writtenRows,
+            long spilledBytes,
             double cumulativeMemory,
             double failedCumulativeMemory,
             List<StageGcStatistics> stageGcStatistics,
@@ -155,6 +157,7 @@ public class QueryStatistics
         this.outputRows = outputRows;
         this.writtenBytes = writtenBytes;
         this.writtenRows = writtenRows;
+        this.spilledBytes = spilledBytes;
         this.cumulativeMemory = cumulativeMemory;
         this.failedCumulativeMemory = failedCumulativeMemory;
         this.stageGcStatistics = requireNonNull(stageGcStatistics, "stageGcStatistics is null");
@@ -344,6 +347,12 @@ public class QueryStatistics
     public long getWrittenRows()
     {
         return writtenRows;
+    }
+
+    @JsonProperty
+    public long getSpilledBytes()
+    {
+        return spilledBytes;
     }
 
     @JsonProperty
