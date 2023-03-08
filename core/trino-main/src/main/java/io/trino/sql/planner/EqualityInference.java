@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -211,7 +212,7 @@ public class EqualityInference
         Collection<Set<Expression>> equivalentClasses = equalities.getEquivalentClasses();
 
         // Map every expression to the set of equivalent expressions
-        Map<Expression, Set<Expression>> byExpression = new HashMap<>();
+        Map<Expression, Set<Expression>> byExpression = new LinkedHashMap<>();
         for (Set<Expression> equivalence : equivalentClasses) {
             equivalence.forEach(expression -> byExpression.put(expression, equivalence));
         }
