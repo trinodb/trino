@@ -137,7 +137,7 @@ public class RcFileReader
         this.writeChecksumBuilder = writeValidation.map(validation -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
 
         verify(offset >= 0, "offset is negative");
-        verify(offset < inputFile.length(), "offset is greater than data size");
+        verify(offset < fileSize, "offset is greater than data size");
         verify(length >= 1, "length must be at least 1");
         this.length = length;
         this.end = offset + length;
