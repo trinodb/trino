@@ -205,7 +205,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
-        assertThat(events).hasSize(2);
+        assertThat(events).hasSize(3);
         // if files were deleted in batch there should be only one request id because there was one request only
         assertThat(events.stream()
                 .map(event -> event.responseElements().get("x-amz-request-id"))

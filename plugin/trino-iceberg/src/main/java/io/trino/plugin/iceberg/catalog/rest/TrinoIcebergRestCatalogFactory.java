@@ -14,15 +14,17 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.hdfs.ConfigurationUtils;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.iceberg.CatalogProperties;
+import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -36,6 +38,7 @@ import static java.util.Objects.requireNonNull;
 public class TrinoIcebergRestCatalogFactory
         implements TrinoCatalogFactory
 {
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final CatalogName catalogName;
     private final String trinoVersion;
     private final URI serverUri;
@@ -49,12 +52,14 @@ public class TrinoIcebergRestCatalogFactory
 
     @Inject
     public TrinoIcebergRestCatalogFactory(
+            TrinoFileSystemFactory fileSystemFactory,
             CatalogName catalogName,
             IcebergRestCatalogConfig restConfig,
             SecurityProperties securityProperties,
             IcebergConfig icebergConfig,
             NodeVersion nodeVersion)
     {
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(restConfig, "restConfig is null");
@@ -77,8 +82,14 @@ public class TrinoIcebergRestCatalogFactory
             warehouse.ifPresent(location -> properties.put(CatalogProperties.WAREHOUSE_LOCATION, location));
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
-            RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog();
-            icebergCatalogInstance.setConf(ConfigurationUtils.getInitialConfiguration());
+            RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
+                    config -> HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
+                    (context, config) -> {
+                        ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
+                                ? ((ConnectorIdentity) context.wrappedIdentity())
+                                : ConnectorIdentity.ofUser("fake");
+                        return new ForwardingFileIo(fileSystemFactory.create(currentIdentity));
+                    });
             icebergCatalogInstance.initialize(catalogName.toString(), properties.buildOrThrow());
 
             icebergCatalog = icebergCatalogInstance;
