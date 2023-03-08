@@ -163,6 +163,8 @@ value for a table argument.
             .passThroughColumns()
             .build()
 
+.. _tf_set_or_row_semantics:
+
 Set or row semantics
 ====================
 
