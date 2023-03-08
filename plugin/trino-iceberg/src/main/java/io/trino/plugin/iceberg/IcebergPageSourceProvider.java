@@ -81,7 +81,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericDatumReader;
-import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -143,7 +142,6 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
@@ -693,10 +691,10 @@ public class IcebergPageSourceProvider
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
             }
-            String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", inputFile.location(), start, length, e.getMessage());
-            if (e instanceof BlockMissingException) {
-                throw new TrinoException(ICEBERG_MISSING_DATA, message, e);
+            if (e instanceof OrcCorruptionException) {
+                throw new TrinoException(ICEBERG_BAD_DATA, e);
             }
+            String message = "Error opening Iceberg split %s (offset=%s, length=%s): %s".formatted(inputFile.location(), start, length, e.getMessage());
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
     }
@@ -1039,15 +1037,10 @@ public class IcebergPageSourceProvider
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
             }
-            String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", inputFile.location(), start, length, e.getMessage());
-
             if (e instanceof ParquetCorruptionException) {
-                throw new TrinoException(ICEBERG_BAD_DATA, message, e);
+                throw new TrinoException(ICEBERG_BAD_DATA, e);
             }
-
-            if (e instanceof BlockMissingException) {
-                throw new TrinoException(ICEBERG_MISSING_DATA, message, e);
-            }
+            String message = "Error opening Iceberg split %s (offset=%s, length=%s): %s".formatted(inputFile.location(), start, length, e.getMessage());
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
     }
