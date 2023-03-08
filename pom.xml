@@ -69,6 +69,7 @@
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
         <module>plugin/trino-example-jdbc</module>
+        <module>plugin/trino-exasol</module>
         <module>plugin/trino-exchange-filesystem</module>
         <module>plugin/trino-exchange-hdfs</module>
         <module>plugin/trino-geospatial</module>
@@ -474,6 +475,12 @@
                 <groupId>com.esri.geometry</groupId>
                 <artifactId>esri-geometry-api</artifactId>
                 <version>2.2.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.exasol</groupId>
+                <artifactId>exasol-jdbc</artifactId>
+                <version>24.1.0</version>
             </dependency>
 
             <dependency>
