@@ -22,7 +22,6 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Metrics;
 
 import java.io.Closeable;
@@ -39,7 +38,7 @@ public class IcebergSortingFileWriter
 
     public IcebergSortingFileWriter(
             TrinoFileSystem fileSystem,
-            Path tempFilePrefix,
+            String tempFilePrefix,
             IcebergFileWriter outputWriter,
             DataSize maxMemory,
             int maxOpenTempFiles,
