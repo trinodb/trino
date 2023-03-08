@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import io.trino.spi.TrinoException;
 
-import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -53,7 +52,7 @@ public class IcebergTableName
 
     public String getTableNameWithType()
     {
-        return tableName + "$" + tableType.name().toLowerCase(Locale.ROOT);
+        return tableName + "$" + tableType.name().toLowerCase(ENGLISH);
     }
 
     @Override
@@ -75,7 +74,7 @@ public class IcebergTableName
         TableType type = DATA;
         if (typeString != null) {
             try {
-                type = TableType.valueOf(typeString.toUpperCase(Locale.ROOT));
+                type = TableType.valueOf(typeString.toUpperCase(ENGLISH));
             }
             catch (IllegalArgumentException e) {
                 throw new TrinoException(NOT_SUPPORTED, format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));
