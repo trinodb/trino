@@ -2,16 +2,16 @@
 Deploying Trino on Kubernetes
 ==============================
 
-`Plural <https://plural.sh/>`_ is a free, open-source tool that enables you to self-host and manage Trino on Kubernetes with the cloud provider of your choice. It includes baked-in SSO, automated upgrades, secret encryption, and tailored Grafana dashboards.
+`Plural <https://plural.sh?utm_medium=community&utm_source=trino>`_ is a free, open-source tool that enables you to self-host and manage Trino on Kubernetes with the cloud provider of your choice. It includes baked-in SSO, automated upgrades, secret encryption, and tailored Grafana dashboards.
 
 Trino is available as a one-line install with the Plural CLI without prior Kubernetes knowledge.
 
 Getting started
 ---------------
 
-First, create an account on `app.plural.sh <https://app.plural.sh/>`_. This is only to track your installations and allow for the delivery of automated upgrades. You will not be asked to provide any infrastructure credentials or sensitive information.
+First, create an account on `app.plural.sh <https://app.plural.sh?utm_medium=community&utm_source=trino>`_. This is only to track your installations and allow for the delivery of automated upgrades. You will not be asked to provide any infrastructure credentials or sensitive information.
 
-Next, install the Plural CLI by following steps 1-3 of `these instructions <https://docs.plural.sh/getting-started>`_.
+Next, install the Plural CLI by following steps 1-3 of `these instructions <https://docs.plural.sh/getting-started?utm_medium=community&utm_source=trino>`_.
 
 You'll need a Git repository to store your Plural configuration. This will contain the Helm charts, Terraform config, and Kubernetes manifests that Plural will autogenerate for you.
 
@@ -40,7 +40,7 @@ Now, to add it your workspace, run the install command. If you're on AWS, this i
 
 Plural's Trino distribution has support for AWS, GCP, and Azure, so feel free to pick whichever best fits your infrastructure.
 
-The CLI will prompt you to choose whether you want to use Plural OIDC. `OIDC <https://openid.net/connect/>`_ allows you to login to the applications you host on Plural with your login to `app.plural.sh <https://app.plural.sh/>`_, acting as an SSO provider.
+The CLI will prompt you to choose whether you want to use Plural OIDC. `OIDC <https://openid.net/connect/>`_ allows you to login to the applications you host on Plural with your login to `app.plural.sh <https://app.plural.sh?utm_medium=community&utm_source=trino>`_, acting as an SSO provider.
 
 To generate the configuration and deploy your infrastructure, run:
 
@@ -107,4 +107,4 @@ If you'd like to request any new features for our Trino installation, feel free 
 Further reading
 ---------------
 
-To learn more about what you can do with Plural and more advanced uses of the platform, feel free to dive deeper into our docs `here <https://docs.plural.sh>`_.
+To learn more about what you can do with Plural and more advanced uses of the platform, feel free to dive deeper into our docs `here <https://docs.plural.sh?utm_medium=community&utm_source=trino>`_.
