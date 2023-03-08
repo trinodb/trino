@@ -277,4 +277,10 @@
         <version>1.8</version>
         <comment>Use io.airlift.slice.SizeOf.instanceSize</comment>
     </violation>
+
+    <violation>
+        <name>java/util/Locale.ROOT:Ljava/util/Locale;</name>
+        <version>1.6</version>
+        <comment>Use java.util.Locale.ENGLISH</comment>
+    </violation>
 </modernizer>

@@ -43,7 +43,7 @@ import static io.trino.common.Randoms.randomUsername;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static java.util.Locale.ROOT;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -116,7 +116,7 @@ public class TestDenyOnSchema
             expectedPrivileges = ImmutableSet.copyOf(Privilege.values());
         }
         else {
-            expectedPrivileges = ImmutableSet.of(Privilege.valueOf(privilege.toUpperCase(ROOT)));
+            expectedPrivileges = ImmutableSet.of(Privilege.valueOf(privilege.toUpperCase(ENGLISH)));
         }
         expectedGrantee = new TrinoPrincipal(USER, username);
 

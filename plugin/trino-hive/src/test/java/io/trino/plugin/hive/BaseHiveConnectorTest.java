@@ -78,7 +78,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -8280,7 +8279,7 @@ public abstract class BaseHiveConnectorTest
     @Test(dataProvider = "legalUseColumnNamesProvider")
     public void testUseColumnNames(HiveStorageFormat format, boolean formatUseColumnNames)
     {
-        String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
+        String lowerCaseFormat = format.name().toLowerCase(ENGLISH);
         Session.SessionBuilder builder = Session.builder(getSession());
         if (format == HiveStorageFormat.ORC || format == HiveStorageFormat.PARQUET) {
             builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
@@ -8335,7 +8334,7 @@ public abstract class BaseHiveConnectorTest
     @Test(dataProvider = "legalUseColumnNamesProvider")
     public void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
     {
-        String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
+        String lowerCaseFormat = format.name().toLowerCase(ENGLISH);
         Session.SessionBuilder builder = Session.builder(getSession());
         if (format == HiveStorageFormat.ORC || format == HiveStorageFormat.PARQUET) {
             builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));

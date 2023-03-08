@@ -24,7 +24,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.INFORMATION_SCHEMA;
 import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.NORMAL;
 import static io.trino.spi.connector.CatalogHandle.CatalogHandleType.SYSTEM;
-import static java.util.Locale.ROOT;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 @Experimental(eta = "2023-02-01")
@@ -68,7 +68,7 @@ public final class CatalogHandle
         }
 
         String catalogName = id.substring(0, typeSplit);
-        CatalogHandleType type = CatalogHandleType.valueOf(id.substring(typeSplit + 1, versionSplit).toUpperCase(ROOT));
+        CatalogHandleType type = CatalogHandleType.valueOf(id.substring(typeSplit + 1, versionSplit).toUpperCase(ENGLISH));
         CatalogVersion version = new CatalogVersion(id.substring(versionSplit + 1));
         return new CatalogHandle(catalogName, type, version);
     }
@@ -94,7 +94,7 @@ public final class CatalogHandle
     @JsonValue
     public String getId()
     {
-        return catalogName + ":" + type.toString().toLowerCase(ROOT) + ":" + version;
+        return catalogName + ":" + type.toString().toLowerCase(ENGLISH) + ":" + version;
     }
 
     /**

@@ -18,12 +18,12 @@ import io.trino.spi.function.FunctionKind;
 
 import java.security.Principal;
 import java.util.Collection;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class AccessDeniedException
         extends TrinoException
@@ -692,7 +692,7 @@ public class AccessDeniedException
 
     public static void denyExecuteFunction(String functionName, FunctionKind functionKind, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot execute %s function %s%s", functionKind.name().toLowerCase(Locale.ROOT), functionName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot execute %s function %s%s", functionKind.name().toLowerCase(ENGLISH), functionName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyExecuteTableProcedure(String tableName, String procedureName)

@@ -26,12 +26,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -263,7 +263,7 @@ public class IcebergTableHandle
 
     public SchemaTableName getSchemaTableNameWithType()
     {
-        return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(Locale.ROOT));
+        return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(ENGLISH));
     }
 
     public IcebergTableHandle withProjectedColumns(Set<IcebergColumnHandle> projectedColumns)

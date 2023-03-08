@@ -36,7 +36,6 @@ import io.trino.spi.type.VarcharType;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -52,6 +51,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
+import static java.util.Locale.ENGLISH;
 
 /**
  * Deserializer that is bug for bug compatible with Hive JsonSerDe.
@@ -65,7 +65,7 @@ public class JsonSerializer
     public JsonSerializer(List<Column> columns)
     {
         this.type = RowType.from(columns.stream()
-                .map(column -> field(column.name().toLowerCase(Locale.ROOT), column.type()))
+                .map(column -> field(column.name().toLowerCase(ENGLISH), column.type()))
                 .collect(toImmutableList()));
 
         jsonFactory = new JsonFactory();

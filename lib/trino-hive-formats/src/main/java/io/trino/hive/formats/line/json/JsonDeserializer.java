@@ -49,7 +49,6 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -85,6 +84,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeZone.UTC;
 
 /**
@@ -130,7 +130,7 @@ public class JsonDeserializer
 
         rowDecoder = new RowDecoder(
                 RowType.from(columns.stream()
-                        .map(column -> field(column.name().toLowerCase(Locale.ROOT), column.type()))
+                        .map(column -> field(column.name().toLowerCase(ENGLISH), column.type()))
                         .collect(toImmutableList())),
                 columns.stream()
                         .map(Column::type)
@@ -670,7 +670,7 @@ public class JsonDeserializer
             super(rowType);
             this.fieldNames = rowType.getFields().stream()
                     .map(field -> field.getName().orElseThrow())
-                    .map(fieldName -> fieldName.toLowerCase(Locale.ROOT))
+                    .map(fieldName -> fieldName.toLowerCase(ENGLISH))
                     .collect(toImmutableList());
             this.fieldDecoders = fieldDecoders;
             this.ordinalToFieldPosition = ordinalToFieldPosition;
@@ -763,7 +763,7 @@ public class JsonDeserializer
 
         private int getFieldPosition(String fieldName)
         {
-            int fieldPosition = fieldNames.indexOf(fieldName.toLowerCase(Locale.ROOT));
+            int fieldPosition = fieldNames.indexOf(fieldName.toLowerCase(ENGLISH));
             if (fieldPosition >= 0) {
                 return fieldPosition;
             }
