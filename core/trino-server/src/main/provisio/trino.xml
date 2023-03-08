@@ -306,4 +306,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/influxdb">
+        <artifact id="${project.groupId}:trino-influxdb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
