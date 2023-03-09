@@ -831,23 +831,19 @@ jobs:
             - suite: suite-delta-lake-databricks73
               config: hdp3
             - suite: suite-delta-lake-databricks73
-              ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+              config: default
             - suite: suite-delta-lake-databricks91
               config: hdp3
             - suite: suite-delta-lake-databricks91
-              ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+              config: default
             - suite: suite-delta-lake-databricks104
               config: hdp3
             - suite: suite-delta-lake-databricks104
-              ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+              config: default
             - suite: suite-delta-lake-databricks113
               config: hdp3
             - suite: suite-delta-lake-databricks113
-              ignore exclusion if: >-
-                ${{ secrets.DATABRICKS_TOKEN != '' }}
+              config: default
 
           ignore exclusion if:
             # Do not use this property outside of the matrix configuration.
