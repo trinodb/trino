@@ -58,20 +58,6 @@ public final class DefaultPagesHash
     // and there is no performance gain from storing full hashes
     private final byte[] positionToHashes;
 
-    public static long getEstimatedRetainedSizeInBytes(
-            int positionCount,
-            HashArraySizeSupplier hashArraySizeSupplier,
-            LongArrayList addresses,
-            List<ObjectArrayList<Block>> channels,
-            long blocksSizeInBytes)
-    {
-        return sizeOf(addresses.elements()) +
-                (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
-                blocksSizeInBytes +
-                sizeOfIntArray(hashArraySizeSupplier.getHashArraySize(positionCount)) +
-                sizeOfByteArray(positionCount);
-    }
-
     public DefaultPagesHash(
             LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
@@ -299,5 +285,19 @@ public final class DefaultPagesHash
         int rightBlockPosition = decodePosition(rightPageAddress);
 
         return pagesHashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockIndex, rightBlockPosition);
+    }
+
+    public static long getEstimatedRetainedSizeInBytes(
+            int positionCount,
+            HashArraySizeSupplier hashArraySizeSupplier,
+            LongArrayList addresses,
+            List<ObjectArrayList<Block>> channels,
+            long blocksSizeInBytes)
+    {
+        return sizeOf(addresses.elements()) +
+                (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
+                blocksSizeInBytes +
+                sizeOfIntArray(hashArraySizeSupplier.getHashArraySize(positionCount)) +
+                sizeOfByteArray(positionCount);
     }
 }

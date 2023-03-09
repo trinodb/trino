@@ -58,20 +58,6 @@ public final class BigintPagesHash
     private final long[] values;
     private final long size;
 
-    public static long getEstimatedRetainedSizeInBytes(
-            int positionCount,
-            HashArraySizeSupplier hashArraySizeSupplier,
-            LongArrayList addresses,
-            List<ObjectArrayList<Block>> channels,
-            long blocksSizeInBytes)
-    {
-        return sizeOf(addresses.elements()) +
-                (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
-                blocksSizeInBytes +
-                sizeOfIntArray(hashArraySizeSupplier.getHashArraySize(positionCount)) +
-                sizeOfLongArray(positionCount);
-    }
-
     public BigintPagesHash(
             LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
@@ -266,5 +252,19 @@ public final class BigintPagesHash
         int blockPosition = decodePosition(pageAddress);
 
         return joinChannelBlocks.get(blockIndex).isNull(blockPosition);
+    }
+
+    public static long getEstimatedRetainedSizeInBytes(
+            int positionCount,
+            HashArraySizeSupplier hashArraySizeSupplier,
+            LongArrayList addresses,
+            List<ObjectArrayList<Block>> channels,
+            long blocksSizeInBytes)
+    {
+        return sizeOf(addresses.elements()) +
+                (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
+                blocksSizeInBytes +
+                sizeOfIntArray(hashArraySizeSupplier.getHashArraySize(positionCount)) +
+                sizeOfLongArray(positionCount);
     }
 }
