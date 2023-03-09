@@ -24,8 +24,8 @@ To connect to Databricks Delta Lake, you need:
 * Network access to the HMS from the coordinator and workers. Port 9083 is the
   default port for the Thrift protocol used by the HMS.
 
-Configuration
--------------
+General configuration
+---------------------
 
 The connector requires a Hive metastore for table metadata and supports the same
 metastore configuration properties as the :doc:`Hive connector
@@ -65,8 +65,8 @@ consult the appropriate section of the Hive documentation.
 * :doc:`Azure storage documentation </connector/hive-azure>`
 * :ref:`GCS <hive-google-cloud-storage-configuration>`
 
-Configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^
+Delta lake general configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following configuration properties are all using reasonable, tested default
 values. Typical usage does not require you to configure them.
@@ -86,8 +86,8 @@ values. Typical usage does not require you to configure them.
       - The maximum number of Delta table metadata entries to cache.
       - 1000
     * - ``delta.metadata.live-files.cache-size``
-      - Amount of memory allocated for caching information about files. Needs
-        to be specified in :ref:`prop-type-data-size` values such as ``64MB``.
+      - Amount of memory allocated for caching information about files. Must
+        be specified in :ref:`prop-type-data-size` values such as ``64MB``.
         Default is calculated to 10% of the maximum memory allocated to the JVM.
       -
     * - ``delta.metadata.live-files.cache-ttl``
@@ -112,7 +112,7 @@ values. Typical usage does not require you to configure them.
         not apply to usage with a Hive metastore service.
       - ``false``
     * - ``delta.enable-non-concurrent-writes``
-      - Enable :ref:`write support <delta-lake-write-support>` for all
+      - Enable :ref:`write support <delta-lake-data-management>` for all
         supported file systems, specifically take note of the warning about
         concurrency and checkpoints.
       - ``false``
@@ -142,7 +142,7 @@ values. Typical usage does not require you to configure them.
         the Hive metastore cache.
       - ``1000``
     * - ``delta.delete-schema-locations-fallback``
-      - Whether schema locations should be deleted when Trino can't
+      - Whether schema locations are deleted when Trino can't
         determine whether they contain external files.
       - ``false``
     * - ``delta.parquet.time-zone``
@@ -158,80 +158,8 @@ values. Typical usage does not require you to configure them.
       - Enable to allow users to call the ``register_table`` procedure
       - ``false``
 
-The following table describes performance tuning catalog properties for the
-connector.
-
-.. warning::
-
-   Performance tuning configuration properties are considered expert-level
-   features. Altering these properties from their default values is likely to
-   cause instability and performance degradation. We strongly suggest that
-   you use them only to address non-trivial performance issues, and that you
-   keep a backup of the original values if you change them.
-
-.. list-table:: Delta Lake performance tuning configuration properties
-    :widths: 30, 50, 20
-    :header-rows: 1
-
-    * - Property name
-      - Description
-      - Default
-    * - ``delta.domain-compaction-threshold``
-      - Minimum size of query predicates above which Trino compacts the predicates.
-        Pushing a large list of predicates down to the data source can
-        compromise performance. For optimization in that situation, Trino can
-        compact the large predicates. If necessary, adjust the threshold to
-        ensure a balance between performance and predicate pushdown.
-      - 100
-    * - ``delta.max-outstanding-splits``
-      - The target number of buffered splits for each table scan in a query,
-        before the scheduler tries to pause.
-      - 1000
-    * - ``delta.max-splits-per-second``
-      - Sets the maximum number of splits used per second to access underlying
-        storage. Reduce this number if your limit is routinely exceeded, based
-        on your filesystem limits. This is set to the absolute maximum value,
-        which results in Trino maximizing the parallelization of data access
-        by default. Attempting to set it higher results in Trino not being
-        able to start.
-      - Integer.MAX_VALUE
-    * - ``delta.max-initial-splits``
-      - For each query, the coordinator assigns file sections to read first
-        at the ``initial-split-size`` until the ``max-initial-splits`` is
-        reached. Then, it starts issuing reads of the ``max-split-size`` size.
-      - 200
-    * - ``delta.max-initial-split-size``
-      - Sets the initial :ref:`prop-type-data-size` for a single read section
-        assigned to a worker until ``max-initial-splits`` have been processed.
-        You can also use the corresponding catalog session property
-        ``<catalog-name>.max_initial_split_size``.
-      - ``32MB``
-    * - ``delta.max-split-size``
-      - Sets the largest :ref:`prop-type-data-size` for a single read section
-        assigned to a worker after max-initial-splits have been processed. You
-        can also use the corresponding catalog session property
-        ``<catalog-name>.max_split_size``.
-      - ``64MB``
-    * - ``delta.minimum-assigned-split-weight``
-      - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
-        on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
-      - 0.05
-    * - ``parquet.max-read-block-row-count``
-      - Sets the maximum number of rows read in a batch.
-      - ``8192``
-    * - ``parquet.optimized-reader.enabled``
-      - Whether batched column readers should be used when reading Parquet files
-        for improved performance. Set this property to ``false`` to disable the
-        optimized parquet reader by default. The equivalent catalog session
-        property is ``parquet_optimized_reader_enabled``.
-      - ``true``
-    * - ``parquet.optimized-nested-reader.enabled``
-      - Whether batched column readers should be used when reading ARRAY, MAP
-        and ROW types from Parquet files for improved performance. Set this
-        property to ``false`` to disable the optimized parquet reader by default
-        for structural data types. The equivalent catalog session property is
-        ``parquet_optimized_nested_reader_enabled``.
-      - ``true``
+Catalog session properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following table describes :ref:`catalog session properties
 <session-properties-definition>` supported by the Delta Lake connector to
@@ -245,7 +173,7 @@ configure processing of Parquet files.
       - Description
       - Default
     * - ``parquet_optimized_reader_enabled``
-      - Whether batched column readers should be used when reading Parquet files
+      - Whether batched column readers are used when reading Parquet files
         for improved performance.
       - ``true``
     * - ``parquet_max_read_block_size``
@@ -260,37 +188,6 @@ configure processing of Parquet files.
     * - ``parquet_writer_batch_size``
       - Maximum number of rows processed by the parquet writer in a batch.
       - ``10000``
-
-.. _delta-lake-authorization:
-
-Authorization checks
-^^^^^^^^^^^^^^^^^^^^
-
-You can enable authorization checks for the connector by setting
-the ``delta.security`` property in the catalog properties file. This
-property must be one of the following values:
-
-.. list-table:: Delta Lake security values
-  :widths: 30, 60
-  :header-rows: 1
-
-  * - Property value
-    - Description
-  * - ``ALLOW_ALL`` (default value)
-    - No authorization checks are enforced.
-  * - ``SYSTEM``
-    - The connector relies on system-level access control.
-  * - ``READ_ONLY``
-    - Operations that read data or metadata, such as :doc:`/sql/select` are
-      permitted. No operations that write data or metadata, such as
-      :doc:`/sql/create-table`, :doc:`/sql/insert`, or :doc:`/sql/delete` are
-      allowed.
-  * - ``FILE``
-    - Authorization checks are enforced using a catalog-level access control
-      configuration file whose path is specified in the ``security.config-file``
-      catalog configuration property. See
-      :ref:`catalog-file-based-access-control` for information on the
-      authorization configuration file.
 
 .. _delta-lake-type-mapping:
 
@@ -398,15 +295,43 @@ this table:
 
 No other types are supported.
 
-.. _delta-lake-table-redirection:
+Security
+--------
 
-Table redirection
------------------
+The Delta Lake connector allows you to choose one of several means of providing 
+autorization at the catalog level. You can select a different type of 
+authorization check in different Delta Lake catalog files.
 
-.. include:: table-redirection.fragment
+.. _delta-lake-authorization:
 
-The connector supports redirection from Delta Lake tables to Hive tables
-with the ``delta.hive-catalog-name`` catalog configuration property.
+Authorization checks
+^^^^^^^^^^^^^^^^^^^^
+
+You can enable authorization checks for the connector by setting
+the ``delta.security`` property in the catalog properties file. This
+property must be one of the following values:
+
+.. list-table:: Delta Lake security values
+  :widths: 30, 60
+  :header-rows: 1
+
+  * - Property value
+    - Description
+  * - ``ALLOW_ALL`` (default value)
+    - No authorization checks are enforced.
+  * - ``SYSTEM``
+    - The connector relies on system-level access control.
+  * - ``READ_ONLY``
+    - Operations that read data or metadata, such as :doc:`/sql/select` are
+      permitted. No operations that write data or metadata, such as
+      :doc:`/sql/create-table`, :doc:`/sql/insert`, or :doc:`/sql/delete` are
+      allowed.
+  * - ``FILE``
+    - Authorization checks are enforced using a catalog-level access control
+      configuration file whose path is specified in the ``security.config-file``
+      catalog configuration property. See
+      :ref:`catalog-file-based-access-control` for information on the
+      authorization configuration file.
 
 .. _delta-lake-sql-support:
 
@@ -418,10 +343,10 @@ Delta Lake. In addition to the :ref:`globally available
 <sql-globally-available>` and :ref:`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-* :ref:`sql-data-management`, see also :ref:`delta-lake-write-support`
+* :ref:`sql-data-management`, see also :ref:`delta-lake-data-management`
 * :ref:`sql-view-management`
-* :doc:`/sql/create-schema`, see also :ref:`delta-lake-create-schema`
-* :doc:`/sql/create-table`, see also :ref:`delta-lake-create-table`
+* :doc:`/sql/create-schema`, see also :ref:`delta-lake-sql-basic-usage`
+* :doc:`/sql/create-table`, see also :ref:`delta-lake-sql-basic-usage`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
 * :doc:`/sql/alter-table`
@@ -430,69 +355,10 @@ statements, the connector supports the following features:
 * :doc:`/sql/show-create-table`
 * :doc:`/sql/comment`
 
-.. _delta-lake-alter-table-execute:
+.. _delta-lake-sql-basic-usage:
 
-ALTER TABLE EXECUTE
-^^^^^^^^^^^^^^^^^^^
-
-The connector supports the following commands for use with
-:ref:`ALTER TABLE EXECUTE <alter-table-execute>`.
-
-optimize
-""""""""
-
-The ``optimize`` command is used for rewriting the content
-of the specified table so that it is merged into fewer but larger files.
-In case that the table is partitioned, the data compaction
-acts separately on each partition selected for optimization.
-This operation improves read performance.
-
-All files with a size below the optional ``file_size_threshold``
-parameter (default value for the threshold is ``100MB``) are
-merged:
-
-.. code-block:: sql
-
-    ALTER TABLE test_table EXECUTE optimize
-
-The following statement merges files in a table that are
-under 10 megabytes in size:
-
-.. code-block:: sql
-
-    ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
-
-You can use a ``WHERE`` clause with the columns used to partition the table,
-to filter which partitions are optimized:
-
-.. code-block:: sql
-
-    ALTER TABLE test_partitioned_table EXECUTE optimize
-    WHERE partition_key = 1
-
-.. _delta-lake-special-columns:
-
-Special columns
-^^^^^^^^^^^^^^^
-
-In addition to the defined columns, the Delta Lake connector automatically
-exposes metadata in a number of hidden columns in each table. You can use these
-columns in your SQL statements like any other column, e.g., they can be selected
-directly or used in conditional statements.
-
-* ``$path``
-    Full file system path name of the file for this row.
-
-* ``$file_modified_time``
-    Date and time of the last modification of the file for this row.
-
-* ``$file_size``
-    Size of the file for this row.
-
-.. _delta-lake-create-schema:
-
-Creating schemas
-^^^^^^^^^^^^^^^^
+Basic usage examples
+^^^^^^^^^^^^^^^^^^^^
 
 The connector supports creating schemas. You can create a schema with or without
 a specified location.
@@ -511,10 +377,6 @@ removed if the table is dropped::
 
   CREATE SCHEMA example.example_schema;
 
-.. _delta-lake-create-table:
-
-Creating tables
-^^^^^^^^^^^^^^^
 
 When Delta tables exist in storage, but not in the metastore, Trino can be used
 to register them::
@@ -547,6 +409,190 @@ in the metastore. As a result, any Databricks engine can write to the table::
 The Delta Lake connector also supports creating tables using the :doc:`CREATE
 TABLE AS </sql/create-table-as>` syntax.
 
+Procedures
+^^^^^^^^^^
+
+Use the :doc:`/sql/call` statement to perform data manipulation or
+administrative tasks. Procedures are available in the system schema of each
+catalog. The following code snippet displays how to call the
+``example_procedure`` in the ``examplecatalog`` catalog::
+
+    CALL examplecatalog.system.example_procedure()
+
+.. _delta-lake-register-table:
+
+Register table
+""""""""""""""
+
+The connector can register table into the metastore with existing transaction logs and data files.
+
+The ``system.register_table`` procedure allows the caller to register an existing delta lake
+table in the metastore, using its existing transaction logs and data files::
+
+    CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
+
+To prevent unauthorized users from accessing data, this procedure is disabled by default.
+The procedure is enabled only when ``delta.register-table-procedure.enabled`` is set to ``true``.
+
+.. _delta-lake-unregister-table:
+
+Unregister table
+""""""""""""""""
+The connector can unregister existing Delta Lake tables from the metastore.
+
+The procedure ``system.unregister_table`` allows the caller to unregister an
+existing Delta Lake table from the metastores without deleting the data::
+
+    CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
+
+.. _delta-lake-flush-metadata-cache:
+
+Flush metadata cache
+""""""""""""""""""""
+
+* ``system.flush_metadata_cache()``
+
+  Flush all metadata caches.
+
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ...)``
+
+  Flush metadata caches entries connected with selected table.
+  Procedure requires named parameters to be passed
+
+.. _delta-lake-write-support:
+
+Updating data
+"""""""""""""
+
+You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete`,
+:doc:`/sql/update`, and :doc:`/sql/merge` data in Delta Lake tables.
+
+Write operations are supported for tables stored on the following systems:
+
+* Azure ADLS Gen2, Google Cloud Storage
+
+  Writes to the Azure ADLS Gen2 and Google Cloud Storage are
+  enabled by default. Trino detects write collisions on these storage systems
+  when writing from multiple Trino clusters, or from other query engines.
+
+* S3 and S3-compatible storage
+
+  Writes to :doc:`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
+  with the ``delta.enable-non-concurrent-writes`` property. Writes to S3 can
+  safely be made from multiple Trino clusters, however write collisions are not
+  detected when writing concurrently from other Delta Lake engines. You need to
+  make sure that no concurrent data modifications are run to avoid data
+  corruption.
+
+.. _delta-lake-vacuum:
+
+``VACUUM``
+""""""""""
+
+The ``VACUUM`` procedure removes all old files that are not in the transaction
+log, as well as files that are not needed to read table snapshots newer than the
+current time minus the retention period defined by the ``retention period``
+parameter.
+
+Users with ``INSERT`` and ``DELETE`` permissions on a table can run ``VACUUM``
+as follows:
+
+.. code-block:: shell
+
+  CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
+
+All parameters are required, and must be presented in the following order:
+
+* Schema name
+* Table name
+* Retention period
+
+The ``delta.vacuum.min-retention`` config property provides a safety
+measure to ensure that files are retained as expected.  The minimum value for
+this property is ``0s``. There is a minimum retention session property as well,
+``vacuum_min_retention``.
+
+.. _delta-lake-data-management:
+
+Data management
+^^^^^^^^^^^^^^^
+
+You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete`,
+:doc:`/sql/update`, and :doc:`/sql/merge` data in Delta Lake tables.
+
+Write operations are supported for tables stored on the following systems:
+
+* Azure ADLS Gen2, Google Cloud Storage
+
+  Writes to the Azure ADLS Gen2 and Google Cloud Storage are
+  enabled by default. Trino detects write collisions on these storage systems
+  when writing from multiple Trino clusters, or from other query engines.
+
+* S3 and S3-compatible storage
+
+  Writes to :doc:`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
+  with the ``delta.enable-non-concurrent-writes`` property. Writes to S3 can
+  safely be made from multiple Trino clusters, however write collisions are not
+  detected when writing concurrently from other Delta Lake engines. You must
+  make sure that no concurrent data modifications are run to avoid data
+  corruption.
+
+Schema and table management
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The :ref:`sql-schema-table-management` functionality includes support for:
+
+* :doc:`/sql/create-schema`
+* :doc:`/sql/drop-schema`
+* :doc:`/sql/alter-schema`
+* :doc:`/sql/create-table`
+* :doc:`/sql/create-table-as`
+* :doc:`/sql/drop-table`
+* :doc:`/sql/alter-table`
+* :doc:`/sql/comment`
+
+.. _delta-lake-alter-table-execute:
+
+ALTER TABLE EXECUTE
+"""""""""""""""""""
+
+The connector supports the following commands for use with
+:ref:`ALTER TABLE EXECUTE <alter-table-execute>`.
+
+optimize
+~~~~~~~~
+
+The ``optimize`` command is used for rewriting the content
+of the specified table so that it is merged into fewer but larger files.
+In case that the table is partitioned, the data compaction
+acts separately on each partition selected for optimization.
+This operation improves read performance.
+
+All files with a size below the optional ``file_size_threshold``
+parameter (default value for the threshold is ``100MB``) are
+merged:
+
+.. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize
+
+The following statement merges files in a table that are
+under 10 megabytes in size:
+
+.. code-block:: sql
+
+    ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
+
+You can use a ``WHERE`` clause with the columns used to partition the table,
+to filter which partitions are optimized:
+
+.. code-block:: sql
+
+    ALTER TABLE test_partitioned_table EXECUTE optimize
+    WHERE partition_key = 1
+
+Table properties
+""""""""""""""""
 The following properties are available for use:
 
 .. list-table:: Delta Lake table properties
@@ -575,111 +621,31 @@ The following example uses all available table properties::
   )
   AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 
-.. _delta-lake-register-table:
-
-Register table
-^^^^^^^^^^^^^^
-
-The connector can register table into the metastore with existing transaction logs and data files.
-
-The ``system.register_table`` procedure allows the caller to register an existing delta lake
-table in the metastore, using its existing transaction logs and data files::
-
-    CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
-
-To prevent unauthorized users from accessing data, this procedure is disabled by default.
-The procedure is enabled only when ``delta.register-table-procedure.enabled`` is set to ``true``.
-
-.. _delta-lake-unregister-table:
-
-Unregister table
-^^^^^^^^^^^^^^^^
-The connector can unregister existing Delta Lake tables from the metastore.
-
-The procedure ``system.unregister_table`` allows the caller to unregister an
-existing Delta Lake table from the metastores without deleting the data::
-
-    CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
-
-.. _delta-lake-flush-metadata-cache:
-
-Flush metadata cache
-^^^^^^^^^^^^^^^^^^^^
-
-* ``system.flush_metadata_cache()``
-
-  Flush all metadata caches.
-
-* ``system.flush_metadata_cache(schema_name => ..., table_name => ...)``
-
-  Flush metadata caches entries connected with selected table.
-  Procedure requires named parameters to be passed
-
-.. _delta-lake-write-support:
-
-Updating data
-^^^^^^^^^^^^^
-
-You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete`,
-:doc:`/sql/update`, and :doc:`/sql/merge` data in Delta Lake tables.
-
-Write operations are supported for tables stored on the following systems:
-
-* Azure ADLS Gen2, Google Cloud Storage
-
-  Writes to the Azure ADLS Gen2 and Google Cloud Storage are
-  enabled by default. Trino detects write collisions on these storage systems
-  when writing from multiple Trino clusters, or from other query engines.
-
-* S3 and S3-compatible storage
-
-  Writes to :doc:`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
-  with the ``delta.enable-non-concurrent-writes`` property. Writes to S3 can
-  safely be made from multiple Trino clusters, however write collisions are not
-  detected when writing concurrently from other Delta Lake engines. You need to
-  make sure that no concurrent data modifications are run to avoid data
-  corruption.
-
-.. _delta-lake-vacuum:
-
-``VACUUM``
-^^^^^^^^^^
-
-The ``VACUUM`` procedure removes all old files that are not in the transaction
-log, as well as files that are not needed to read table snapshots newer than the
-current time minus the retention period defined by the ``retention period``
-parameter.
-
-Users with ``INSERT`` and ``DELETE`` permissions on a table can run ``VACUUM``
-as follows:
-
-.. code-block:: shell
-
-  CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
-
-All parameters are required, and must be presented in the following order:
-
-* Schema name
-* Table name
-* Retention period
-
-The ``delta.vacuum.min-retention`` config property provides a safety
-measure to ensure that files are retained as expected.  The minimum value for
-this property is ``0s``. There is a minimum retention session property as well,
-``vacuum_min_retention``.
-
 Metadata tables
----------------
+"""""""""""""""
 
 The connector exposes several metadata tables for each Delta Lake table.
 These metadata tables contain information about the internal structure
 of the Delta Lake table. You can query each metadata table by appending the
 metadata table name to the table name::
 
-   SELECT * FROM "test_table$history"
+   SELECT * FROM "test_table$data"
+
+``$data`` table
+~~~~~~~~~~~~~~~
+
+The ``$data`` table is an alias for the Delta Lake table itself.
+
+The statement::
+
+    SELECT * FROM "test_table$data"
+
+is equivalent to::
+
+    SELECT * FROM test_table
 
 ``$history`` table
-^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~
 
 The ``$history`` table provides a log of the metadata changes performed on
 the Delta Lake table.
@@ -737,6 +703,24 @@ The output of the query has the following columns:
     - ``boolean``
     - Whether or not the operation appended data
 
+.. _delta-lake-special-columns:
+
+Metadata columns
+""""""""""""""""
+
+In addition to the defined columns, the Delta Lake connector automatically
+exposes metadata in a number of hidden columns in each table. You can use these
+columns in your SQL statements like any other column, e.g., they can be selected
+directly or used in conditional statements.
+
+* ``$path``
+    Full file system path name of the file for this row.
+
+* ``$file_modified_time``
+    Date and time of the last modification of the file for this row.
+
+* ``$file_size``
+    Size of the file for this row.
 
 Performance
 -----------
@@ -822,7 +806,6 @@ extended statistics for a specified table in a specified schema:
 
   CALL example.system.drop_extended_stats('example_schema', 'example_table')
 
-
 Memory usage
 ^^^^^^^^^^^^
 
@@ -830,13 +813,13 @@ The Delta Lake connector is memory intensive and the amount of required memory
 grows with the size of Delta Lake transaction logs of any accessed tables. It is
 important to take that into account when provisioning the coordinator.
 
-You need to decrease memory usage by keeping the number of active data files in
+You must decrease memory usage by keeping the number of active data files in
 table low by running ``OPTIMIZE`` and ``VACUUM`` in Delta Lake regularly.
 
 Memory monitoring
 """""""""""""""""
 
-When using the Delta Lake connector you need to monitor memory usage on the
+When using the Delta Lake connector you must monitor memory usage on the
 coordinator. Specifically monitor JVM heap utilization using standard tools as
 part of routine operation of the cluster.
 
@@ -865,3 +848,91 @@ Following is an example result:
 
 In a healthy system both ``datafilemetadatacachestats.hitrate`` and
 ``metadatacachestats.hitrate`` are close to ``1.0``.
+
+.. _delta-lake-table-redirection:
+
+Table redirection
+^^^^^^^^^^^^^^^^^
+
+.. include:: table-redirection.fragment
+
+The connector supports redirection from Delta Lake tables to Hive tables
+with the ``delta.hive-catalog-name`` catalog configuration property.
+
+Performance tuning configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following table describes performance tuning catalog properties for the
+connector.
+
+.. warning::
+
+   Performance tuning configuration properties are considered expert-level
+   features. Altering these properties from their default values is likely to
+   cause instability and performance degradation. We strongly suggest that
+   you use them only to address non-trivial performance issues, and that you
+   keep a backup of the original values if you change them.
+
+.. list-table:: Delta Lake performance tuning configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property name
+      - Description
+      - Default
+    * - ``delta.domain-compaction-threshold``
+      - Minimum size of query predicates above which Trino compacts the predicates.
+        Pushing a large list of predicates down to the data source can
+        compromise performance. For optimization in that situation, Trino can
+        compact the large predicates. If necessary, adjust the threshold to
+        ensure a balance between performance and predicate pushdown.
+      - 100
+    * - ``delta.max-outstanding-splits``
+      - The target number of buffered splits for each table scan in a query,
+        before the scheduler tries to pause.
+      - 1000
+    * - ``delta.max-splits-per-second``
+      - Sets the maximum number of splits used per second to access underlying
+        storage. Reduce this number if your limit is routinely exceeded, based
+        on your filesystem limits. This is set to the absolute maximum value,
+        which results in Trino maximizing the parallelization of data access
+        by default. Attempting to set it higher results in Trino not being
+        able to start.
+      - Integer.MAX_VALUE
+    * - ``delta.max-initial-splits``
+      - For each query, the coordinator assigns file sections to read first
+        at the ``initial-split-size`` until the ``max-initial-splits`` is
+        reached. Then, it starts issuing reads of the ``max-split-size`` size.
+      - 200
+    * - ``delta.max-initial-split-size``
+      - Sets the initial :ref:`prop-type-data-size` for a single read section
+        assigned to a worker until ``max-initial-splits`` have been processed.
+        You can also use the corresponding catalog session property
+        ``<catalog-name>.max_initial_split_size``.
+      - ``32MB``
+    * - ``delta.max-split-size``
+      - Sets the largest :ref:`prop-type-data-size` for a single read section
+        assigned to a worker after max-initial-splits have been processed. You
+        can also use the corresponding catalog session property
+        ``<catalog-name>.max_split_size``.
+      - ``64MB``
+    * - ``delta.minimum-assigned-split-weight``
+      - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
+        on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
+      - 0.05
+    * - ``parquet.max-read-block-row-count``
+      - Sets the maximum number of rows read in a batch.
+      - ``8192``
+    * - ``parquet.optimized-reader.enabled``
+      - Whether batched column readers are used when reading Parquet files
+        for improved performance. Set this property to ``false`` to disable the
+        optimized parquet reader by default. The equivalent catalog session
+        property is ``parquet_optimized_reader_enabled``.
+      - ``true``
+    * - ``parquet.optimized-nested-reader.enabled``
+      - Whether batched column readers are used when reading ARRAY, MAP
+        and ROW types from Parquet files for improved performance. Set this
+        property to ``false`` to disable the optimized parquet reader by default
+        for structural data types. The equivalent catalog session property is
+        ``parquet_optimized_nested_reader_enabled``.
+      - ``true``
