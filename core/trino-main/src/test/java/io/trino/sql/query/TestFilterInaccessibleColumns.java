@@ -149,7 +149,7 @@ public class TestFilterInaccessibleColumns
     }
 
     @Test
-    public void testRowFilterOnNotAccessibleColumn()
+    public void testRowFilterWithAccessToInaccessibleColumn()
     {
         accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 USER,
@@ -160,7 +160,7 @@ public class TestFilterInaccessibleColumns
     }
 
     @Test
-    public void testRowFilterOnNotAccessibleColumnKO()
+    public void testRowFilterWithoutAccessToInaccessibleColumn()
     {
         accessControl.rowFilter(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
                 USER,
@@ -182,7 +182,7 @@ public class TestFilterInaccessibleColumns
     }
 
     @Test
-    public void testMaskingWithCaseOnNotAccessibleColumnKO()
+    public void testMaskingWithoutAccessToInaccessibleColumn()
     {
         accessControl.deny(privilege(USER, "nation.nationkey", SELECT_COLUMN));
         accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
@@ -195,7 +195,7 @@ public class TestFilterInaccessibleColumns
     }
 
     @Test
-    public void testMaskingWithCaseOnNotAccessibleColumn()
+    public void testMaskingWithAccessToInaccessibleColumn()
     {
         accessControl.deny(privilege(USER, "nation.nationkey", SELECT_COLUMN));
         accessControl.columnMask(new QualifiedObjectName(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, "nation"),
