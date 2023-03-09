@@ -33,6 +33,7 @@ public class HdfsModule
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConfigurationInitializer.class);
-        newSetBinder(binder, DynamicConfigurationProvider.class);
+        newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
+                .to(HdfsConfigurationProvider.class).in(Scopes.SINGLETON);
     }
 }

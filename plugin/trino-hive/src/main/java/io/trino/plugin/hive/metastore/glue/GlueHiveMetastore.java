@@ -72,6 +72,7 @@ import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsConfigurationProvider;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
@@ -220,7 +221,7 @@ public class GlueHiveMetastore
     public static GlueHiveMetastore createTestingGlueHiveMetastore(String defaultWarehouseDir)
     {
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of(new HdfsConfigurationProvider(hdfsConfig)));
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         GlueMetastoreStats stats = new GlueMetastoreStats();
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
