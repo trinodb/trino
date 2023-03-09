@@ -52,7 +52,7 @@ public class AsyncQueue<T>
     @GuardedBy("this")
     private int borrowerCount;
 
-    private final Executor executor;
+    protected final Executor executor;
 
     public AsyncQueue(int targetQueueSize, Executor executor)
     {
