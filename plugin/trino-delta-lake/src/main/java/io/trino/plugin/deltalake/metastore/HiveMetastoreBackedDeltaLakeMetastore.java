@@ -121,16 +121,19 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         Optional<Table> candidate = delegate.getTable(databaseName, tableName);
-        candidate.ifPresent(table -> {
-            if (isHiveOrPrestoView(table)) {
-                // this is a Hive view, hence not a table
-                throw new NotADeltaLakeTableException(databaseName, tableName);
-            }
-            if (!TABLE_PROVIDER_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_PROVIDER_PROPERTY))) {
-                throw new NotADeltaLakeTableException(databaseName, tableName);
-            }
-        });
+        candidate.ifPresent(HiveMetastoreBackedDeltaLakeMetastore::verifyDeltaLakeTable);
         return candidate;
+    }
+
+    public static void verifyDeltaLakeTable(Table table)
+    {
+        if (isHiveOrPrestoView(table)) {
+            // this is a Hive view, hence not a table
+            throw new NotADeltaLakeTableException(table.getDatabaseName(), table.getTableName());
+        }
+        if (!TABLE_PROVIDER_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_PROVIDER_PROPERTY))) {
+            throw new NotADeltaLakeTableException(table.getDatabaseName(), table.getTableName());
+        }
     }
 
     @Override
@@ -202,11 +205,16 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public String getTableLocation(SchemaTableName table)
+    public String getTableLocation(SchemaTableName tableName)
     {
-        Map<String, String> serdeParameters = getTable(table.getSchemaName(), table.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(table))
-                .getStorage().getSerdeParameters();
+        Table table = getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+        return getTableLocation(table);
+    }
+
+    public static String getTableLocation(Table table)
+    {
+        Map<String, String> serdeParameters = table.getStorage().getSerdeParameters();
         String location = serdeParameters.get(PATH_PROPERTY);
         if (location == null) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("No %s property defined for table: %s", PATH_PROPERTY, table));
