@@ -557,21 +557,12 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan(
                 """
-                    WITH test_table AS (
-                        SELECT
-                        custkey,
-                        CASE
-                            WHEN name = 'ABC' then 'ABC'
-                            ELSE 'BCD'
-                        END AS new_name
-                        FROM customer)
-                    SELECT orderstatus
-                    FROM orders
-                    JOIN test_table
-                    ON orders.custkey = test_table.custkey
-                    WHERE test_table.new_name = 'TESTING'
-                    """,
-                output(values("orderstatus")));
+                WITH t(a) AS (VALUES 'a', 'b')
+                SELECT *
+                FROM t t1 JOIN t t2 ON true
+                WHERE t1.a = 'aa'
+                """,
+                output(values("field", "field_0")));
     }
 
     private Session noSemiJoinRewrite()
