@@ -100,9 +100,7 @@ public class TestFilterInaccessibleColumns
         assertThat(assertions.query("DESCRIBE nation"))
                 .matches(materializedRows -> materializedRows
                         .getMaterializedRows().stream()
-                        .filter(materializedRow -> materializedRow.getField(0).equals("comment"))
-                        .findFirst()
-                        .isPresent());
+                        .anyMatch(materializedRow -> materializedRow.getField(0).equals("comment")));
     }
 
     @Test
@@ -112,9 +110,7 @@ public class TestFilterInaccessibleColumns
         assertThat(assertions.query("DESCRIBE nation"))
                 .matches(materializedRows -> materializedRows
                         .getMaterializedRows().stream()
-                        .filter(materializedRow -> materializedRow.getField(0).equals("comment"))
-                        .findFirst()
-                        .isEmpty());
+                        .noneMatch(materializedRow -> materializedRow.getField(0).equals("comment")));
     }
 
     @Test
@@ -123,9 +119,7 @@ public class TestFilterInaccessibleColumns
         assertThat(assertions.query("SHOW COLUMNS FROM nation"))
                 .matches(materializedRows -> materializedRows
                         .getMaterializedRows().stream()
-                        .filter(materializedRow -> materializedRow.getField(0).equals("comment"))
-                        .findFirst()
-                        .isPresent());
+                        .anyMatch(materializedRow -> materializedRow.getField(0).equals("comment")));
     }
 
     @Test
@@ -135,9 +129,7 @@ public class TestFilterInaccessibleColumns
         assertThat(assertions.query("SHOW COLUMNS FROM nation"))
                 .matches(materializedRows -> materializedRows
                         .getMaterializedRows().stream()
-                        .filter(materializedRow -> materializedRow.getField(0).equals("comment"))
-                        .findFirst()
-                        .isEmpty());
+                        .noneMatch(materializedRow -> materializedRow.getField(0).equals("comment")));
     }
 
     /**
