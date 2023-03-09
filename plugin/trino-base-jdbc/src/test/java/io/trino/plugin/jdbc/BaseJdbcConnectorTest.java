@@ -316,6 +316,7 @@ public abstract class BaseJdbcConnectorTest
 
         boolean supportsPushdownWithVarcharInequality = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
         boolean supportsCountDistinctPushdown = hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT);
+        boolean supportsSumDistinctPushdown = hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN);
 
         PlanMatchPattern aggregationOverTableScan = node(AggregationNode.class, node(TableScanNode.class));
         PlanMatchPattern groupingAggregationOverTableScan = node(AggregationNode.class, node(ProjectNode.class, node(TableScanNode.class)));
@@ -325,7 +326,7 @@ public abstract class BaseJdbcConnectorTest
                 "(a_string varchar(1), a_char char(1), a_bigint bigint)",
                 ImmutableList.of(
                         "'A', 'A', 1",
-                        "'B', 'B', 2",
+                        "'B', 'B', 1",
                         "'a', 'a', 3",
                         "'b', 'b', 4"))) {
             // case-sensitive functions prevent pushdown
@@ -388,15 +389,34 @@ public abstract class BaseJdbcConnectorTest
                     supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
                     node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
                     .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '4')");
+                    .matches("VALUES (BIGINT '4', BIGINT '3')");
 
             assertConditionallyPushedDown(getSession(),
                     "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
                     node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
                     .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '4')");
+                    .matches("VALUES (BIGINT '4', BIGINT '3')");
+
+            assertConditionallyPushedDown(getSession(),
+                    "SELECT count(DISTINCT a_string), sum(DISTINCT a_bigint) FROM " + table.getName(),
+                    supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
+                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
+                    .skippingTypesCheck()
+                    .matches(sumDistinctAggregationPushdownExpectedResult());
+
+            assertConditionallyPushedDown(getSession(),
+                    "SELECT count(DISTINCT a_char), sum(DISTINCT a_bigint) FROM " + table.getName(),
+                    supportsPushdownWithVarcharInequality && supportsSumDistinctPushdown,
+                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
+                    .skippingTypesCheck()
+                    .matches(sumDistinctAggregationPushdownExpectedResult());
         }
+    }
+
+    protected String sumDistinctAggregationPushdownExpectedResult()
+    {
+        return "VALUES (BIGINT '4', BIGINT '8')";
     }
 
     @Test
@@ -453,11 +473,21 @@ public abstract class BaseJdbcConnectorTest
                 "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))))));
+        assertConditionallyPushedDown(
+                withMarkDistinct,
+                "SELECT sum(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
+                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))))));
         // distinct aggregation and a non-distinct aggregation
         assertConditionallyPushedDown(
                 withMarkDistinct,
                 "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
+                node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))))));
+        assertConditionallyPushedDown(
+                withMarkDistinct,
+                "SELECT sum(DISTINCT regionkey), count(nationkey) FROM nation",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 node(MarkDistinctNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))))));
 
         Session withoutMarkDistinct = Session.builder(getSession())
@@ -479,11 +509,22 @@ public abstract class BaseJdbcConnectorTest
                 "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
                 node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+        assertConditionallyPushedDown(
+                withoutMarkDistinct,
+                "SELECT sum(DISTINCT regionkey), sum(DISTINCT nationkey) FROM nation",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
+                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+
         // distinct aggregation and a non-distinct aggregation
         assertConditionallyPushedDown(
                 withoutMarkDistinct,
                 "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation",
                 hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT),
+                node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
+        assertConditionallyPushedDown(
+                withoutMarkDistinct,
+                "SELECT sum(DISTINCT regionkey), sum(nationkey) FROM nation",
+                hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN),
                 node(AggregationNode.class, node(ExchangeNode.class, node(ExchangeNode.class, node(TableScanNode.class)))));
     }
 

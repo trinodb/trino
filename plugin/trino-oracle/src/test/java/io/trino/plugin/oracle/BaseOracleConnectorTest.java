@@ -490,6 +490,12 @@ public abstract class BaseOracleConnectorTest
         assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
     }
 
+    @Override
+    protected String sumDistinctAggregationPushdownExpectedResult()
+    {
+        return "VALUES (BIGINT '4', DECIMAL '8')";
+    }
+
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
     {
         String tableName = ("test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", ""))
