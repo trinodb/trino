@@ -227,16 +227,14 @@ public class EqualityInference
 
             SubExpressionExtractor.extract(expression)
                     .filter(e -> !e.equals(expression))
-                    .forEach(subExpression -> {
-                        byExpression.getOrDefault(subExpression, ImmutableSet.of())
-                                .stream()
-                                .filter(e -> !e.equals(subExpression))
-                                .forEach(equivalentSubExpression -> {
-                                    Expression rewritten = replaceExpression(expression, ImmutableMap.of(subExpression, equivalentSubExpression));
-                                    equalities.findAndUnion(expression, rewritten);
-                                    derivedExpressions.add(rewritten);
-                                });
-                    });
+                    .forEach(subExpression -> byExpression.getOrDefault(subExpression, ImmutableSet.of())
+                            .stream()
+                            .filter(e -> !e.equals(subExpression))
+                            .forEach(equivalentSubExpression -> {
+                                Expression rewritten = replaceExpression(expression, ImmutableMap.of(subExpression, equivalentSubExpression));
+                                equalities.findAndUnion(expression, rewritten);
+                                derivedExpressions.add(rewritten);
+                            }));
         }
 
         Multimap<Expression, Expression> equalitySets = makeEqualitySets(equalities);
