@@ -499,13 +499,17 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>
+                    --add-opens=java.base/java.nio=ALL-UNNAMED
+                </air.test.jvm.additional-arguments>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
                             <includes>
                                 <include>**/TestBigQueryArrowConnectorTest.java</include>
                                 <include>**/TestBigQueryArrowTypeMapping.java</include>
