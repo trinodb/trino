@@ -319,6 +319,58 @@ Hive connector documentation.
       - Maximum number of partitions to drop in a single query.
       - 100,000
 
+Hive native reader and writer configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following table lists native reader and writer configuration properties for
+the Hive connector.
+
+.. list-table:: Hive native reader and writer configuration
+    :widths: 35, 50, 15
+    :header-rows: 1
+
+    * - Property Name
+      - Description
+      - Default
+    * - ``csv.native-reader.enabled``
+      - Enable native reader of CSV file format. The equivalent catalog
+        session property is ``csv_native_reader_enabled``.
+      - ``true``
+    * - ``csv.native-writer.enabled``
+      - Enable native writer of CSV file format. The equivalent catalog
+        session property is ``csv_native_writer_enabled``.
+      - ``true``
+    * - ``json.native-reader.enabled``
+      - Enable native reader of JSON file format. The equivalent catalog
+        session property is ``json_native_reader_enabled``.
+      - ``true``
+    * - ``json.native-writer.enabled``
+      - Enable native writer of JSON file format. The equivalent catalog
+        session property is ``json_native_writer_enabled``.
+      - ``true``
+    * - ``sequence-file.native-reader.enabled``
+      - Enable native reader of SequenceFile format. The equivalent catalog
+        session property is ``sequence_file_native_reader_enabled``.
+      - ``true``
+    * - ``sequence-file.native-writer.enabled``
+      - Enable native writer of SequenceFile format. The equivalent catalog
+        session property is ``sequence_file_native_writer_enabled``.
+      - ``true``
+    * - ``text-file.native-reader.enabled``
+      - Enable native reader of TextFile format. The equivalent catalog
+        session property is ``text_file_native_reader_enabled``.
+      - ``true``
+    * - ``text-file.native-writer.enabled``
+      - Enable native writer of TextFile format. The equivalent catalog
+        session property is ``text_file_native_writer_enabled``.
+      - ``true``
+    * - ``regex.native-reader.enabled``
+      - Enable native reader of regex file format.
+      - ``true``
+    * - ``regex.native-writer.enabled``
+      - Enable native writer of regex file format.
+      - ``true``
+
 Metastores
 ----------
 
