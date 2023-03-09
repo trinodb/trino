@@ -285,7 +285,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public String getTableLocation(SchemaTableName table, ConnectorSession session)
+        public String getTableLocation(SchemaTableName table)
         {
             return TABLE_PATH;
         }

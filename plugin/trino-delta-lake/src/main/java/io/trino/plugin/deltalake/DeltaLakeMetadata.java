@@ -420,7 +420,7 @@ public class DeltaLakeMetadata
         return new DeltaLakeTableHandle(
                 dataTableName.getSchemaName(),
                 dataTableName.getTableName(),
-                metastore.getTableLocation(dataTableName, session),
+                metastore.getTableLocation(dataTableName),
                 metadata,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -449,7 +449,7 @@ public class DeltaLakeMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) table;
-        String location = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
+        String location = metastore.getTableLocation(tableHandle.getSchemaTableName());
         Map<String, String> columnComments = getColumnComments(tableHandle.getMetadataEntry());
         Map<String, Boolean> columnsNullability = getColumnsNullability(tableHandle.getMetadataEntry());
         List<String> constraints = ImmutableList.<String>builder()
@@ -1415,7 +1415,7 @@ public class DeltaLakeMetadata
 
         Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
 
-        String tableLocation = metastore.getTableLocation(handle.getSchemaTableName(), session);
+        String tableLocation = metastore.getTableLocation(handle.getSchemaTableName());
 
         boolean writeCommitted = false;
         try {
@@ -1660,7 +1660,7 @@ public class DeltaLakeMetadata
     private boolean allowWrite(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         try {
-            String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
+            String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName());
             Path tableMetadataDirectory = new Path(new Path(tableLocation).getParent().toString(), tableHandle.getTableName());
             boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableMetadataDirectory.toString()).isUnsafe();
             return !requiresOptIn || unsafeWritesEnabled;
@@ -2260,7 +2260,7 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) table;
         AnalyzeHandle analyzeHandle = tableHandle.getAnalyzeHandle().orElseThrow(() -> new IllegalArgumentException("analyzeHandle not set"));
-        String location = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
+        String location = metastore.getTableLocation(tableHandle.getSchemaTableName());
         Optional<Instant> maxFileModificationTime = getMaxFileModificationTime(computedStatistics);
         updateTableStatistics(
                 session,
@@ -2554,7 +2554,7 @@ public class DeltaLakeMetadata
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            return TransactionLogTail.loadNewTail(fileSystem, metastore.getTableLocation(table, session), Optional.empty()).getFileEntries().stream()
+            return TransactionLogTail.loadNewTail(fileSystem, metastore.getTableLocation(table), Optional.empty()).getFileEntries().stream()
                     .map(DeltaLakeTransactionLogEntry::getCommitInfo)
                     .filter(Objects::nonNull)
                     .collect(toImmutableList());

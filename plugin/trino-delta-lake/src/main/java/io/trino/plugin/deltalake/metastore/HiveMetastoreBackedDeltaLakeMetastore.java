@@ -167,7 +167,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean deleteData)
     {
-        String tableLocation = getTableLocation(new SchemaTableName(databaseName, tableName), session);
+        String tableLocation = getTableLocation(new SchemaTableName(databaseName, tableName));
         delegate.dropTable(databaseName, tableName, deleteData);
         statisticsAccess.invalidateCache(tableLocation);
         transactionLogAccess.invalidateCaches(tableLocation);
@@ -202,7 +202,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public String getTableLocation(SchemaTableName table, ConnectorSession session)
+    public String getTableLocation(SchemaTableName table)
     {
         Map<String, String> serdeParameters = getTable(table.getSchemaName(), table.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(table))
@@ -218,7 +218,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session)
     {
         try {
-            return transactionLogAccess.loadSnapshot(table, getTableLocation(table, session), session);
+            return transactionLogAccess.loadSnapshot(table, getTableLocation(table), session);
         }
         catch (NotADeltaLakeTableException e) {
             throw e;
