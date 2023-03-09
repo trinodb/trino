@@ -57,8 +57,8 @@ to using port 9083.
 General configuration
 ---------------------
 
-Create ``etc/catalog/hive.properties`` with the following contents
-to mount the ``hive`` connector as the ``hive`` catalog,
+Create ``etc/catalog/example.properties`` with the following contents
+to mount the ``hive`` connector as the ``example`` catalog,
 replacing ``example.net:9083`` with the correct host and port
 for your Hive metastore Thrift service:
 
@@ -643,7 +643,7 @@ that is stored using the ORC file format, partitioned by date and
 country, and bucketed by user into ``50`` buckets. Note that Hive
 requires the partition columns to be the last columns in the table::
 
-    CREATE TABLE hive.web.page_views (
+    CREATE TABLE example.web.page_views (
       view_time timestamp,
       user_id bigint,
       page_url varchar,
@@ -660,31 +660,31 @@ requires the partition columns to be the last columns in the table::
 Create a new Hive schema named ``web`` that stores tables in an
 S3 bucket named ``my-bucket``::
 
-    CREATE SCHEMA hive.web
+    CREATE SCHEMA example.web
     WITH (location = 's3://my-bucket/')
 
 Drop a schema::
 
-    DROP SCHEMA hive.web
+    DROP SCHEMA example.web
 
 Drop a partition from the ``page_views`` table::
 
-    DELETE FROM hive.web.page_views
+    DELETE FROM example.web.page_views
     WHERE ds = DATE '2016-08-09'
       AND country = 'US'
 
 Query the ``page_views`` table::
 
-    SELECT * FROM hive.web.page_views
+    SELECT * FROM example.web.page_views
 
 List the partitions of the ``page_views`` table::
 
-    SELECT * FROM hive.web."page_views$partitions"
+    SELECT * FROM example.web."page_views$partitions"
 
 Create an external Hive table named ``request_logs`` that points at
 existing data in S3::
 
-    CREATE TABLE hive.web.request_logs (
+    CREATE TABLE example.web.request_logs (
       request_time timestamp,
       url varchar,
       ip varchar,
@@ -697,12 +697,12 @@ existing data in S3::
 
 Collect statistics for the ``request_logs`` table::
 
-    ANALYZE hive.web.request_logs;
+    ANALYZE example.web.request_logs;
 
 Drop the external table ``request_logs``. This only drops the metadata
 for the table. The referenced data directory is not deleted::
 
-    DROP TABLE hive.web.request_logs
+    DROP TABLE example.web.request_logs
 
 * :doc:`/sql/create-table-as` can be used to create transactional tables in ORC format like this::
 
@@ -880,7 +880,7 @@ The table created in Trino using ``avro_schema_url`` behaves the same way as a H
 
 Example::
 
-   CREATE TABLE hive.avro.avro_data (
+   CREATE TABLE example.avro.avro_data (
       id bigint
     )
    WITH (
@@ -1109,7 +1109,7 @@ values. The properties table name is the same as the table name with
 
 You can inspect the property names and values with a simple query::
 
-    SELECT * FROM hive.web."page_views$properties";
+    SELECT * FROM example.web."page_views$properties";
 
 .. _hive_column_properties:
 
@@ -1200,13 +1200,13 @@ can be selected directly, or used in conditional statements. For example, you
 can inspect the file size, location and partition for each record::
 
     SELECT *, "$path", "$file_size", "$partition"
-    FROM hive.web.page_views;
+    FROM example.web.page_views;
 
 Retrieve all records that belong to files stored in the partition
 ``ds=2016-08-09/country=US``::
 
     SELECT *, "$path", "$file_size"
-    FROM hive.web.page_views
+    FROM example.web.page_views
     WHERE "$partition" = 'ds=2016-08-09/country=US'
 
 .. _hive-sql-view-management:
