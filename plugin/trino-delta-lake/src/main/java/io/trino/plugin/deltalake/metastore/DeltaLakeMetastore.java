@@ -53,7 +53,7 @@ public interface DeltaLakeMetastore
 
     ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot table);
 
-    String getTableLocation(SchemaTableName table, ConnectorSession session);
+    String getTableLocation(SchemaTableName table);
 
     TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session);
 
