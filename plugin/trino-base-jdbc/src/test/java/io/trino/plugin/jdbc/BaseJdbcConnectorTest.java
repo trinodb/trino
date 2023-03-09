@@ -274,19 +274,15 @@ public abstract class BaseJdbcConnectorTest
 
         // pruned away aggregation
         assertThat(query("SELECT -13 FROM (SELECT count(*) FROM nation)"))
-                .matches("VALUES -13")
                 .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
         // aggregation over aggregation
         assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation)"))
-                .matches("VALUES BIGINT '1'")
                 .hasPlan(node(OutputNode.class, node(ValuesNode.class)));
         assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation GROUP BY regionkey)"))
-                .matches("VALUES BIGINT '5'")
                 .isFullyPushedDown();
 
         // aggregation with UNION ALL and aggregation
         assertThat(query("SELECT count(*) FROM (SELECT name FROM nation UNION ALL SELECT name FROM region)"))
-                .matches("VALUES BIGINT '30'")
                 // TODO (https://github.com/trinodb/trino/issues/12547): support count(*) over UNION ALL pushdown
                 .isNotFullyPushedDown(
                         node(ExchangeNode.class,
@@ -295,7 +291,6 @@ public abstract class BaseJdbcConnectorTest
 
         // aggregation with UNION ALL and aggregation
         assertThat(query("SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)"))
-                .matches("VALUES BIGINT '2'")
                 .hasPlan(
                         // Note: engine could fold this to single ValuesNode
                         node(OutputNode.class,
@@ -333,37 +328,27 @@ public abstract class BaseJdbcConnectorTest
                     getSession(),
                     "SELECT max(a_string), min(a_string), max(a_char), min(a_char) FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality,
-                    aggregationOverTableScan)
-                    .skippingTypesCheck()
-                    .matches("VALUES ('b', 'A', 'b', 'A')");
+                    aggregationOverTableScan);
             // distinct over case-sensitive column prevents pushdown
             assertConditionallyPushedDown(
                     getSession(),
                     "SELECT distinct a_string FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality,
-                    groupingAggregationOverTableScan)
-                    .skippingTypesCheck()
-                    .matches("VALUES 'A', 'B', 'a', 'b'");
+                    groupingAggregationOverTableScan);
             assertConditionallyPushedDown(
                     getSession(),
                     "SELECT distinct a_char FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality,
-                    groupingAggregationOverTableScan)
-                    .skippingTypesCheck()
-                    .matches("VALUES 'A', 'B', 'a', 'b'");
+                    groupingAggregationOverTableScan);
             // case-sensitive grouping sets prevent pushdown
             assertConditionallyPushedDown(getSession(),
                     "SELECT a_string, count(*) FROM " + table.getName() + " GROUP BY a_string",
                     supportsPushdownWithVarcharInequality,
-                    groupingAggregationOverTableScan)
-                    .skippingTypesCheck()
-                    .matches("VALUES ('A', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1'), ('B', BIGINT '1')");
+                    groupingAggregationOverTableScan);
             assertConditionallyPushedDown(getSession(),
                     "SELECT a_char, count(*) FROM " + table.getName() + " GROUP BY a_char",
                     supportsPushdownWithVarcharInequality,
-                    groupingAggregationOverTableScan)
-                    .skippingTypesCheck()
-                    .matches("VALUES ('A', BIGINT '1'), ('B', BIGINT '1'), ('a', BIGINT '1'), ('b', BIGINT '1')");
+                    groupingAggregationOverTableScan);
 
             // case-insensitive functions can still be pushed down as long as grouping sets are not case-sensitive
             assertThat(query("SELECT count(a_string), count(a_char) FROM " + table.getName())).isFullyPushedDown();
@@ -373,29 +358,21 @@ public abstract class BaseJdbcConnectorTest
             assertConditionallyPushedDown(getSession(),
                     "SELECT count(DISTINCT a_string) FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality,
-                    groupingAggregationOverTableScan)
-                    .skippingTypesCheck()
-                    .matches("VALUES BIGINT '4'");
+                    groupingAggregationOverTableScan);
             assertConditionallyPushedDown(getSession(),
                     "SELECT count(DISTINCT a_char) FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality,
-                    groupingAggregationOverTableScan)
-                    .skippingTypesCheck()
-                    .matches("VALUES BIGINT '4'");
+                    groupingAggregationOverTableScan);
 
             assertConditionallyPushedDown(getSession(),
                     "SELECT count(DISTINCT a_string), count(DISTINCT a_bigint) FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '4')");
+                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))));
 
             assertConditionallyPushedDown(getSession(),
                     "SELECT count(DISTINCT a_char), count(DISTINCT a_bigint) FROM " + table.getName(),
                     supportsPushdownWithVarcharInequality && supportsCountDistinctPushdown,
-                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))))
-                    .skippingTypesCheck()
-                    .matches("VALUES (BIGINT '4', BIGINT '4')");
+                    node(ExchangeNode.class, node(AggregationNode.class, anyTree(node(TableScanNode.class)))));
         }
     }
 
@@ -555,25 +532,20 @@ public abstract class BaseJdbcConnectorTest
                 // If `SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY == false` both parts of aggregation will be executed on Trino side.
 
                 assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
-                        .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
                 assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
-                        .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
 
                 assertThat(query("SELECT count(DISTINCT t_char), count(DISTINCT t_varchar) FROM " + testTable.getName()))
-                        .matches("VALUES (BIGINT '7', BIGINT '7')")
                         .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
             }
             else {
                 // Single count(DISTINCT ...) can be pushed even down even if SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT == false as GROUP BY
                 assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
-                        .matches("VALUES BIGINT '7'")
                         .isFullyPushedDown();
 
                 // Single count(DISTINCT ...) can be pushed down even if SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT == false as GROUP BY
                 assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
-                        .matches("VALUES BIGINT '7'")
                         .isFullyPushedDown();
 
                 assertConditionallyPushedDown(
@@ -1021,13 +993,11 @@ public abstract class BaseJdbcConnectorTest
         assertThat(query("SELECT shippriority FROM orders WHERE shippriority % 4 = 0")).isFullyPushedDown();
 
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % nationkey = 2"))
-                .isFullyPushedDown()
-                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+                .isFullyPushedDown();
 
         // some databases calculate remainder instead of modulus when one of the values is negative
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % -nationkey = 2"))
-                .isFullyPushedDown()
-                .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
+                .isFullyPushedDown();
 
         assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
                 .hasMessageContaining("by zero");
