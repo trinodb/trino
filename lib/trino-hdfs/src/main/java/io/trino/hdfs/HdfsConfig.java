@@ -231,6 +231,7 @@ public class HdfsConfig
         return this;
     }
 
+    @Min(0)
     public int getFileSystemMaxCacheSize()
     {
         return fileSystemMaxCacheSize;

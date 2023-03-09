@@ -34,7 +34,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -58,7 +57,7 @@ public class TestFileSystemCache
             throws IOException
     {
         HdfsEnvironment environment = new HdfsEnvironment(
-                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of(new HdfsFileSystemCacheConfigurationProvider(new HdfsConfig()))),
                 new HdfsConfig(),
                 new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), SIMPLE_USER_NAME_PROVIDER));
         ConnectorIdentity userId = ConnectorIdentity.ofUser("user");
@@ -83,7 +82,7 @@ public class TestFileSystemCache
     public void testFileSystemCacheException() throws IOException
     {
         HdfsEnvironment environment = new HdfsEnvironment(
-                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of(new HdfsFileSystemCacheConfigurationProvider(new HdfsConfig()))),
                 new HdfsConfig(),
                 new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), SIMPLE_USER_NAME_PROVIDER));
 
@@ -96,6 +95,22 @@ public class TestFileSystemCache
         assertThatThrownBy(() -> getFileSystem(environment, ConnectorIdentity.ofUser("user" + maxCacheSize)))
                 .isInstanceOf(IOException.class)
                 .hasMessage("FileSystem max cache size has been reached: " + maxCacheSize);
+    }
+
+    @Test
+    public void testDisablingFileSystemCache()
+            throws IOException
+    {
+        HdfsConfig withCachingDisabled = new HdfsConfig().setFileSystemMaxCacheSize(0);
+        HdfsEnvironment environment = new HdfsEnvironment(
+                new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(withCachingDisabled), ImmutableSet.of(new HdfsFileSystemCacheConfigurationProvider(withCachingDisabled))),
+                withCachingDisabled,
+                new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), SIMPLE_USER_NAME_PROVIDER));
+
+        ConnectorIdentity userId = ConnectorIdentity.ofUser("user");
+        FileSystem fs1 = getFileSystem(environment, userId);
+        FileSystem fs2 = getFileSystem(environment, userId);
+        assertNotSame(fs1, fs2);
     }
 
     @Test
@@ -122,7 +137,7 @@ public class TestFileSystemCache
     private static FileSystem getFileSystem(HdfsEnvironment environment, ConnectorIdentity identity)
             throws IOException
     {
-        return environment.getFileSystem(identity, new Path("/"), newEmptyConfiguration());
+        return environment.getFileSystem(new HdfsContext(identity), new Path("file:///"));
     }
 
     @FunctionalInterface
