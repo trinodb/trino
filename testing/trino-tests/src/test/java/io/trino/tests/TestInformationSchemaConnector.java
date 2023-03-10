@@ -13,15 +13,21 @@
  */
 package io.trino.tests;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Plugin;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.CountingMockConnector;
 import io.trino.testing.CountingMockConnector.MetadataCallsCount;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
@@ -218,6 +224,30 @@ public class TestInformationSchemaConnector
                         .withListSchemasCount(1));
     }
 
+    @Test
+    public void testMetadataListingExceptionHandling()
+    {
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.schemata",
+                "Error listing schemas for catalog broken_catalog: Catalog is broken");
+
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.tables",
+                "Error listing tables for catalog broken_catalog: Catalog is broken");
+
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.views",
+                "Error listing views for catalog broken_catalog: Catalog is broken");
+
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.table_privileges",
+                "Error listing table privileges for catalog broken_catalog: Catalog is broken");
+
+        assertQueryFails(
+                "SELECT * FROM broken_catalog.information_schema.columns",
+                "Error listing table columns for catalog broken_catalog: Catalog is broken");
+    }
+
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
@@ -232,6 +262,9 @@ public class TestInformationSchemaConnector
 
             queryRunner.installPlugin(countingMockConnector.getPlugin());
             queryRunner.createCatalog("test_catalog", "mock", ImmutableMap.of());
+
+            queryRunner.installPlugin(new FailingMockConnectorPlugin());
+            queryRunner.createCatalog("broken_catalog", "failing_mock", ImmutableMap.of());
             return queryRunner;
         }
         catch (Exception e) {
@@ -248,5 +281,36 @@ public class TestInformationSchemaConnector
         });
 
         assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
+    }
+
+    private static final class FailingMockConnectorPlugin
+            implements Plugin
+    {
+        @Override
+        public Iterable<ConnectorFactory> getConnectorFactories()
+        {
+            return ImmutableList.of(
+                    MockConnectorFactory.builder()
+                            .withName("failing_mock")
+                            .withListSchemaNames(session -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withListTables((session, schema) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withGetViews((session, prefix) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withGetMaterializedViews((session, prefix) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withListTablePrivileges((session, prefix) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .withStreamTableColumns((session, prefix) -> {
+                                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Catalog is broken");
+                            })
+                            .build());
+        }
     }
 }

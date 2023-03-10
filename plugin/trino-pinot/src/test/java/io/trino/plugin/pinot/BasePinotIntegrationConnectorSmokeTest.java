@@ -1214,7 +1214,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         assertQueryFails("SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE, "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
         assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_LOWERCASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
         assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
-        assertQueryFails("SELECT * FROM information_schema.columns", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        assertQueryFails("SELECT * FROM information_schema.columns", "Error listing table columns for catalog pinot: Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
     }
 
     @Test
