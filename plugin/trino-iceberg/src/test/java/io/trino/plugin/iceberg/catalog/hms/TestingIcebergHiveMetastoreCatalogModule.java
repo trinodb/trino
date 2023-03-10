@@ -46,7 +46,7 @@ public class TestingIcebergHiveMetastoreCatalogModule
     @Override
     protected void setup(Binder binder)
     {
-        install(new DecoratedHiveMetastoreModule());
+        install(new DecoratedHiveMetastoreModule(false));
         binder.bind(ThriftMetastoreFactory.class).toInstance(this.thriftMetastoreFactory);
         binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(this.hiveMetastore));
         binder.bind(IcebergTableOperationsProvider.class).to(HiveMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
