@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -581,6 +582,66 @@ public abstract class AbstractPredicatePushdownTest
     private PlanMatchPattern anyIfDynamicFilteringEnabled(PlanMatchPattern source)
     {
         return enableDynamicFiltering ? any(source) : source;
+    }
+
+    @Test
+    public void testSimplifyNonInferrableInheritedPredicate()
+    {
+        assertPlan("SELECT * FROM (SELECT * FROM nation WHERE nationkey = regionkey AND regionkey = 5) a, nation b WHERE a.nationkey = b.nationkey AND a.nationkey + 11 > 15",
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria(ImmutableList.of())
+                                .left(
+                                        filter("((L_NATIONKEY = L_REGIONKEY) AND (L_REGIONKEY = BIGINT '5'))",
+                                                tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey", "L_REGIONKEY", "regionkey"))))
+                                .right(
+                                        anyTree(
+                                                filter("R_NATIONKEY = BIGINT '5'",
+                                                        tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey"))))))));
+    }
+
+    @Test
+    public void testDoesNotCreatePredicateFromInferredPredicate()
+    {
+        assertPlan("SELECT * FROM (SELECT *, nationkey + 1 as nationkey2 FROM nation) a JOIN nation b ON a.nationkey = b.nationkey",
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria("L_NATIONKEY", "R_NATIONKEY")
+                                .left(
+                                        filter("true", // DF filter
+                                                tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey"))))
+                                .right(
+                                        anyTree(
+                                                tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey")))))));
+
+        assertPlan("SELECT * FROM (SELECT * FROM nation WHERE nationkey = 5) a JOIN (SELECT * FROM nation WHERE nationkey = 5) b ON a.nationkey = b.nationkey",
+                output(
+                        join(INNER, builder -> builder
+                                .equiCriteria(ImmutableList.of())
+                                .left(
+                                        filter("L_NATIONKEY = BIGINT '5'",
+                                                tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey"))))
+                                .right(
+                                        anyTree(
+                                                filter("R_NATIONKEY = BIGINT '5'",
+                                                        tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey"))))))));
+    }
+
+    @Test
+    public void testSimplifiesStraddlingPredicate()
+    {
+        assertPlan("SELECT * FROM (SELECT * FROM NATION WHERE nationkey = 5) a JOIN nation b ON a.nationkey = b.nationkey AND a.nationkey = a.regionkey + b.regionkey",
+                output(
+                        filter("L_REGIONKEY + R_REGIONKEY = BIGINT '5'",
+                                join(INNER, builder -> builder
+                                        .equiCriteria(ImmutableList.of())
+                                        .left(
+                                                filter("L_NATIONKEY = BIGINT '5'",
+                                                        tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey", "L_REGIONKEY", "regionkey"))))
+                                        .right(
+                                                anyTree(
+                                                        filter("R_NATIONKEY = BIGINT '5'",
+                                                                tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey", "R_REGIONKEY", "regionkey")))))))));
     }
 
     protected Session noSemiJoinRewrite()
