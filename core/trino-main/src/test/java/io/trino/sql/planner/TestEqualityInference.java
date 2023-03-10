@@ -66,6 +66,29 @@ public class TestEqualityInference
     private final Metadata metadata = functionResolution.getMetadata();
 
     @Test
+    public void testDoesNotInferRedundantStraddlingPredicates()
+    {
+        EqualityInference inference = new EqualityInference(
+                metadata,
+                equals("a1", "b1"),
+                equals(add(nameReference("a1"), number(1)), number(0)),
+                equals(nameReference("a2"), add(nameReference("a1"), number(2))),
+                equals(nameReference("a1"), add("a3", "b3")),
+                equals(nameReference("b2"), add("a4", "b4")));
+        EqualityInference.EqualityPartition partition = inference.generateEqualitiesPartitionedBy(symbols("a1", "a2", "a3", "a4"));
+        assertThat(partition.getScopeEqualities()).containsExactly(
+                equals(number(0), add(nameReference("a1"), number(1))),
+                equals(nameReference("a2"), add(nameReference("a1"), number(2))));
+        assertThat(partition.getScopeComplementEqualities()).containsExactly(
+                equals(number(0), add(nameReference("b1"), number(1))));
+        // there shouldn't be equality a2 = b1 + 1 as it can be derived from a2 = a1 + 1, a1 = b1
+        assertThat(partition.getScopeStraddlingEqualities()).containsExactly(
+                equals("a1", "b1"),
+                equals(nameReference("a1"), add("a3", "b3")),
+                equals(nameReference("b2"), add("a4", "b4")));
+    }
+
+    @Test
     public void testTransitivity()
     {
         EqualityInference inference = new EqualityInference(
