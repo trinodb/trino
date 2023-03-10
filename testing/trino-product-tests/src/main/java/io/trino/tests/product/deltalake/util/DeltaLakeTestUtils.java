@@ -14,6 +14,10 @@
 package io.trino.tests.product.deltalake.util;
 
 import com.amazonaws.services.glue.model.ConcurrentModificationException;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.base.Throwables;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
@@ -23,8 +27,10 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.intellij.lang.annotations.Language;
 
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -87,5 +93,18 @@ public final class DeltaLakeTestUtils
     {
         return Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
                 .get(() -> onDelta().executeQuery("DROP TABLE IF EXISTS " + tableName));
+    }
+
+    public static void removeS3Directory(AmazonS3 s3, String bucketName, String directoryPrefix)
+    {
+        ObjectListing listing = s3.listObjects(bucketName, directoryPrefix);
+        do {
+            List<String> objectKeys = listing.getObjectSummaries().stream().map(S3ObjectSummary::getKey).collect(toImmutableList());
+            DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys.toArray(new String[0]));
+            log.info("Deleting keys: %s", objectKeys);
+            s3.deleteObjects(deleteObjectsRequest);
+            listing = s3.listNextBatchOfObjects(listing);
+        }
+        while (listing.isTruncated());
     }
 }
