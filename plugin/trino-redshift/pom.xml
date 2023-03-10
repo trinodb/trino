@@ -174,6 +174,30 @@
 
     <profiles>
         <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/TestRedshiftAutomaticJoinPushdown.java</exclude>
+                                <exclude>**/TestRedshiftConnectorTest.java</exclude>
+                                <exclude>**/TestRedshiftConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestRedshiftTableStatisticsReader.java</exclude>
+                                <exclude>**/TestRedshiftTypeMapping.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
             <id>cloud-tests</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
