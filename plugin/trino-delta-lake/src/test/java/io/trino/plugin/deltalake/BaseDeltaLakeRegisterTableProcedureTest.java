@@ -29,10 +29,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteDirectoryContents;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -343,18 +340,6 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
 
         assertUpdate("DROP TABLE " + tableName);
-    }
-
-    protected String getTableLocation(String tableName)
-    {
-        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
-        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
-        if (m.find()) {
-            String location = m.group(1);
-            verify(!m.find(), "Unexpected second match");
-            return location;
-        }
-        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     private String getTableComment(String tableName)

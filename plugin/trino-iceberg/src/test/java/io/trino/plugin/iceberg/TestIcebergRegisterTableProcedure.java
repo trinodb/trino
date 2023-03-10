@@ -31,11 +31,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -418,18 +415,6 @@ public class TestIcebergRegisterTableProcedure
             assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + invalidMetadataFileName + "')",
                     ".*is not a valid metadata file.*");
         }
-    }
-
-    private String getTableLocation(String tableName)
-    {
-        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
-        Matcher matcher = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
-        if (matcher.find()) {
-            String location = matcher.group(1);
-            verify(!matcher.find(), "Unexpected second match");
-            return location;
-        }
-        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     private void dropTableFromMetastore(String tableName)

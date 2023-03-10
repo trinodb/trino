@@ -49,10 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -1959,18 +1956,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.toString(dynamicFilteringEnabled))
                 .build();
-    }
-
-    private String getTableLocation(String tableName)
-    {
-        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
-        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
-        if (m.find()) {
-            String location = m.group(1);
-            verify(!m.find(), "Unexpected second match");
-            return location;
-        }
-        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     private static Session disableStatisticsCollectionOnWrite(Session session)

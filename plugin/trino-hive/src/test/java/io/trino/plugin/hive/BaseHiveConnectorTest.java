@@ -8709,11 +8709,6 @@ public abstract class BaseHiveConnectorTest
                 .build();
     }
 
-    private String getTableLocation(String tableName)
-    {
-        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
-    }
-
     private static final class BucketedFilterTestSetup
     {
         private final String typeName;

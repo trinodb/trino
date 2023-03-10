@@ -5245,18 +5245,6 @@ public abstract class BaseIcebergConnectorTest
                 .collect(toImmutableList());
     }
 
-    private String getTableLocation(String tableName)
-    {
-        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
-        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
-        if (m.find()) {
-            String location = m.group(1);
-            verify(!m.find(), "Unexpected second match");
-            return location;
-        }
-        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
-    }
-
     private List<String> getAllDataFilesFromTableDirectory(String tableName)
             throws IOException
     {

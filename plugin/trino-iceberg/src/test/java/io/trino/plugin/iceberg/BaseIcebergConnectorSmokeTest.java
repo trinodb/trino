@@ -486,11 +486,6 @@ public abstract class BaseIcebergConnectorSmokeTest
 
     protected abstract boolean isFileSorted(String path, String sortColumnName);
 
-    private String getTableLocation(String tableName)
-    {
-        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName);
-    }
-
     protected String getTableComment(String tableName)
     {
         return (String) computeScalar("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'iceberg' AND schema_name = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "'");

@@ -67,10 +67,13 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -696,6 +699,18 @@ public abstract class AbstractTestQueryFramework
                 session.getCatalog().orElseThrow(),
                 session.getSchema().orElseThrow(),
                 tableName);
+    }
+
+    protected String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeScalar("SHOW CREATE TABLE " + tableName));
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
     private TableMetadata getTableMetadata(TableHandle tableHandle)
