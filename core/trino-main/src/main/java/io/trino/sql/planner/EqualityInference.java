@@ -130,7 +130,7 @@ public class EqualityInference
                         if (scopeRewritten != null) {
                             scopeExpressions.add(scopeRewritten);
                         }
-                        Expression scopeComplementRewritten = rewrite(candidate, expression -> !scope.contains(expression), false);
+                        Expression scopeComplementRewritten = rewrite(candidate, symbol -> !scope.contains(symbol), false);
                         if (scopeComplementRewritten != null) {
                             scopeComplementExpressions.add(scopeComplementRewritten);
                         }
