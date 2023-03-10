@@ -438,7 +438,7 @@ public class SqlServerClient
         if (tableHandle.isSynthetic()) {
             return ImmutableMap.of();
         }
-        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * from %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
+        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
 
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
