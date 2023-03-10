@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import io.trino.Session;
 import io.trino.security.AccessControl;
+import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -35,6 +36,7 @@ import java.util.SortedSet;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 
 public final class MetadataListing
@@ -83,6 +85,16 @@ public final class MetadataListing
 
     public static SortedSet<String> listSchemas(Session session, Metadata metadata, AccessControl accessControl, String catalogName, Optional<String> schemaName)
     {
+        try {
+            return doListSchemas(session, metadata, accessControl, catalogName, schemaName);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "schemas", catalogName);
+        }
+    }
+
+    private static SortedSet<String> doListSchemas(Session session, Metadata metadata, AccessControl accessControl, String catalogName, Optional<String> schemaName)
+    {
         Set<String> schemaNames = ImmutableSet.copyOf(metadata.listSchemaNames(session, catalogName));
         if (schemaName.isPresent()) {
             // we don't use metadata.schemaExists(), because this would change semantics of the method (all vs visible schemas)
@@ -96,6 +108,16 @@ public final class MetadataListing
 
     public static Set<SchemaTableName> listTables(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
+        try {
+            return doListTables(session, metadata, accessControl, prefix);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "tables", prefix.getCatalogName());
+        }
+    }
+
+    private static Set<SchemaTableName> doListTables(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
         Set<SchemaTableName> tableNames = metadata.listTables(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
@@ -108,6 +130,16 @@ public final class MetadataListing
 
     public static Set<SchemaTableName> listViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
+        try {
+            return doListViews(session, metadata, accessControl, prefix);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "views", prefix.getCatalogName());
+        }
+    }
+
+    private static Set<SchemaTableName> doListViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
         Set<SchemaTableName> tableNames = metadata.listViews(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
@@ -115,6 +147,16 @@ public final class MetadataListing
     }
 
     public static Map<SchemaTableName, ViewInfo> getViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        try {
+            return doGetViews(session, metadata, accessControl, prefix);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "views", prefix.getCatalogName());
+        }
+    }
+
+    private static Map<SchemaTableName, ViewInfo> doGetViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         Map<SchemaTableName, ViewInfo> views = metadata.getViews(session, prefix).entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().asSchemaTableName(), Entry::getValue));
@@ -128,6 +170,16 @@ public final class MetadataListing
 
     public static Set<SchemaTableName> listMaterializedViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
+        try {
+            return doListMaterializedViews(session, metadata, accessControl, prefix);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "materialized views", prefix.getCatalogName());
+        }
+    }
+
+    private static Set<SchemaTableName> doListMaterializedViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
         Set<SchemaTableName> tableNames = metadata.listMaterializedViews(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
@@ -135,6 +187,16 @@ public final class MetadataListing
     }
 
     public static Map<SchemaTableName, ViewInfo> getMaterializedViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        try {
+            return doGetMaterializedViews(session, metadata, accessControl, prefix);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "materialized views", prefix.getCatalogName());
+        }
+    }
+
+    private static Map<SchemaTableName, ViewInfo> doGetMaterializedViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         Map<SchemaTableName, ViewInfo> materializedViews = metadata.getMaterializedViews(session, prefix).entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().asSchemaTableName(), Entry::getValue));
@@ -148,6 +210,16 @@ public final class MetadataListing
 
     public static Set<GrantInfo> listTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
+        try {
+            return doListTablePrivileges(session, metadata, accessControl, prefix);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "table privileges", prefix.getCatalogName());
+        }
+    }
+
+    private static Set<GrantInfo> doListTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
         List<GrantInfo> grants = metadata.listTablePrivileges(session, prefix);
         Set<SchemaTableName> allowedTables = accessControl.filterTables(
                 session.toSecurityContext(),
@@ -160,6 +232,16 @@ public final class MetadataListing
     }
 
     public static Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    {
+        try {
+            return doListTableColumns(session, metadata, accessControl, prefix);
+        }
+        catch (RuntimeException exception) {
+            throw handleListingException(exception, "table columns", prefix.getCatalogName());
+        }
+    }
+
+    private static Map<SchemaTableName, List<ColumnMetadata>> doListTableColumns(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         List<TableColumnsMetadata> catalogColumns = metadata.listTableColumns(session, prefix);
 
@@ -232,5 +314,17 @@ public final class MetadataListing
         });
 
         return result.buildOrThrow();
+    }
+
+    private static TrinoException handleListingException(RuntimeException exception, String type, String catalogName)
+    {
+        ErrorCodeSupplier result = GENERIC_INTERNAL_ERROR;
+        if (exception instanceof TrinoException trinoException) {
+            result = trinoException::getErrorCode;
+        }
+        return new TrinoException(
+                result,
+                "Error listing %s for catalog %s: %s".formatted(type, catalogName, exception.getMessage()),
+                exception);
     }
 }
