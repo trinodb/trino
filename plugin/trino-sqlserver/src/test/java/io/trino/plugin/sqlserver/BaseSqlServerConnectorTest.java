@@ -161,14 +161,6 @@ public abstract class BaseSqlServerConnectorTest
         }
         catch (Exception expected) {
             // The test failure is not guaranteed
-            // TODO (https://github.com/trinodb/trino/issues/10846): shouldn't fail
-            if (expected.getMessage().contains("case sensitivity")) {
-                // this could fail on step before - during read case sensitivity information
-                assertThat(expected)
-                        // before get columns from database metadata, for SqlServer we first try to get case sensitivity
-                        .hasMessageMatching(".*Failed to get case sensitivity for columns. Invalid object name.*");
-                throw new SkipException("to be fixed");
-            }
             assertThat(expected)
                     .hasMessageMatching("(?s).*(" +
                             "No task completed before timeout|" +
