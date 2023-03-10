@@ -601,6 +601,20 @@ existing Delta Lake table from the metastores without deleting the data::
 
     CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
 
+.. _delta-lake-flush-metadata-cache:
+
+Flush metadata cache
+^^^^^^^^^^^^^^^^^^^^
+
+* ``system.flush_metadata_cache()``
+
+  Flush all metadata caches.
+
+* ``system.flush_metadata_cache(schema_name => ..., table_name => ...)``
+
+  Flush metadata caches entries connected with selected table.
+  Procedure requires named parameters to be passed
+
 .. _delta-lake-write-support:
 
 Updating data

@@ -761,6 +761,43 @@ public class TestTransactionLogAccess
     }
 
     @Test
+    public void testFlushSnapshotAndActiveFileCache()
+            throws Exception
+    {
+        String tableName = "person";
+        String tableDir = getClass().getClassLoader().getResource("databricks/" + tableName).toURI().toString();
+        DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
+        shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(10, TimeUnit.MINUTES));
+        setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
+
+        List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+        assertEquals(addFileEntries.size(), 12);
+        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+                ImmutableMap.of(
+                        "_last_checkpoint", 1,
+                        "00000000000000000011.json", 1,
+                        "00000000000000000012.json", 1,
+                        "00000000000000000013.json", 1,
+                        "00000000000000000014.json", 1,
+                        "00000000000000000010.checkpoint.parquet", 2));
+
+        // Flush all cache and then load snapshot and get active files
+        transactionLogAccess.flushCache();
+        transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir, SESSION);
+        addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+
+        assertEquals(addFileEntries.size(), 12);
+        assertThat(accessTrackingFileSystemFactory.getOpenCount()).containsExactlyInAnyOrderEntriesOf(
+                ImmutableMap.of(
+                        "_last_checkpoint", 2,
+                        "00000000000000000011.json", 2,
+                        "00000000000000000012.json", 2,
+                        "00000000000000000013.json", 2,
+                        "00000000000000000014.json", 2,
+                        "00000000000000000010.checkpoint.parquet", 4));
+    }
+
+    @Test
     public void testTableSnapshotsActiveDataFilesCacheDisabled()
             throws Exception
     {

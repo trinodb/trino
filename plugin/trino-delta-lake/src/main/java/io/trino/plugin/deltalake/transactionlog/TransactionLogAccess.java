@@ -175,6 +175,12 @@ public class TransactionLogAccess
         return snapshot;
     }
 
+    public void flushCache()
+    {
+        tableSnapshots.invalidateAll();
+        activeDataFileCache.invalidateAll();
+    }
+
     public void invalidateCaches(String tableLocation)
     {
         tableSnapshots.invalidate(tableLocation);
