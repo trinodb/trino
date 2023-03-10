@@ -32,6 +32,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static io.trino.spi.connector.Preconditions.checkArgument;
+import static io.trino.spi.connector.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -41,7 +43,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryRecordSet
@@ -270,20 +271,6 @@ public class InMemoryRecordSet
         public InMemoryRecordSet build()
         {
             return new InMemoryRecordSet(types, records);
-        }
-    }
-
-    private static void checkArgument(boolean test, String message, Object... args)
-    {
-        if (!test) {
-            throw new IllegalArgumentException(format(message, args));
-        }
-    }
-
-    private static void checkState(boolean test, String message)
-    {
-        if (!test) {
-            throw new IllegalStateException(message);
         }
     }
 
