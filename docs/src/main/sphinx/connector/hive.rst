@@ -333,23 +333,23 @@ the Hive connector.
       - Description
       - Default
     * - ``csv.native-reader.enabled``
-      - Enable native reader of CSV file format. The equivalent catalog
+      - Enable native reader of CSV files. The equivalent catalog
         session property is ``csv_native_reader_enabled``.
       - ``true``
     * - ``csv.native-writer.enabled``
-      - Enable native writer of CSV file format. The equivalent catalog
+      - Enable native writer of CSV files. The equivalent catalog
         session property is ``csv_native_writer_enabled``.
       - ``true``
     * - ``json.native-reader.enabled``
-      - Enable native reader of JSON file format. The equivalent catalog
+      - Enable native reader of JSON files. The equivalent catalog
         session property is ``json_native_reader_enabled``.
       - ``true``
     * - ``json.native-writer.enabled``
-      - Enable native writer of JSON file format. The equivalent catalog
+      - Enable native writer of JSON files. The equivalent catalog
         session property is ``json_native_writer_enabled``.
       - ``true``
     * - ``sequence-file.native-reader.enabled``
-      - Enable native reader of SequenceFile format. The equivalent catalog
+      - Enable native reader of SequenceFiles. The equivalent catalog
         session property is ``sequence_file_native_reader_enabled``.
       - ``true``
     * - ``sequence-file.native-writer.enabled``
@@ -357,18 +357,18 @@ the Hive connector.
         session property is ``sequence_file_native_writer_enabled``.
       - ``true``
     * - ``text-file.native-reader.enabled``
-      - Enable native reader of TextFile format. The equivalent catalog
+      - Enable native reader of text files. The equivalent catalog
         session property is ``text_file_native_reader_enabled``.
       - ``true``
     * - ``text-file.native-writer.enabled``
-      - Enable native writer of TextFile format. The equivalent catalog
+      - Enable native writer of text files. The equivalent catalog
         session property is ``text_file_native_writer_enabled``.
       - ``true``
     * - ``regex.native-reader.enabled``
-      - Enable native reader of regex file format.
+      - Enable native reader of regex files.
       - ``true``
     * - ``regex.native-writer.enabled``
-      - Enable native writer of regex file format.
+      - Enable native writer of regex files.
       - ``true``
 
 Metastores
