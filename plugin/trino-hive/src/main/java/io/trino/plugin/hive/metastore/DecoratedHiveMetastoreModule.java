@@ -42,6 +42,13 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class DecoratedHiveMetastoreModule
         extends AbstractConfigurationAwareModule
 {
+    private final boolean installFlushMetadataCacheProcedure;
+
+    public DecoratedHiveMetastoreModule(boolean installFlushMetadataCacheProcedure)
+    {
+        this.installFlushMetadataCacheProcedure = installFlushMetadataCacheProcedure;
+    }
+
     @Override
     protected void setup(Binder binder)
     {
@@ -56,7 +63,9 @@ public class DecoratedHiveMetastoreModule
         newExporter(binder).export(HiveMetastoreFactory.class)
                 .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
 
-        newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushHiveMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
+        if (installFlushMetadataCacheProcedure) {
+            newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushHiveMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
+        }
     }
 
     @Provides
