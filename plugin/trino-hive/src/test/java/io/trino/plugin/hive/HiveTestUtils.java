@@ -49,7 +49,6 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
-import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
@@ -160,11 +159,6 @@ public final class HiveTestUtils
     }
 
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
-    {
-        return getHiveSessionProperties(hiveConfig, new RubixEnabledConfig(), orcReaderConfig);
-    }
-
-    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, RubixEnabledConfig rubixEnabledConfig, OrcReaderConfig orcReaderConfig)
     {
         return new HiveSessionProperties(
                 hiveConfig,
