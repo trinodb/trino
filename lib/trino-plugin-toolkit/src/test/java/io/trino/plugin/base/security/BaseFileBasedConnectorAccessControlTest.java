@@ -419,7 +419,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanSelectFromColumns(userGroup2, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
                 accessControl.getColumnMask(userGroup2, myTable, "col_a", VARCHAR).orElseThrow(),
-                new ViewExpression(userGroup2.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
+                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
         assertEquals(
                 accessControl.getRowFilters(userGroup2, myTable),
                 ImmutableList.of());
@@ -443,18 +443,18 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanSelectFromColumns(userGroup3, myTable, ImmutableSet.of());
         assertViewExpressionEquals(
                 accessControl.getColumnMask(userGroup3, myTable, "col_a", VARCHAR).orElseThrow(),
-                new ViewExpression(userGroup3.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
+                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "'mask_a'"));
 
         List<ViewExpression> rowFilters = accessControl.getRowFilters(userGroup3, myTable);
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(userGroup3.getIdentity().getUser(), Optional.of("test_catalog"), Optional.of("my_schema"), "country='US'"));
+                new ViewExpression(Optional.empty(), Optional.of("test_catalog"), Optional.of("my_schema"), "country='US'"));
     }
 
     private static void assertViewExpressionEquals(ViewExpression actual, ViewExpression expected)
     {
-        assertEquals(actual.getIdentity(), expected.getIdentity(), "Identity");
+        assertEquals(actual.getSecurityIdentity(), expected.getSecurityIdentity(), "Identity");
         assertEquals(actual.getCatalog(), expected.getCatalog(), "Catalog");
         assertEquals(actual.getSchema(), expected.getSchema(), "Schema");
         assertEquals(actual.getExpression(), expected.getExpression(), "Expression");
