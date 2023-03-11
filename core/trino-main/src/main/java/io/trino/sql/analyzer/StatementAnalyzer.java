@@ -2279,7 +2279,7 @@ class StatementAnalyzer
         private void analyzeCheckConstraints(Table table, QualifiedObjectName name, Scope accessControlScope, List<String> constraints)
         {
             for (String constraint : constraints) {
-                ViewExpression expression = new ViewExpression(session.getIdentity().getUser(), Optional.of(name.getCatalogName()), Optional.of(name.getSchemaName()), constraint);
+                ViewExpression expression = new ViewExpression(Optional.empty(), Optional.of(name.getCatalogName()), Optional.of(name.getSchemaName()), constraint);
                 analyzeCheckConstraint(table, name, accessControlScope, expression);
             }
         }
@@ -4663,9 +4663,11 @@ class StatementAnalyzer
 
             ExpressionAnalysis expressionAnalysis;
             try {
-                Identity filterIdentity = Identity.forUser(filter.getIdentity())
-                        .withGroups(groupProvider.getGroups(filter.getIdentity()))
-                        .build();
+                Identity filterIdentity = filter.getSecurityIdentity()
+                        .map(filterUser -> Identity.forUser(filterUser)
+                                .withGroups(groupProvider.getGroups(filterUser))
+                                .build())
+                        .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(filter.getCatalog(), filter.getSchema(), filterIdentity, session.getPath()), // TODO: path should be included in row filter
                         plannerContext,
@@ -4714,11 +4716,13 @@ class StatementAnalyzer
 
             ExpressionAnalysis expressionAnalysis;
             try {
-                Identity filterIdentity = Identity.forUser(constraint.getIdentity())
-                        .withGroups(groupProvider.getGroups(constraint.getIdentity()))
-                        .build();
+                Identity constraintIdentity = constraint.getSecurityIdentity()
+                        .map(user -> Identity.forUser(user)
+                            .withGroups(groupProvider.getGroups(user))
+                            .build())
+                        .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(constraint.getCatalog(), constraint.getSchema(), filterIdentity, session.getPath()),
+                        createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, session.getPath()),
                         plannerContext,
                         statementAnalyzerFactory,
                         accessControl,
@@ -4777,9 +4781,11 @@ class StatementAnalyzer
             verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Column mask for '%s.%s'", table.getName(), column));
 
             try {
-                Identity maskIdentity = Identity.forUser(mask.getIdentity())
-                        .withGroups(groupProvider.getGroups(mask.getIdentity()))
-                        .build();
+                Identity maskIdentity = mask.getSecurityIdentity()
+                        .map(maskUser -> Identity.forUser(maskUser)
+                                .withGroups(groupProvider.getGroups(maskUser))
+                                .build())
+                        .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(mask.getCatalog(), mask.getSchema(), maskIdentity, session.getPath()), // TODO: path should be included in row filter
                         plannerContext,
