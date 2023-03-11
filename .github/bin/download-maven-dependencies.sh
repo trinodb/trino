@@ -6,7 +6,7 @@ RETRY=".github/bin/retry"
 MAVEN_ONLINE="${MAVEN//--offline/}"
 
 # Run download tools without any profiles to use active-by-default profiles
-$RETRY $MAVEN_ONLINE -B dependency:go-offline
+$RETRY $MAVEN_ONLINE -B dependency:go-offline -Dsilent
 $RETRY $MAVEN_ONLINE -B de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
 
 # Downloading dependencies is used to populate the maven cache shared between PRs, so PR-specific GIB state needs to be ignored
