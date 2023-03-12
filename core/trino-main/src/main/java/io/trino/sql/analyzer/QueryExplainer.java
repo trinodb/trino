@@ -30,10 +30,12 @@ import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.planprinter.PlanPrinter;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.ExplainType.Type;
 import io.trino.sql.tree.Expression;
@@ -193,6 +195,12 @@ public class QueryExplainer
             return Optional.empty();
         }
 
+        if (statement instanceof CreateCatalog) {
+            return Optional.of("CREATE CATALOG " + ((CreateCatalog) statement).getCatalogName());
+        }
+        if (statement instanceof DropCatalog) {
+            return Optional.of("DROP CATALOG " + ((DropCatalog) statement).getCatalogName());
+        }
         if (statement instanceof CreateSchema) {
             return Optional.of("CREATE SCHEMA " + ((CreateSchema) statement).getSchemaName());
         }

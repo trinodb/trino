@@ -135,6 +135,7 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -889,6 +890,30 @@ public class PlanBuilder
                     Optional.of(hashSymbol)));
         }
 
+        public ExchangeBuilder fixedHashDistributionPartitioningScheme(List<Symbol> outputSymbols, List<Symbol> partitioningSymbols, int partitionCount)
+        {
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(
+                    FIXED_HASH_DISTRIBUTION,
+                    ImmutableList.copyOf(partitioningSymbols)),
+                    ImmutableList.copyOf(outputSymbols),
+                    Optional.empty(),
+                    false,
+                    Optional.empty(),
+                    Optional.of(partitionCount)));
+        }
+
+        public ExchangeBuilder fixedArbitraryDistributionPartitioningScheme(List<Symbol> outputSymbols, int partitionCount)
+        {
+            return partitioningScheme(new PartitioningScheme(Partitioning.create(
+                    FIXED_ARBITRARY_DISTRIBUTION,
+                    ImmutableList.of()),
+                    ImmutableList.copyOf(outputSymbols),
+                    Optional.empty(),
+                    false,
+                    Optional.empty(),
+                    Optional.of(partitionCount)));
+        }
+
         public ExchangeBuilder partitioningScheme(PartitioningScheme partitioningScheme)
         {
             this.partitioningScheme = partitioningScheme;
@@ -1190,6 +1215,7 @@ public class PlanBuilder
         return new TableFunctionNode(
                 idAllocator.getNextId(),
                 name,
+                TEST_CATALOG_HANDLE,
                 ImmutableMap.of(),
                 properOutputs,
                 sources,

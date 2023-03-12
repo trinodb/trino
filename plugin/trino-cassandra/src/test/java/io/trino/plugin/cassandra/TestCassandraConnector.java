@@ -458,8 +458,8 @@ public class TestCassandraConnector
 
     private CassandraTableHandle getTableHandle(Optional<List<CassandraPartition>> partitions, String clusteringKeyPredicates)
     {
-        CassandraTableHandle handle = (CassandraTableHandle) getTableHandle(tableForDelete);
-        return new CassandraTableHandle(handle.getSchemaName(), handle.getTableName(), partitions, clusteringKeyPredicates);
+        CassandraNamedRelationHandle handle = ((CassandraTableHandle) getTableHandle(tableForDelete)).getRequiredNamedRelation();
+        return new CassandraTableHandle(new CassandraNamedRelationHandle(handle.getSchemaName(), handle.getTableName(), partitions, clusteringKeyPredicates));
     }
 
     private CassandraPartition createPartition(long value1, long value2)

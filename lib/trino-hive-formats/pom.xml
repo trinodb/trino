@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>407-SNAPSHOT</version>
+        <version>411-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -21,11 +21,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -55,8 +50,19 @@
         </dependency>
 
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
         </dependency>
 
@@ -66,18 +72,25 @@
         </dependency>
 
         <dependency>
+             <groupId>commons-codec</groupId>
+             <artifactId>commons-codec</artifactId>
+         </dependency>
+
+        <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-api</artifactId>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
         </dependency>
 
+        <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>org.openjdk.jol</groupId>
-            <artifactId>jol-core</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hadoop-toolkit</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- for hadoop compression -->
@@ -115,6 +128,12 @@
         <dependency>
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 

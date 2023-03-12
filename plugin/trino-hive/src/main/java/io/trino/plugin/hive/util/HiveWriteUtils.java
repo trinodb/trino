@@ -32,6 +32,12 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.parquet.ParquetRecordWriter;
 import io.trino.plugin.hive.rubix.CachingTrinoS3FileSystem;
 import io.trino.plugin.hive.s3.TrinoS3FileSystem;
+import io.trino.plugin.hive.type.ListTypeInfo;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.PrimitiveCategory;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.StructTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -57,7 +63,6 @@ import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
-import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -66,13 +71,7 @@ import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
@@ -91,7 +90,7 @@ import java.util.Properties;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
-import static io.trino.filesystem.FileSystemUtils.getRawFileSystem;
+import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -104,14 +103,13 @@ import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.trino.plugin.hive.s3.HiveS3Module.EMR_FS_CLASS_NAME;
+import static io.trino.plugin.hive.type.VarcharTypeInfo.MAX_VARCHAR_LENGTH;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
-import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
-import static io.trino.plugin.hive.util.HiveUtil.isMapType;
-import static io.trino.plugin.hive.util.HiveUtil.isRowType;
+import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -257,15 +255,15 @@ public final class HiveWriteUtils
         if (type instanceof DecimalType decimalType) {
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
-        if (isArrayType(type)) {
-            return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
+        if (type instanceof ArrayType arrayType) {
+            return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(arrayType.getElementType()));
         }
-        if (isMapType(type)) {
-            ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
-            ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
+        if (type instanceof MapType mapType) {
+            ObjectInspector keyObjectInspector = getJavaObjectInspector(mapType.getKeyType());
+            ObjectInspector valueObjectInspector = getJavaObjectInspector(mapType.getValueType());
             return ObjectInspectorFactory.getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
-        if (isRowType(type)) {
+        if (type instanceof RowType) {
             return ObjectInspectorFactory.getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
                             .map(parameter -> parameter.getNamedTypeSignature().getName().get())
@@ -707,7 +705,7 @@ public final class HiveWriteUtils
                 // Values for such columns must be stored as STRING in Hive
                 return writableStringObjectInspector;
             }
-            if (varcharType.getBoundedLength() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
+            if (varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
                 // VARCHAR columns with the length less than or equal to 65535 are supported natively by Hive
                 return getPrimitiveWritableObjectInspector(getVarcharTypeInfo(varcharType.getBoundedLength()));
             }
@@ -734,7 +732,7 @@ public final class HiveWriteUtils
             return getPrimitiveWritableObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
 
-        if (isArrayType(type) || isMapType(type) || isRowType(type)) {
+        if (isStructuralType(type)) {
             return getJavaObjectInspector(type);
         }
 

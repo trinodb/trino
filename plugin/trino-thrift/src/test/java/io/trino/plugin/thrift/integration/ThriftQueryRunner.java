@@ -145,7 +145,7 @@ public final class ThriftQueryRunner
                 .put("trino.thrift.client.connect-timeout", "30s")
                 .put("trino-thrift.lookup-requests-concurrency", "2")
                 .buildOrThrow();
-        queryRunner.createCatalog("thrift", "trino-thrift", connectorProperties);
+        queryRunner.createCatalog("thrift", "trino_thrift", connectorProperties);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

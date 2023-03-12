@@ -13,27 +13,48 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestUnknownOperators
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void setUp()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        registerScalar(getClass());
+        assertions = new QueryAssertions();
+        assertions.addFunctions(InternalFunctionBundle.builder()
+                .scalars(TestUnknownOperators.class)
+                .build());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @ScalarFunction(value = "null_function", deterministic = false)
@@ -47,88 +68,127 @@ public class TestUnknownOperators
     @Test
     public void testLiteral()
     {
-        assertFunction("NULL", UNKNOWN, null);
+        assertThat(assertions.expression("NULL"))
+                .hasType(UNKNOWN);
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("NULL = NULL", BOOLEAN, null);
+        assertThat(assertions.operator(EQUAL, "NULL", "NULL"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("NULL <> NULL", BOOLEAN, null);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "NULL")
+                .binding("b", "NULL"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("NULL < NULL", BOOLEAN, null);
+        assertThat(assertions.operator(LESS_THAN, "NULL", "NULL"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("NULL <= NULL", BOOLEAN, null);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "NULL", "NULL"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("NULL > NULL", BOOLEAN, null);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "NULL")
+                .binding("b", "NULL"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("NULL >= NULL", BOOLEAN, null);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "NULL")
+                .binding("b", "NULL"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("NULL BETWEEN NULL AND NULL", BOOLEAN, null);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "NULL")
+                .binding("low", "NULL")
+                .binding("high", "NULL"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testCastToBigint()
     {
-        assertFunction("cast(NULL as bigint)", BIGINT, null);
-        assertFunction("cast(null_function() as bigint)", BIGINT, null);
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "NULL"))
+                .isNull(BIGINT);
+
+        assertThat(assertions.expression("cast(a as bigint)")
+                .binding("a", "null_function()"))
+                .isNull(BIGINT);
     }
 
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(NULL as varchar)", VARCHAR, null);
-        assertFunction("cast(null_function() as varchar)", VARCHAR, null);
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "NULL"))
+                .isNull(VARCHAR);
+
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "null_function()"))
+                .isNull(VARCHAR);
     }
 
     @Test
     public void testCastToDouble()
     {
-        assertFunction("cast(NULL as double)", DOUBLE, null);
-        assertFunction("cast(null_function() as double)", DOUBLE, null);
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "NULL"))
+                .isNull(DOUBLE);
+
+        assertThat(assertions.expression("cast(a as double)")
+                .binding("a", "null_function()"))
+                .isNull(DOUBLE);
     }
 
     @Test
     public void testCastToBoolean()
     {
-        assertFunction("cast(NULL as boolean)", BOOLEAN, null);
-        assertFunction("cast(null_function() as boolean)", BOOLEAN, null);
+        assertThat(assertions.expression("cast(a as boolean)")
+                .binding("a", "NULL"))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("cast(a as boolean)")
+                .binding("a", "null_function()"))
+                .isNull(BOOLEAN);
     }
 
     @Test
     public void testIsDistinctFrom()
     {
-        assertFunction("NULL IS DISTINCT FROM NULL", BOOLEAN, false);
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "NULL"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "null", BOOLEAN, true);
+        assertThat(assertions.operator(INDETERMINATE, "null"))
+                .isEqualTo(true);
     }
 }

@@ -215,13 +215,13 @@ public class VacuumProcedure
         FileIterator listing = fileSystem.listFiles(tableLocation.toString());
         while (listing.hasNext()) {
             FileEntry entry = listing.next();
-            String path = entry.path();
+            String location = entry.location();
             checkState(
-                    path.startsWith(commonPathPrefix),
+                    location.startsWith(commonPathPrefix),
                     "Unexpected path [%s] returned when listing files under [%s]",
-                    path,
+                    location,
                     tableLocation);
-            String relativePath = path.substring(commonPathPrefix.length());
+            String relativePath = location.substring(commonPathPrefix.length());
             if (relativePath.isEmpty()) {
                 // A file returned for "tableLocation/", might be possible on S3.
                 continue;
@@ -230,34 +230,28 @@ public class VacuumProcedure
 
             // ignore tableLocation/_delta_log/**
             if (relativePath.equals(TRANSACTION_LOG_DIRECTORY) || relativePath.startsWith(TRANSACTION_LOG_DIRECTORY + "/")) {
-                log.debug("[%s] skipping a file inside transaction log dir: %s", queryId, path);
+                log.debug("[%s] skipping a file inside transaction log dir: %s", queryId, location);
                 transactionLogFiles++;
                 continue;
             }
 
             // skip retained files
             if (retainedPaths.contains(relativePath)) {
-                log.debug("[%s] retaining a known file: %s", queryId, path);
+                log.debug("[%s] retaining a known file: %s", queryId, location);
                 retainedKnownFiles++;
                 continue;
             }
 
             // ignore recently created files
-            long modificationTime = entry.lastModified();
-            Instant modificationInstant = Instant.ofEpochMilli(modificationTime);
-            if (!modificationInstant.isBefore(threshold)) {
-                log.debug("[%s] retaining an unknown file %s with modification time %s (%s)", queryId, path, modificationTime, modificationInstant);
+            Instant modificationTime = entry.lastModified();
+            if (!modificationTime.isBefore(threshold)) {
+                log.debug("[%s] retaining an unknown file %s with modification time %s", queryId, location, modificationTime);
                 retainedUnknownFiles++;
                 continue;
             }
 
-            log.debug(
-                    "[%s] deleting file [%s] with modification time %s (%s)",
-                    queryId,
-                    path,
-                    modificationTime,
-                    modificationInstant);
-            filesToDelete.add(path);
+            log.debug("[%s] deleting file [%s] with modification time %s", queryId, location, modificationTime);
+            filesToDelete.add(location);
             if (filesToDelete.size() == DELETE_BATCH_SIZE) {
                 fileSystem.deleteFiles(filesToDelete);
                 removedFiles += filesToDelete.size();

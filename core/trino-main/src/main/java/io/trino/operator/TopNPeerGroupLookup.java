@@ -14,13 +14,12 @@
 package io.trino.operator;
 
 import io.trino.array.LongBigArray;
-import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static it.unimi.dsi.fastutil.HashCommon.bigArraySize;
 import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 import static it.unimi.dsi.fastutil.HashCommon.mix;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -30,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 // Copyright (C) 2002-2019 Sebastiano Vigna
 public class TopNPeerGroupLookup
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TopNPeerGroupLookup.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TopNPeerGroupLookup.class);
 
     /**
      * The buffer containing key and value data.
@@ -333,7 +332,7 @@ public class TopNPeerGroupLookup
 
     private static class Buffer
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(Buffer.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(Buffer.class);
 
         private static final int POSITIONS_PER_ENTRY = 4;
         private static final int ROW_ID_OFFSET = 1;

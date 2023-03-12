@@ -57,6 +57,7 @@ import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
 import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
 import io.trino.plugin.iceberg.delete.RowPredicate;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -155,6 +156,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetOptimizedNestedReaderEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
@@ -510,7 +512,8 @@ public class IcebergPageSourceProvider
                         parquetReaderOptions
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                                .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session)),
+                                .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
+                                .withBatchNestedColumnReaders(isParquetOptimizedNestedReaderEnabled(session)),
                         predicate,
                         fileFormatDataSourceStats,
                         nameMapping,
@@ -599,7 +602,7 @@ public class IcebergPageSourceProvider
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location()))));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.modificationTime(), UTC_KEY))));
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY))));
                 }
                 else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
                     // $row_id is a composite of multiple physical columns. It is assembled by the IcebergPageSource
@@ -960,7 +963,7 @@ public class IcebergPageSourceProvider
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location())));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
-                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.modificationTime(), UTC_KEY)));
+                    constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
                 }
                 else if (column.isUpdateRowIdColumn() || column.isMergeRowIdColumn()) {
                     // $row_id is a composite of multiple physical columns, it is assembled by the IcebergPageSource
@@ -1073,9 +1076,9 @@ public class IcebergPageSourceProvider
         InputFile file;
         OptionalLong fileModifiedTime = OptionalLong.empty();
         try {
-            file = fileSystem.toFileIo().newInputFile(inputFile.location(), inputFile.length());
+            file = new ForwardingFileIo(fileSystem).newInputFile(inputFile.location(), inputFile.length());
             if (readColumns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
-                fileModifiedTime = OptionalLong.of(inputFile.modificationTime());
+                fileModifiedTime = OptionalLong.of(inputFile.lastModified().toEpochMilli());
             }
         }
         catch (IOException e) {

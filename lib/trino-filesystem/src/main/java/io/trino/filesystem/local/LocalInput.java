@@ -14,8 +14,6 @@
 package io.trino.filesystem.local;
 
 import io.trino.filesystem.TrinoInput;
-import org.apache.iceberg.Files;
-import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,12 +33,6 @@ class LocalInput
     {
         this.file = requireNonNull(file, "file is null");
         this.input = new RandomAccessFile(file, "r");
-    }
-
-    @Override
-    public SeekableInputStream inputStream()
-    {
-        return Files.localInput(file).newStream();
     }
 
     @Override

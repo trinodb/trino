@@ -26,7 +26,9 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.cassandra.ptf.Query;
 import io.trino.spi.TrinoException;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
@@ -46,6 +48,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -77,6 +80,7 @@ public class CassandraClientModule
         binder.bind(CassandraPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(CassandraPartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(CassandraSessionProperties.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
         binder.bind(CassandraTypeManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(CassandraClientConfig.class);

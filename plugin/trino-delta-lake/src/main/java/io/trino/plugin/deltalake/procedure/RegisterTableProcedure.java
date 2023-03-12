@@ -140,7 +140,7 @@ public class RegisterTableProcedure
             throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed checking table location %s", tableLocation), e);
         }
 
-        Table table = buildTable(session, schemaTableName, tableLocation, new Path(tableLocation), true);
+        Table table = buildTable(session, schemaTableName, tableLocation, true);
 
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
         metastore.createTable(

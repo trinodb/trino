@@ -14,67 +14,43 @@
 package io.trino.parquet.reader.flat;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
-import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.AbstractColumnReader;
 import io.trino.parquet.reader.ColumnChunk;
-import io.trino.parquet.reader.ColumnReader;
-import io.trino.parquet.reader.FilteredRowRanges;
-import io.trino.parquet.reader.PageReader;
-import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.decoders.ValueDecoder;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.Type;
-import org.apache.parquet.io.ParquetDecodingException;
-
-import javax.annotation.Nullable;
 
 import java.util.Arrays;
-import java.util.Optional;
-import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.parquet.ParquetEncoding.PLAIN;
-import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE;
-import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
-import static io.trino.parquet.reader.decoders.ValueDecoders.getDictionaryDecoder;
-import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FlatColumnReader<BufferType>
-        implements ColumnReader
+        extends AbstractColumnReader<BufferType>
 {
+    private static final Logger log = Logger.get(FlatColumnReader.class);
+
     private static final int[] EMPTY_DEFINITION_LEVELS = new int[0];
     private static final int[] EMPTY_REPETITION_LEVELS = new int[0];
 
-    private final PrimitiveField field;
-    private final ValueDecodersProvider<BufferType> decodersProvider;
-    private final ColumnAdapter<BufferType> columnAdapter;
     private final LocalMemoryContext memoryContext;
-    private PageReader pageReader;
-    private RowRangesIterator rowRanges;
 
-    private int readOffset;
     private int remainingPageValueCount;
-    @Nullable
-    private DictionaryDecoder<BufferType> dictionaryDecoder;
-    private boolean produceDictionaryBlock;
     private FlatDefinitionLevelDecoder definitionLevelDecoder;
     private ValueDecoder<BufferType> valueDecoder;
-
+    private int readOffset;
     private int nextBatchSize;
 
     public FlatColumnReader(
@@ -83,14 +59,51 @@ public class FlatColumnReader<BufferType>
             ColumnAdapter<BufferType> columnAdapter,
             LocalMemoryContext memoryContext)
     {
-        this.field = requireNonNull(field, "field is null");
-        this.decodersProvider = requireNonNull(decodersProvider, "decoders is null");
-        this.columnAdapter = requireNonNull(columnAdapter, "columnAdapter is null");
+        super(field, decodersProvider, columnAdapter);
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+    }
+
+    @Override
+    public boolean hasPageReader()
+    {
+        return pageReader != null;
+    }
+
+    @Override
+    protected boolean isNonNull()
+    {
+        return field.isRequired() || pageReader.hasNoNulls();
+    }
+
+    @Override
+    public ColumnChunk readPrimitive()
+    {
+        seek();
+        ColumnChunk columnChunk;
+        if (isNonNull()) {
+            columnChunk = readNonNull();
+        }
+        else {
+            columnChunk = readNullable();
+        }
+
+        readOffset = 0;
+        nextBatchSize = 0;
+        return columnChunk;
+    }
+
+    @Override
+    public void prepareNextRead(int batchSize)
+    {
+        readOffset += nextBatchSize;
+        nextBatchSize = batchSize;
     }
 
     private void seek()
     {
+        if (readOffset > 0) {
+            log.debug("seek field %s, readOffset %d, remainingPageValueCount %d", field, readOffset, remainingPageValueCount);
+        }
         int remainingInBatch = readOffset;
         while (remainingInBatch > 0) {
             if (remainingPageValueCount == 0) {
@@ -120,6 +133,7 @@ public class FlatColumnReader<BufferType>
     @VisibleForTesting
     ColumnChunk readNullable()
     {
+        log.debug("readNullable field %s, nextBatchSize %d, remainingPageValueCount %d", field, nextBatchSize, remainingPageValueCount);
         NullableValuesBuffer<BufferType> valuesBuffer = createNullableValuesBuffer(nextBatchSize);
         boolean[] isNull = new boolean[nextBatchSize];
         int remainingInBatch = nextBatchSize;
@@ -147,8 +161,9 @@ public class FlatColumnReader<BufferType>
     }
 
     @VisibleForTesting
-    ColumnChunk readNoNull()
+    ColumnChunk readNonNull()
     {
+        log.debug("readNonNull field %s, nextBatchSize %d, remainingPageValueCount %d", field, nextBatchSize, remainingPageValueCount);
         NonNullValuesBuffer<BufferType> valuesBuffer = createNonNullValuesBuffer(nextBatchSize);
         int remainingInBatch = nextBatchSize;
         int offset = 0;
@@ -182,6 +197,9 @@ public class FlatColumnReader<BufferType>
     private boolean skipToRowRangesStart()
     {
         int skipCount = toIntExact(rowRanges.skipToRangeStart());
+        if (skipCount > 0) {
+            log.debug("skipCount %d, remainingPageValueCount %d", skipCount, remainingPageValueCount);
+        }
         if (skipCount >= remainingPageValueCount) {
             remainingPageValueCount = 0;
             return true;
@@ -232,6 +250,7 @@ public class FlatColumnReader<BufferType>
     {
         DataPage page = pageReader.readPage();
         requireNonNull(page, "page is null");
+        log.debug("readNextPage field %s, page %s", field, page);
         if (page instanceof DataPageV1) {
             readFlatPageV1((DataPageV1) page);
         }
@@ -271,7 +290,7 @@ public class FlatColumnReader<BufferType>
             }
         }
 
-        createValueDecoder(page.getValueEncoding(), buffer.slice(alreadyRead, buffer.length() - alreadyRead));
+        valueDecoder = createValueDecoder(decodersProvider, page.getValueEncoding(), buffer.slice(alreadyRead, buffer.length() - alreadyRead));
     }
 
     private void readFlatPageV2(DataPageV2 page)
@@ -281,119 +300,23 @@ public class FlatColumnReader<BufferType>
 
         definitionLevelDecoder = new NullsDecoder(page.getDefinitionLevels());
 
-        createValueDecoder(page.getDataEncoding(), page.getSlice());
-    }
-
-    private void createValueDecoder(ParquetEncoding encoding, Slice data)
-    {
-        if (encoding == PLAIN_DICTIONARY || encoding == RLE_DICTIONARY) {
-            if (dictionaryDecoder == null) {
-                throw new ParquetDecodingException(format("Dictionary is missing for %s", field));
-            }
-            valueDecoder = dictionaryDecoder;
-        }
-        else {
-            valueDecoder = decodersProvider.create(encoding, field);
-        }
-        valueDecoder.init(new SimpleSliceInputStream(data));
-    }
-
-    protected boolean isNonNull()
-    {
-        return field.isRequired() || pageReader.hasNoNulls();
-    }
-
-    @Override
-    public boolean hasPageReader()
-    {
-        return pageReader != null;
-    }
-
-    @Override
-    public void setPageReader(PageReader pageReader, Optional<FilteredRowRanges> rowRanges)
-    {
-        this.pageReader = requireNonNull(pageReader, "pageReader");
-        // The dictionary page must be placed at the first position of the column chunk
-        // if it is partly or completely dictionary encoded. At most one dictionary page
-        // can be placed in a column chunk.
-        DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
-
-        // For dictionary based encodings - https://github.com/apache/parquet-format/blob/master/Encodings.md
-        if (dictionaryPage != null) {
-            dictionaryDecoder = getDictionaryDecoder(
-                    dictionaryPage,
-                    columnAdapter,
-                    decodersProvider.create(PLAIN, field),
-                    isNonNull());
-            produceDictionaryBlock = shouldProduceDictionaryBlock(rowRanges);
-        }
-        this.rowRanges = createRowRangesIterator(rowRanges);
-    }
-
-    @Override
-    public void prepareNextRead(int batchSize)
-    {
-        readOffset += nextBatchSize;
-        nextBatchSize = batchSize;
-    }
-
-    @Override
-    public ColumnChunk readPrimitive()
-    {
-        ColumnChunk columnChunk;
-        seek();
-        if (isNonNull()) {
-            columnChunk = readNoNull();
-        }
-        else {
-            columnChunk = readNullable();
-        }
-
-        readOffset = 0;
-        nextBatchSize = 0;
-        return columnChunk;
-    }
-
-    private static void throwEndOfBatchException(int remainingInBatch)
-    {
-        throw new ParquetDecodingException(format("Corrupted Parquet file: extra %d values to be consumed when scanning current batch", remainingInBatch));
-    }
-
-    private boolean shouldProduceDictionaryBlock(Optional<FilteredRowRanges> filteredRowRanges)
-    {
-        // Parquet writer may choose to fall back to a non-dictionary encoding after starting with dictionary encoding if
-        //   1. If the size of the dictionary exceeds a threshold (1MB for parquet-mr by default).
-        //   2. Number of dictionary entries exceeds a threshold (Integer.MAX_VALUE for parquet-mr by default).
-        // Trino dictionary blocks are produced only when the entire column chunk is dictionary encoded
-        if (pageReader.hasOnlyDictionaryEncodedPages()) {
-            // TODO: DictionaryBlocks are currently restricted to variable width types where dictionary processing is most beneficial.
-            //   Dictionary processing for other data types can be enabled after validating improvements on benchmarks.
-            if (!(field.getType() instanceof AbstractVariableWidthType)) {
-                return false;
-            }
-            requireNonNull(dictionaryDecoder, "dictionaryDecoder is null");
-            // Filtering of parquet pages using column indexes may result in the total number of values read from the
-            // column chunk being lower than the size of the dictionary
-            return filteredRowRanges.map(rowRanges -> rowRanges.getRowCount() > dictionaryDecoder.getDictionarySize())
-                    .orElse(true);
-        }
-        return false;
+        valueDecoder = createValueDecoder(decodersProvider, page.getDataEncoding(), page.getSlice());
     }
 
     private NonNullValuesBuffer<BufferType> createNonNullValuesBuffer(int batchSize)
     {
-        if (produceDictionaryBlock) {
-            return new DictionaryValuesBuffer<>(dictionaryDecoder, batchSize);
+        if (produceDictionaryBlock()) {
+            return new DictionaryValuesBuffer<>(field, dictionaryDecoder, batchSize);
         }
-        return new DataValuesBuffer<>(columnAdapter, batchSize);
+        return new DataValuesBuffer<>(field, columnAdapter, batchSize);
     }
 
     private NullableValuesBuffer<BufferType> createNullableValuesBuffer(int batchSize)
     {
-        if (produceDictionaryBlock) {
-            return new DictionaryValuesBuffer<>(dictionaryDecoder, batchSize);
+        if (produceDictionaryBlock()) {
+            return new DictionaryValuesBuffer<>(field, dictionaryDecoder, batchSize);
         }
-        return new DataValuesBuffer<>(columnAdapter, batchSize);
+        return new DataValuesBuffer<>(field, columnAdapter, batchSize);
     }
 
     private interface NonNullValuesBuffer<T>
@@ -413,13 +336,15 @@ public class FlatColumnReader<BufferType>
     private static final class DataValuesBuffer<T>
             implements NonNullValuesBuffer<T>, NullableValuesBuffer<T>
     {
+        private final PrimitiveField field;
         private final ColumnAdapter<T> columnAdapter;
         private final T values;
         private final int batchSize;
         private int totalNullsCount;
 
-        private DataValuesBuffer(ColumnAdapter<T> columnAdapter, int batchSize)
+        private DataValuesBuffer(PrimitiveField field, ColumnAdapter<T> columnAdapter, int batchSize)
         {
+            this.field = field;
             this.values = columnAdapter.createBuffer(batchSize);
             this.columnAdapter = columnAdapter;
             this.batchSize = batchSize;
@@ -461,12 +386,14 @@ public class FlatColumnReader<BufferType>
                     totalNullsCount == 0,
                     "totalNonNullsCount %s should be equal to 0 when creating non-null block",
                     totalNullsCount);
+            log.debug("DataValuesBuffer createNonNullBlock field %s, totalNullsCount %d", field, totalNullsCount);
             return new ColumnChunk(columnAdapter.createNonNullBlock(values), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
         }
 
         @Override
         public ColumnChunk createNullableBlock(boolean[] isNull, Type type)
         {
+            log.debug("DataValuesBuffer createNullableBlock field %s, totalNullsCount %d, batchSize %d", field, totalNullsCount, batchSize);
             if (totalNullsCount == batchSize) {
                 return new ColumnChunk(RunLengthEncodedBlock.create(type, null, batchSize), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
             }
@@ -480,13 +407,15 @@ public class FlatColumnReader<BufferType>
     private static final class DictionaryValuesBuffer<T>
             implements NonNullValuesBuffer<T>, NullableValuesBuffer<T>
     {
+        private final PrimitiveField field;
         private final DictionaryDecoder<T> decoder;
         private final int[] ids;
         private final int batchSize;
         private int totalNullsCount;
 
-        private DictionaryValuesBuffer(DictionaryDecoder<T> dictionaryDecoder, int batchSize)
+        private DictionaryValuesBuffer(PrimitiveField field, DictionaryDecoder<T> dictionaryDecoder, int batchSize)
         {
+            this.field = field;
             this.ids = new int[batchSize];
             this.decoder = dictionaryDecoder;
             this.batchSize = batchSize;
@@ -530,53 +459,18 @@ public class FlatColumnReader<BufferType>
                     totalNullsCount == 0,
                     "totalNonNullsCount %s should be equal to 0 when creating non-null block",
                     totalNullsCount);
-            return createDictionaryBlock(ids, decoder.getDictionaryBlock());
+            log.debug("DictionaryValuesBuffer createNonNullBlock field %s, totalNullsCount %d", field, totalNullsCount);
+            return createDictionaryBlock(ids, decoder.getDictionaryBlock(), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
         }
 
         @Override
         public ColumnChunk createNullableBlock(boolean[] isNull, Type type)
         {
+            log.debug("DictionaryValuesBuffer createNullableBlock field %s, totalNullsCount %d, batchSize %d", field, totalNullsCount, batchSize);
             if (totalNullsCount == batchSize) {
                 return new ColumnChunk(RunLengthEncodedBlock.create(type, null, batchSize), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
             }
-            return createDictionaryBlock(ids, decoder.getDictionaryBlock());
-        }
-
-        private ColumnChunk createDictionaryBlock(int[] dictionaryIds, Block dictionary)
-        {
-            int positionsCount = dictionaryIds.length;
-            return new ColumnChunk(
-                    DictionaryBlock.create(positionsCount, dictionary, dictionaryIds),
-                    EMPTY_DEFINITION_LEVELS,
-                    EMPTY_REPETITION_LEVELS,
-                    OptionalLong.of(getMaxDictionaryBlockSize(dictionary, positionsCount)));
-        }
-
-        private static void unpackDictionaryNullId(
-                int[] source,
-                int[] destination,
-                boolean[] isNull,
-                int destOffset,
-                int chunkSize,
-                int nullId)
-        {
-            int srcOffset = 0;
-            for (int i = destOffset; i < destOffset + chunkSize; i++) {
-                if (isNull[i]) {
-                    destination[i] = nullId;
-                }
-                else {
-                    destination[i] = source[srcOffset++];
-                }
-            }
-        }
-
-        private static long getMaxDictionaryBlockSize(Block dictionary, long batchSize)
-        {
-            // An approximate upper bound on size of DictionaryBlock is derived here instead of using
-            // DictionaryBlock#getSizeInBytes directly because that method is expensive
-            double maxDictionaryFractionUsed = Math.min((double) batchSize / dictionary.getPositionCount(), 1.0);
-            return (long) (batchSize * Integer.BYTES + dictionary.getSizeInBytes() * maxDictionaryFractionUsed);
+            return createDictionaryBlock(ids, decoder.getDictionaryBlock(), EMPTY_DEFINITION_LEVELS, EMPTY_REPETITION_LEVELS);
         }
     }
 }

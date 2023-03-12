@@ -100,6 +100,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -6749,6 +6750,7 @@ public class TestAnalyzer
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of(Duration.ZERO),
                 Optional.of("comment"),
                 Identity.ofUser("user"),
                 Optional.empty(),
@@ -6877,6 +6879,7 @@ public class TestAnalyzer
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                        Optional.of(Duration.ZERO),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
@@ -6927,6 +6930,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
+                        Optional.empty(),
                         Identity.ofUser("some user"),
                         // t3 has a, b column and hidden column x
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
@@ -6945,6 +6949,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
+                        Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
@@ -6962,6 +6967,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("c", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
+                        Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
@@ -6978,6 +6984,7 @@ public class TestAnalyzer
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId(), Optional.empty())),
+                        Optional.empty(),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
@@ -7022,6 +7029,7 @@ public class TestAnalyzer
         StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
                 new SqlParser(),
+                SessionTimeProvider.DEFAULT,
                 accessControl,
                 new NoOpTransactionManager()
                 {

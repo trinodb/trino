@@ -48,6 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -214,6 +215,15 @@ public class KuduPageSink
         try (KuduOperationApplier operationApplier = KuduOperationApplier.fromKuduClientSession(session)) {
             for (int position = 0; position < page.getPositionCount(); position++) {
                 long operation = TINYINT.getLong(operationBlock, position);
+
+                checkState(operation == UPDATE_OPERATION_NUMBER ||
+                                operation == INSERT_OPERATION_NUMBER ||
+                                operation == DELETE_OPERATION_NUMBER,
+                        "Invalid operation value, supported are " +
+                                        "%s INSERT_OPERATION_NUMBER, " +
+                                        "%s DELETE_OPERATION_NUMBER and " +
+                                        "%s UPDATE_OPERATION_NUMBER",
+                                INSERT_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_OPERATION_NUMBER);
 
                 if (operation == DELETE_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {
                     Delete delete = table.newDelete();

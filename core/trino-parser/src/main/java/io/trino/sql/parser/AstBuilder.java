@@ -17,6 +17,8 @@ package io.trino.sql.parser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.trino.sql.parser.SqlBaseParser.CreateCatalogContext;
+import io.trino.sql.parser.SqlBaseParser.DropCatalogContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
@@ -40,6 +42,7 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -65,6 +68,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -359,6 +363,44 @@ class AstBuilder
                 getLocation(context),
                 visitIfPresent(context.catalog, Identifier.class),
                 (Identifier) visit(context.schema));
+    }
+
+    @Override
+    public Node visitCreateCatalog(CreateCatalogContext context)
+    {
+        Optional<PrincipalSpecification> principal = Optional.empty();
+        if (context.AUTHORIZATION() != null) {
+            principal = Optional.of(getPrincipalSpecification(context.principal()));
+        }
+
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().propertyAssignments().property(), Property.class);
+        }
+
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        return new CreateCatalog(
+                getLocation(context),
+                (Identifier) visit(context.catalog),
+                context.EXISTS() != null,
+                (Identifier) visit(context.connectorName),
+                properties,
+                principal,
+                comment);
+    }
+
+    @Override
+    public Node visitDropCatalog(DropCatalogContext context)
+    {
+        return new DropCatalog(
+                getLocation(context),
+                (Identifier) visit(context.catalog),
+                context.EXISTS() != null,
+                context.CASCADE() != null);
     }
 
     @Override
@@ -731,7 +773,7 @@ class AstBuilder
     {
         return new DropColumn(getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.column),
+                getQualifiedName(context.column),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
@@ -1917,6 +1959,9 @@ class AstBuilder
 
         if (context.identifier() != null) {
             Identifier alias = (Identifier) visit(context.identifier());
+            if (context.AS() == null) {
+                validateArgumentAlias(alias, context.identifier());
+            }
             List<Identifier> columnNames = null;
             if (context.columnAliases() != null) {
                 columnNames = visit(context.columnAliases().identifier(), Identifier.class);
@@ -1934,6 +1979,9 @@ class AstBuilder
 
         if (context.identifier() != null) {
             Identifier alias = (Identifier) visit(context.identifier());
+            if (context.AS() == null) {
+                validateArgumentAlias(alias, context.identifier());
+            }
             List<Identifier> columnNames = null;
             if (context.columnAliases() != null) {
                 columnNames = visit(context.columnAliases().identifier(), Identifier.class);
@@ -3762,5 +3810,15 @@ class AstBuilder
                 return QueryPeriod.RangeType.VERSION;
         }
         throw new IllegalArgumentException("Unsupported query period range type: " + token.getText());
+    }
+
+    private static void validateArgumentAlias(Identifier alias, ParserRuleContext context)
+    {
+        check(
+                alias.isDelimited() || !alias.getValue().equalsIgnoreCase("COPARTITION"),
+                "The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.",
+                context);
     }
 }

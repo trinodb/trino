@@ -27,12 +27,14 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
@@ -63,6 +65,7 @@ public class TrinoJdbcCatalog
         extends AbstractTrinoCatalog
 {
     private final JdbcCatalog jdbcCatalog;
+    private final IcebergJdbcClient jdbcClient;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final String defaultWarehouseDir;
     private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
@@ -72,12 +75,14 @@ public class TrinoJdbcCatalog
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
             JdbcCatalog jdbcCatalog,
+            IcebergJdbcClient jdbcClient,
             TrinoFileSystemFactory fileSystemFactory,
             boolean useUniqueTableLocation,
             String defaultWarehouseDir)
     {
         super(catalogName, typeManager, tableOperationsProvider, useUniqueTableLocation);
         this.jdbcCatalog = requireNonNull(jdbcCatalog, "jdbcCatalog is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.defaultWarehouseDir = requireNonNull(defaultWarehouseDir, "defaultWarehouseDir is null");
     }
@@ -158,17 +163,20 @@ public class TrinoJdbcCatalog
     private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)
     {
         if (namespace.isPresent() && namespaceExists(session, namespace.get())) {
-            if ("information_schema".equals(namespace.get())) {
-                // TODO https://github.com/trinodb/trino/issues/1559 this should be filtered out in engine.
-                return ImmutableList.of();
-            }
             return ImmutableList.of(namespace.get());
         }
         return listNamespaces(session);
     }
 
     @Override
-    public Transaction newCreateTableTransaction(ConnectorSession session, SchemaTableName schemaTableName, Schema schema, PartitionSpec partitionSpec, String location, Map<String, String> properties)
+    public Transaction newCreateTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
     {
         if (!listNamespaces(session, Optional.of(schemaTableName.getSchemaName())).contains(schemaTableName.getSchemaName())) {
             throw new SchemaNotFoundException(schemaTableName.getSchemaName());
@@ -178,6 +186,7 @@ public class TrinoJdbcCatalog
                 schemaTableName,
                 schema,
                 partitionSpec,
+                sortOrder,
                 location,
                 properties,
                 Optional.of(session.getUser()));
@@ -186,13 +195,17 @@ public class TrinoJdbcCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
     {
-        throw new TrinoException(NOT_SUPPORTED, "registerTable is not supported for Iceberg JDBC catalogs");
+        // Using IcebergJdbcClient because JdbcCatalog.registerTable causes the below error.
+        // "Cannot invoke "org.apache.iceberg.util.SerializableSupplier.get()" because "this.hadoopConf" is null"
+        jdbcClient.createTable(tableName.getSchemaName(), tableName.getTableName(), metadataLocation);
     }
 
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "unregisterTable is not supported for Iceberg JDBC catalogs");
+        if (!jdbcCatalog.dropTable(toIdentifier(tableName), false)) {
+            throw new TableNotFoundException(tableName);
+        }
     }
 
     @Override

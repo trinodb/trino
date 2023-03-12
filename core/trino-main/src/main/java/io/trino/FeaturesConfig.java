@@ -102,6 +102,7 @@ public class FeaturesConfig
     private boolean incrementalHashArrayLoadFactorEnabled = true;
     private boolean allowSetViewAuthorization;
 
+    private boolean legacyMaterializedViewGracePeriod;
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
 
@@ -442,6 +443,21 @@ public class FeaturesConfig
     public FeaturesConfig setIncrementalHashArrayLoadFactorEnabled(boolean incrementalHashArrayLoadFactorEnabled)
     {
         this.incrementalHashArrayLoadFactorEnabled = incrementalHashArrayLoadFactorEnabled;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacyMaterializedViewGracePeriod()
+    {
+        return legacyMaterializedViewGracePeriod;
+    }
+
+    @Deprecated
+    @Config("legacy.materialized-view-grace-period")
+    @ConfigDescription("Enable legacy handling of stale materialized views")
+    public FeaturesConfig setLegacyMaterializedViewGracePeriod(boolean legacyMaterializedViewGracePeriod)
+    {
+        this.legacyMaterializedViewGracePeriod = legacyMaterializedViewGracePeriod;
         return this;
     }
 

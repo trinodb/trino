@@ -235,7 +235,7 @@ public class TestMockConnector
     public void testTableFunction()
     {
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.simple_table_function())"))
-                .hasMessage("execution by operator is not yet implemented for table function simple_table_function");
+                .hasMessage("missing ConnectorSplitSource for table function system.simple_table_function");
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.non_existing_table_function())"))
                 .hasMessageContaining("Table function mock.system.non_existing_table_function not registered");
     }

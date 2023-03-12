@@ -312,6 +312,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         throw new UnsupportedOperationException();

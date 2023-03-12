@@ -50,12 +50,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.server.PluginReader.CONNECTOR;
-import static io.trino.server.PluginReader.PASSWORD_AUTHENTICATOR;
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -277,16 +274,14 @@ public final class TestRun
                 return parts.length < 2 ? "" : parts[1];
             }, toList())));
             // see PluginReader. printPluginFeatures() for all possible feature prefixes
-            Map<String, Supplier<List<String>>> environmentFeaturesByName = Map.of(
-                    CONNECTOR, environment::getConfiguredConnectors,
-                    PASSWORD_AUTHENTICATOR, environment::getConfiguredPasswordAuthenticators);
+            Map<String, List<String>> environmentFeaturesByName = environment.getConfiguredFeatures();
             for (Map.Entry<String, List<String>> entry : featuresByName.entrySet()) {
                 String name = entry.getKey();
                 List<String> features = entry.getValue();
                 if (!environmentFeaturesByName.containsKey(name)) {
                     return true;
                 }
-                List<String> environmentFeatures = environmentFeaturesByName.get(name).get();
+                List<String> environmentFeatures = environmentFeaturesByName.get(name);
                 log.info("Checking if impacted %s %s are overlapping with %s configured in the environment",
                         name, features, environmentFeatures);
                 if (environmentFeatures.stream().anyMatch(features::contains)) {
@@ -354,7 +349,7 @@ public final class TestRun
                                         // Force Parallel GC to ensure MaxHeapFreeRatio is respected
                                         "-XX:+UseParallelGC",
                                         "-XX:MinHeapFreeRatio=10",
-                                        "-XX:MaxHeapFreeRatio=10",
+                                        "-XX:MaxHeapFreeRatio=50",
                                         "-Djava.util.logging.config.file=/docker/presto-product-tests/conf/tempto/logging.properties",
                                         "-Duser.timezone=Asia/Kathmandu",
                                         // Tempto has progress logging built in

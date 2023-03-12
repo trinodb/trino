@@ -18,18 +18,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.io.ByteStreams;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SerializedPhoenixInputSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SerializedPhoenixInputSplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SerializedPhoenixInputSplit.class);
 
     private final byte[] bytes;
 

@@ -325,7 +325,8 @@ running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-For example, group and concatenate all employee IDs by manager ID::
+For example, query the ``example`` catalog and group and concatenate all
+employee IDs by manager ID::
 
     SELECT
       *

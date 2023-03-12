@@ -17,6 +17,7 @@ import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -29,10 +30,22 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
+import java.util.List;
+import java.util.Set;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakePageSinkProvider
@@ -45,6 +58,7 @@ public class DeltaLakePageSinkProvider
     private final DeltaLakeWriterStats stats;
     private final int maxPartitionsPerWriter;
     private final DateTimeZone parquetDateTimeZone;
+    private final TypeManager typeManager;
     private final String trinoVersion;
     private final int domainCompactionThreshold;
 
@@ -56,6 +70,7 @@ public class DeltaLakePageSinkProvider
             JsonCodec<DeltaLakeMergeResult> mergeResultJsonCodec,
             DeltaLakeWriterStats stats,
             DeltaLakeConfig deltaLakeConfig,
+            TypeManager typeManager,
             NodeVersion nodeVersion)
     {
         this.pageIndexerFactory = pageIndexerFactory;
@@ -66,6 +81,7 @@ public class DeltaLakePageSinkProvider
         this.maxPartitionsPerWriter = deltaLakeConfig.getMaxPartitionsPerWriter();
         this.parquetDateTimeZone = deltaLakeConfig.getParquetDateTimeZone();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoVersion = nodeVersion.toString();
     }
 
@@ -144,6 +160,38 @@ public class DeltaLakePageSinkProvider
                 tableHandle.getLocation(),
                 pageSink,
                 tableHandle.getInputColumns(),
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                () -> createCdfPageSink(merge, session),
+                changeDataFeedEnabled(tableHandle.getMetadataEntry()));
+    }
+
+    private DeltaLakeCdfPageSink createCdfPageSink(
+            DeltaLakeMergeTableHandle mergeTableHandle,
+            ConnectorSession session)
+    {
+        MetadataEntry metadataEntry = mergeTableHandle.getTableHandle().getMetadataEntry();
+        Set<String> partitionKeys = mergeTableHandle.getTableHandle().getMetadataEntry().getOriginalPartitionColumns().stream().collect(toImmutableSet());
+        List<DeltaLakeColumnHandle> allColumns = extractSchema(metadataEntry, typeManager).stream()
+                .map(metadata -> new DeltaLakeColumnHandle(
+                        metadata.getName(),
+                        metadata.getType(),
+                        metadata.getFieldId(),
+                        metadata.getPhysicalName(),
+                        metadata.getPhysicalColumnType(),
+                        partitionKeys.contains(metadata.getName()) ? PARTITION_KEY : REGULAR))
+                .collect(toImmutableList());
+
+        return new DeltaLakeCdfPageSink(
+                allColumns,
+                metadataEntry.getOriginalPartitionColumns(),
+                pageIndexerFactory,
+                fileSystemFactory,
+                maxPartitionsPerWriter,
+                dataFileInfoCodec,
+                format("%s/%s/", mergeTableHandle.getTableHandle().getLocation(), CHANGE_DATA_FOLDER_NAME),
+                mergeTableHandle.getTableHandle().getLocation(),
+                session,
+                stats,
+                trinoVersion);
     }
 }

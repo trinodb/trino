@@ -17,6 +17,7 @@ import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
+import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
 import org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
@@ -58,6 +59,7 @@ import static io.trino.plugin.hive.util.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -87,6 +89,7 @@ public class TestHiveClassNames
         assertClassName(RCFILE_INPUT_FORMAT_CLASS, RCFileInputFormat.class);
         assertClassName(RCFILE_OUTPUT_FORMAT_CLASS, RCFileOutputFormat.class);
         assertClassName(SEQUENCEFILE_INPUT_FORMAT_CLASS, SequenceFileInputFormat.class);
+        assertClassName(SYMLINK_TEXT_INPUT_FORMAT_CLASS, SymlinkTextInputFormat.class);
         assertClassName(TEXT_INPUT_FORMAT_CLASS, TextInputFormat.class);
     }
 

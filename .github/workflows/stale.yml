@@ -1,0 +1,23 @@
+name: Stale PR tracking
+
+on:
+  schedule:
+    - cron: '0 17 * * 1-5' # 9am UTC-8 on weekdays
+
+permissions:
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    if: github.repository == 'trinodb/trino'
+    steps:
+      - uses: actions/stale@v7
+        with:
+          stale-pr-message: 'This pull request has gone a while without any activity. Tagging the Trino developer relations team: @bitsondatadev @colebow @mosabua'
+          days-before-pr-stale: 21
+          days-before-pr-close: 21
+          close-pr-message: 'Closing this pull request, as it has been stale for six weeks. Feel free to re-open at any time.'
+          stale-pr-label: 'stale'
+          exempt-pr-labels: 'no-stale'
+          start-date: '2023-01-01T00:00:00Z'

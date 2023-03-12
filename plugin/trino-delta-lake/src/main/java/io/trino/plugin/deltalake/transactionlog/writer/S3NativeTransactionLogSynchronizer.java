@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
@@ -140,7 +139,7 @@ public class S3NativeTransactionLogSynchronizer
             checkState(!fileSystem.newInputFile(newLogEntryPath.toString()).exists(), format("Target file %s was created during locking", newLogEntryPath));
 
             // write transaction log entry
-            try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath.toString()).create(newSimpleAggregatedMemoryContext())) {
+            try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath.toString()).create()) {
                 outputStream.write(entryContents);
             }
         }
@@ -169,7 +168,7 @@ public class S3NativeTransactionLogSynchronizer
         Path lockPath = new Path(lockDirectory, lockFilename);
         TrinoOutputFile lockFile = fileSystem.newOutputFile(lockPath.toString());
         byte[] contentsBytes = lockFileContentsJsonCodec.toJsonBytes(contents);
-        try (OutputStream outputStream = lockFile.create(newSimpleAggregatedMemoryContext())) {
+        try (OutputStream outputStream = lockFile.create()) {
             outputStream.write(contentsBytes);
         }
         return new LockInfo(lockFilename, contents);
@@ -190,9 +189,9 @@ public class S3NativeTransactionLogSynchronizer
 
         while (files.hasNext()) {
             FileEntry entry = files.next();
-            String name = entry.path().substring(entry.path().lastIndexOf('/') + 1);
+            String name = entry.location().substring(entry.location().lastIndexOf('/') + 1);
             if (LOCK_FILENAME_PATTERN.matcher(name).matches()) {
-                Optional<LockInfo> lockInfo = parseLockFile(fileSystem, entry.path(), name);
+                Optional<LockInfo> lockInfo = parseLockFile(fileSystem, entry.location(), name);
                 lockInfo.ifPresent(lockInfos::add);
             }
         }
@@ -204,7 +203,7 @@ public class S3NativeTransactionLogSynchronizer
             throws IOException
     {
         byte[] bytes = null;
-        try (InputStream inputStream = fileSystem.newInputFile(path).newInput().inputStream()) {
+        try (InputStream inputStream = fileSystem.newInputFile(path).newStream()) {
             bytes = inputStream.readAllBytes();
             LockFileContents lockFileContents = lockFileContentsJsonCodec.fromJson(bytes);
             return Optional.of(new LockInfo(name, lockFileContents));

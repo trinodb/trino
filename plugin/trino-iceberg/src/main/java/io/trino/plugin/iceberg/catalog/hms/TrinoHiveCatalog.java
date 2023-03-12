@@ -46,6 +46,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
@@ -105,6 +106,8 @@ public class TrinoHiveCatalog
 {
     private static final Logger log = Logger.get(TrinoHiveCatalog.class);
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
+    // Value should be ISO-8601 formatted time instant
+    public static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
 
     private final CachingHiveMetastore metastore;
     private final TrinoViewHiveMetastore trinoViewHiveMetastore;
@@ -254,6 +257,7 @@ public class TrinoHiveCatalog
             SchemaTableName schemaTableName,
             Schema schema,
             PartitionSpec partitionSpec,
+            SortOrder sortOrder,
             String location,
             Map<String, String> properties)
     {
@@ -262,6 +266,7 @@ public class TrinoHiveCatalog
                 schemaTableName,
                 schema,
                 partitionSpec,
+                sortOrder,
                 location,
                 properties,
                 isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser()));

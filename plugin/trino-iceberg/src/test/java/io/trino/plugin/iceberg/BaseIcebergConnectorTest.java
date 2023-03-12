@@ -66,6 +66,7 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -99,6 +100,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.plugin.iceberg.IcebergUtil.TRINO_QUERY_ID_NAME;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Domain.singleValue;
@@ -114,7 +116,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -132,6 +133,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
@@ -162,6 +164,8 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
+                        // Allows testing the sorting writer flushing to the file system with smaller tables
+                        .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
@@ -264,10 +268,9 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
-    @Test
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -278,8 +281,6 @@ public abstract class BaseIcebergConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
@@ -639,7 +640,7 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SHOW STATS FOR (SELECT * FROM " + tableName + " WHERE _timestamptz = " + instant1La + ")"))
                     .skippingTypesCheck()
                     .matches("VALUES " +
-                            "('_timestamptz', NULL, NULL, NULL, NULL, NULL, NULL), " +
+                            "('_timestamptz', null, 1e0, 0e0, NULL, '2021-10-31 00:30:00.005 UTC', '2021-10-31 00:30:00.005 UTC'), " +
                             "(NULL, NULL, NULL, NULL, NULL, NULL, NULL)");
         }
 
@@ -1089,6 +1090,284 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testSortByAllTypes()
+    {
+        String tableName = "test_sort_by_all_types_" + randomNameSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  a_boolean boolean, " +
+                "  an_integer integer, " +
+                "  a_bigint bigint, " +
+                "  a_real real, " +
+                "  a_double double, " +
+                "  a_short_decimal decimal(5,2), " +
+                "  a_long_decimal decimal(38,20), " +
+                "  a_varchar varchar, " +
+                "  a_varbinary varbinary, " +
+                "  a_date date, " +
+                "  a_time time(6), " +
+                "  a_timestamp timestamp(6), " +
+                "  a_timestamptz timestamp(6) with time zone, " +
+                "  a_uuid uuid, " +
+                "  a_row row(id integer , vc varchar), " +
+                "  an_array array(varchar), " +
+                "  a_map map(integer, varchar) " +
+                ") " +
+                "WITH (" +
+                "sorted_by = ARRAY[" +
+                "  'a_boolean', " +
+                "  'an_integer', " +
+                "  'a_bigint', " +
+                "  'a_real', " +
+                "  'a_double', " +
+                "  'a_short_decimal', " +
+                "  'a_long_decimal', " +
+                "  'a_varchar', " +
+                "  'a_varbinary', " +
+                "  'a_date', " +
+                "  'a_time', " +
+                "  'a_timestamp', " +
+                "  'a_timestamptz', " +
+                "  'a_uuid'" +
+                "  ]" +
+                ")");
+        String values = "(" +
+                "true, " +
+                "1, " +
+                "BIGINT '2', " +
+                "REAL '3.0', " +
+                "DOUBLE '4.0', " +
+                "DECIMAL '5.00', " +
+                "DECIMAL '6.00', " +
+                "'seven', " +
+                "X'88888888', " +
+                "DATE '2022-09-09', " +
+                "TIME '10:10:10.000000', " +
+                "TIMESTAMP '2022-11-11 11:11:11.000000', " +
+                "TIMESTAMP '2022-11-11 11:11:11.000000 UTC', " +
+                "UUID '12121212-1212-1212-1212-121212121212', " +
+                "ROW(13, 'thirteen'), " +
+                "ARRAY['four', 'teen'], " +
+                "MAP(ARRAY[15], ARRAY['fifteen']))";
+        String highValues = "(" +
+                "true, " +
+                "999999999, " +
+                "BIGINT '999999999', " +
+                "REAL '999.999', " +
+                "DOUBLE '999.999', " +
+                "DECIMAL '999.99', " +
+                "DECIMAL '6.00', " +
+                "'zzzzzzzzzzzzzz', " +
+                "X'FFFFFFFF', " +
+                "DATE '2099-12-31', " +
+                "TIME '23:59:59.999999', " +
+                "TIMESTAMP '2099-12-31 23:59:59.000000', " +
+                "TIMESTAMP '2099-12-31 23:59:59.000000 UTC', " +
+                "UUID 'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF', " +
+                "ROW(999, 'zzzzzzzz'), " +
+                "ARRAY['zzzz', 'zzzz'], " +
+                "MAP(ARRAY[999], ARRAY['zzzz']))";
+        String lowValues = "(" +
+                "false, " +
+                "0, " +
+                "BIGINT '0', " +
+                "REAL '0', " +
+                "DOUBLE '0', " +
+                "DECIMAL '0', " +
+                "DECIMAL '0', " +
+                "'', " +
+                "X'00000000', " +
+                "DATE '2000-01-01', " +
+                "TIME '00:00:00.000000', " +
+                "TIMESTAMP '2000-01-01 00:00:00.000000', " +
+                "TIMESTAMP '2000-01-01 00:00:00.000000 UTC', " +
+                "UUID '00000000-0000-0000-0000-000000000000', " +
+                "ROW(0, ''), " +
+                "ARRAY['', ''], " +
+                "MAP(ARRAY[0], ARRAY['']))";
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values + ", " + highValues + ", " + lowValues, 3);
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testEmptySortedByList()
+    {
+        String tableName = "test_empty_sorted_by_list_" + randomNameSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (a_boolean boolean, an_integer integer) " +
+                "  WITH (partitioning = ARRAY['an_integer'], sorted_by = ARRAY[])");
+        dropTable(tableName);
+    }
+
+    @Test(dataProvider = "sortedTableWithQuotedIdentifierCasing")
+    public void testCreateSortedTableWithQuotedIdentifierCasing(String columnName, String sortField)
+    {
+        String tableName = "test_create_sorted_table_with_quotes_" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (%s bigint) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField));
+        dropTable(tableName);
+    }
+
+    @DataProvider(name = "sortedTableWithQuotedIdentifierCasing")
+    public static Object[][] sortedTableWithQuotedIdentifierCasing()
+    {
+        return new Object[][] {
+                {"col", "col"},
+                {"COL", "col"},
+                {"\"col\"", "col"},
+                {"\"COL\"", "col"},
+                {"col", "\"col\""},
+                {"COL", "\"col\""},
+                {"\"col\"", "\"col\""},
+                {"\"COL\"", "\"col\""},
+        };
+    }
+
+    @Test(dataProvider = "sortedTableWithSortTransform")
+    public void testCreateSortedTableWithSortTransform(String columnName, String sortField)
+    {
+        String tableName = "test_sort_with_transform_" + randomNameSuffix();
+        assertThatThrownBy(() -> query(format("CREATE TABLE %s (%s TIMESTAMP(6)) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField)))
+                .hasMessageContaining("Unable to parse sort field");
+    }
+
+    @DataProvider(name = "sortedTableWithSortTransform")
+    public static Object[][] sortedTableWithSortTransform()
+    {
+        return new Object[][] {
+                {"col", "bucket(col, 3)"},
+                {"col", "bucket(\"col\", 3)"},
+                {"col", "truncate(col, 3)"},
+                {"col", "year(col)"},
+                {"col", "month(col)"},
+                {"col", "date(col)"},
+                {"col", "hour(col)"},
+        };
+    }
+
+    @Test
+    public void testSortOrderChange()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sort_order_change",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            Set<String> sortedByComment = new HashSet<>();
+            computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()
+                    .forEach(fileName -> sortedByComment.add((String) fileName));
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['name']");
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                String path = (String) filePath;
+                if (sortedByComment.contains(path)) {
+                    assertTrue(isFileSorted(path, "comment"));
+                }
+                else {
+                    assertTrue(isFileSorted(path, "name"));
+                }
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation UNION ALL SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testSortingDisabled()
+    {
+        Session withSortingDisabled = Session.builder(withSmallRowGroups(getSession()))
+                .setCatalogSessionProperty(ICEBERG_CATALOG, "sorted_writing_enabled", "false")
+                .build();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sorting_disabled",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate(withSortingDisabled, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertFalse(isFileSorted((String) filePath, "comment"));
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithSortOrder()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_optimize_with_sort_order",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey < 10", 10);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 10 AND nationkey < 20", 10);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 20", 5);
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['comment']");
+            assertUpdate(withSmallRowGroups, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertTrue(isFileSorted((String) filePath, "comment"));
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
+        }
+    }
+
+    @Test
+    public void testUpdateWithSortOrder()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_sorted_update",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM lineitem WITH NO DATA")) {
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " SELECT * FROM lineitem",
+                    "VALUES 60175");
+            assertUpdate(withSmallRowGroups, "UPDATE " + table.getName() + " SET comment = substring(comment, 2)", 60175);
+            assertQuery(
+                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, returnflag, linestatus, shipdate, " +
+                            "commitdate, receiptdate, shipinstruct, shipmode, comment FROM " + table.getName(),
+                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, returnflag, linestatus, shipdate, " +
+                            "commitdate, receiptdate, shipinstruct, shipmode, substring(comment, 2) FROM lineitem");
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertTrue(isFileSorted((String) filePath, "comment"));
+            }
+        }
+    }
+
+    protected abstract boolean isFileSorted(String path, String sortColumnName);
+
+    @Test
+    public void testSortingOnNestedField()
+    {
+        String tableName = "test_sorting_on_nested_field" + randomNameSuffix();
+        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['row_t.comment'])"))
+                .hasMessageContaining("Unable to parse sort field: [row_t.comment]");
+        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['\"row_t\".\"comment\"'])"))
+                .hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
+        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['\"row_t.comment\"'])"))
+                .hasMessageContaining("Column not found: row_t.comment");
+    }
+
+    @Test
+    public void testDroppingSortColumn()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_dropping_sort_column",
+                "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
+            assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
+            assertThatThrownBy(() -> query("ALTER TABLE " + table.getName() + " DROP COLUMN comment"))
+                    .hasMessageContaining("Cannot find source column for sort field");
+        }
+    }
+
+    @Test
     public void testTableComments()
     {
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
@@ -1206,6 +1485,14 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery("SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable("test_schema_evolution_drop_middle");
+    }
+
+    @Override
+    public void testDropRowFieldWhenDuplicates()
+    {
+        // Override because Iceberg doesn't allow duplicated field names in a row type
+        assertThatThrownBy(super::testDropRowFieldWhenDuplicates)
+                .hasMessage("Invalid schema: multiple fields for name col.a: 2 and 3");
     }
 
     @Test
@@ -3144,7 +3431,7 @@ public abstract class BaseIcebergConnectorTest
                             .row(null, null, null, null, 2.0, null, null)
                             .build();
         }
-        assertEquals(result, expectedStatistics);
+        assertThat(result).containsExactlyElementsOf(expectedStatistics);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES 200", 1);
 
@@ -3161,7 +3448,7 @@ public abstract class BaseIcebergConnectorTest
                             .row(null, null, null, null, 3.0, null, null)
                             .build();
         }
-        assertEquals(result, expectedStatistics);
+        assertThat(result).containsExactlyElementsOf(expectedStatistics);
 
         dropTable(tableName);
     }
@@ -3254,7 +3541,7 @@ public abstract class BaseIcebergConnectorTest
                     .row(null, null, null, null, 2.0, null, null)
                     .build();
         }
-        assertEquals(result, expectedStatistics);
+        assertThat(result).containsExactlyElementsOf(expectedStatistics);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (200, 20, DATE '2020-06-28')", 1);
         result = computeActual("SHOW STATS FOR " + tableName);
@@ -3274,7 +3561,7 @@ public abstract class BaseIcebergConnectorTest
                             .row(null, null, null, null, 3.0, null, null)
                             .build();
         }
-        assertEquals(result, expectedStatistics);
+        assertThat(result).containsExactlyElementsOf(expectedStatistics);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES " + IntStream.rangeClosed(21, 25)
                 .mapToObj(i -> format("(200, %d, DATE '2020-07-%d')", i, i))
@@ -3302,7 +3589,7 @@ public abstract class BaseIcebergConnectorTest
                             .row(null, null, null, null, 13.0, null, null)
                             .build();
         }
-        assertEquals(result, expectedStatistics);
+        assertThat(result).containsExactlyElementsOf(expectedStatistics);
 
         dropTable(tableName);
     }
@@ -4392,8 +4679,6 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    protected abstract Session withSmallRowGroups(Session session);
-
     protected abstract boolean supportsRowGroupStatistics(String typeName);
 
     private void verifySplitCount(String query, int expectedSplitCount)
@@ -4434,11 +4719,13 @@ public abstract class BaseIcebergConnectorTest
         if (expectedSplitCount > 0) {
             assertThat(operatorStats.getTotalDrivers()).isEqualTo(expectedSplitCount);
             assertThat(operatorStats.getPhysicalInputPositions()).isGreaterThan(0);
+            assertThat(operatorStats.getPhysicalInputReadTime().getValue()).isGreaterThan(0);
         }
         else {
             // expectedSplitCount == 0
             assertThat(operatorStats.getTotalDrivers()).isEqualTo(1);
             assertThat(operatorStats.getPhysicalInputPositions()).isEqualTo(0);
+            assertThat(operatorStats.getPhysicalInputReadTime().toMillis()).isEqualTo(0);
         }
     }
 
@@ -5073,13 +5360,10 @@ public abstract class BaseIcebergConnectorTest
                 " ) t(userid, zip)";
         assertUpdate(createTable, 8);
 
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("userid", "integer", "", "")
-                .row("zip", "integer", "", "")
-                .build();
-        MaterializedResult actualColumns = computeActual(format("DESCRIBE %s", tableName));
         // Describe output should not have the $path hidden column
-        assertEquals(actualColumns, expectedColumns);
+        assertThat(query("DESCRIBE " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES ('userid', 'integer', '', ''), ('zip', 'integer', '', '')");
 
         assertThat(query("SELECT file_path FROM \"" + tableName + "$files\""))
                 .matches("SELECT DISTINCT \"$path\" as file_path FROM " + tableName);
@@ -5158,12 +5442,10 @@ public abstract class BaseIcebergConnectorTest
     {
         ZonedDateTime beforeTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_file_modified_time_", "(col) AS VALUES (1)")) {
-            MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                    .row("col", "integer", "", "")
-                    .build();
-            MaterializedResult actualColumns = computeActual("DESCRIBE " + table.getName());
             // Describe output should not have the $file_modified_time hidden column
-            assertEquals(actualColumns, expectedColumns);
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('col', 'integer', '', '')");
 
             ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + table.getName());
             ZonedDateTime afterTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
@@ -6362,6 +6644,23 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test
+    public void testAlterTableWithUnsupportedProperties()
+    {
+        String tableName = "test_alter_table_with_unsupported_properties_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint)");
+
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['a']",
+                "The following properties cannot be updated: orc_bloom_filter_columns");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES location = '/var/data/table/', orc_bloom_filter_fpp = 0.5",
+                "The following properties cannot be updated: location, orc_bloom_filter_fpp");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES format = 'ORC', orc_bloom_filter_columns = ARRAY['a']",
+                "The following properties cannot be updated: orc_bloom_filter_columns");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
@@ -6375,6 +6674,8 @@ public abstract class BaseIcebergConnectorTest
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
             case "varchar -> char(20)":
+            case "time(6) -> time(3)":
+            case "timestamp(6) -> timestamp(3)":
             case "array(integer) -> array(bigint)":
                 // Iceberg allows updating column types if the update is safe. Safe updates are:
                 // - int to bigint
@@ -6393,7 +6694,9 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching(".*(Cannot change column type|not supported for Iceberg|Not a primitive type|Cannot change type ).*");
+        assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
+                "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
+                "|Type not supported for Iceberg: char\\(20\\)).*");
     }
 
     private Session prepareCleanUpSession()

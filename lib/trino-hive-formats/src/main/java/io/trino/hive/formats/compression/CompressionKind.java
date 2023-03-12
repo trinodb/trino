@@ -15,10 +15,15 @@ package io.trino.hive.formats.compression;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.compress.gzip.JdkGzipCodec;
-import io.airlift.compress.lz4.Lz4Codec;
-import io.airlift.compress.lzo.LzoCodec;
-import io.airlift.compress.snappy.SnappyCodec;
+import io.airlift.compress.bzip2.BZip2HadoopStreams;
+import io.airlift.compress.deflate.JdkDeflateHadoopStreams;
+import io.airlift.compress.gzip.JdkGzipHadoopStreams;
+import io.airlift.compress.hadoop.HadoopStreams;
+import io.airlift.compress.lz4.Lz4HadoopStreams;
+import io.airlift.compress.lzo.LzoHadoopStreams;
+import io.airlift.compress.lzo.LzopHadoopStreams;
+import io.airlift.compress.snappy.SnappyHadoopStreams;
+import io.airlift.compress.zstd.ZstdHadoopStreams;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,65 +32,30 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static java.util.Objects.requireNonNull;
 
 public enum CompressionKind
 {
-    SNAPPY(".snappy", "org.apache.hadoop.io.compress.SnappyCodec") {
-        @Override
-        public Codec createCodec()
-        {
-            return new AircompressorCodec(new SnappyCodec());
-        }
-    },
-    LZO(".lzo_deflate", "org.apache.hadoop.io.compress.LzoCodec", "com.hadoop.compression.lzo.LzoCodec") {
-        @Override
-        public Codec createCodec()
-        {
-            return new AircompressorCodec(new LzoCodec());
-        }
-    },
-    LZ4(".lz4", "org.apache.hadoop.io.compress.Lz4Codec") {
-        @Override
-        public Codec createCodec()
-        {
-            return new AircompressorCodec(new Lz4Codec());
-        }
-    },
-    GZIP(".gz", "org.apache.hadoop.io.compress.GzipCodec") {
-        @Override
-        public Codec createCodec()
-        {
-            return new AircompressorCodec(new JdkGzipCodec());
-        }
-    },
-    ZSTD(".zst", "org.apache.hadoop.io.compress.ZStandardCodec") {
-        @Override
-        public Codec createCodec()
-        {
-            org.apache.hadoop.io.compress.ZStandardCodec codec = new org.apache.hadoop.io.compress.ZStandardCodec();
-            codec.setConf(newEmptyConfiguration());
-            return new HadoopCodec(codec);
-        }
-    },
-    BZIP2(".bz2", "org.apache.hadoop.io.compress.BZip2Codec") {
-        @Override
-        public Codec createCodec()
-        {
-            org.apache.hadoop.io.compress.BZip2Codec codec = new org.apache.hadoop.io.compress.BZip2Codec();
-            codec.setConf(newEmptyConfiguration());
-            return new HadoopCodec(codec);
-        }
-    };
+    // These are in preference order
+    ZSTD(new ZstdHadoopStreams()),
+    LZ4(new Lz4HadoopStreams()),
+    SNAPPY(new SnappyHadoopStreams()),
+    GZIP(new JdkGzipHadoopStreams()),
+    DEFLATE(new JdkDeflateHadoopStreams()),
+    // These algorithms are only supported for backwards compatibility, and should be avoided at all costs
+    BZIP2(new BZip2HadoopStreams()),
+    LZO(new LzoHadoopStreams()),
+    LZOP(new LzopHadoopStreams());
 
+    private final HadoopStreams hadoopStreams;
     private final List<String> hadoopClassNames;
     private final String fileExtension;
 
-    CompressionKind(String fileExtension, String... hadoopClassNames)
+    CompressionKind(HadoopStreams hadoopStreams)
     {
-        this.hadoopClassNames = ImmutableList.copyOf(hadoopClassNames);
-        this.fileExtension = requireNonNull(fileExtension, "fileExtension is null");
+        this.hadoopStreams = requireNonNull(hadoopStreams, "hadoopStreams is null");
+        this.hadoopClassNames = ImmutableList.copyOf(hadoopStreams.getHadoopCodecName());
+        this.fileExtension = hadoopStreams.getDefaultFileExtension();
     }
 
     public String getHadoopClassName()
@@ -98,7 +68,10 @@ public enum CompressionKind
         return fileExtension;
     }
 
-    public abstract Codec createCodec();
+    public Codec createCodec()
+    {
+        return new Codec(hadoopStreams);
+    }
 
     private static final Map<String, CompressionKind> CODECS_BY_HADOOP_CLASS_NAME;
 
@@ -116,13 +89,6 @@ public enum CompressionKind
     {
         return Optional.ofNullable(CODECS_BY_HADOOP_CLASS_NAME.get(hadoopClassName))
                 .orElseThrow(() -> new IllegalArgumentException("Unknown codec: " + hadoopClassName));
-    }
-
-    public static Codec createCodecFromHadoopClassName(String hadoopClassName)
-    {
-        return Optional.ofNullable(CODECS_BY_HADOOP_CLASS_NAME.get(hadoopClassName))
-                .orElseThrow(() -> new IllegalArgumentException("Unknown codec: " + hadoopClassName))
-                .createCodec();
     }
 
     private static final Map<String, CompressionKind> CODECS_BY_FILE_EXTENSION = Arrays.stream(values())

@@ -56,7 +56,7 @@ public class TestDbResourceGroupConfigurationManager
 
     static H2DaoProvider setup(String prefix)
     {
-        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        DbResourceGroupConfig config = new DbResourceGroupConfig().setConfigDbUrl("jdbc:h2:mem:test_" + prefix + System.nanoTime() + ThreadLocalRandom.current().nextLong() + ";NON_KEYWORDS=KEY,VALUE");
         return new H2DaoProvider(config);
     }
 

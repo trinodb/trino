@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -47,14 +48,15 @@ import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public abstract class BaseDeltaLakeMinioConnectorTest
         extends BaseConnectorTest
@@ -223,11 +225,10 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         throw new SkipException("Delta Lake does not support columns with a default value");
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -238,8 +239,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
@@ -563,6 +562,19 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Test
+    public void testTableLocationTrailingSpace()
+    {
+        String tableName = "table_with_space_" + randomNameSuffix();
+        String tableLocationWithTrailingSpace = "s3://" + bucketName + "/" + tableName + " ";
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = '%s')", tableName, tableLocationWithTrailingSpace));
+        assertUpdate("INSERT INTO " + tableName + " (customer) VALUES ('Aaron'), ('Bill')", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Aaron'), ('Bill')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testTableLocationTrailingSlash()
     {
         String tableWithSlash = "table_with_slash";
@@ -851,6 +863,53 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES(1, null, 100), (2, null, 200)");
     }
 
+    @Test
+    public void testThatEnableCdfTablePropertyIsShownForCtasTables()
+    {
+        String tableName = "test_show_create_show_property_for_table_created_with_ctas_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(page_url, views)" +
+                "WITH (change_data_feed_enabled = true) " +
+                "AS VALUES ('url1', 1), ('url2', 2)", 2);
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = true");
+    }
+
+    @Test
+    public void testAlterTableWithUnsupportedProperties()
+    {
+        String tableName = "test_alter_table_with_unsupported_properties_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
+
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true, checkpoint_interval = 10",
+                "The following properties cannot be updated: checkpoint_interval");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES partitioned_by = ARRAY['a']",
+                "The following properties cannot be updated: partitioned_by");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSettingChangeDataFeedEnabledProperty()
+    {
+        String tableName = "test_enable_and_disable_cdf_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = false");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = true");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = false");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = true");
+    }
+
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
@@ -911,5 +970,11 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
+    }
+
+    private void assertThatShowCreateTable(String tableName, String expectedRegex)
+    {
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .matches(Pattern.compile(expectedRegex, Pattern.DOTALL));
     }
 }

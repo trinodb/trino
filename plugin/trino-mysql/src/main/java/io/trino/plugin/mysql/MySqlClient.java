@@ -89,6 +89,7 @@ import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
 import java.util.List;
@@ -496,7 +497,7 @@ public class MySqlClient
                     throws SQLException
             {
                 // super calls ResultSet#getObject(), which for TIMESTAMP type returns java.sql.Timestamp, for which the conversion can fail if the value isn't a valid instant in server's time zone.
-                resultSet.getObject(columnIndex, String.class);
+                resultSet.getObject(columnIndex, LocalDateTime.class);
                 return resultSet.wasNull();
             }
 

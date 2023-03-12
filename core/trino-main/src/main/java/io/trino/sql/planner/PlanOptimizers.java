@@ -199,6 +199,7 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantPredicateAboveTableSca
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSortBelowLimitWithTies;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantTopN;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantWindow;
 import io.trino.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
@@ -415,6 +416,7 @@ public class PlanOptimizers
                                 .addAll(new UnwrapRowSubscript().rules())
                                 .addAll(new PushCastIntoRow().rules())
                                 .addAll(ImmutableSet.of(
+                                        new ImplementTableFunctionSource(metadata),
                                         new UnwrapSingleColumnRowInApply(typeAnalyzer),
                                         new RemoveEmptyUnionBranches(),
                                         new EvaluateEmptyIntersect(),
@@ -441,6 +443,7 @@ public class PlanOptimizers
                                         new ReplaceRedundantJoinWithProject(),
                                         new RemoveRedundantEnforceSingleRowNode(),
                                         new RemoveRedundantExists(),
+                                        new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(metadata),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MergeLimitWithDistinct(),
@@ -588,7 +591,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new ApplyTableScanRedirection(plannerContext),
                                 new PruneTableScanColumns(metadata),
-                                new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))));
+                                new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))));
 
         Set<Rule<?>> pushIntoTableScanRulesExceptJoins = ImmutableSet.<Rule<?>>builder()
                 .addAll(columnPruningRules)
@@ -596,12 +599,12 @@ public class PlanOptimizers
                 .add(new PushProjectionIntoTableScan(plannerContext, typeAnalyzer, scalarStatsCalculator))
                 .add(new RemoveRedundantIdentityProjections())
                 .add(new PushLimitIntoTableScan(metadata))
-                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
                 .add(new PushSampleIntoTableScan(metadata))
                 .add(new PushAggregationIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushDistinctLimitIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushTopNIntoTableScan(metadata))
-                .add(new RewriteTableFunctionToTableScan(plannerContext))
+                .add(new RewriteTableFunctionToTableScan(plannerContext)) // must run after ImplementTableFunctionSource
                 .build();
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 plannerContext,
@@ -631,11 +634,7 @@ public class PlanOptimizers
                         costCalculator,
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
-                        ImmutableSet.of(
-                                new ImplementBernoulliSampleAsFilter(metadata),
-                                // Must run after RewriteTableFunctionToTableScan because that rule applies to TableFunctionNode.
-                                // While the node gets rewritten to TableFunctionProcessorNode, we can no longer pushdown the function to the connector.
-                                new ImplementTableFunctionSource(metadata))),
+                        ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
                         plannerContext,
@@ -649,7 +648,7 @@ public class PlanOptimizers
                                 new RemoveRedundantIdentityProjections(),
                                 new PushAggregationThroughOuterJoin(),
                                 new ReplaceRedundantJoinWithSource(), // Run this after PredicatePushDown optimizer as it inlines filter constants
-                                new MultipleDistinctAggregationToMarkDistinct())), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
+                                new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator))), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
                 inlineProjections,
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 pushProjectionIntoTableScanOptimizer,
@@ -664,7 +663,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
                                 .build()),
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
@@ -729,7 +728,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
                                 .build()),
                 pushProjectionIntoTableScanOptimizer,
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
@@ -743,7 +742,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
                                 .build()),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
@@ -808,6 +807,21 @@ public class PlanOptimizers
                         // Must run after join reordering because join reordering creates
                         // new join nodes without JoinNode.maySkipOutputDuplicates flag set
                         new OptimizeDuplicateInsensitiveJoins(metadata))));
+
+        // Previous invocations of PushPredicateIntoTableScan do not prune using predicate expression. The invocation in AddExchanges
+        // does this pruning - and we may end up with empty union branches after that. We invoke PushPredicateIntoTableScan
+        // and rules to remove empty branches here to get empty values node through pushdown and then prune them.
+        builder.add(new IterativeOptimizer(
+                plannerContext,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, true),
+                        new RemoveEmptyUnionBranches(),
+                        new EvaluateEmptyIntersect(),
+                        new RemoveEmptyExceptBranches(),
+                        new TransformFilteringSemiJoinToInnerJoin())));
 
         if (!forceSingleNode) {
             builder.add(new IterativeOptimizer(
@@ -898,7 +912,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer))
+                        .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext, typeAnalyzer))
                         .build()));
         builder.add(inlineProjections);

@@ -40,12 +40,6 @@ public final class QueryExecutors
         return connectToTrino("compatibility-test-server");
     }
 
-    @Deprecated
-    public static QueryExecutor connectToPresto(String prestoConfig)
-    {
-        return connectToTrino(prestoConfig);
-    }
-
     public static QueryExecutor connectToTrino(String trinoConfig)
     {
         return new QueryExecutor()

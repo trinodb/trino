@@ -82,7 +82,7 @@ public class CheckpointSchemaManager
 
         commitInfoEntryType = RowType.from(ImmutableList.of(
                 RowType.field("version", BigintType.BIGINT),
-                RowType.field("timestamp", BigintType.BIGINT),
+                RowType.field("timestamp", TimestampType.TIMESTAMP_MILLIS),
                 RowType.field("userId", VarcharType.createUnboundedVarcharType()),
                 RowType.field("userName", VarcharType.createUnboundedVarcharType()),
                 RowType.field("operation", VarcharType.createUnboundedVarcharType()),

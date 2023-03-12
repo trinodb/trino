@@ -71,7 +71,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -85,6 +84,7 @@ import static com.mongodb.client.model.Aggregates.merge;
 import static com.mongodb.client.model.Aggregates.project;
 import static com.mongodb.client.model.Filters.ne;
 import static com.mongodb.client.model.Projections.exclude;
+import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -376,7 +376,7 @@ public class MongoMetadata
                 .addAll(columns)
                 .add(pageSinkIdColumn)
                 .build();
-        RemoteTableName temporaryTable = new RemoteTableName(remoteTableName.getDatabaseName(), generateTemporaryTableName());
+        RemoteTableName temporaryTable = new RemoteTableName(remoteTableName.getDatabaseName(), generateTemporaryTableName(session));
         mongoSession.createTable(temporaryTable, allTemporaryTableColumns, Optional.empty());
         closer.register(() -> mongoSession.dropTable(temporaryTable));
 
@@ -392,7 +392,7 @@ public class MongoMetadata
     {
         MongoOutputTableHandle handle = (MongoOutputTableHandle) tableHandle;
         if (handle.getTemporaryTableName().isPresent()) {
-            finishInsert(handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), fragments);
+            finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), fragments);
         }
         clearRollback();
         return Optional.empty();
@@ -422,7 +422,7 @@ public class MongoMetadata
                 .add(pageSinkIdColumn)
                 .build();
 
-        RemoteTableName temporaryTable = new RemoteTableName(handle.getSchemaTableName().getSchemaName(), generateTemporaryTableName());
+        RemoteTableName temporaryTable = new RemoteTableName(handle.getSchemaTableName().getSchemaName(), generateTemporaryTableName(session));
         mongoSession.createTable(temporaryTable, allColumns, Optional.empty());
 
         setRollback(() -> mongoSession.dropTable(temporaryTable));
@@ -439,13 +439,14 @@ public class MongoMetadata
     {
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertHandle;
         if (handle.getTemporaryTableName().isPresent()) {
-            finishInsert(handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), fragments);
+            finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName().get(), handle.getPageSinkIdColumnName().get(), fragments);
         }
         clearRollback();
         return Optional.empty();
     }
 
     private void finishInsert(
+            ConnectorSession session,
             RemoteTableName targetTable,
             RemoteTableName temporaryTable,
             String pageSinkIdColumnName,
@@ -456,7 +457,7 @@ public class MongoMetadata
 
         try {
             // Create the temporary page sink ID table
-            RemoteTableName pageSinkIdsTable = new RemoteTableName(temporaryTable.getDatabaseName(), generateTemporaryTableName());
+            RemoteTableName pageSinkIdsTable = new RemoteTableName(temporaryTable.getDatabaseName(), generateTemporaryTableName(session));
             MongoColumnHandle pageSinkIdColumn = new MongoColumnHandle(pageSinkIdColumnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, false, Optional.empty());
             mongoSession.createTable(pageSinkIdsTable, ImmutableList.of(pageSinkIdColumn), Optional.empty());
             closer.register(() -> mongoSession.dropTable(pageSinkIdsTable));
@@ -683,10 +684,5 @@ public class MongoMetadata
             suffix++;
         }
         return new MongoColumnHandle(columnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE, false, Optional.empty());
-    }
-
-    private static String generateTemporaryTableName()
-    {
-        return "tmp_trino_" + UUID.randomUUID().toString().replace("-", "");
     }
 }

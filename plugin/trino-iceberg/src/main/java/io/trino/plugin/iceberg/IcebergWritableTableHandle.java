@@ -35,6 +35,7 @@ public class IcebergWritableTableHandle
     private final String schemaAsJson;
     private final Map<Integer, String> partitionsSpecsAsJson;
     private final int partitionSpecId;
+    private final List<TrinoSortField> sortOrder;
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
     private final IcebergFileFormat fileFormat;
@@ -47,6 +48,7 @@ public class IcebergWritableTableHandle
             @JsonProperty("schemaAsJson") String schemaAsJson,
             @JsonProperty("partitionSpecsAsJson") Map<Integer, String> partitionsSpecsAsJson,
             @JsonProperty("partitionSpecId") int partitionSpecId,
+            @JsonProperty("sortOrder") List<TrinoSortField> sortOrder,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
@@ -57,6 +59,7 @@ public class IcebergWritableTableHandle
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
         this.partitionsSpecsAsJson = ImmutableMap.copyOf(requireNonNull(partitionsSpecsAsJson, "partitionsSpecsAsJson is null"));
         this.partitionSpecId = partitionSpecId;
+        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
@@ -87,6 +90,12 @@ public class IcebergWritableTableHandle
     public int getPartitionSpecId()
     {
         return partitionSpecId;
+    }
+
+    @JsonProperty
+    public List<TrinoSortField> getSortOrder()
+    {
+        return sortOrder;
     }
 
     @JsonProperty

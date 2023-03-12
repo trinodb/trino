@@ -67,9 +67,10 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -151,6 +152,7 @@ public class TestHttpEventListener
                 ofMillis(1000),
                 ofMillis(1000),
                 ofMillis(1000),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -458,7 +460,9 @@ public class TestHttpEventListener
         assertFalse(body.isEmpty(), "Body is empty");
 
         ObjectMapper objectMapper = new ObjectMapper();
-        assertEquals(objectMapper.readTree(body), objectMapper.readTree(eventJson), format("Json value is wrong, expected %s but found %s", eventJson, body));
+        assertThat(objectMapper.readTree(body))
+                .as("Json value is wrong, expected %s but found %s", eventJson, body)
+                .isEqualTo(objectMapper.readTree(eventJson));
     }
 
     private void setupServerTLSCertificate()

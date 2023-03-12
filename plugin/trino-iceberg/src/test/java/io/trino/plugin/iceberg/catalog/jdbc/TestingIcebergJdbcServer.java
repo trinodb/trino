@@ -29,8 +29,8 @@ import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 public class TestingIcebergJdbcServer
         implements Closeable
 {
-    private static final String USER = "test";
-    private static final String PASSWORD = "test";
+    public static final String USER = "test";
+    public static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
 
     private final PostgreSQLContainer<?> dockerContainer;
@@ -52,7 +52,7 @@ public class TestingIcebergJdbcServer
 
     public void execute(@Language("SQL") String sql)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), USER, PASSWORD);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
@@ -64,12 +64,10 @@ public class TestingIcebergJdbcServer
     public String getJdbcUrl()
     {
         return format(
-                "jdbc:postgresql://%s:%s/%s?user=%s&password=%s&currentSchema=tpch,public",
+                "jdbc:postgresql://%s:%s/%s",
                 dockerContainer.getHost(),
                 dockerContainer.getMappedPort(POSTGRESQL_PORT),
-                DATABASE,
-                USER,
-                PASSWORD);
+                DATABASE);
     }
 
     @Override

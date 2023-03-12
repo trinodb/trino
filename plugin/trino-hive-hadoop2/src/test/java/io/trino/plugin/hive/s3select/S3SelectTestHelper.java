@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.CounterStat;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
@@ -143,6 +144,7 @@ public class S3SelectTestHelper
                 this.hiveConfig,
                 new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
@@ -166,6 +168,7 @@ public class S3SelectTestHelper
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new BoundedExecutor(executorService, this.hiveConfig.getMaxSplitIteratorThreads()),

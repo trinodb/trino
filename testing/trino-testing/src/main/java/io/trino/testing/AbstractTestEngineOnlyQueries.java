@@ -27,7 +27,6 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.testing.assertions.Assert;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
@@ -371,7 +370,9 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS char(3)), " +
                 "   CAST('   ' AS char(3))) t(x) " +
-                "WHERE x = CAST('  ' AS varchar(2))");
+                "WHERE x = CAST('  ' AS varchar(2))",
+                // H2 returns '' on CAST char(3) to varchar(2)
+                "SELECT '   '");
 
         // with explicit casts
         assertQuery(
@@ -387,13 +388,14 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testVarcharCharComparison()
     {
         // with implicit coercions
-        assertQuery("SELECT * FROM (VALUES" +
+        assertThat(query("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS varchar(3)), " +
                 "   CAST('' AS varchar(3))," +
                 "   CAST(' ' AS varchar(3)), " +
                 "   CAST('  ' AS varchar(3)), " +
                 "   CAST('   ' AS varchar(3))) t(x) " +
-                "WHERE x = CAST('  ' AS char(2))");
+                "WHERE x = CAST('  ' AS char(2))"))
+                .matches("VALUES '', ' ', '  ', '   '");
 
         // with explicit casts
         assertQuery("SELECT * FROM (VALUES" +
@@ -1410,9 +1412,9 @@ public abstract class AbstractTestEngineOnlyQueries
         Session session = Session.builder(getSession())
                 .addPreparedStatement("my_query", "SELECT * FROM nation")
                 .build();
-        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
-        MaterializedResult expected = resultBuilder(session, UNKNOWN, UNKNOWN).build();
-        Assert.assertEquals(actual, expected);
+        assertThat(query(session, "DESCRIBE INPUT my_query"))
+                .hasOutputTypes(List.of(UNKNOWN, UNKNOWN))
+                .returnsEmptyResult();
     }
 
     @Test
@@ -1728,7 +1730,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 ")\n" +
                 "ORDER BY orderstatus, clerk";
 
-        Assert.assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
+        assertQuery(sql, sql.replace("custom_rank", "rank"));
     }
 
     @Test
@@ -2675,7 +2677,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 ") WHERE rn <= 5");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
-        Assert.assertEquals(actual, expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test

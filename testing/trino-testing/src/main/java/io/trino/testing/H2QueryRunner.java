@@ -66,7 +66,6 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -96,17 +95,17 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
-        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
+        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong() + ";NON_KEYWORDS=KEY,VALUE"); // key and value are reserved keywords in H2 2.x
         TpchMetadata tpchMetadata = new TpchMetadata();
 
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +
                 "  custkey BIGINT NOT NULL,\n" +
-                "  orderstatus CHAR(1) NOT NULL,\n" +
+                "  orderstatus VARCHAR(1) NOT NULL,\n" +
                 "  totalprice DOUBLE NOT NULL,\n" +
                 "  orderdate DATE NOT NULL,\n" +
-                "  orderpriority CHAR(15) NOT NULL,\n" +
-                "  clerk CHAR(15) NOT NULL,\n" +
+                "  orderpriority VARCHAR(15) NOT NULL,\n" +
+                "  clerk VARCHAR(15) NOT NULL,\n" +
                 "  shippriority INTEGER NOT NULL,\n" +
                 "  comment VARCHAR(79) NOT NULL\n" +
                 ")");
@@ -281,22 +280,13 @@ public class H2QueryRunner
                         row.add(jsonParse(utf8Slice(stringValue)).toStringUtf8());
                     }
                 }
-                else if (type instanceof VarcharType) {
+                else if (type instanceof VarcharType || type instanceof CharType) {
                     String stringValue = resultSet.getString(i);
                     if (resultSet.wasNull()) {
                         row.add(null);
                     }
                     else {
                         row.add(stringValue);
-                    }
-                }
-                else if (type instanceof CharType charType) {
-                    String stringValue = resultSet.getString(i);
-                    if (resultSet.wasNull()) {
-                        row.add(null);
-                    }
-                    else {
-                        row.add(padSpaces(stringValue, charType));
                     }
                 }
                 else if (VARBINARY.equals(type)) {

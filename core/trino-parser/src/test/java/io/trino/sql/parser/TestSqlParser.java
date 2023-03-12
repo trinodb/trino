@@ -38,6 +38,7 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -56,6 +57,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -135,6 +137,7 @@ import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.PatternVariable;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
+import io.trino.sql.tree.PrincipalSpecification.Type;
 import io.trino.sql.tree.ProcessingMode;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
@@ -1502,6 +1505,55 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCreateCatalog()
+    {
+        assertStatement("CREATE CATALOG test USING conn",
+                new CreateCatalog(new Identifier("test"), false, new Identifier("conn"), ImmutableList.of(), Optional.empty(), Optional.empty()));
+
+        assertStatement("CREATE CATALOG IF NOT EXISTS test USING conn",
+                new CreateCatalog(new Identifier("test"), true, new Identifier("conn"), ImmutableList.of(), Optional.empty(), Optional.empty()));
+
+        assertStatement("CREATE CATALOG test USING conn COMMENT 'awesome' AUTHORIZATION ROLE dragon WITH (\"a\" = 'apple', \"b\" = 123)",
+                new CreateCatalog(
+                        new Identifier("test"),
+                        false,
+                        new Identifier("conn"),
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123"))),
+                        Optional.of(new PrincipalSpecification(Type.ROLE, new Identifier("dragon"))),
+                        Optional.of("awesome")));
+
+        assertStatement("CREATE CATALOG \"some name that contains space\" USING \"conn-with-dash\"",
+                new CreateCatalog(
+                        new Identifier("some name that contains space"),
+                        false,
+                        new Identifier("conn-with-dash"),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testDropCatalog()
+    {
+        assertStatement("DROP CATALOG test",
+                new DropCatalog(new Identifier("test"), false, false));
+
+        assertStatement("DROP CATALOG test CASCADE",
+                new DropCatalog(new Identifier("test"), false, true));
+
+        assertStatement("DROP CATALOG IF EXISTS test",
+                new DropCatalog(new Identifier("test"), true, false));
+
+        assertStatement("DROP CATALOG IF EXISTS test RESTRICT",
+                new DropCatalog(new Identifier("test"), true, false));
+
+        assertStatement("DROP CATALOG \"some catalog that contains space\"",
+                new DropCatalog(new Identifier("some catalog that contains space"), false, false));
+    }
+
+    @Test
     public void testCreateSchema()
     {
         assertStatement("CREATE SCHEMA test",
@@ -2142,11 +2194,16 @@ public class TestSqlParser
     @Test
     public void testDropColumn()
     {
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, false));
-        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d"), false, false));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
-        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, false));
+        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), QualifiedName.of("c d"), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, true));
+
+        assertStatement("ALTER TABLE foo.t DROP COLUMN \"c.d\"", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c.d"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c.d", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c", "d"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN b.\"c.d\"", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("b", "c.d"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN \"b.c\".d", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("b.c", "d"), false, false));
     }
 
     @Test
@@ -4348,6 +4405,71 @@ public class TestSqlParser
                                         Optional.empty(),
                                         Optional.empty()))),
                         ImmutableList.of())));
+    }
+
+    @Test
+    public void testCopartitionInTableArgumentAlias()
+    {
+        // table argument 'input' is aliased. The alias "copartition" is illegal in this context.
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) copartition(a, b, c)))",
+                new ParsingOptions()))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:54: The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.");
+
+        // table argument 'input' contains an aliased relation with the alias "copartition". The alias is enclosed in the 'TABLE(...)' clause, and the argument itself is not aliased.
+        // The alias "copartition" is legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "                   input => TABLE(SELECT * FROM orders copartition(a, b, c))))"))
+                .isInstanceOf(Query.class);
+
+        // table argument 'input' is aliased. The alias "COPARTITION" is delimited, so it can cause no ambiguity with the COPARTITION clause, and is considered legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) \"COPARTITION\"(a, b, c)))"))
+                .isInstanceOf(Query.class);
+
+        // table argument 'input' is aliased. The alias "copartition" is preceded with the keyword "AS", so it can cause no ambiguity with the COPARTITION clause, and is considered legal in this context.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input => TABLE(orders) AS copartition(a, b, c)))"))
+                .isInstanceOf(Query.class);
+
+        // the COPARTITION word can be either the alias for argument 'input3', or part of the COPARTITION clause.
+        // It is parsed as the argument alias, and then fails as illegal in this context.
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input1 => TABLE(customers) PARTITION BY nationkey, " +
+                        "input2 => TABLE(nation) PARTITION BY nationkey, " +
+                        "input3 => TABLE(lineitem) " +
+                        "COPARTITION(customers, nation))) ",
+                new ParsingOptions()))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:156: The word \"COPARTITION\" is ambiguous in this context. " +
+                        "To alias an argument, precede the alias with \"AS\". " +
+                        "To specify co-partitioning, change the argument order so that the last argument cannot be aliased.");
+
+        // the above query does not fail if we change the order of arguments so that the last argument before the COPARTITION clause has specified partitioning.
+        // In such case, the COPARTITION word cannot be mistaken for alias.
+        // Note that this transformation of the query is always available. If the table function invocation contains the COPARTITION clause,
+        // at least two table arguments must have partitioning specified.
+        assertThat(statement(
+                "SELECT * " +
+                        "FROM TABLE(some_ptf( " +
+                        "input1 => TABLE(customers) PARTITION BY nationkey, " +
+                        "input3 => TABLE(lineitem), " +
+                        "input2 => TABLE(nation) PARTITION BY nationkey " +
+                        "COPARTITION(customers, nation))) "))
+                .isInstanceOf(Query.class);
     }
 
     private static Query selectAllFrom(Relation relation)

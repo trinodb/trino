@@ -62,6 +62,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -75,6 +76,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 class TestingH2JdbcClient
         extends BaseJdbcClient
@@ -82,6 +84,7 @@ class TestingH2JdbcClient
     private static final Logger log = Logger.get(TestingH2JdbcClient.class);
 
     private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    private static final int MAXIMUM_VARCHAR_LENGTH = 1_000_000_000;
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
@@ -163,7 +166,8 @@ class TestingH2JdbcClient
             case Types.BIGINT:
                 return Optional.of(bigintColumnMapping());
 
-            case Types.REAL:
+            // both types as both are used by H2 JDBC driver
+            case Types.FLOAT, Types.REAL:
                 return Optional.of(realColumnMapping());
 
             case Types.DOUBLE:
@@ -173,6 +177,10 @@ class TestingH2JdbcClient
                 return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.VARCHAR:
+                // varchar columns get created as varchar(max_length) in H2
+                if (typeHandle.getRequiredColumnSize() == MAXIMUM_VARCHAR_LENGTH) {
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
+                }
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.DATE:

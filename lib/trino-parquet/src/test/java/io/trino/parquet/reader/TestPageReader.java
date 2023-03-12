@@ -28,6 +28,7 @@ import io.trino.parquet.ParquetTypeUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.format.DataPageHeader;
 import org.apache.parquet.format.DataPageHeaderV2;
 import org.apache.parquet.format.DictionaryPageHeader;
@@ -54,10 +55,10 @@ import static io.trino.parquet.reader.TestPageReader.DataPageType.V1;
 import static io.trino.parquet.reader.TestPageReader.DataPageType.V2;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.Encoding.PLAIN;
+import static org.apache.parquet.format.CompressionCodec.SNAPPY;
+import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.format.PageType.DATA_PAGE_V2;
 import static org.apache.parquet.format.PageType.DICTIONARY_PAGE;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,7 +74,7 @@ public class TestPageReader
     private static final byte[] DATA_PAGE = new byte[] {1, 2, 3};
 
     @Test(dataProvider = "pageParameters")
-    public void singlePage(CompressionCodecName compressionCodec, DataPageType dataPageType)
+    public void singlePage(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
         int valueCount = 10;
@@ -118,7 +119,7 @@ public class TestPageReader
     }
 
     @Test(dataProvider = "pageParameters")
-    public void manyPages(CompressionCodecName compressionCodec, DataPageType dataPageType)
+    public void manyPages(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
         int totalValueCount = 30;
@@ -158,7 +159,7 @@ public class TestPageReader
     }
 
     @Test(dataProvider = "pageParameters")
-    public void dictionaryPage(CompressionCodecName compressionCodec, DataPageType dataPageType)
+    public void dictionaryPage(CompressionCodec compressionCodec, DataPageType dataPageType)
             throws Exception
     {
         byte[] dictionaryPage = {4};
@@ -215,7 +216,7 @@ public class TestPageReader
             throws Exception
     {
         byte[] dictionaryPage = {4};
-        CompressionCodecName compressionCodec = UNCOMPRESSED;
+        CompressionCodec compressionCodec = UNCOMPRESSED;
         byte[] compressedDictionaryPage = TestPageReader.compress(compressionCodec, dictionaryPage, 0, dictionaryPage.length);
         PageHeader dictionaryPageHeader = new PageHeader(DICTIONARY_PAGE, dictionaryPage.length, compressedDictionaryPage.length);
         dictionaryPageHeader.setDictionary_page_header(new DictionaryPageHeader(3, Encoding.PLAIN));
@@ -254,7 +255,7 @@ public class TestPageReader
     {
         // A parquet file produced by Impala was found to have an empty dictionary
         // which is not used in the encoding of data pages in the column
-        CompressionCodecName compressionCodec = UNCOMPRESSED;
+        CompressionCodec compressionCodec = UNCOMPRESSED;
         byte[] compressedDictionaryPage = TestPageReader.compress(compressionCodec, new byte[0], 0, 0);
         PageHeader dictionaryPageHeader = new PageHeader(DICTIONARY_PAGE, 0, compressedDictionaryPage.length);
         dictionaryPageHeader.setDictionary_page_header(new DictionaryPageHeader(0, Encoding.PLAIN));
@@ -280,20 +281,20 @@ public class TestPageReader
         assertThat(pageReader.readPage()).isNull();
     }
 
-    private static void assertSinglePage(CompressionCodecName compressionCodec, int valueCount, PageHeader pageHeader, byte[] compressedDataPage, List<Slice> slices)
+    private static void assertSinglePage(CompressionCodec compressionCodec, int valueCount, PageHeader pageHeader, byte[] compressedDataPage, List<Slice> slices)
             throws IOException
     {
         assertPages(compressionCodec, valueCount, 1, pageHeader, compressedDataPage, slices);
     }
 
-    private static void assertPages(CompressionCodecName compressionCodec, int valueCount, int pageCount, PageHeader pageHeader, byte[] compressedDataPage, List<Slice> slices)
+    private static void assertPages(CompressionCodec compressionCodec, int valueCount, int pageCount, PageHeader pageHeader, byte[] compressedDataPage, List<Slice> slices)
             throws IOException
     {
         assertPages(compressionCodec, valueCount, pageCount, pageHeader, compressedDataPage, false, slices);
     }
 
     private static void assertPages(
-            CompressionCodecName compressionCodec,
+            CompressionCodec compressionCodec,
             int valueCount,
             int pageCount,
             PageHeader pageHeader,
@@ -332,7 +333,7 @@ public class TestPageReader
             }
 
             @Override
-            public byte[] compress(CompressionCodecName compressionCodec, byte[] dataPage)
+            public byte[] compress(CompressionCodec compressionCodec, byte[] dataPage)
             {
                 return TestPageReader.compress(compressionCodec, dataPage, 0, dataPage.length);
             }
@@ -345,7 +346,7 @@ public class TestPageReader
             }
 
             @Override
-            public byte[] compress(CompressionCodecName compressionCodec, byte[] dataPage)
+            public byte[] compress(CompressionCodec compressionCodec, byte[] dataPage)
             {
                 // compress only the date, copy definition and repetition levels uncompressed
                 byte[] compressedData = TestPageReader.compress(compressionCodec, dataPage, 2, dataPage.length - 2);
@@ -370,10 +371,10 @@ public class TestPageReader
             return pageType;
         }
 
-        public abstract byte[] compress(CompressionCodecName compressionCodec, byte[] dataPage);
+        public abstract byte[] compress(CompressionCodec compressionCodec, byte[] dataPage);
     }
 
-    private static byte[] compress(CompressionCodecName compressionCodec, byte[] bytes, int offset, int length)
+    private static byte[] compress(CompressionCodec compressionCodec, byte[] bytes, int offset, int length)
     {
         if (compressionCodec == UNCOMPRESSED) {
             return Arrays.copyOfRange(bytes, offset, offset + length);
@@ -386,7 +387,7 @@ public class TestPageReader
         throw new IllegalArgumentException("unsupported compression code " + compressionCodec);
     }
 
-    private static PageReader createPageReader(int valueCount, CompressionCodecName compressionCodec, boolean hasDictionary, List<Slice> slices)
+    private static PageReader createPageReader(int valueCount, CompressionCodec compressionCodec, boolean hasDictionary, List<Slice> slices)
             throws IOException
     {
         EncodingStats.Builder encodingStats = new EncodingStats.Builder();
@@ -396,7 +397,7 @@ public class TestPageReader
         ColumnChunkMetaData columnChunkMetaData = ColumnChunkMetaData.get(
                 ColumnPath.get(""),
                 INT32,
-                compressionCodec,
+                CompressionCodecName.fromParquet(compressionCodec),
                 encodingStats.build(),
                 ImmutableSet.of(),
                 Statistics.createStats(Types.optional(INT32).named("fake_type")),

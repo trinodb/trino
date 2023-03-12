@@ -45,6 +45,8 @@ import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -68,6 +70,8 @@ import static java.util.Objects.requireNonNull;
 public class TestingMetadata
         implements ConnectorMetadata
 {
+    public static final Duration STALE_MV_STALENESS = Duration.ofHours(7);
+
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
     private final ConcurrentMap<SchemaTableName, ConnectorViewDefinition> views = new ConcurrentHashMap<>();
     private final ConcurrentMap<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
@@ -271,12 +275,27 @@ public class TestingMetadata
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(ConnectorSession session, SchemaTableName name)
     {
-        return new MaterializedViewFreshness(freshMaterializedViews.contains(name) ? FRESH : STALE);
+        boolean fresh = freshMaterializedViews.contains(name);
+        return new MaterializedViewFreshness(
+                fresh ? FRESH : STALE,
+                fresh ? Optional.empty() : Optional.of(Instant.now().minus(STALE_MV_STALENESS)));
     }
 
     public void markMaterializedViewIsFresh(SchemaTableName name)
     {
         freshMaterializedViews.add(name);
+    }
+
+    @Override
+    public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles, RetryMode retryMode)
+    {
+        return TestingHandle.INSTANCE;
     }
 
     @Override
@@ -377,6 +396,12 @@ public class TestingMetadata
         public SchemaTableName getTableName()
         {
             return tableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return tableName.toString();
         }
     }
 

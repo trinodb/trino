@@ -65,6 +65,7 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class PluginManager
+        implements PluginInstaller
 {
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("io.trino.spi.")
@@ -127,6 +128,7 @@ public class PluginManager
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
     }
 
+    @Override
     public void loadPlugins()
     {
         if (!pluginsLoading.compareAndSet(false, true)) {
@@ -169,6 +171,7 @@ public class PluginManager
         }
     }
 
+    @Override
     public void installPlugin(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         installPluginInternal(plugin, duplicatePluginClassLoaderFactory);

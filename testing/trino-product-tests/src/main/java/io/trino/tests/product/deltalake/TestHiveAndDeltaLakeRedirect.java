@@ -41,6 +41,7 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -65,7 +66,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .collect(toImmutableList()));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -107,7 +108,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .hasMessageMatching(".*Table 'hive.default.test_redirect_to_nonexistent_delta_.*' redirected to 'epsilon.default.test_redirect_to_nonexistent_delta_.*', but the target catalog 'epsilon' does not exist");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -130,7 +131,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .collect(toImmutableList()));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -148,7 +149,7 @@ public class TestHiveAndDeltaLakeRedirect
                             "but the target table 'delta.default.test_delta_lake_unpartitioned_table_.*\\$partitions' does not exist");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -166,7 +167,7 @@ public class TestHiveAndDeltaLakeRedirect
                             "but the target table 'delta.default.test_delta_lake_partitioned_table_.*\\$partitions' does not exist");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -359,7 +360,7 @@ public class TestHiveAndDeltaLakeRedirect
             assertThat(onTrino().executeQuery(format("SELECT count(*) FROM hive.default.\"%s\"", tableName))).containsOnly(row(5));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -402,7 +403,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .containsOnly(expectedResults);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -436,7 +437,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .hasRowsCount(1);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -477,10 +478,10 @@ public class TestHiveAndDeltaLakeRedirect
 
         try {
             onTrino().executeQuery("ALTER TABLE hive.default.\"" + tableName + "\" RENAME TO \"" + newTableName + "\"");
-            onDelta().executeQuery("DROP TABLE " + newTableName);
+            dropDeltaTableWithRetry(newTableName);
         }
         catch (QueryExecutionException e) {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
             throw e;
         }
     }
@@ -524,7 +525,7 @@ public class TestHiveAndDeltaLakeRedirect
             assertTableComment("delta", "default", tableName).isEqualTo(tableComment);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -571,7 +572,7 @@ public class TestHiveAndDeltaLakeRedirect
             assertColumnComment("delta", "default", tableName, columnName).isEqualTo(columnComment);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
@@ -870,8 +871,8 @@ public class TestHiveAndDeltaLakeRedirect
         }
         finally {
             onDelta().executeQuery("DROP VIEW IF EXISTS " + viewName);
-            onDelta().executeQuery("DROP TABLE IF EXISTS " + deltaTableName);
-            onDelta().executeQuery("DROP TABLE IF EXISTS " + deltaRegionTableName);
+            dropDeltaTableWithRetry(deltaTableName);
+            dropDeltaTableWithRetry(deltaRegionTableName);
             onTrino().executeQuery("DROP TABLE IF EXISTS hive.default." + hiveTableName);
         }
     }

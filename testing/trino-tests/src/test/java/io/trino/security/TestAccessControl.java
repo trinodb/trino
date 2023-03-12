@@ -211,8 +211,8 @@ public class TestAccessControl
                         stringProperty("string_column_property", "description", "", false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
-        queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
-        queryRunner.createCatalog("jdbc", "base-jdbc", TestingH2JdbcModule.createProperties());
+        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
+        queryRunner.createCatalog("jdbc", "base_jdbc", TestingH2JdbcModule.createProperties());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
         }

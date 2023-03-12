@@ -44,6 +44,7 @@ public final class TestGroups
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
     public static final String HIVE_PARTITIONING = "hive_partitioning";
     public static final String HIVE_SPARK = "hive_spark";
+    public static final String HIVE_SPARK_NO_STATS_FALLBACK = "hive_spark_no_stats_fallback";
     public static final String HIVE_COMPRESSION = "hive_compression";
     public static final String HIVE_TRANSACTIONAL = "hive_transactional";
     public static final String HIVE_VIEWS = "hive_views";
@@ -87,6 +88,7 @@ public final class TestGroups
     public static final String DELTA_LAKE_EXCLUDE_113 = "delta-lake-exclude-113";
     public static final String HUDI = "hudi";
     public static final String PARQUET = "parquet";
+    public static final String IGNITE = "ignite";
 
     private TestGroups() {}
 }

@@ -237,8 +237,7 @@ public class DistributedQueryRunner
                 .put("node-manager.http-client.min-threads", "1") // default 8
                 .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
-                .put("task.max-index-memory", "16kB") // causes index joins to fault load
-                .put("distributed-index-joins-enabled", "true");
+                .put("task.max-index-memory", "16kB"); // causes index joins to fault load
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");

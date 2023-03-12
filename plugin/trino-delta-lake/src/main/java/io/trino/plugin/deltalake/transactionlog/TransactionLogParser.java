@@ -236,7 +236,7 @@ public final class TransactionLogParser
     {
         Path checkpointPath = new Path(getTransactionLogDir(tableLocation), LAST_CHECKPOINT_FILENAME);
         TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath.toString());
-        try (InputStream lastCheckpointInput = inputFile.newInput().inputStream()) {
+        try (InputStream lastCheckpointInput = inputFile.newStream()) {
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
             return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }

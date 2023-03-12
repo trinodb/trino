@@ -389,14 +389,14 @@ public class MetastoreHiveStatisticsProvider
             Map<String, PartitionStatistics> statistics)
     {
         if (statistics.isEmpty()) {
-            return TableStatistics.empty();
+            return createEmptyTableStatisticsWithPartitionColumnStatistics(columns, columnTypes, partitions);
         }
 
         checkArgument(!partitions.isEmpty(), "partitions is empty");
 
         Optional<PartitionsRowCount> optionalRowCount = calculatePartitionsRowCount(statistics.values(), partitions.size());
         if (optionalRowCount.isEmpty()) {
-            return TableStatistics.empty();
+            return createEmptyTableStatisticsWithPartitionColumnStatistics(columns, columnTypes, partitions);
         }
         double rowCount = optionalRowCount.get().getRowCount();
 
@@ -415,6 +415,25 @@ public class MetastoreHiveStatisticsProvider
                 columnStatistics = createDataColumnStatistics(columnName, columnType, rowCount, statistics.values());
             }
             result.setColumnStatistics(columnHandle, columnStatistics);
+        }
+        return result.build();
+    }
+
+    private static TableStatistics createEmptyTableStatisticsWithPartitionColumnStatistics(
+            Map<String, ColumnHandle> columns,
+            Map<String, Type> columnTypes,
+            List<HivePartition> partitions)
+    {
+        TableStatistics.Builder result = TableStatistics.builder();
+        // Estimate stats for partitioned columns even when row count is unavailable. This will help us use
+        // ndv stats in rules like "ApplyPreferredTableWriterPartitioning".
+        for (Map.Entry<String, ColumnHandle> column : columns.entrySet()) {
+            HiveColumnHandle columnHandle = (HiveColumnHandle) column.getValue();
+            if (columnHandle.isPartitionKey()) {
+                result.setColumnStatistics(
+                        columnHandle,
+                        createPartitionColumnStatisticsWithoutRowCount(columnHandle, columnTypes.get(column.getKey()), partitions));
+            }
         }
         return result.build();
     }
@@ -531,6 +550,26 @@ public class MetastoreHiveStatisticsProvider
                 .setNullsFraction(Estimate.of(calculateNullsFractionForPartitioningKey(column, partitions, statistics, averageRowsPerPartition, rowCount)))
                 .setRange(calculateRangeForPartitioningKey(column, type, nonEmptyPartitions))
                 .setDataSize(calculateDataSizeForPartitioningKey(column, type, partitions, statistics, averageRowsPerPartition))
+                .build();
+    }
+
+    private static ColumnStatistics createPartitionColumnStatisticsWithoutRowCount(HiveColumnHandle column, Type type, List<HivePartition> partitions)
+    {
+        if (partitions.isEmpty()) {
+            return ColumnStatistics.empty();
+        }
+
+        // Since we don't know the row count for each partition, we are taking an assumption here that all partitions
+        // are non-empty and contains exactly same amount of data. This will help us estimate ndv stats for partitioned
+        // columns which can be useful for certain optimizer rules.
+        double estimatedNullsCount = partitions.stream()
+                .filter(partition -> partition.getKeys().get(column).isNull())
+                .count();
+
+        return ColumnStatistics.builder()
+                .setDistinctValuesCount(Estimate.of(calculateDistinctPartitionKeys(column, partitions)))
+                .setNullsFraction(Estimate.of(normalizeFraction(estimatedNullsCount / partitions.size())))
+                .setRange(calculateRangeForPartitioningKey(column, type, partitions))
                 .build();
     }
 

@@ -134,6 +134,18 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SystemSecurityContext context, String catalog)
+    {
+        delegate().checkCanCreateCatalog(context, catalog);
+    }
+
+    @Override
+    public void checkCanDropCatalog(SystemSecurityContext context, String catalog)
+    {
+        delegate().checkCanDropCatalog(context, catalog);
+    }
+
+    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         return delegate().filterCatalogs(context, catalogs);

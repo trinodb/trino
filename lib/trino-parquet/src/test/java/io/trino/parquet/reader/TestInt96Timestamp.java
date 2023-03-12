@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
@@ -53,7 +54,7 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
+import static org.apache.parquet.format.CompressionCodec.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -106,7 +107,7 @@ public class TestInt96Timestamp
                 null,
                 false);
         // Read and assert
-        ColumnReader reader = ColumnReaderFactory.create(field, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), true);
+        ColumnReader reader = ColumnReaderFactory.create(field, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), new ParquetReaderOptions().withBatchColumnReaders(true));
         reader.setPageReader(
                 new PageReader(UNCOMPRESSED, List.of(dataPage).iterator(), false, false),
                 Optional.empty());

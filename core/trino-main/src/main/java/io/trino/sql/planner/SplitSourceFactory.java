@@ -59,6 +59,7 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -303,6 +304,20 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitPatternRecognition(PatternRecognitionNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            if (node.getSource().isEmpty()) {
+                // this is a source node, so produce splits
+                SplitSource splitSource = splitManager.getSplits(session, node.getHandle());
+                splitSources.add(splitSource);
+
+                return ImmutableMap.of(node.getId(), splitSource);
+            }
+
+            return node.getSource().orElseThrow().accept(this, context);
         }
 
         @Override

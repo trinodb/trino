@@ -328,6 +328,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        delegate.dropField(session, tableHandle, column, fieldPath);
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName)
     {
         delegate.dropTable(session, tableHandle, tableName);

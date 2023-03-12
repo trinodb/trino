@@ -18,12 +18,11 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static java.lang.Math.toIntExact;
 
 /**
  * GroupByHash that provides a round robin group ID assignment.
@@ -31,7 +30,7 @@ import static java.lang.Math.toIntExact;
 public class CyclingGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CyclingGroupByHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(CyclingGroupByHash.class);
 
     private final int totalGroupCount;
     private int maxGroupId;

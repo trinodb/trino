@@ -28,7 +28,10 @@ public class TestIcebergJdbcCatalogConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergJdbcCatalogConfig.class)
+                .setDriverClass(null)
                 .setConnectionUrl(null)
+                .setConnectionUser(null)
+                .setConnectionPassword(null)
                 .setCatalogName(null)
                 .setDefaultWarehouseDir(null));
     }
@@ -37,13 +40,19 @@ public class TestIcebergJdbcCatalogConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver")
                 .put("iceberg.jdbc-catalog.connection-url", "jdbc:postgresql://localhost:5432/test")
+                .put("iceberg.jdbc-catalog.connection-user", "foo")
+                .put("iceberg.jdbc-catalog.connection-password", "bar")
                 .put("iceberg.jdbc-catalog.catalog-name", "test")
                 .put("iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket")
                 .buildOrThrow();
 
         IcebergJdbcCatalogConfig expected = new IcebergJdbcCatalogConfig()
+                .setDriverClass("org.postgresql.Driver")
                 .setConnectionUrl("jdbc:postgresql://localhost:5432/test")
+                .setConnectionUser("foo")
+                .setConnectionPassword("bar")
                 .setCatalogName("test")
                 .setDefaultWarehouseDir("s3://bucket");
 

@@ -36,6 +36,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
+import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogManagerConfig;
@@ -79,6 +80,7 @@ import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
 import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 
 public class Server
@@ -107,6 +109,7 @@ public class Server
                 new PrefixObjectNameGeneratorModule("io.trino"),
                 new JmxModule(),
                 new JmxHttpModule(),
+                new JmxOpenMetricsModule(),
                 new LogJmxModule(),
                 new TraceTokenModule(),
                 new EventModule(),
@@ -133,7 +136,7 @@ public class Server
             logLocation(log, "Working directory", Paths.get("."));
             logLocation(log, "Etc directory", Paths.get("etc"));
 
-            injector.getInstance(PluginManager.class).loadPlugins();
+            injector.getInstance(PluginInstaller.class).loadPlugins();
 
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();
@@ -181,11 +184,11 @@ public class Server
             message.append("\n");
             message.append("==========");
             log.error("%s", message);
-            System.exit(1);
+            System.exit(100);
         }
         catch (Throwable e) {
             log.error(e);
-            System.exit(1);
+            System.exit(100);
         }
     }
 
@@ -198,6 +201,7 @@ public class Server
         catalogManager.getCatalogNames().stream()
                 .map(catalogManager::getCatalog)
                 .flatMap(Optional::stream)
+                .filter(not(Catalog::isFailed))
                 .map(Catalog::getCatalogHandle)
                 .map(connectorServicesProvider::getConnectorServices)
                 .map(ConnectorServices::getEventListeners)

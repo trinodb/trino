@@ -23,6 +23,14 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
+import io.trino.plugin.hive.line.CsvFileWriterFactory;
+import io.trino.plugin.hive.line.CsvPageSourceFactory;
+import io.trino.plugin.hive.line.JsonFileWriterFactory;
+import io.trino.plugin.hive.line.JsonPageSourceFactory;
+import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
+import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
+import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
+import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -142,14 +150,17 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
+                // t_map_null_key_* must be disabled because Trino cannot produce maps with null keys so the writer will throw
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
         assertThatFileFormat(TEXTFILE)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleTextFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleTextFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -157,14 +168,17 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
+                // t_map_null_key_* must be disabled because Trino cannot produce maps with null keys so the writer will throw
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleSequenceFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test")))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleSequenceFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -182,7 +196,9 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new CsvFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new CsvPageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test
@@ -194,7 +210,9 @@ public class TestHiveFileFormats
                         new TestColumn("t_null_string", javaStringObjectInspector, null, utf8Slice("")), // null was converted to empty string!
                         new TestColumn("t_string", javaStringObjectInspector, "test", utf8Slice("test"))))
                 .withRowsCount(2)
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new CsvFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new CsvPageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -223,7 +241,9 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new JsonFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new JsonPageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
@@ -290,6 +310,8 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCBINARY)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
+                // generic Hive writer corrupts timestamps
+                .withSkipGenericWriterTest()
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
                 .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()))
                 .withColumns(testColumnsNoTimestamps)
@@ -313,6 +335,7 @@ public class TestHiveFileFormats
     {
         HiveSessionProperties hiveSessionProperties = new HiveSessionProperties(
                 new HiveConfig(),
+                new HiveFormatsConfig(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig()
                         .setValidationPercentage(100.0),
@@ -548,12 +571,16 @@ public class TestHiveFileFormats
         assertThatFileFormat(SEQUENCEFILE)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleSequenceFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test")))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleSequenceFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
 
         assertThatFileFormat(TEXTFILE)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleTextFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleTextFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -664,7 +691,9 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
-                .isReadableByRecordCursorPageSource(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleSequenceFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test")))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleSequenceFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -672,7 +701,8 @@ public class TestHiveFileFormats
             throws Exception
     {
         List<TestColumn> supportedColumns = TEST_COLUMNS.stream()
-                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
+                // t_map_null_key_* must be disabled because Trino cannot produce maps with null keys so the writer will throw
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
         List<TestColumn> regularColumns = getRegularColumns(supportedColumns);
@@ -690,7 +720,9 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
-                .isReadableByRecordCursorPageSource(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .withFileWriterFactory(new SimpleTextFileWriterFactory(HDFS_FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER))
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new SimpleTextFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -774,6 +806,8 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
+                // generic Hive writer corrupts timestamps
+                .withSkipGenericWriterTest()
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
                 .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
     }
@@ -802,6 +836,8 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
+                // generic Hive writer corrupts timestamps
+                .withSkipGenericWriterTest()
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
                 .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
     }
@@ -1164,6 +1200,7 @@ public class TestHiveFileFormats
         private List<TestColumn> readColumns;
         private ConnectorSession session = SESSION;
         private int rowsCount = 1000;
+        private boolean skipGenericWrite;
         private HiveFileWriterFactory fileWriterFactory;
         private long fileSizePadding;
 
@@ -1181,6 +1218,12 @@ public class TestHiveFileFormats
         public FileFormatAssertion withCompressionCodec(HiveCompressionCodec compressionCodec)
         {
             this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+            return this;
+        }
+
+        public FileFormatAssertion withSkipGenericWriterTest()
+        {
+            this.skipGenericWrite = true;
             return this;
         }
 
@@ -1277,31 +1320,39 @@ public class TestHiveFileFormats
 
             File file = File.createTempFile("trino_test", formatName + compressionSuffix);
             file.delete();
-            try {
-                FileSplit split;
-                if (fileWriterFactory != null) {
-                    split = createTestFileTrino(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory);
-                }
-                else {
-                    split = createTestFileHive(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
-                }
-
-                long fileSize = split.getLength() + fileSizePadding;
-                if (pageSourceFactory.isPresent()) {
-                    testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
-                }
-                if (cursorProvider.isPresent()) {
-                    if (withRecordPageSource) {
-                        testRecordPageSource(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+            for (boolean testFileWriter : ImmutableList.of(false, true)) {
+                try {
+                    FileSplit split;
+                    if (testFileWriter) {
+                        if (fileWriterFactory == null) {
+                            continue;
+                        }
+                        split = createTestFileTrino(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory);
                     }
                     else {
-                        testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+                        if (skipGenericWrite) {
+                            continue;
+                        }
+                        split = createTestFileHive(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
+                    }
+
+                    long fileSize = split.getLength() + fileSizePadding;
+                    if (pageSourceFactory.isPresent()) {
+                        testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+                    }
+                    if (cursorProvider.isPresent()) {
+                        if (withRecordPageSource) {
+                            testRecordPageSource(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+                        }
+                        else {
+                            testCursorProvider(cursorProvider.get(), split, storageFormat, readColumns, session, fileSize, rowsCount);
+                        }
                     }
                 }
-            }
-            finally {
-                //noinspection ResultOfMethodCallIgnored
-                file.delete();
+                finally {
+                    //noinspection ResultOfMethodCallIgnored
+                    file.delete();
+                }
             }
         }
 

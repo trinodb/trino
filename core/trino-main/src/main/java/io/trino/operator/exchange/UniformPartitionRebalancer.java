@@ -161,9 +161,12 @@ public class UniformPartitionRebalancer
 
             for (WriterId minSkewedWriter : minSkewedWriters) {
                 // There's no need to add the maxWriter back to priority queues if no partition rebalancing happened
-                if (context.rebalancePartition(maxWriter, minSkewedWriter)) {
-                    maxWriters.addOrUpdate(maxWriter, context.getWriterEstimatedWrittenBytes(maxWriter));
-                    minWriters.addOrUpdate(maxWriter, Long.MAX_VALUE - context.getWriterEstimatedWrittenBytes(maxWriter));
+                List<WriterId> affectedWriters = context.rebalancePartition(maxWriter, minSkewedWriter);
+                if (!affectedWriters.isEmpty()) {
+                    for (WriterId affectedWriter : affectedWriters) {
+                        maxWriters.addOrUpdate(affectedWriter, context.getWriterEstimatedWrittenBytes(maxWriter));
+                        minWriters.addOrUpdate(affectedWriter, Long.MAX_VALUE - context.getWriterEstimatedWrittenBytes(maxWriter));
+                    }
                     break;
                 }
             }
@@ -256,9 +259,10 @@ public class UniformPartitionRebalancer
             });
         }
 
-        private boolean rebalancePartition(WriterId from, WriterId to)
+        private List<WriterId> rebalancePartition(WriterId from, WriterId to)
         {
             IndexedPriorityQueue<PartitionIdWithRowCount> maxPartitions = writerMaxPartitions.get(from.id);
+            ImmutableList.Builder<WriterId> affectedWriters = ImmutableList.builder();
 
             for (PartitionIdWithRowCount partitionToRebalance : maxPartitions) {
                 // Find the partition with maximum written bytes since last rebalance
@@ -280,25 +284,33 @@ public class UniformPartitionRebalancer
                     if (partitionInfo.getWriterCount() <= numberOfWriters && estimatedPartitionWrittenBytes >= writerMinSize) {
                         partitionInfo.addWriter(to.id);
                         rebalancedPartitions.add(partitionToRebalance.id);
-                        updateWriterEstimatedWrittenBytes(from, to, estimatedPartitionWrittenBytesSinceLastRebalance, partitionInfo.getWriterCount());
+                        updateWriterEstimatedWrittenBytes(to, estimatedPartitionWrittenBytesSinceLastRebalance, partitionInfo);
+                        for (int writer : partitionInfo.getWriterIds()) {
+                            affectedWriters.add(new WriterId(writer));
+                        }
                         log.debug("Scaled partition (%s) to writer %s with writer count %s", partitionToRebalance.id, to.id, partitionInfo.getWriterCount());
-                        return true;
                     }
 
                     break;
                 }
             }
 
-            return false;
+            return affectedWriters.build();
         }
 
-        private void updateWriterEstimatedWrittenBytes(WriterId from, WriterId to, long estimatedPartitionWrittenBytesSinceLastRebalance, int newWriterCount)
+        private void updateWriterEstimatedWrittenBytes(WriterId to, long estimatedPartitionWrittenBytesSinceLastRebalance, PartitionInfo partitionInfo)
         {
             // Since a partition is rebalanced from max to min skewed writer, decrease the priority of max
             // writer as well as increase the priority of min writer.
+            int newWriterCount = partitionInfo.getWriterCount();
             int oldWriterCount = newWriterCount - 1;
-            writerEstimatedWrittenBytes[from.id] -= (estimatedPartitionWrittenBytesSinceLastRebalance * oldWriterCount) / newWriterCount;
-            writerEstimatedWrittenBytes[to.id] += (estimatedPartitionWrittenBytesSinceLastRebalance * oldWriterCount) / newWriterCount;
+            for (int writer : partitionInfo.getWriterIds()) {
+                if (writer != to.id) {
+                    writerEstimatedWrittenBytes[writer] -= estimatedPartitionWrittenBytesSinceLastRebalance / newWriterCount;
+                }
+            }
+
+            writerEstimatedWrittenBytes[to.id] += estimatedPartitionWrittenBytesSinceLastRebalance * oldWriterCount / newWriterCount;
         }
 
         private long getWriterEstimatedWrittenBytes(WriterId writer)

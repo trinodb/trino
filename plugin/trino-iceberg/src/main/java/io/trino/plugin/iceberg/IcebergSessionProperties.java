@@ -68,6 +68,7 @@ public final class IcebergSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
+    private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String PARQUET_WRITER_BATCH_SIZE = "parquet_writer_batch_size";
@@ -81,6 +82,7 @@ public final class IcebergSessionProperties
     public static final String EXPIRE_SNAPSHOTS_MIN_RETENTION = "expire_snapshots_min_retention";
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "remove_orphan_files_min_retention";
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
+    private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -210,6 +212,11 @@ public final class IcebergSessionProperties
                         "Use optimized Parquet reader",
                         parquetReaderConfig.isOptimizedReaderEnabled(),
                         false))
+                .add(booleanProperty(
+                        PARQUET_OPTIMIZED_NESTED_READER_ENABLED,
+                        "Use optimized Parquet reader for nested columns",
+                        parquetReaderConfig.isOptimizedNestedReaderEnabled(),
+                        false))
                 .add(dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
@@ -276,6 +283,11 @@ public final class IcebergSessionProperties
                         MERGE_MANIFESTS_ON_WRITE,
                         "Compact manifest files when performing write operations",
                         true,
+                        false))
+                .add(booleanProperty(
+                        SORTED_WRITING_ENABLED,
+                        "Enable sorted writing to tables with a specified sort order",
+                        icebergConfig.isSortedWritingEnabled(),
                         false))
                 .build();
     }
@@ -393,6 +405,11 @@ public final class IcebergSessionProperties
         return session.getProperty(PARQUET_OPTIMIZED_READER_ENABLED, Boolean.class);
     }
 
+    public static boolean isParquetOptimizedNestedReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_NESTED_READER_ENABLED, Boolean.class);
+    }
+
     public static DataSize getParquetWriterPageSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
@@ -456,5 +473,10 @@ public final class IcebergSessionProperties
     public static boolean isMergeManifestsOnWrite(ConnectorSession session)
     {
         return session.getProperty(MERGE_MANIFESTS_ON_WRITE, Boolean.class);
+    }
+
+    public static boolean isSortedWritingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SORTED_WRITING_ENABLED, Boolean.class);
     }
 }

@@ -55,7 +55,11 @@ public class CassandraRecordSetProvider
                 .map(column -> (CassandraColumnHandle) column)
                 .collect(toList());
 
-        String selectCql = CassandraCqlUtils.selectFrom(cassandraTable, cassandraColumns).asCql();
+        if (cassandraTable.getRelationHandle() instanceof CassandraQueryRelationHandle queryRelationHandle) {
+            return new CassandraRecordSet(cassandraSession, cassandraTypeManager, queryRelationHandle.getQuery(), cassandraColumns);
+        }
+
+        String selectCql = CassandraCqlUtils.selectFrom(cassandraTable.getRequiredNamedRelation(), cassandraColumns).asCql();
         StringBuilder sb = new StringBuilder(selectCql);
         if (sb.charAt(sb.length() - 1) == ';') {
             sb.setLength(sb.length() - 1);

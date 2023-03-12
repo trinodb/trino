@@ -267,7 +267,7 @@ public class CheckpointEntryIterator
                 getString(commitInfoEntryBlock, 8),
                 getLong(commitInfoEntryBlock, 9),
                 getString(commitInfoEntryBlock, 10),
-                getByte(commitInfoEntryBlock, 11) != 0);
+                Optional.of(getByte(commitInfoEntryBlock, 11) != 0));
         log.debug("Result: %s", result);
         return DeltaLakeTransactionLogEntry.commitInfoEntry(result);
     }

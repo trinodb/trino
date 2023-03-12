@@ -18,9 +18,11 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import java.util.Arrays;
+
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
+import static java.lang.String.format;
 
 public class VariableWidthBlockEncoding
         implements BlockEncoding
@@ -71,26 +73,59 @@ public class VariableWidthBlockEncoding
         int positionCount = sliceInput.readInt();
         int nonNullsCount = sliceInput.readInt();
 
+        if (nonNullsCount > positionCount) {
+            throw new IllegalArgumentException(format("nonNullsCount must be <= positionCount, found: %s > %s", nonNullsCount, positionCount));
+        }
+
         int[] offsets = new int[positionCount + 1];
-        int[] lengths = new int[nonNullsCount];
-        sliceInput.readBytes(Slices.wrappedIntArray(lengths), 0, nonNullsCount * SIZE_OF_INT);
+        // Read the lengths array into the end of the offsets array, since nonNullsCount <= positionCount
+        int lengthIndex = offsets.length - nonNullsCount;
+        sliceInput.readBytes(Slices.wrappedIntArray(offsets, lengthIndex, nonNullsCount));
 
         boolean[] valueIsNull = decodeNullBits(sliceInput, positionCount).orElse(null);
+        // Transform lengths back to offsets
+        if (valueIsNull == null) {
+            if (positionCount != nonNullsCount || lengthIndex != 1) {
+                throw new IllegalArgumentException(format("nonNullsCount must equal positionCount, found: %s <> %s", nonNullsCount, positionCount));
+            }
+            // Simplified loop for no nulls present
+            for (int i = 1; i < offsets.length; i++) {
+                offsets[i] += offsets[i - 1];
+            }
+        }
+        else {
+            computeOffsetsFromLengths(offsets, valueIsNull, lengthIndex);
+        }
 
         int blockSize = sliceInput.readInt();
         Slice slice = Slices.allocate(blockSize);
         sliceInput.readBytes(slice);
 
-        int nonNullPosition = 0;
-        int offset = 0;
-
-        for (int i = 0; i < positionCount; i++) {
-            if (valueIsNull == null || !valueIsNull[i]) {
-                offset += lengths[nonNullPosition];
-                nonNullPosition++;
-            }
-            offsets[i + 1] = offset;
-        }
         return new VariableWidthBlock(0, positionCount, slice, offsets, valueIsNull);
+    }
+
+    private static void computeOffsetsFromLengths(int[] offsets, boolean[] valueIsNull, int lengthIndex)
+    {
+        if (lengthIndex < 0 || lengthIndex > offsets.length) {
+            throw new IllegalArgumentException(format("Invalid lengthIndex %s for offsets %s", lengthIndex, offsets.length));
+        }
+        int currentOffset = 0;
+        for (int i = 1; i < offsets.length; i++) {
+            if (lengthIndex == offsets.length) {
+                // Populate remaining null elements
+                Arrays.fill(offsets, i, offsets.length, currentOffset);
+                break;
+            }
+            boolean isNull = valueIsNull[i - 1];
+            // must be accessed unconditionally, otherwise CMOV optimization isn't applied due to
+            // ArrayIndexOutOfBoundsException checks
+            int length = offsets[lengthIndex];
+            lengthIndex += isNull ? 0 : 1;
+            currentOffset += isNull ? 0 : length;
+            offsets[i] = currentOffset;
+        }
+        if (lengthIndex != offsets.length) {
+            throw new IllegalArgumentException(format("Failed to consume all length entries, found %s <> %s", lengthIndex, offsets.length));
+        }
     }
 }

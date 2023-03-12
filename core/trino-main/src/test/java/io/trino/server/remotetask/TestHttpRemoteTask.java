@@ -135,7 +135,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Math.min;
@@ -144,6 +143,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -394,8 +394,8 @@ public class TestHttpRemoteTask
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED, "true")
-                .setSystemProperty(REMOTE_TASK_MAX_REQUEST_SIZE, "100kB")
-                .setSystemProperty(REMOTE_TASK_REQUEST_SIZE_HEADROOM, "10kB")
+                .setSystemProperty(REMOTE_TASK_MAX_REQUEST_SIZE, "10kB")
+                .setSystemProperty(REMOTE_TASK_REQUEST_SIZE_HEADROOM, "1kB")
                 .setSystemProperty(REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST, "1")
                 .build();
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
@@ -406,14 +406,15 @@ public class TestHttpRemoteTask
         remoteTask.start();
 
         Multimap<PlanNodeId, Split> splits = HashMultimap.create();
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < 100; i++) {
             splits.put(TABLE_SCAN_NODE_ID, new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
         }
         remoteTask.addSplits(splits);
 
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
-        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() < 5000); // to check whether the splits are divided or not
-        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == 10000); // to check whether all the splits are sent or not
+
+        poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == 100); // to check whether all the splits are sent or not
+        assertTrue(testingTaskResource.getCreateOrUpdateCounter() > 1); // to check whether the splits are divided or not
 
         remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());

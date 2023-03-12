@@ -71,6 +71,7 @@ public class IcebergConfig
     private boolean deleteSchemaLocationsFallback;
     private double minimumAssignedSplitWeight = 0.05;
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
+    private boolean sortedWritingEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -337,6 +338,19 @@ public class IcebergConfig
     public IcebergConfig setMaterializedViewsStorageSchema(String materializedViewsStorageSchema)
     {
         this.materializedViewsStorageSchema = Optional.ofNullable(materializedViewsStorageSchema);
+        return this;
+    }
+
+    public boolean isSortedWritingEnabled()
+    {
+        return sortedWritingEnabled;
+    }
+
+    @Config("iceberg.sorted-writing-enabled")
+    @ConfigDescription("Enable sorted writing to tables with a specified sort order")
+    public IcebergConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
+    {
+        this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
     }
 }

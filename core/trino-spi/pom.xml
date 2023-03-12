@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>407-SNAPSHOT</version>
+        <version>411-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -35,9 +35,11 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- used by slice and must be listed for plugin dependency enforcer -->
         <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- for testing -->
@@ -217,8 +219,41 @@
                                         <match>@java.lang.Deprecated(*) ^*;</match>
                                     </old>
                                 </item>
+                                <!-- Revapi tries to compare any API with its previous version -->
+                                <!-- If it can't download the old version, if falls back to comparing with an empty file -->
+                                <!-- This can lead to errors which are not shown in daily development where local Maven cache has the old version -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>class io.airlift.slice.BasicSliceInput</new>
+                                    <justification>Trino SPI depends on Airlift</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>class io.airlift.slice.Slice</new>
+                                    <justification>Trino SPI depends on Airlift</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>class io.airlift.slice.SliceInput</new>
+                                    <justification>Trino SPI depends on Airlift</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <new>class io.airlift.slice.SliceOutput</new>
+                                    <justification>Trino SPI depends on Airlift</justification>
+                                </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.MaterializedViewFreshness::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.connector.MaterializedViewFreshness::&lt;init&gt;(io.trino.spi.connector.MaterializedViewFreshness.Freshness, java.util.Optional&lt;java.time.Instant&gt;)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

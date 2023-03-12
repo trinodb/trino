@@ -100,7 +100,7 @@ public class ReadSessionCreator
                         .build());
             }
             CreateReadSessionRequest createReadSessionRequest = CreateReadSessionRequest.newBuilder()
-                    .setParent("projects/" + client.getProjectId())
+                    .setParent("projects/" + client.getParentProjectId())
                     .setReadSession(ReadSession.newBuilder()
                             .setDataFormat(format)
                             .setTable(toTableResourceName(actualTable.getTableId()))

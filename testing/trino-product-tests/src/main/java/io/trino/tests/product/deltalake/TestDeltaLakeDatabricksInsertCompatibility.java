@@ -38,6 +38,7 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_104_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -87,7 +88,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -125,7 +126,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -179,7 +180,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -217,7 +218,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -257,7 +258,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -296,7 +297,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -324,7 +325,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .containsOnly(expectedRows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -429,36 +430,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                     .hasMessageContaining("Writing to tables with generated columns is not supported");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
-        }
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testWritesToTableWithCDFFails()
-    {
-        String tableName = "test_writes_into_table_with_CDF_" + randomNameSuffix();
-        try {
-            onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT) " +
-                    "USING DELTA " +
-                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                    "TBLPROPERTIES (delta.enableChangeDataFeed = true)");
-
-            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)");
-            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3 WHERE b = 3"))
-                    .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
-            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3"))
-                    .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
-            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
-                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = 42"))
-                    .hasMessageContaining("Writing to tables with Change Data Feed enabled is not supported");
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .containsOnly(row(1, 2));
-            assertThat(onDelta().executeQuery("SELECT a, b, _change_type, _commit_version FROM table_changes('default." + tableName + "', 0)"))
-                    .containsOnly(row(1, 2, "insert", 1L));
-        }
-        finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 }

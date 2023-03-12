@@ -18,7 +18,6 @@ import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -27,13 +26,14 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 class TestingConnectorSplit
         implements ConnectorSplit
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TestingConnectorSplit.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(TestingConnectorSplit.class);
 
     private final int id;
     private final OptionalInt bucket;

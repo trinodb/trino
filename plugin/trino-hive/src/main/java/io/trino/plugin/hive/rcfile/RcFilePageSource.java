@@ -15,7 +15,7 @@ package io.trino.plugin.hive.rcfile;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.trino.hive.formats.rcfile.RcFileCorruptionException;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.rcfile.RcFileReader;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveType;
@@ -142,7 +142,7 @@ public class RcFilePageSource
             closeAllSuppress(e, this);
             throw e;
         }
-        catch (RcFileCorruptionException e) {
+        catch (FileCorruptionException e) {
             closeAllSuppress(e, this);
             throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getFileLocation()), e);
         }
@@ -211,7 +211,7 @@ public class RcFilePageSource
             try {
                 block = rcFileReader.readBlock(columnIndex);
             }
-            catch (RcFileCorruptionException e) {
+            catch (FileCorruptionException e) {
                 throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getFileLocation()), e);
             }
             catch (IOException | RuntimeException e) {

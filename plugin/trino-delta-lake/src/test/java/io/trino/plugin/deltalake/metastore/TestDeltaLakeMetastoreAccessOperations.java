@@ -70,7 +70,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), new CountingAccessMetastoreModule(metastore)));
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
-        queryRunner.createCatalog("delta_lake", "delta-lake", deltaLakeProperties.buildOrThrow());
+        queryRunner.createCatalog("delta_lake", "delta_lake", deltaLakeProperties.buildOrThrow());
 
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;

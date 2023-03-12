@@ -15,7 +15,6 @@ package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoInput;
-import org.apache.iceberg.io.SeekableInputStream;
 
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -31,12 +30,6 @@ class MemoryInput
     {
         this.location = requireNonNull(location, "location is null");
         this.data = requireNonNull(data, "data is null");
-    }
-
-    @Override
-    public SeekableInputStream inputStream()
-    {
-        return new MemorySeekableInputStream(data);
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -177,6 +178,7 @@ public class DynamicFilterSourceOperator
     }
 
     private final OperatorContext context;
+    private final LocalMemoryContext userMemoryContext;
     private boolean finished;
     private Page current;
     private final DynamicFilterSourceConsumer dynamicPredicateConsumer;
@@ -198,6 +200,7 @@ public class DynamicFilterSourceOperator
             BlockTypeOperators blockTypeOperators)
     {
         this.context = requireNonNull(context, "context is null");
+        this.userMemoryContext = context.localUserMemoryContext();
         this.minMaxCollectionLimit = minMaxCollectionLimit;
         this.dynamicPredicateConsumer = requireNonNull(dynamicPredicateConsumer, "dynamicPredicateConsumer is null");
         this.channels = requireNonNull(channels, "channels is null");
@@ -248,10 +251,12 @@ public class DynamicFilterSourceOperator
         }
 
         // Collect only the columns which are relevant for the JOIN.
+        long filterSizeInBytes = 0;
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Block block = page.getBlock(channels.get(channelIndex).index);
-            channelFilters[channelIndex].process(block);
+            filterSizeInBytes += channelFilters[channelIndex].process(block);
         }
+        userMemoryContext.setBytes(filterSizeInBytes);
     }
 
     @Override
@@ -281,12 +286,20 @@ public class DynamicFilterSourceOperator
             domainsBuilder.put(filterId, channelFilters[channelIndex].getDomain());
         }
         dynamicPredicateConsumer.addPartition(TupleDomain.withColumnDomains(domainsBuilder.buildOrThrow()));
+        userMemoryContext.setBytes(0);
     }
 
     @Override
     public boolean isFinished()
     {
         return current == null && finished;
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        userMemoryContext.setBytes(0);
     }
 
     private void finishDomainCollectionIfNecessary()
@@ -409,9 +422,9 @@ public class DynamicFilterSourceOperator
                     format("DynamicFilterSourceOperator_%s_%d", planNodeId, channel.index));
         }
 
-        private void process(Block block)
+        private long process(Block block)
         {
-            // TODO: we should account for the memory used for collecting build-side values using MemoryContext
+            long retainedSizeInBytes = 0;
             switch (state) {
                 case SET:
                     for (int position = 0; position < block.getPositionCount(); ++position) {
@@ -429,6 +442,9 @@ public class DynamicFilterSourceOperator
                         valueSet = null;
                         blockBuilder = null;
                     }
+                    else {
+                        retainedSizeInBytes = valueSet.getRetainedSizeInBytes();
+                    }
                     break;
                 case MIN_MAX:
                     updateMinMaxValues(block, minMaxComparison);
@@ -436,12 +452,30 @@ public class DynamicFilterSourceOperator
                 case NONE:
                     break;
             }
+            return retainedSizeInBytes;
         }
 
         private Domain getDomain()
         {
             return switch (state) {
-                case SET -> convertToDomain();
+                case SET -> {
+                    Block block = blockBuilder.build();
+                    ImmutableList.Builder<Object> values = ImmutableList.builder();
+                    for (int position = 0; position < block.getPositionCount(); ++position) {
+                        Object value = readNativeValue(type, block, position);
+                        if (value != null) {
+                            // join doesn't match rows with NaN values.
+                            if (!isFloatingPointNaN(type, value)) {
+                                values.add(value);
+                            }
+                        }
+                    }
+                    // Drop references to collected values
+                    valueSet = null;
+                    blockBuilder = null;
+                    // Inner and right join doesn't match rows with null key column values.
+                    yield Domain.create(ValueSet.copyOf(type, values.build()), false);
+                }
                 case MIN_MAX -> {
                     if (minValues == null) {
                         // all values were null
@@ -449,6 +483,9 @@ public class DynamicFilterSourceOperator
                     }
                     Object min = blockToNativeValue(type, minValues);
                     Object max = blockToNativeValue(type, maxValues);
+                    // Drop references to collected values
+                    minValues = null;
+                    maxValues = null;
                     yield Domain.create(ValueSet.ofRanges(range(type, min, true, max, true)), false);
                 }
                 case NONE -> Domain.all(type);
@@ -464,24 +501,6 @@ public class DynamicFilterSourceOperator
             // Drop references to collected values.
             minValues = null;
             maxValues = null;
-        }
-
-        private Domain convertToDomain()
-        {
-            Block block = blockBuilder.build();
-            ImmutableList.Builder<Object> values = ImmutableList.builder();
-            for (int position = 0; position < block.getPositionCount(); ++position) {
-                Object value = readNativeValue(type, block, position);
-                if (value != null) {
-                    // join doesn't match rows with NaN values.
-                    if (!isFloatingPointNaN(type, value)) {
-                        values.add(value);
-                    }
-                }
-            }
-
-            // Inner and right join doesn't match rows with null key column values.
-            return Domain.create(ValueSet.copyOf(type, values.build()), false);
         }
 
         private void updateMinMaxValues(Block block, BlockPositionComparison comparison)

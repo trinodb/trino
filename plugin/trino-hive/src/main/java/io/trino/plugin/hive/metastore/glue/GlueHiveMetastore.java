@@ -15,15 +15,9 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.handlers.AsyncHandler;
-import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.AccessDeniedException;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
 import com.amazonaws.services.glue.model.BatchCreatePartitionRequest;
@@ -33,6 +27,7 @@ import com.amazonaws.services.glue.model.BatchGetPartitionResult;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionRequest;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionRequestEntry;
 import com.amazonaws.services.glue.model.BatchUpdatePartitionResult;
+import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.DatabaseInput;
@@ -63,11 +58,14 @@ import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.trino.hdfs.DynamicHdfsConfiguration;
@@ -117,6 +115,7 @@ import org.weakref.jmx.Managed;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -134,7 +133,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Comparators.lexicographical;
@@ -145,11 +143,11 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
-import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
@@ -179,6 +177,11 @@ public class GlueHiveMetastore
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
     private static final Predicate<com.amazonaws.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
+    private static final RetryPolicy<?> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
+            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
+            .withDelay(Duration.ofMillis(100))
+            .withMaxRetries(3)
+            .build();
 
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
@@ -186,7 +189,7 @@ public class GlueHiveMetastore
     private final Optional<String> defaultDir;
     private final int partitionSegments;
     private final Executor partitionsReadExecutor;
-    private final GlueMetastoreStats stats = new GlueMetastoreStats();
+    private final GlueMetastoreStats stats;
     private final GlueColumnStatisticsProvider columnStatisticsProvider;
     private final boolean assumeCanonicalPartitionKeys;
     private final Predicate<com.amazonaws.services.glue.model.Table> tableFilter;
@@ -195,54 +198,22 @@ public class GlueHiveMetastore
     public GlueHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
-            AWSCredentialsProvider credentialsProvider,
             @ForGlueHiveMetastore Executor partitionsReadExecutor,
             GlueColumnStatisticsProviderFactory columnStatisticsProviderFactory,
-            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
+            AWSGlueAsync glueClient,
+            @ForGlueHiveMetastore GlueMetastoreStats stats,
             @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
-        requireNonNull(credentialsProvider, "credentialsProvider is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
-        this.glueClient = createAsyncGlueClient(glueConfig, credentialsProvider, requestHandler, stats.newRequestMetricsCollector());
+        this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.partitionSegments = glueConfig.getPartitionSegments();
         this.partitionsReadExecutor = requireNonNull(partitionsReadExecutor, "partitionsReadExecutor is null");
         this.assumeCanonicalPartitionKeys = glueConfig.isAssumeCanonicalPartitionKeys();
         this.tableFilter = requireNonNull(tableFilter, "tableFilter is null");
+        this.stats = requireNonNull(stats, "stats is null");
         this.columnStatisticsProvider = columnStatisticsProviderFactory.createGlueColumnStatisticsProvider(glueClient, stats);
-    }
-
-    public static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, AWSCredentialsProvider credentialsProvider, Optional<RequestHandler2> requestHandler, RequestMetricCollector metricsCollector)
-    {
-        ClientConfiguration clientConfig = new ClientConfiguration()
-                .withMaxConnections(config.getMaxGlueConnections())
-                .withMaxErrorRetry(config.getMaxGlueErrorRetries());
-        AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
-                .withMetricsCollector(metricsCollector)
-                .withClientConfiguration(clientConfig);
-
-        ImmutableList.Builder<RequestHandler2> requestHandlers = ImmutableList.builder();
-        requestHandler.ifPresent(requestHandlers::add);
-        config.getCatalogId().ifPresent(catalogId -> requestHandlers.add(new GlueCatalogIdRequestHandler(catalogId)));
-        asyncGlueClientBuilder.setRequestHandlers(requestHandlers.build().toArray(RequestHandler2[]::new));
-
-        if (config.getGlueEndpointUrl().isPresent()) {
-            checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
-            asyncGlueClientBuilder.setEndpointConfiguration(new EndpointConfiguration(
-                    config.getGlueEndpointUrl().get(),
-                    config.getGlueRegion().get()));
-        }
-        else if (config.getGlueRegion().isPresent()) {
-            asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
-        }
-        else if (config.getPinGlueClientToCurrentRegion()) {
-            asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
-        }
-
-        asyncGlueClientBuilder.setCredentials(credentialsProvider);
-
-        return asyncGlueClientBuilder.build();
     }
 
     @VisibleForTesting
@@ -251,14 +222,16 @@ public class GlueHiveMetastore
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        GlueMetastoreStats stats = new GlueMetastoreStats();
+        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
+                .setDefaultWarehouseDir(defaultWarehouseDir);
         return new GlueHiveMetastore(
                 hdfsEnvironment,
-                new GlueHiveMetastoreConfig()
-                        .setDefaultWarehouseDir(defaultWarehouseDir),
-                DefaultAWSCredentialsProviderChain.getInstance(),
+                glueConfig,
                 directExecutor(),
                 new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                Optional.empty(),
+                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), Optional.empty(), stats.newRequestMetricsCollector()),
+                stats,
                 table -> true);
     }
 
@@ -605,12 +578,13 @@ public class GlueHiveMetastore
     public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         Table table = getExistingTable(databaseName, tableName);
-
+        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
+                .withDatabaseName(databaseName)
+                .withName(tableName);
         try {
-            stats.getDeleteTable().call(() ->
-                    glueClient.deleteTable(new DeleteTableRequest()
-                            .withDatabaseName(databaseName)
-                            .withName(tableName)));
+            Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
+                    .run(() -> stats.getDeleteTable().call(() ->
+                            glueClient.deleteTable(deleteTableRequest)));
         }
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);

@@ -15,14 +15,14 @@ package io.trino.plugin.hive.util;
 
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.type.Category;
+import io.trino.plugin.hive.type.ListTypeInfo;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
-import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 
 import java.util.List;
 

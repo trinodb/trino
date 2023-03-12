@@ -44,7 +44,6 @@ import io.trino.orc.writer.ColumnWriter;
 import io.trino.orc.writer.SliceDictionaryColumnWriter;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -67,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.orc.OrcReader.validateFile;
 import static io.trino.orc.OrcWriterStats.FlushReason.CLOSED;
@@ -86,7 +86,7 @@ import static java.util.stream.Collectors.toList;
 public final class OrcWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(OrcWriter.class);
 
     private static final String TRINO_ORC_WRITER_VERSION_METADATA_KEY = "trino.writer.version";
     private static final String TRINO_ORC_WRITER_VERSION;
@@ -612,7 +612,7 @@ public final class OrcWriter
 
     private static class ClosedStripe
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ClosedStripe.class).instanceSize() + ClassLayout.parseClass(StripeInformation.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ClosedStripe.class) + instanceSize(StripeInformation.class);
 
         private final StripeInformation stripeInformation;
         private final StripeStatistics statistics;

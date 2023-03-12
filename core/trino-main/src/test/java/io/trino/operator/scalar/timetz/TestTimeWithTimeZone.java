@@ -18,9 +18,10 @@ import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -30,18 +31,20 @@ import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestTimeWithTimeZone
 {
     protected QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         assertions = new QueryAssertions();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();

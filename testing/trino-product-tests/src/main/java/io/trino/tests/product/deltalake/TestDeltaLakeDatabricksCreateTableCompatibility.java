@@ -31,6 +31,7 @@ import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_113_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
@@ -88,7 +89,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             testInsert(tableName, ImmutableList.of());
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -131,7 +132,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             testInsert(tableName, ImmutableList.of());
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -176,7 +177,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                             row(null, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -223,7 +224,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
                             row(null, null, null)));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
@@ -308,7 +309,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 

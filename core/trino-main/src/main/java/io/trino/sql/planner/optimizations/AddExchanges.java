@@ -124,6 +124,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.roundRobinExchange;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -157,8 +158,6 @@ public class AddExchanges
         private final StatsProvider statsProvider;
         private final Session session;
         private final DomainTranslator domainTranslator;
-        private final boolean distributedIndexJoins;
-        private final boolean preferStreamingOperators;
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
 
@@ -170,10 +169,8 @@ public class AddExchanges
             this.statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             this.session = session;
             this.domainTranslator = new DomainTranslator(plannerContext);
-            this.distributedIndexJoins = SystemSessionProperties.isDistributedIndexJoinEnabled(session);
             this.redistributeWrites = SystemSessionProperties.isRedistributeWrites(session);
             this.scaleWriters = SystemSessionProperties.isScaleWriters(session);
-            this.preferStreamingOperators = SystemSessionProperties.preferStreamingOperators(session);
         }
 
         @Override
@@ -370,13 +367,54 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableFunction(TableFunctionNode node, PreferredProperties preferredProperties)
         {
-            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
         }
 
         @Override
         public PlanWithProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, PreferredProperties preferredProperties)
         {
-            throw new UnsupportedOperationException("execution by operator is not yet implemented for table function " + node.getName());
+            if (node.getSource().isEmpty()) {
+                return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
+            }
+
+            if (node.getSpecification().isEmpty()) {
+                // node.getSpecification.isEmpty() indicates that there were no sources or a single source with row semantics.
+                // The case of no sources was addressed above.
+                // The case of a single source with row semantics is addressed here. A single source with row semantics can be distributed arbitrarily.
+                PlanWithProperties child = planChild(node, PreferredProperties.any());
+                return rebaseAndDeriveProperties(node, child);
+            }
+
+            List<Symbol> partitionBy = node.getSpecification().orElseThrow().getPartitionBy();
+            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            if (!partitionBy.isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(partitionBy));
+            }
+            node.getSpecification().orElseThrow().getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+
+            PlanWithProperties child = planChild(node, partitionedWithLocal(ImmutableSet.copyOf(partitionBy), desiredProperties));
+
+            // TODO do not gather if already gathered
+            if (!node.isPruneWhenEmpty()) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                        child.getProperties());
+            }
+            else if (!isStreamPartitionedOn(child.getProperties(), partitionBy) &&
+                    !isNodePartitionedOn(child.getProperties(), partitionBy)) {
+                if (partitionBy.isEmpty()) {
+                    child = withDerivedProperties(
+                            gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                            child.getProperties());
+                }
+                else {
+                    child = withDerivedProperties(
+                            partitionedExchange(idAllocator.getNextId(), REMOTE, child.getNode(), partitionBy, node.getHashSymbol()),
+                            child.getProperties());
+                }
+            }
+
+            return rebaseAndDeriveProperties(node, child);
         }
 
         @Override
@@ -1062,55 +1100,14 @@ public class AddExchanges
                     computePreference(
                             partitionedWithLocal(ImmutableSet.copyOf(joinColumns), desiredLocalProperties),
                             preferredProperties));
-            ActualProperties probeProperties = probeSource.getProperties();
 
             PlanWithProperties indexSource = node.getIndexSource().accept(this, PreferredProperties.any());
-
-            // TODO: allow repartitioning if unpartitioned to increase parallelism
-            if (shouldRepartitionForIndexJoin(joinColumns, preferredProperties, probeProperties)) {
-                probeSource = withDerivedProperties(
-                        partitionedExchange(idAllocator.getNextId(), REMOTE, probeSource.getNode(), joinColumns, node.getProbeHashSymbol()),
-                        probeProperties);
-            }
 
             // TODO: if input is grouped, create streaming join
 
             // index side is really a nested-loops plan, so don't add exchanges
             PlanNode result = ChildReplacer.replaceChildren(node, ImmutableList.of(probeSource.getNode(), node.getIndexSource()));
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(probeSource.getProperties(), indexSource.getProperties())));
-        }
-
-        private boolean shouldRepartitionForIndexJoin(List<Symbol> joinColumns, PreferredProperties parentPreferredProperties, ActualProperties probeProperties)
-        {
-            // See if distributed index joins are enabled
-            if (!distributedIndexJoins) {
-                return false;
-            }
-
-            // No point in repartitioning if the plan is not distributed
-            if (probeProperties.isSingleNode()) {
-                return false;
-            }
-
-            Optional<PreferredProperties.PartitioningProperties> parentPartitioningPreferences = parentPreferredProperties.getGlobalProperties()
-                    .flatMap(PreferredProperties.Global::getPartitioningProperties);
-
-            // Disable repartitioning if it would disrupt a parent's partitioning preference when streaming is enabled
-            boolean parentAlreadyPartitionedOnChild = parentPartitioningPreferences
-                    .map(partitioning -> isStreamPartitionedOn(probeProperties, partitioning.getPartitioningColumns()))
-                    .orElse(false);
-            if (preferStreamingOperators && parentAlreadyPartitionedOnChild) {
-                return false;
-            }
-
-            // Otherwise, repartition if we need to align with the join columns
-            if (!isStreamPartitionedOn(probeProperties, joinColumns)) {
-                return true;
-            }
-
-            // If we are already partitioned on the join columns because the data has been forced effectively into one stream,
-            // then we should repartition if that would make a difference (from the single stream state).
-            return probeProperties.isEffectivelySingleStream() && probeProperties.isStreamRepartitionEffective(joinColumns);
         }
 
         @Override

@@ -23,6 +23,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.Transaction;
 
@@ -70,6 +71,7 @@ public interface TrinoCatalog
             SchemaTableName schemaTableName,
             Schema schema,
             PartitionSpec partitionSpec,
+            SortOrder sortOrder,
             String location,
             Map<String, String> properties);
 

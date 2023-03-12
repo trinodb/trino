@@ -13,14 +13,12 @@
  */
 package io.trino.spi.type;
 
-import org.openjdk.jol.info.ClassLayout;
-
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.math.BigInteger;
 import java.nio.ByteOrder;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 public class Int128
         implements Comparable<Int128>
@@ -28,7 +26,7 @@ public class Int128
     private static final VarHandle BIG_ENDIAN_LONG_VIEW = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
 
     public static final int SIZE = 2 * Long.BYTES;
-    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Int128.class).instanceSize());
+    public static final int INSTANCE_SIZE = instanceSize(Int128.class);
 
     public static final Int128 MAX_VALUE = Int128.valueOf(0x7FFF_FFFF_FFFF_FFFFL, 0xFFFF_FFFF_FFFF_FFFFL);
     public static final Int128 MIN_VALUE = Int128.valueOf(0x8000_0000_0000_0000L, 0x0000_0000_0000_0000L);

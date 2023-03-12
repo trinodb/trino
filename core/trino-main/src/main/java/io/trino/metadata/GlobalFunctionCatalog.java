@@ -31,6 +31,7 @@ import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunctionSupplier;
+import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.type.TypeSignature;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -170,6 +171,12 @@ public class GlobalFunctionCatalog
             InvocationConvention invocationConvention)
     {
         return functions.getFunctionBundle(functionId).getScalarFunctionImplementation(functionId, boundSignature, functionDependencies, invocationConvention);
+    }
+
+    @Override
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(SchemaFunctionName name)
+    {
+        return null;
     }
 
     private static class FunctionMap

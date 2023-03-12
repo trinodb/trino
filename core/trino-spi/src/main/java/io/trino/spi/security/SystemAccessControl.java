@@ -36,6 +36,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -45,6 +46,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
@@ -244,6 +246,26 @@ public interface SystemAccessControl
     default void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
     {
         denyCatalogAccess(catalogName);
+    }
+
+    /**
+     * Check if identity is allowed to create the specified catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateCatalog(SystemSecurityContext context, String catalog)
+    {
+        denyCreateCatalog(catalog);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropCatalog(SystemSecurityContext context, String catalog)
+    {
+        denyDropCatalog(catalog);
     }
 
     /**

@@ -390,7 +390,7 @@ public class TransactionLogAccess
         return forVersions.stream()
                 .flatMap(version -> {
                     try {
-                        Optional<List<DeltaLakeTransactionLogEntry>> entriesFromJson = getEntriesFromJson(getTransactionLogJsonEntryPath(transactionLogDir, version), fileSystem);
+                        Optional<List<DeltaLakeTransactionLogEntry>> entriesFromJson = getEntriesFromJson(version, transactionLogDir, fileSystem);
                         //noinspection SimplifyOptionalCallChains
                         return entriesFromJson.map(List::stream)
                                 // transaction log does not exist. Might have been expired.
@@ -411,9 +411,11 @@ public class TransactionLogAccess
         for (long version = lastVersion; version >= 0; version--) {
             Path entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version);
             TrinoInputFile inputFile = fileSystem.newInputFile(entryPath.toString());
-            long modificationTime;
             try {
-                modificationTime = inputFile.modificationTime();
+                if (inputFile.lastModified().isBefore(startAt)) {
+                    // already too old
+                    break;
+                }
             }
             catch (IOException e) {
                 if (isFileNotFoundException(e)) {
@@ -421,10 +423,6 @@ public class TransactionLogAccess
                     return null;
                 }
                 throw new UncheckedIOException(e);
-            }
-            if (modificationTime < startAt.toEpochMilli()) {
-                // already too old
-                break;
             }
             result.add(version);
         }

@@ -25,7 +25,7 @@ import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.reader.TestData.generateMixedData;
 import static io.trino.parquet.reader.decoders.ApacheParquetValueDecoders.BooleanApacheParquetValueDecoder;
-import static io.trino.parquet.reader.flat.BooleanColumnAdapter.BOOLEAN_ADAPTER;
+import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,7 +40,7 @@ public final class TestBooleanValueDecoders
                         createField(BOOLEAN, OptionalInt.empty(), BooleanType.BOOLEAN),
                         ValueDecoders::getBooleanDecoder,
                         BooleanApacheParquetValueDecoder::new,
-                        BOOLEAN_ADAPTER,
+                        BYTE_ADAPTER,
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),
                 ImmutableList.of(PLAIN, RLE),
                 BooleanInputProvider.values());

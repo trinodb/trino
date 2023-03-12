@@ -23,7 +23,7 @@ import javax.inject.Provider;
 
 import java.util.Optional;
 
-import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createAsyncGlueClient;
+import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static java.util.Objects.requireNonNull;
 
 public class GlueClientProvider

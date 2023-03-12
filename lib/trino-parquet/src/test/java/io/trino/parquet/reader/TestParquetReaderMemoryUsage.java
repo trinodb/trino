@@ -29,8 +29,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.type.Type;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
 import org.joda.time.DateTimeZone;
@@ -123,7 +123,7 @@ public class TestParquetReaderMemoryUsage
                         .setMaxPageSize(DataSize.ofBytes(100))
                         .setMaxBlockSize(DataSize.ofBytes(1))
                         .build(),
-                CompressionCodecName.SNAPPY,
+                CompressionCodec.SNAPPY,
                 "test-version",
                 false,
                 Optional.of(DateTimeZone.getDefault()),

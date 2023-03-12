@@ -73,8 +73,7 @@ public class TransactionLogTail
 
         boolean endOfTail = false;
         while (!endOfTail) {
-            Path path = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
-            results = getEntriesFromJson(path, fileSystem);
+            results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem);
             if (results.isPresent()) {
                 entriesBuilder.addAll(results.get());
                 version = entryNumber;
@@ -82,7 +81,7 @@ public class TransactionLogTail
             }
             else {
                 if (endVersion.isPresent()) {
-                    throw new MissingTransactionLogException(path);
+                    throw new MissingTransactionLogException(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber));
                 }
                 endOfTail = true;
             }
@@ -103,10 +102,9 @@ public class TransactionLogTail
         long newVersion = version;
 
         Optional<List<DeltaLakeTransactionLogEntry>> results;
-        Path transactionLogDir = getTransactionLogDir(tableLocation);
         boolean endOfTail = false;
         while (!endOfTail) {
-            results = getEntriesFromJson(getTransactionLogJsonEntryPath(transactionLogDir, newVersion + 1), fileSystem);
+            results = getEntriesFromJson(newVersion + 1, getTransactionLogDir(tableLocation), fileSystem);
             if (results.isPresent()) {
                 if (version == newVersion) {
                     // initialize entriesBuilder with entries we have already read
@@ -126,17 +124,21 @@ public class TransactionLogTail
         return Optional.of(new TransactionLogTail(entriesBuilder.build(), newVersion));
     }
 
-    public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(Path transactionLogFilePath, TrinoFileSystem fileSystem)
+    public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(long entryNumber, Path transactionLogDir, TrinoFileSystem fileSystem)
             throws IOException
     {
+        Path transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
         TrinoInputFile inputFile = fileSystem.newInputFile(transactionLogFilePath.toString());
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(inputFile.newInput().inputStream(), UTF_8),
-                JSON_LOG_ENTRY_READ_BUFFER_SIZE)) {
+        try (var reader = new BufferedReader(new InputStreamReader(inputFile.newStream(), UTF_8), JSON_LOG_ENTRY_READ_BUFFER_SIZE)) {
             ImmutableList.Builder<DeltaLakeTransactionLogEntry> resultsBuilder = ImmutableList.builder();
             String line = reader.readLine();
             while (line != null) {
-                resultsBuilder.add(parseJson(line));
+                DeltaLakeTransactionLogEntry deltaLakeTransactionLogEntry = parseJson(line);
+                if (deltaLakeTransactionLogEntry.getCommitInfo() != null && deltaLakeTransactionLogEntry.getCommitInfo().getVersion() == 0L) {
+                    // In case that the commit info version is missing, use the version from the transaction log file name
+                    deltaLakeTransactionLogEntry = deltaLakeTransactionLogEntry.withCommitInfo(deltaLakeTransactionLogEntry.getCommitInfo().withVersion(entryNumber));
+                }
+                resultsBuilder.add(deltaLakeTransactionLogEntry);
                 line = reader.readLine();
             }
 

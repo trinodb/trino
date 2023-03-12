@@ -13,17 +13,43 @@
  */
 package io.trino.hive.formats.compression;
 
+import io.airlift.compress.hadoop.HadoopStreams;
 import io.airlift.slice.Slice;
 
-import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 
-public interface ValueDecompressor
-        extends Closeable
+import static java.util.Objects.requireNonNull;
+
+public final class ValueDecompressor
 {
-    void decompress(Slice compressed, Slice uncompressed)
-            throws IOException;
+    private final HadoopStreams hadoopStreams;
 
-    @Override
-    default void close() {}
+    ValueDecompressor(HadoopStreams hadoopStreams)
+    {
+        this.hadoopStreams = requireNonNull(hadoopStreams, "hadoopStreams is null");
+    }
+
+    public void decompress(Slice compressed, OutputStream uncompressed)
+            throws IOException
+    {
+        try (InputStream decompressorStream = hadoopStreams.createInputStream(compressed.getInput())) {
+            decompressorStream.transferTo(uncompressed);
+        }
+        catch (IndexOutOfBoundsException | IOException e) {
+            throw new IOException("Compressed stream is truncated", e);
+        }
+    }
+
+    public void decompress(Slice compressed, Slice uncompressed)
+            throws IOException
+    {
+        try (InputStream decompressorStream = hadoopStreams.createInputStream(compressed.getInput())) {
+            uncompressed.setBytes(0, decompressorStream, uncompressed.length());
+        }
+        catch (IndexOutOfBoundsException | IOException e) {
+            throw new IOException("Compressed stream is truncated", e);
+        }
+    }
 }

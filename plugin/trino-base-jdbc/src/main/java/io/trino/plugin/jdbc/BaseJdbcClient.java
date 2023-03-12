@@ -60,7 +60,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -74,6 +73,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -297,6 +297,7 @@ public abstract class BaseJdbcClient
 
         try (Connection connection = connectionFactory.openConnection(session);
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, tableHandle);
             int allColumns = 0;
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
@@ -312,7 +313,7 @@ public abstract class BaseJdbcClient
                         getInteger(resultSet, "COLUMN_SIZE"),
                         getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
-                        Optional.empty());
+                        Optional.ofNullable(caseSensitivityMapping.get(columnName)));
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -346,6 +347,11 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    protected Map<String, CaseSensitivity> getCaseSensitivityForColumns(ConnectorSession session, Connection connection, JdbcTableHandle tableHandle)
+    {
+        return ImmutableMap.of();
     }
 
     protected static Optional<Integer> getInteger(ResultSet resultSet, String columnLabel)
@@ -560,10 +566,10 @@ public abstract class BaseJdbcClient
                 // Create the temporary table
                 ColumnMetadata pageSinkIdColumn = getPageSinkIdColumn(
                         tableMetadata.getColumns().stream().map(ColumnMetadata::getName).toList());
-                return createTable(session, tableMetadata, generateTemporaryTableName(), Optional.of(pageSinkIdColumn));
+                return createTable(session, tableMetadata, generateTemporaryTableName(session), Optional.of(pageSinkIdColumn));
             }
             else {
-                return createTable(session, tableMetadata, generateTemporaryTableName());
+                return createTable(session, tableMetadata, generateTemporaryTableName(session));
             }
         }
         catch (SQLException e) {
@@ -692,7 +698,7 @@ public abstract class BaseJdbcClient
                         Optional.empty());
             }
 
-            String remoteTemporaryTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, generateTemporaryTableName());
+            String remoteTemporaryTableName = identifierMapping.toRemoteTableName(identity, connection, remoteSchema, generateTemporaryTableName(session));
             copyTableSchema(session, connection, catalog, remoteSchema, remoteTable, remoteTemporaryTableName, columnNames.build());
 
             Optional<ColumnMetadata> pageSinkIdColumn = Optional.empty();
@@ -735,11 +741,6 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
-    }
-
-    protected String generateTemporaryTableName()
-    {
-        return "tmp_trino_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     @Override
@@ -800,7 +801,7 @@ public abstract class BaseJdbcClient
         RemoteTableName pageSinkTable = new RemoteTableName(
                 Optional.ofNullable(handle.getCatalogName()),
                 Optional.ofNullable(handle.getSchemaName()),
-                generateTemporaryTableName());
+                generateTemporaryTableName(session));
 
         int maxBatchSize = getWriteBatchSize(session);
 

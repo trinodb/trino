@@ -67,7 +67,7 @@ public final class ReadWriteUtils
         return value < -120 || (value >= -112 && value < 0);
     }
 
-    public static long readVInt(DataSeekableInputStream in)
+    public static long readVInt(TrinoDataInputStream in)
             throws IOException
     {
         byte firstByte = in.readByte();
@@ -218,6 +218,20 @@ public final class ReadWriteUtils
             int shiftBits = (idx - 1) * 8;
             out.writeByte((value >> shiftBits) & 0xFF);
         }
+    }
+
+    public static int computeVIntLength(int value)
+    {
+        if (value >= -112 && value <= 127) {
+            return 1;
+        }
+
+        if (value < 0) {
+            // one's complement
+            value ^= -1;
+        }
+
+        return ((31 - Integer.numberOfLeadingZeros(value)) / 8) + 2;
     }
 
     public static void writeVInt(SliceOutput out, int value)

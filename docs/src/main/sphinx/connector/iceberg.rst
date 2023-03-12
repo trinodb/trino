@@ -95,6 +95,9 @@ Property Name                                        Description
 ``iceberg.rest-catalog.uri``                   REST server API endpoint URI (required).
                                                Example: ``http://iceberg-with-rest:8181``
 
+``iceberg.rest-catalog.warehouse``             Warehouse identifier/location for the catalog (optional).
+                                               Example: ``s3://my_bucket/warehouse_location``
+
 ``iceberg.rest-catalog.security``              The type of security to use (default: ``NONE``).  ``OAUTH2``
                                                requires either a ``token`` or ``credential``.
                                                Example: ``OAUTH2``
@@ -119,6 +122,8 @@ Property Name                                        Description
     iceberg.catalog.type=rest
     iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 
+REST catalog does not support :doc:`views</sql/create-view>` or
+:doc:`materialized views</sql/create-materialized-view>`.
 
 .. _iceberg-jdbc-catalog:
 
@@ -130,7 +135,7 @@ JDBC catalog
   The JDBC catalog may face the compatibility issue if Iceberg introduces breaking changes in the future.
   Consider the :ref:`REST catalog <iceberg-rest-catalog>` as an alternative solution.
 
-At a minimum, ``iceberg.jdbc-catalog.connection-url`` and
+At a minimum, ``iceberg.jdbc-catalog.driver-class``, ``iceberg.jdbc-catalog.connection-url`` and
 ``iceberg.jdbc-catalog.catalog-name`` must be configured.
 When using any database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin directory.
 
@@ -139,9 +144,14 @@ When using any database besides PostgreSQL, a JDBC driver jar file must be place
     connector.name=iceberg
     iceberg.catalog.type=jdbc
     iceberg.jdbc-catalog.catalog-name=test
-    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database?user=admin&password=test
+    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://example.net:5432/database
+    iceberg.jdbc-catalog.connection-user=admin
+    iceberg.jdbc-catalog.connection-password=test
     iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 
+JDBC catalog does not support :doc:`views</sql/create-view>` or
+:doc:`materialized views</sql/create-materialized-view>`.
 
 General configuration
 ^^^^^^^^^^^^^^^^^^^^^
@@ -261,6 +271,13 @@ with Parquet files performed by the Iceberg connector.
         for improved performance. Set this property to ``false`` to disable the
         optimized parquet reader by default. The equivalent catalog session
         property is ``parquet_optimized_reader_enabled``.
+      - ``true``
+    * - ``parquet.optimized-nested-reader.enabled``
+      - Whether batched column readers should be used when reading ARRAY, MAP
+        and ROW types from Parquet files for improved performance. Set this
+        property to ``false`` to disable the optimized parquet reader by default
+        for structural data types. The equivalent catalog session property is
+        ``parquet_optimized_nested_reader_enabled``.
       - ``true``
 
 .. _iceberg-authorization:
@@ -386,6 +403,7 @@ TABLE </sql/create-table>` syntax. Optionally specify the
     WITH (
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
+        sorted_by = ARRAY['c3'],
         location = 's3://my-bucket/a/path/'
     );
 
@@ -554,6 +572,7 @@ The following table properties can be updated after a table is created:
 * ``format``
 * ``format_version``
 * ``partitioning``
+* ``sorted_by``
 
 For example, to update a table from v1 of the Iceberg specification to v2:
 
@@ -775,6 +794,46 @@ In this example, the table is partitioned by the month of ``order_date``, a hash
         customer VARCHAR,
         country VARCHAR)
     WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)', 'country'])
+
+Sorted tables
+-------------
+
+The connector supports sorted files as a performance improvement. Data is
+sorted during writes within each file based on the specified array of one
+or more columns.
+
+Sorting is particularly beneficial when the sorted columns show a
+high cardinality and are used as a filter for selective reads.
+
+The sort order is configured with the ``sorted_by`` table property.
+Specify an array of one or more columns to use for sorting
+when creating the table. The following example configures the
+``order_date`` column of the ``orders`` table in the ``customers``
+schema in the ``example`` catalog::
+
+    CREATE TABLE example.customers.orders (
+        order_id BIGINT,
+        order_date DATE,
+        account_number BIGINT,
+        customer VARCHAR,
+        country VARCHAR)
+    WITH (sorted_by = ARRAY['order_date'])
+
+Sorting can be combined with partitioning on the same column. For example::
+
+    CREATE TABLE example.customers.orders (
+        order_id BIGINT,
+        order_date DATE,
+        account_number BIGINT,
+        customer VARCHAR,
+        country VARCHAR)
+    WITH (
+        partitioning = ARRAY['month(order_date)'],
+        sorted_by = ARRAY['order_date']
+    )
+
+You can disable sorted writing with the session property
+``sorted_writing_enabled`` set to ``false``.
 
 Rolling back to a previous snapshot
 -----------------------------------

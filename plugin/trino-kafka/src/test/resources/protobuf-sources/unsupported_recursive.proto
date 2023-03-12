@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package io.trino.protobuf;
+
+option java_package = "io.trino.plugin.kafka.protobuf";
+option java_outer_classname = "UnsupportedRecursiveTypes";
+
+message schema {
+    RecursiveValue recursive_value_one = 1;
+}
+
+message RecursiveStruct {
+    map<string, RecursiveValue> fields = 1;
+}
+
+message RecursiveValue {
+    string string_value = 1;
+    RecursiveStruct struct_value = 2;
+    RecursiveListValue list_value = 3;
+}
+
+message RecursiveListValue {
+    repeated RecursiveValue values = 1;
+}

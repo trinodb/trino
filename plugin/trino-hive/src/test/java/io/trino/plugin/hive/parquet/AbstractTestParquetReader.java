@@ -60,6 +60,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Functions.compose;
@@ -1852,6 +1853,27 @@ public abstract class AbstractTestParquetReader
                 writeValues,
                 transform(writeValues, AbstractTestParquetReader::byteArrayToVarbinary),
                 VARBINARY);
+    }
+
+    @Test
+    public void testReadFixedWidthByteArrayAsVarBinary()
+            throws Exception
+    {
+        Random random = new Random(2342890824L);
+        int typeLength = 5;
+        List<byte[]> writeValues = IntStream.range(0, 30_000)
+                .mapToObj(i -> {
+                    byte[] value = new byte[typeLength];
+                    random.nextBytes(value);
+                    return value;
+                })
+                .collect(toImmutableList());
+        tester.testRoundTrip(
+                javaByteArrayObjectInspector,
+                writeValues,
+                transform(writeValues, AbstractTestParquetReader::byteArrayToVarbinary),
+                VARBINARY,
+                Optional.of(parseMessageType(format("message varbinary { optional FIXED_LEN_BYTE_ARRAY(%s) test; }", typeLength))));
     }
 
     @Test

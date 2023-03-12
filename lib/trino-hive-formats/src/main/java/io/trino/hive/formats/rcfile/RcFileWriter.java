@@ -20,14 +20,17 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.DataOutputStream;
+import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.MemoryCompressedSliceOutput;
+import io.trino.hive.formats.encodings.ColumnEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.hive.formats.encodings.EncodeOutput;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -43,11 +46,13 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.hive.formats.ReadWriteUtils.writeLengthPrefixedString;
 import static io.trino.hive.formats.ReadWriteUtils.writeVInt;
+import static io.trino.hive.formats.compression.CompressionKind.LZOP;
 import static io.trino.hive.formats.rcfile.RcFileReader.validateFile;
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -55,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class RcFileWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RcFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RcFileWriter.class);
     private static final Slice RCFILE_MAGIC = utf8Slice("RCF");
     private static final int CURRENT_VERSION = 1;
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
@@ -74,7 +79,7 @@ public class RcFileWriter
 
     private final DataOutputStream output;
     private final List<Type> types;
-    private final RcFileEncoding encoding;
+    private final ColumnEncodingFactory encoding;
 
     private final long syncFirst = ThreadLocalRandom.current().nextLong();
     private final long syncSecond = ThreadLocalRandom.current().nextLong();
@@ -96,7 +101,7 @@ public class RcFileWriter
     public RcFileWriter(
             OutputStream rawOutput,
             List<Type> types,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             Optional<CompressionKind> compressionKind,
             Map<String, String> metadata,
             boolean validate)
@@ -116,7 +121,7 @@ public class RcFileWriter
     public RcFileWriter(
             OutputStream rawOutput,
             List<Type> types,
-            RcFileEncoding encoding,
+            ColumnEncodingFactory encoding,
             Optional<CompressionKind> compressionKind,
             Map<String, String> metadata,
             DataSize targetMinRowGroupSize,
@@ -129,6 +134,7 @@ public class RcFileWriter
         checkArgument(!types.isEmpty(), "types is empty");
         requireNonNull(encoding, "encoding is null");
         requireNonNull(compressionKind, "compressionKind is null");
+        checkArgument(!compressionKind.equals(Optional.of(LZOP)), "LZOP cannot be use with RCFile.  LZO compression can be used, but LZ4 is preferred.");
         requireNonNull(metadata, "metadata is null");
         checkArgument(!metadata.containsKey(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY), "Cannot set property %s", PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY);
         checkArgument(!metadata.containsKey(COLUMN_COUNT_METADATA_KEY), "Cannot set property %s", COLUMN_COUNT_METADATA_KEY);
@@ -212,7 +218,7 @@ public class RcFileWriter
     }
 
     public void validate(TrinoInputFile inputFile)
-            throws RcFileCorruptionException
+            throws FileCorruptionException
     {
         checkState(validationBuilder != null, "validation is not enabled");
         validateFile(
@@ -338,7 +344,7 @@ public class RcFileWriter
 
     private static class ColumnEncoder
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ColumnEncoder.class).instanceSize() + ClassLayout.parseClass(ColumnEncodeOutput.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ColumnEncoder.class) + instanceSize(ColumnEncodeOutput.class);
 
         private final ColumnEncoding columnEncoding;
 
@@ -406,6 +412,7 @@ public class RcFileWriter
         }
 
         public void reset()
+                throws IOException
         {
             checkArgument(columnClosed, "Column is open");
             lengthOutput.reset();

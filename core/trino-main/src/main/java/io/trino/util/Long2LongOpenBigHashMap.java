@@ -26,12 +26,12 @@ import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.AbstractObjectSet;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.Consumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static it.unimi.dsi.fastutil.HashCommon.bigArraySize;
 import static it.unimi.dsi.fastutil.HashCommon.maxFill;
 import static java.lang.Math.toIntExact;
@@ -44,7 +44,7 @@ public class Long2LongOpenBigHashMap
         extends AbstractLong2LongMap
         implements Hash
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Long2LongOpenBigHashMap.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(Long2LongOpenBigHashMap.class);
     private static final boolean ASSERTS = false;
     /**
      * The array of keys.

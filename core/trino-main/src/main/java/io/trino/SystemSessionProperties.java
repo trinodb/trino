@@ -28,6 +28,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
+import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
 
 import javax.inject.Inject;
 
@@ -59,7 +60,6 @@ public final class SystemSessionProperties
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
-    public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
@@ -116,6 +116,7 @@ public final class SystemSessionProperties
     public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
+    public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
@@ -159,6 +160,7 @@ public final class SystemSessionProperties
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
+    public static final String LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD = "legacy_materialized_view_grace_period";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
@@ -240,11 +242,6 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
-                booleanProperty(
-                        DISTRIBUTED_INDEX_JOIN,
-                        "Distribute index joins on join keys instead of executing inline",
-                        optimizerConfig.isDistributedIndexJoinsEnabled(),
-                        false),
                 integerProperty(
                         MAX_HASH_PARTITION_COUNT,
                         "Maximum number of partitions for distributed joins and aggregations",
@@ -546,6 +543,12 @@ public final class SystemSessionProperties
                         "Implement DISTINCT aggregations using MarkDistinct",
                         optimizerConfig.isUseMarkDistinct(),
                         false),
+                enumProperty(
+                        MARK_DISTINCT_STRATEGY,
+                        "",
+                        MarkDistinctStrategy.class,
+                        optimizerConfig.getMarkDistinctStrategy(),
+                        false),
                 booleanProperty(
                         PREFER_PARTIAL_AGGREGATION,
                         "Prefer splitting aggregations into partial and final stages",
@@ -795,6 +798,11 @@ public final class SystemSessionProperties
                         },
                         false),
                 booleanProperty(
+                        LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD,
+                        "Enable legacy handling of stale materialized views",
+                        featuresConfig.isLegacyMaterializedViewGracePeriod(),
+                        false),
+                booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
                         "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
                         featuresConfig.isHideInaccessibleColumns(),
@@ -943,11 +951,6 @@ public final class SystemSessionProperties
     public static double getJoinMultiClauseIndependenceFactor(Session session)
     {
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
-    }
-
-    public static boolean isDistributedIndexJoinEnabled(Session session)
-    {
-        return session.getSystemProperty(DISTRIBUTED_INDEX_JOIN, Boolean.class);
     }
 
     public static int getMaxHashPartitionCount(Session session)
@@ -1204,9 +1207,21 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT, Integer.class);
     }
 
-    public static boolean useMarkDistinct(Session session)
+    public static MarkDistinctStrategy markDistinctStrategy(Session session)
     {
-        return session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
+        MarkDistinctStrategy markDistinctStrategy = session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
+        if (markDistinctStrategy != null) {
+            // mark_distinct_strategy is set, so it takes precedence over use_mark_distinct
+            return markDistinctStrategy;
+        }
+
+        Boolean useMarkDistinct = session.getSystemProperty(USE_MARK_DISTINCT, Boolean.class);
+        if (useMarkDistinct == null) {
+            // both mark_distinct_strategy and use_mark_distinct have default null values, use AUTOMATIC
+            return MarkDistinctStrategy.AUTOMATIC;
+        }
+        // use_mark_distinct is set but mark_distinct_strategy is not, map use_mark_distinct to mark_distinct_strategy
+        return useMarkDistinct ? MarkDistinctStrategy.AUTOMATIC : MarkDistinctStrategy.NONE;
     }
 
     public static boolean preferPartialAggregation(Session session)
@@ -1508,6 +1523,12 @@ public final class SystemSessionProperties
     public static double getRetryDelayScaleFactor(Session session)
     {
         return session.getSystemProperty(RETRY_DELAY_SCALE_FACTOR, Double.class);
+    }
+
+    @Deprecated
+    public static boolean isLegacyMaterializedViewGracePeriod(Session session)
+    {
+        return session.getSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, Boolean.class);
     }
 
     public static boolean isHideInaccessibleColumns(Session session)

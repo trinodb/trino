@@ -182,6 +182,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(UnpartitionedNationTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForUnpartitionedTable()
     {
         String tableNameInDatabase = mutableTablesState().get(NATION.getName()).getNameInDatabase();
@@ -224,6 +225,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(NationPartitionedByBigintTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForTablePartitionedByBigint()
     {
         String tableNameInDatabase = mutableTablesState().get(NATION_PARTITIONED_BY_BIGINT_REGIONKEY.getName()).getNameInDatabase();
@@ -237,14 +239,14 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -270,7 +272,7 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -355,6 +357,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(NationPartitionedByVarcharTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForTablePartitionedByVarchar()
     {
         String tableNameInDatabase = mutableTablesState().get(NATION_PARTITIONED_BY_VARCHAR_REGIONKEY.getName()).getNameInDatabase();
@@ -368,14 +371,14 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -401,7 +404,7 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -487,6 +490,7 @@ public class TestHiveTableStatistics
     // This covers also stats calculation for unpartitioned table
     @Test
     @Requires(AllTypesTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForAllDataTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(ALL_TYPES_TABLE_NAME).getNameInDatabase();
@@ -536,6 +540,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(AllTypesTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForAllDataTypesNoData()
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
@@ -584,6 +589,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(AllTypesTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForAllDataTypesOnlyNulls()
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
@@ -633,6 +639,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(UnpartitionedNationTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testStatisticsForSkewedTable()
     {
         String tableName = "test_hive_skewed_table_statistics";
@@ -663,6 +670,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(UnpartitionedNationTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testAnalyzesForSkewedTable()
     {
         String tableName = "test_analyze_skewed_table";
@@ -723,14 +731,14 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, "1", "3"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "1", "1"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -755,7 +763,7 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, "2", "2"),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -800,14 +808,14 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 3.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
         assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -832,7 +840,7 @@ public class TestHiveTableStatistics
         assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
                 row("p_nationkey", null, null, null, null, null, null),
                 row("p_name", null, null, null, null, null, null),
-                row("p_regionkey", null, null, null, null, null, null),
+                row("p_regionkey", null, 1.0, 0.0, null, null, null),
                 row("p_comment", null, null, null, null, null, null),
                 row(null, null, null, null, null, null, null));
 
@@ -956,6 +964,7 @@ public class TestHiveTableStatistics
 
     @Test
     @Requires(AllTypesTable.class)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testAnalyzeForAllDataTypesOnlyNulls()
     {
         String tableNameInDatabase = mutableTablesState().get(EMPTY_ALL_TYPES_TABLE_NAME).getNameInDatabase();
@@ -1412,15 +1421,15 @@ public class TestHiveTableStatistics
 
             // sanity check that there are no statistics
             assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
-                    row("p", null, null, null, null, null, null),
+                    row("p", null, 1.0, 0.0, null, "1", "1"),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
             assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
-                    row("p", null, null, null, null, null, null),
+                    row("p", null, 1.0, 0.0, null, "2", "2"),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
             assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
-                    row("p", null, null, null, null, null, null),
+                    row("p", null, 2.0, 0.0, null, "1", "2"),
                     row("a", null, null, null, null, null, null),
                     row(null, null, null, null, null, null, null));
 

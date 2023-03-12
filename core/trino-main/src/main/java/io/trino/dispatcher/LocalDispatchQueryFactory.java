@@ -15,6 +15,7 @@ package io.trino.dispatcher;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
@@ -25,6 +26,7 @@ import io.trino.execution.LocationFactory;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecution.QueryExecutionFactory;
 import io.trino.execution.QueryManager;
+import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.QueryStateMachine;
 import io.trino.execution.warnings.WarningCollector;
@@ -65,12 +67,14 @@ public class LocalDispatchQueryFactory
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
     private final ListeningExecutorService executor;
+    private final int maxStateMachineThreadsPerQuery;
     private final boolean faultTolerantExecutionExchangeEncryptionEnabled;
     private final NodeVersion version;
 
     @Inject
     public LocalDispatchQueryFactory(
             QueryManager queryManager,
+            QueryManagerConfig queryManagerConfig,
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
@@ -93,6 +97,7 @@ public class LocalDispatchQueryFactory
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.executor = dispatchExecutor.getExecutor();
+        this.maxStateMachineThreadsPerQuery = requireNonNull(queryManagerConfig, "queryManagerConfig is null").getMaxStateMachineCallbackThreads();
         this.faultTolerantExecutionExchangeEncryptionEnabled = requireNonNull(featuresConfig, "featuresConfig is null").isFaultTolerantExecutionExchangeEncryptionEnabled();
         this.version = requireNonNull(version, "version is null");
     }
@@ -117,7 +122,8 @@ public class LocalDispatchQueryFactory
                 isTransactionControlStatement(preparedQuery.getStatement()),
                 transactionManager,
                 accessControl,
-                executor,
+                // limit the number of state change listener callback threads for each query
+                new BoundedExecutor(executor, maxStateMachineThreadsPerQuery),
                 metadata,
                 warningCollector,
                 getQueryType(preparedQuery.getStatement()),

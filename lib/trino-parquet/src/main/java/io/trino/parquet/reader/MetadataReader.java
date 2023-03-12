@@ -74,7 +74,8 @@ public final class MetadataReader
 
     private static final Slice MAGIC = Slices.utf8Slice("PAR1");
     private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
-    private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
+    // Typical 1GB files produced by Trino were found to have footer size between 30-40KB
+    private static final int EXPECTED_FOOTER_SIZE = 48 * 1024;
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private MetadataReader() {}

@@ -139,7 +139,7 @@ public abstract class BaseCostBasedPlanTest
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
         Path queryPath = Paths.get(queryResourcePath);
-        String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName();
+        String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
         Path directory = queryPath.getParent();
         directory = directory.resolve(connectorName);
         if (fileFormatName.isPresent()) {
@@ -221,15 +221,14 @@ public abstract class BaseCostBasedPlanTest
     {
         Path workingDir = Paths.get(System.getProperty("user.dir"));
         verify(isDirectory(workingDir), "Working directory is not a directory");
-        String topDirectoryName = workingDir.getFileName().toString();
-        switch (topDirectoryName) {
-            case "trino-tests":
-                return workingDir;
-            case "trino":
-                return workingDir.resolve("testing/trino-tests");
-            default:
-                throw new IllegalStateException("This class must be executed from trino-tests or Trino source directory");
+        if (isDirectory(workingDir.resolve(".git"))) {
+            // Top-level of the repo
+            return workingDir.resolve("testing/trino-tests");
         }
+        if (workingDir.getFileName().toString().equals("trino-tests")) {
+            return workingDir;
+        }
+        throw new IllegalStateException("This class must be executed from trino-tests or Trino source directory");
     }
 
     private class JoinOrderPrinter

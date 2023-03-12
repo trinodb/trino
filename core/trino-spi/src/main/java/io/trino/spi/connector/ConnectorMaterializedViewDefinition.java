@@ -15,12 +15,14 @@ package io.trino.spi.connector;
 
 import io.trino.spi.type.TypeId;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
 
+import static io.trino.spi.connector.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorMaterializedViewDefinition
@@ -30,10 +32,12 @@ public class ConnectorMaterializedViewDefinition
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final List<Column> columns;
+    private final Optional<Duration> gracePeriod;
     private final Optional<String> comment;
     private final Optional<String> owner;
     private final Map<String, Object> properties;
 
+    @Deprecated
     public ConnectorMaterializedViewDefinition(
             String originalSql,
             Optional<CatalogSchemaTableName> storageTable,
@@ -44,11 +48,36 @@ public class ConnectorMaterializedViewDefinition
             Optional<String> owner,
             Map<String, Object> properties)
     {
+        this(
+                originalSql,
+                storageTable,
+                catalog,
+                schema,
+                columns,
+                Optional.of(Duration.ZERO),
+                comment,
+                owner,
+                properties);
+    }
+
+    public ConnectorMaterializedViewDefinition(
+            String originalSql,
+            Optional<CatalogSchemaTableName> storageTable,
+            Optional<String> catalog,
+            Optional<String> schema,
+            List<Column> columns,
+            Optional<Duration> gracePeriod,
+            Optional<String> comment,
+            Optional<String> owner,
+            Map<String, Object> properties)
+    {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
+        checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
+        this.gracePeriod = gracePeriod;
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.properties = requireNonNull(properties, "properties are null");
@@ -86,6 +115,11 @@ public class ConnectorMaterializedViewDefinition
         return columns;
     }
 
+    public Optional<Duration> getGracePeriod()
+    {
+        return gracePeriod;
+    }
+
     public Optional<String> getComment()
     {
         return comment;
@@ -110,6 +144,7 @@ public class ConnectorMaterializedViewDefinition
         catalog.ifPresent(value -> joiner.add("catalog=" + value));
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
+        gracePeriod.ifPresent(value -> joiner.add("gracePeriod=" + gracePeriod));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("owner=" + owner);
         joiner.add("properties=" + properties);
@@ -131,6 +166,7 @@ public class ConnectorMaterializedViewDefinition
                 Objects.equals(catalog, that.catalog) &&
                 Objects.equals(schema, that.schema) &&
                 Objects.equals(columns, that.columns) &&
+                Objects.equals(gracePeriod, that.gracePeriod) &&
                 Objects.equals(comment, that.comment) &&
                 Objects.equals(owner, that.owner) &&
                 Objects.equals(properties, that.properties);
@@ -139,7 +175,7 @@ public class ConnectorMaterializedViewDefinition
     @Override
     public int hashCode()
     {
-        return Objects.hash(originalSql, storageTable, catalog, schema, columns, comment, owner, properties);
+        return Objects.hash(originalSql, storageTable, catalog, schema, columns, gracePeriod, comment, owner, properties);
     }
 
     public static final class Column

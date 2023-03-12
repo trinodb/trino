@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.CountingOutputStream;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.compression.CompressionKind;
-import io.trino.hive.formats.rcfile.RcFileEncoding;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.rcfile.RcFileWriter;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
@@ -26,7 +26,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -40,16 +39,16 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RcFileFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RcFileFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(RcFileFileWriter.class);
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final CountingOutputStream outputStream;
@@ -66,7 +65,7 @@ public class RcFileFileWriter
             OutputStream outputStream,
             AggregatedMemoryContext outputStreamMemoryContext,
             Closeable rollbackAction,
-            RcFileEncoding rcFileEncoding,
+            ColumnEncodingFactory columnEncodingFactory,
             List<Type> fileColumnTypes,
             Optional<CompressionKind> compressionKind,
             int[] fileInputColumnIndexes,
@@ -79,7 +78,7 @@ public class RcFileFileWriter
         rcFileWriter = new RcFileWriter(
                 this.outputStream,
                 fileColumnTypes,
-                rcFileEncoding,
+                columnEncodingFactory,
                 compressionKind,
                 metadata,
                 validationInputFactory.isPresent());

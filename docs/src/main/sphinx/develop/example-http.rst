@@ -52,7 +52,7 @@ connector in Trino configuration.
     @Override
     public String getName()
     {
-        return "example-http";
+        return "example_http";
     }
 
 The real work in a connector factory happens in the ``create()``

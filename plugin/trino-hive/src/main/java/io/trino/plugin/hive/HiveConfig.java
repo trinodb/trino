@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -82,7 +81,6 @@ public class HiveConfig
     private Integer maxSplitsPerSecond;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
-    private DataSize writerSortBufferSize = DataSize.of(64, MEGABYTE);
     private boolean forceLocalScheduling;
     private boolean recursiveDirWalkerEnabled;
     private boolean ignoreAbsentPartitions;
@@ -105,7 +103,6 @@ public class HiveConfig
     // to avoid deleting those files if Trino is unable to check.
     private boolean deleteSchemaLocationsFallback;
     private int maxPartitionsPerWriter = 100;
-    private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
     private boolean validateBucketing = true;
     private boolean parallelPartitionedBucketedWrites = true;
@@ -274,20 +271,6 @@ public class HiveConfig
         return this;
     }
 
-    @MinDataSize("1MB")
-    @MaxDataSize("1GB")
-    public DataSize getWriterSortBufferSize()
-    {
-        return writerSortBufferSize;
-    }
-
-    @Config("hive.writer-sort-buffer-size")
-    public HiveConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
-    {
-        this.writerSortBufferSize = writerSortBufferSize;
-        return this;
-    }
-
     public boolean isForceLocalScheduling()
     {
         return forceLocalScheduling;
@@ -416,12 +399,6 @@ public class HiveConfig
     {
         this.maxPartitionsForEagerLoad = maxPartitionsForEagerLoad;
         return this;
-    }
-
-    @AssertTrue(message = "The value of hive.max-partitions-for-eager-load is expected to be less than or equal to hive.max-partitions-per-scan")
-    public boolean isMaxPartitionsForEagerLoadValid()
-    {
-        return maxPartitionsForEagerLoad <= maxPartitionsPerScan;
     }
 
     @Min(1)
@@ -612,21 +589,6 @@ public class HiveConfig
     public HiveConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
-        return this;
-    }
-
-    @Min(2)
-    @Max(1000)
-    public int getMaxOpenSortFiles()
-    {
-        return maxOpenSortFiles;
-    }
-
-    @Config("hive.max-open-sort-files")
-    @ConfigDescription("Maximum number of writer temporary files to read in one pass")
-    public HiveConfig setMaxOpenSortFiles(int maxOpenSortFiles)
-    {
-        this.maxOpenSortFiles = maxOpenSortFiles;
         return this;
     }
 

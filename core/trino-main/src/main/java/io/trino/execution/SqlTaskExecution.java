@@ -163,17 +163,22 @@ public class SqlTaskExecution
             else {
                 taskHandle = null;
             }
-
-            outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
     }
 
     public void start()
     {
         try (SetThreadName ignored = new SetThreadName("Task-%s", getTaskId())) {
+            // Task handle was not created because the task is already done, nothing to do
+            if (taskHandle == null) {
+                return;
+            }
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
-            // The call back is accessed from another thread, so this code cannot be placed in the constructor.
+            // The call back is accessed from another thread, so this code cannot be placed in the constructor. This must also happen before outputBuffer
+            // callbacks are registered to prevent a task completion check before task lifecycle splits are created
             scheduleDriversForTaskLifeCycle();
+            // Output buffer state change listener callback must not run in the constructor to avoid leaking a reference to "this" across to another thread
+            outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
         }
     }
 

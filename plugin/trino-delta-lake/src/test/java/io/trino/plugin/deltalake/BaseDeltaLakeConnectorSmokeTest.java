@@ -70,7 +70,6 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
@@ -81,6 +80,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -945,9 +945,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "SHOW STATS FOR insert_nonlowercase_columns",
                 "VALUES " +
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
-                        "('lower_case_string', null, null, 0.5, null, null, null)," +
-                        "('upper_case_string', null, null, 0.5, null, null, null)," +
-                        "('mixed_case_string', null, null, 0.5, null, null, null)," +
+                        "('lower_case_string', 10.0, 1.0, 0.5, null, null, null)," +
+                        "('upper_case_string', 10.0, 1.0, 0.5, null, null, null)," +
+                        "('mixed_case_string', 10.0, 1.0, 0.5, null, null, null)," +
                         "(null, null, null, null, 8.0, null, null)");
     }
 
@@ -985,7 +985,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "SHOW STATS FOR insert_nested_nonlowercase_columns",
                 "VALUES " +
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
-                        "('an_int', null, null, 0.0, null, 1, 40)," +
+                        "('an_int', null, 4.0, 0.0, null, 1, 40)," +
                         "('nested', null, null, null, null, null, null)," +
                         "(null, null, null, null, 8.0, null, null)");
     }
@@ -1047,8 +1047,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "SHOW STATS FOR insert_nonlowercase_columns_partitioned",
                 "VALUES " +
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
-                        "('lower_case_string', null, null, 0.5, null, null, null)," +
-                        "('upper_case_string', null, null, 0.5, null, null, null)," +
+                        "('lower_case_string', 10.0, 1.0, 0.5, null, null, null)," +
+                        "('upper_case_string', 10.0, 1.0, 0.5, null, null, null)," +
                         "('mixed_case_string', null, 2.0, 0.5, null, null, null)," +
                         "(null, null, null, null, 8.0, null, null)");
     }
@@ -1172,7 +1172,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         tableName,
                         type,
                         getLocationForTable(bucketName, tableName)));
-        assertUpdate("INSERT INTO " + tableName + " SELECT " + sampleValue + " UNION ALL SELECT " + highValue, 2);
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "INSERT INTO " + tableName + " SELECT " + sampleValue + " UNION ALL SELECT " + highValue, 2);
 
         // TODO: Open checkpoint parquet file and verify 'stats_parsed' field directly
         assertThat(getTableFiles(tableName))
@@ -1226,8 +1228,8 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
-                        "('col', null, null, 0.0, null, 1, 1)," +
-                        "('unsupported', null, null, 0.0, null, null, null)," +
+                        "('col', null, 1.0, 0.0, null, 1, 1)," +
+                        "('unsupported', null, 1.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 1.0, null, null)");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -1362,14 +1364,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testAnalyze()
     {
         String tableName = "test_analyze_" + randomNameSuffix();
-        Session sessionWithDisabledStatisticsOnWrite = Session.builder(getSession())
-                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, "false")
-                .build();
-        assertUpdate(sessionWithDisabledStatisticsOnWrite, "CREATE TABLE " + tableName
-                + " WITH ("
-                + "location = '" + getLocationForTable(bucketName, tableName) + "'"
-                + ")"
-                + " AS SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate(
+                disableStatisticsCollectionOnWrite(getSession()),
+                "CREATE TABLE " + tableName
+                        + " WITH ("
+                        + "location = '" + getLocationForTable(bucketName, tableName) + "'"
+                        + ")"
+                        + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -1821,6 +1822,27 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
+    public void testRegisterTableWithTrailingSpaceInLocation()
+    {
+        String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
+        String tableLocationWithTrailingSpace = bucketUrl() + tableName + " ";
+
+        assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
+
+        assertThat(getTableLocation(tableName)).isEqualTo(tableLocationWithTrailingSpace);
+
+        String registeredTableName = "test_register_table_with_trailing_space_" + randomNameSuffix();
+        assertQuerySucceeds(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, registeredTableName, tableLocationWithTrailingSpace));
+        assertQuery("SELECT * FROM " + registeredTableName, "VALUES (1, 'INDIA', true)");
+
+        assertThat(getTableLocation(registeredTableName)).isEqualTo(tableLocationWithTrailingSpace);
+
+        assertUpdate("DROP TABLE " + registeredTableName);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testUnregisterTable()
     {
         String tableName = "test_unregister_table_" + randomNameSuffix();
@@ -1949,5 +1971,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             return location;
         }
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
+    }
+
+    private static Session disableStatisticsCollectionOnWrite(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, "false")
+                .build();
     }
 }

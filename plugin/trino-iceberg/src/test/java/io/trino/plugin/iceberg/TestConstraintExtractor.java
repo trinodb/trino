@@ -173,7 +173,7 @@ public class TestConstraintExtractor
 
     /**
      * Test equivalent of {@link UnwrapDateTruncInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@link UnwrapCastInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
+     * {@link UnwrapDateTruncInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
      * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. Within Iceberg, we know
      * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
      * so we can unwrap.

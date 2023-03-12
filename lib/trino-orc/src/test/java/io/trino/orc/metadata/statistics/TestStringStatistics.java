@@ -14,18 +14,17 @@
 package io.trino.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStringStatistics
         extends AbstractRangeStatisticsTest<StringStatistics, Slice>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(StringStatistics.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(StringStatistics.class);
 
     // U+0000 to U+D7FF
     private static final Slice LOW_BOTTOM_VALUE = utf8Slice("foo \u0000");

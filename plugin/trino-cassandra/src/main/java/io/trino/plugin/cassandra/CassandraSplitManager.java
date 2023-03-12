@@ -78,12 +78,17 @@ public class CassandraSplitManager
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
-            ConnectorTableHandle tableHandle,
+            ConnectorTableHandle connectorTableHandle,
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
+        CassandraTableHandle tableHandle = (CassandraTableHandle) connectorTableHandle;
 
+        if (tableHandle.isSynthetic()) {
+            return new FixedSplitSource(ImmutableList.of(new CassandraSplit("", "", ImmutableList.of())));
+        }
+
+        CassandraNamedRelationHandle cassandraTableHandle = tableHandle.getRequiredNamedRelation();
         List<CassandraPartition> partitions;
         String clusteringKeyPredicates;
         if (cassandraTableHandle.getPartitions().isPresent()) {
@@ -97,7 +102,7 @@ public class CassandraSplitManager
         }
 
         if (partitions.isEmpty()) {
-            log.debug("No partitions matched predicates for table %s", tableHandle);
+            log.debug("No partitions matched predicates for table %s", connectorTableHandle);
             return new FixedSplitSource(ImmutableList.of());
         }
 
@@ -107,17 +112,17 @@ public class CassandraSplitManager
             if (cassandraPartition.isUnpartitioned() || cassandraPartition.isIndexedColumnPredicatePushdown()) {
                 CassandraTable table = cassandraSession.getTable(cassandraTableHandle.getSchemaTableName());
                 List<ConnectorSplit> splits = getSplitsByTokenRange(table, cassandraPartition.getPartitionId(), getSplitsPerNode(session));
-                log.debug("One partition matched predicates for table %s, creating %s splits by token ranges", tableHandle, splits.size());
+                log.debug("One partition matched predicates for table %s, creating %s splits by token ranges", connectorTableHandle, splits.size());
                 return new FixedSplitSource(splits);
             }
         }
 
         List<ConnectorSplit> splits = getSplitsForPartitions(cassandraTableHandle, partitions, clusteringKeyPredicates);
-        log.debug("%s partitions matched predicates for table %s, creating %s splits", partitions.size(), tableHandle, splits.size());
+        log.debug("%s partitions matched predicates for table %s, creating %s splits", partitions.size(), connectorTableHandle, splits.size());
         return new FixedSplitSource(splits);
     }
 
-    private String extractClusteringKeyPredicates(CassandraPartitionResult partitionResult, CassandraTableHandle tableHandle, CassandraSession session)
+    private String extractClusteringKeyPredicates(CassandraPartitionResult partitionResult, CassandraNamedRelationHandle tableHandle, CassandraSession session)
     {
         if (partitionResult.isUnpartitioned()) {
             return "";
@@ -167,7 +172,7 @@ public class CassandraSplitManager
         return tokenExpression + " > " + startTokenValue + " AND " + tokenExpression + " <= " + endTokenValue;
     }
 
-    private List<ConnectorSplit> getSplitsForPartitions(CassandraTableHandle cassTableHandle, List<CassandraPartition> partitions, String clusteringPredicates)
+    private List<ConnectorSplit> getSplitsForPartitions(CassandraNamedRelationHandle cassTableHandle, List<CassandraPartition> partitions, String clusteringPredicates)
     {
         String schema = cassTableHandle.getSchemaName();
         HostAddressFactory hostAddressFactory = new HostAddressFactory();

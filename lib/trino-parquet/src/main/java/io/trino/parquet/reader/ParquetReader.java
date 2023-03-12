@@ -17,6 +17,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import io.airlift.log.Logger;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
 import io.trino.parquet.DiskRange;
@@ -87,6 +88,8 @@ import static java.util.Objects.requireNonNull;
 public class ParquetReader
         implements Closeable
 {
+    private static final Logger log = Logger.get(ParquetReader.class);
+
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
     public static final String PARQUET_CODEC_METRIC_PREFIX = "ParquetReaderCompressionFormat_";
@@ -323,6 +326,7 @@ public class ParquetReader
         firstRowIndexInGroup = firstRowsOfBlocks.get(currentRowGroup);
         currentGroupRowCount = currentBlockMetadata.getRowCount();
         FilteredRowRanges currentGroupRowRanges = blockRowRanges[currentRowGroup];
+        log.debug("advanceToNextRowGroup dataSource %s, currentRowGroup %d, rowRanges %s, currentBlockMetadata %s", dataSource.getId(), currentRowGroup, currentGroupRowRanges, currentBlockMetadata);
         if (currentGroupRowRanges != null) {
             long rowCount = currentGroupRowRanges.getRowCount();
             columnIndexRowsFiltered += currentGroupRowCount - rowCount;
@@ -482,7 +486,7 @@ public class ParquetReader
         for (PrimitiveField field : primitiveFields) {
             columnReaders.put(
                     field.getId(),
-                    ColumnReaderFactory.create(field, timeZone, currentRowGroupMemoryContext, options.useBatchColumnReaders()));
+                    ColumnReaderFactory.create(field, timeZone, currentRowGroupMemoryContext, options));
         }
     }
 

@@ -188,6 +188,18 @@ public class BigQueryClient
         return materializationCache.getCachedTable(this, query, viewExpiration, remoteTableId);
     }
 
+    /**
+     * The Google Cloud Project ID that will be used to create the underlying BigQuery read session.
+     * Effectively, this is the project that will be used for billing attribution.
+     */
+    public String getParentProjectId()
+    {
+        return bigQuery.getOptions().getProjectId();
+    }
+
+    /**
+     * The Google Cloud Project ID where the data resides.
+     */
     public String getProjectId()
     {
         String projectId = configProjectId.orElseGet(() -> bigQuery.getOptions().getProjectId());

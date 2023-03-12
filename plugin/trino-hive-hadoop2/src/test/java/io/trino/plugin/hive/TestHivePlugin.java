@@ -79,19 +79,6 @@ public class TestHivePlugin
     }
 
     @Test
-    public void testCreateConnectorLegacyName()
-    {
-        Plugin plugin = new HivePlugin();
-        ConnectorFactory factory = stream(plugin.getConnectorFactories())
-                .filter(x -> x.getName().equals("hive-hadoop2"))
-                .collect(toOptional())
-                .orElseThrow();
-
-        // simplest possible configuration
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
-    }
-
-    @Test
     public void testThriftMetastore()
     {
         ConnectorFactory factory = getHiveConnectorFactory();

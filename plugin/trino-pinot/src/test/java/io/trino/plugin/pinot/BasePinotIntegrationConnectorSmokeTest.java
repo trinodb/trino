@@ -1759,7 +1759,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .isFullyPushedDown();
         // Distinct on int is partially pushed down
         assertThat(query("SELECT DISTINCT int_col FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown();
+                .isFullyPushedDown();
 
         // Distinct on 2 columns for supported types:
         assertThat(query("SELECT DISTINCT bool_col, string_col FROM " + ALL_TYPES_TABLE))
@@ -1773,7 +1773,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         assertThat(query("SELECT DISTINCT bool_col, timestamp_col FROM " + ALL_TYPES_TABLE))
                 .isFullyPushedDown();
         assertThat(query("SELECT DISTINCT bool_col, int_col FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown();
+                .isFullyPushedDown();
 
         // Test distinct for mixed case values
         assertThat(query("SELECT DISTINCT string_col FROM " + MIXED_CASE_DISTINCT_TABLE))
@@ -1804,7 +1804,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .isFullyPushedDown();
         // Approx distinct on int is partially pushed down
         assertThat(query("SELECT approx_distinct(int_col) FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown();
+                .isFullyPushedDown();
 
         // Approx distinct on 2 columns for supported types:
         assertThat(query("SELECT bool_col, approx_distinct(string_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
@@ -1816,7 +1816,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         assertThat(query("SELECT bool_col, approx_distinct(long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
                 .isFullyPushedDown();
         assertThat(query("SELECT bool_col, approx_distinct(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown();
+                .isFullyPushedDown();
 
         // Distinct count is fully pushed down by default
         assertThat(query("SELECT bool_col, COUNT(DISTINCT string_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))

@@ -46,14 +46,14 @@ import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.plugin.hive.util.AcidTables.deleteDeltaSubdir;
+import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
 
 public abstract class AbstractHiveAcidWriters
 {
@@ -132,8 +132,8 @@ public abstract class AbstractHiveAcidWriters
             }
         }
         long writeId = transaction.getWriteId();
-        this.deltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deltaSubdir(writeId, writeId, statementId)));
-        this.deleteDeltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deleteDeltaSubdir(writeId, writeId, statementId)));
+        this.deltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deltaSubdir(writeId, statementId)));
+        this.deleteDeltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deleteDeltaSubdir(writeId, statementId)));
     }
 
     protected Page buildDeletePage(Block rowIds, long writeId)

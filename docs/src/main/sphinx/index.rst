@@ -16,6 +16,7 @@ Trino documentation
     language
     sql
     develop
+    glossary
     appendix
 
 .. toctree::

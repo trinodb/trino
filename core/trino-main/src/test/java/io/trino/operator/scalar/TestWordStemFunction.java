@@ -13,36 +13,115 @@
  */
 package io.trino.operator.scalar;
 
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestWordStemFunction
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testWordStem()
     {
-        assertFunction("word_stem('')", createVarcharType(0), "");
-        assertFunction("word_stem('x')", createVarcharType(1), "x");
-        assertFunction("word_stem('abc')", createVarcharType(3), "abc");
-        assertFunction("word_stem('generally')", createVarcharType(9), "general");
-        assertFunction("word_stem('useful')", createVarcharType(6), "use");
-        assertFunction("word_stem('runs')", createVarcharType(4), "run");
-        assertFunction("word_stem('run')", createVarcharType(3), "run");
-        assertFunction("word_stem('authorized', 'en')", createVarcharType(10), "author");
-        assertFunction("word_stem('accessories', 'en')", createVarcharType(11), "accessori");
-        assertFunction("word_stem('intensifying', 'en')", createVarcharType(12), "intensifi");
-        assertFunction("word_stem('resentment')", createVarcharType(10), "resent");
-        assertFunction("word_stem('faithfulness')", createVarcharType(12), "faith");
-        assertFunction("word_stem('continuerait', 'fr')", createVarcharType(12), "continu");
-        assertFunction("word_stem('torpedearon', 'es')", createVarcharType(11), "torped");
-        assertFunction("word_stem('quilomtricos', 'pt')", createVarcharType(12), "quilomtr");
-        assertFunction("word_stem('pronunziare', 'it')", createVarcharType(11), "pronunz");
-        assertFunction("word_stem('auferstnde', 'de')", createVarcharType(10), "auferstnd");
-        assertFunction("word_stem('ã', 'pt')", createVarcharType(1), "ã");
-        assertFunction("word_stem('bastão', 'pt')", createVarcharType(6), "bastã");
+        assertThat(assertions.function("word_stem", "''"))
+                .hasType(createVarcharType(0))
+                .isEqualTo("");
 
-        assertInvalidFunction("word_stem('test', 'xx')", "Unknown stemmer language: xx");
+        assertThat(assertions.function("word_stem", "'x'"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("x");
+
+        assertThat(assertions.function("word_stem", "'abc'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("abc");
+
+        assertThat(assertions.function("word_stem", "'generally'"))
+                .hasType(createVarcharType(9))
+                .isEqualTo("general");
+
+        assertThat(assertions.function("word_stem", "'useful'"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("use");
+
+        assertThat(assertions.function("word_stem", "'runs'"))
+                .hasType(createVarcharType(4))
+                .isEqualTo("run");
+
+        assertThat(assertions.function("word_stem", "'run'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("run");
+
+        assertThat(assertions.function("word_stem", "'authorized'", "'en'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("author");
+
+        assertThat(assertions.function("word_stem", "'accessories'", "'en'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("accessori");
+
+        assertThat(assertions.function("word_stem", "'intensifying'", "'en'"))
+                .hasType(createVarcharType(12))
+                .isEqualTo("intensifi");
+
+        assertThat(assertions.function("word_stem", "'resentment'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("resent");
+
+        assertThat(assertions.function("word_stem", "'faithfulness'"))
+                .hasType(createVarcharType(12))
+                .isEqualTo("faith");
+
+        assertThat(assertions.function("word_stem", "'continuerait'", "'fr'"))
+                .hasType(createVarcharType(12))
+                .isEqualTo("continu");
+
+        assertThat(assertions.function("word_stem", "'torpedearon'", "'es'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("torped");
+
+        assertThat(assertions.function("word_stem", "'quilomtricos'", "'pt'"))
+                .hasType(createVarcharType(12))
+                .isEqualTo("quilomtr");
+
+        assertThat(assertions.function("word_stem", "'pronunziare'", "'it'"))
+                .hasType(createVarcharType(11))
+                .isEqualTo("pronunz");
+
+        assertThat(assertions.function("word_stem", "'auferstnde'", "'de'"))
+                .hasType(createVarcharType(10))
+                .isEqualTo("auferstnd");
+
+        assertThat(assertions.function("word_stem", "'ã'", "'pt'"))
+                .hasType(createVarcharType(1))
+                .isEqualTo("ã");
+
+        assertThat(assertions.function("word_stem", "'bastão'", "'pt'"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("bastã");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("word_stem", "'test'", "'xx'").evaluate())
+                .hasMessage("Unknown stemmer language: xx");
     }
 }

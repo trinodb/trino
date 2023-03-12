@@ -30,6 +30,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
+import static io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy.ALWAYS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -47,7 +48,6 @@ public class TestOptimizerConfig
                 .setJoinMultiClauseIndependenceFactor(0.25)
                 .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
                 .setMaxReorderedJoins(9)
-                .setDistributedIndexJoinsEnabled(false)
                 .setColocatedJoinsEnabled(false)
                 .setSpatialJoinsEnabled(true)
                 .setUsePreferredWritePartitioning(true)
@@ -70,7 +70,7 @@ public class TestOptimizerConfig
                 .setPushAggregationThroughOuterJoin(true)
                 .setPushPartialAggregationThoughJoin(false)
                 .setPreAggregateCaseAggregationsEnabled(true)
-                .setUseMarkDistinct(true)
+                .setMarkDistinctStrategy(null)
                 .setPreferPartialAggregation(true)
                 .setOptimizeTopNRanking(true)
                 .setDistributedSortEnabled(true)
@@ -115,7 +115,6 @@ public class TestOptimizerConfig
                 .put("optimizer.max-reordered-joins", "5")
                 .put("iterative-optimizer-timeout", "10s")
                 .put("enable-forced-exchange-below-group-id", "false")
-                .put("distributed-index-joins-enabled", "true")
                 .put("colocated-joins-enabled", "true")
                 .put("spatial-joins-enabled", "false")
                 .put("distributed-sort", "false")
@@ -131,7 +130,7 @@ public class TestOptimizerConfig
                 .put("optimizer.pre-aggregate-case-aggregations.enabled", "false")
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .put("optimizer.force-single-node-output", "true")
-                .put("optimizer.use-mark-distinct", "false")
+                .put("optimizer.mark-distinct-strategy", "always")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("optimizer.optimize-top-n-ranking", "false")
                 .put("optimizer.skip-redundant-sort", "false")
@@ -168,7 +167,6 @@ public class TestOptimizerConfig
                 .setMaxReorderedJoins(5)
                 .setIterativeOptimizerTimeout(new Duration(10, SECONDS))
                 .setEnableForcedExchangeBelowGroupId(false)
-                .setDistributedIndexJoinsEnabled(true)
                 .setColocatedJoinsEnabled(true)
                 .setSpatialJoinsEnabled(false)
                 .setUsePreferredWritePartitioning(false)
@@ -185,7 +183,7 @@ public class TestOptimizerConfig
                 .setPushPartialAggregationThoughJoin(true)
                 .setPreAggregateCaseAggregationsEnabled(false)
                 .setEnableIntermediateAggregations(true)
-                .setUseMarkDistinct(false)
+                .setMarkDistinctStrategy(ALWAYS)
                 .setPreferPartialAggregation(false)
                 .setOptimizeTopNRanking(false)
                 .setDistributedSortEnabled(false)

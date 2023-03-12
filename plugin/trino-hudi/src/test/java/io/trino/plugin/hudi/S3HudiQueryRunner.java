@@ -44,7 +44,6 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveTestUtils.SOCKS_PROXY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.testing.DistributedQueryRunner.builder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
@@ -86,7 +85,7 @@ public final class S3HudiQueryRunner
             // do nothing if database already exists
         }
 
-        DistributedQueryRunner queryRunner = builder(createSession())
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new TestingHudiPlugin(Optional.of(metastore)));

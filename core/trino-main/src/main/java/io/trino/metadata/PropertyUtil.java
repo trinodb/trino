@@ -103,38 +103,16 @@ public final class PropertyUtil
             ErrorCodeSupplier errorCode,
             String propertyTypeDescription)
     {
-        Object sqlObjectValue;
-        try {
-            Type expectedType = property.getSqlType();
-            Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
-            Object value = evaluateConstantExpression(rewritten, expectedType, plannerContext, session, accessControl, parameters);
-
-            // convert to object value type of SQL type
-            BlockBuilder blockBuilder = expectedType.createBlockBuilder(null, 1);
-            writeNativeValue(expectedType, blockBuilder, value);
-            sqlObjectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
-        }
-        catch (TrinoException e) {
-            throw new TrinoException(
-                    errorCode,
-                    format(
-                            "Invalid value for %s '%s': Cannot convert [%s] to %s",
-                            propertyTypeDescription,
-                            property.getName(),
-                            expression,
-                            property.getSqlType()),
-                    e);
-        }
-
-        if (sqlObjectValue == null) {
-            throw new TrinoException(
-                    errorCode,
-                    format(
-                            "Invalid null value for %s '%s' from [%s]",
-                            propertyTypeDescription,
-                            property.getName(),
-                            expression));
-        }
+        Object sqlObjectValue = evaluateProperty(
+                property.getName(),
+                property.getSqlType(),
+                expression,
+                session,
+                plannerContext,
+                accessControl,
+                parameters,
+                errorCode,
+                propertyTypeDescription);
 
         try {
             return property.decode(sqlObjectValue);
@@ -150,6 +128,51 @@ public final class PropertyUtil
                             e.getMessage()),
                     e);
         }
+    }
+
+    public static Object evaluateProperty(
+            String propertyName,
+            Type propertyType,
+            Expression expression,
+            Session session,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            ErrorCodeSupplier errorCode,
+            String propertyTypeDescription)
+    {
+        Object sqlObjectValue;
+        try {
+            Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), expression);
+            Object value = evaluateConstantExpression(rewritten, propertyType, plannerContext, session, accessControl, parameters);
+
+            // convert to object value type of SQL type
+            BlockBuilder blockBuilder = propertyType.createBlockBuilder(null, 1);
+            writeNativeValue(propertyType, blockBuilder, value);
+            sqlObjectValue = propertyType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
+        }
+        catch (TrinoException e) {
+            throw new TrinoException(
+                    errorCode,
+                    format(
+                            "Invalid value for %s '%s': Cannot convert [%s] to %s",
+                            propertyTypeDescription,
+                            propertyName,
+                            expression,
+                            propertyType),
+                    e);
+        }
+
+        if (sqlObjectValue == null) {
+            throw new TrinoException(
+                    errorCode,
+                    format(
+                            "Invalid null value for %s '%s' from [%s]",
+                            propertyTypeDescription,
+                            propertyName,
+                            expression));
+        }
+        return sqlObjectValue;
     }
 
     private static String capitalize(String value)

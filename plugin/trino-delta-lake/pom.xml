@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>407-SNAPSHOT</version>
+        <version>411-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -45,11 +45,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-hive</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-memory-context</artifactId>
         </dependency>
 
         <dependency>
@@ -119,6 +114,11 @@
 
         <dependency>
             <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-glue</artifactId>
         </dependency>
 
@@ -177,11 +177,6 @@
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-api</artifactId>
         </dependency>
 
         <dependency>
@@ -476,6 +471,7 @@
                                 <exclude>**/TestDeltaLakeRenameToWithGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</exclude>
                                 <exclude>**/TestDeltaLakeViewsGlueMetastore.java</exclude>
+                                <exclude>**/TestDeltaLakeConcurrentModificationGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeGcsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
@@ -505,6 +501,7 @@
                                 <include>**/TestDeltaLakeRenameToWithGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeRegisterTableProcedureWithGlue.java</include>
                                 <include>**/TestDeltaLakeViewsGlueMetastore.java</include>
+                                <include>**/TestDeltaLakeConcurrentModificationGlueMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>

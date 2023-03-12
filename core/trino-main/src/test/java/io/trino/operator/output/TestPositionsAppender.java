@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.block.BlockAssertions;
 import io.trino.spi.block.AbstractVariableWidthBlock;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -200,6 +201,21 @@ public class TestPositionsAppender
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
     }
 
+    @Test(dataProvider = "complexTypesWithNullElementBlock")
+    public void testRleAppendForComplexTypeWithNullElement(TestType type, Block value)
+    {
+        checkArgument(value.getPositionCount() == 1);
+        PositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(type.getType(), 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
+
+        positionsAppender.append(allPositions(3), rleBlock(value, 3));
+        positionsAppender.append(allPositions(2), rleBlock(value, 2));
+
+        Block actual = positionsAppender.build();
+        assertEquals(actual.getPositionCount(), 5);
+        assertInstanceOf(actual, RunLengthEncodedBlock.class);
+        assertBlockEquals(type.getType(), actual, RunLengthEncodedBlock.create(value, 5));
+    }
+
     @Test(dataProvider = "types")
     public void testRleAppendedWithSinglePositionDoesNotProduceRle(TestType type)
     {
@@ -283,6 +299,14 @@ public class TestPositionsAppender
         Block actual = positionsAppender.build();
 
         assertBlockEquals(type, actual, rowBLock);
+    }
+
+    @DataProvider(name = "complexTypesWithNullElementBlock")
+    public static Object[][] complexTypesWithNullElementBlock()
+    {
+        return new Object[][] {
+                {TestType.ROW_BIGINT_VARCHAR, RowBlock.fromFieldBlocks(1, Optional.empty(), new Block[] {nullBlock(BIGINT, 1), nullBlock(VARCHAR, 1)})},
+                {TestType.ARRAY_BIGINT, ArrayBlock.fromElementBlock(1, Optional.empty(), new int[] {0, 1}, nullBlock(BIGINT, 1))}};
     }
 
     @DataProvider(name = "types")
@@ -369,6 +393,15 @@ public class TestPositionsAppender
             blockBuilder.appendNull();
         }
         return type.adapt(blockBuilder.build());
+    }
+
+    private static Block nullBlock(Type type, int positionCount)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
+        for (int i = 0; i < positionCount; i++) {
+            blockBuilder.appendNull();
+        }
+        return blockBuilder.build();
     }
 
     private Block emptyBlock(TestType type)

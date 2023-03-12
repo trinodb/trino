@@ -95,6 +95,9 @@ import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXI
 import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
+import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
+import static io.trino.plugin.hive.util.AcidTables.isInsertOnlyTable;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.assertCompressionConfigured;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
@@ -116,9 +119,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.isInsertOnlyTable;
 
 public class HiveWriterFactory
 {
@@ -716,9 +716,8 @@ public class HiveWriterFactory
         switch (transaction.getOperation()) {
             case INSERT:
             case CREATE_TABLE:
-                return deltaSubdir(writeId, writeId, 0);
             case MERGE:
-                return deltaSubdir(writeId, writeId, 0);
+                return deltaSubdir(writeId, 0);
             default:
                 throw new UnsupportedOperationException("transaction operation is " + transaction.getOperation());
         }

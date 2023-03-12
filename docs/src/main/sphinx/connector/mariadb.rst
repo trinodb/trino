@@ -290,8 +290,8 @@ running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-As an example, select the age of employees by using ``TIMESTAMPDIFF`` and
-``CURDATE``::
+As an example, query the ``example`` catalog and select the age of employees by
+using ``TIMESTAMPDIFF`` and ``CURDATE``::
 
     SELECT
       age

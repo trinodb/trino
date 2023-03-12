@@ -37,6 +37,8 @@ import io.trino.plugin.hive.avro.TrinoAvroSerDe;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.type.Category;
+import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -54,14 +56,12 @@ import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
-import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.compress.CompressionCodec;
@@ -140,6 +140,7 @@ import static io.trino.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.SYMLINK_TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.SerdeConstants.COLLECTION_DELIM;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
@@ -175,7 +176,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
-import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 
 public final class HiveUtil
 {
@@ -354,7 +354,7 @@ public final class HiveUtil
             configureCompressionCodecs(jobConf);
 
             Class<? extends InputFormat<?, ?>> inputFormatClass = getInputFormatClass(jobConf, inputFormatName);
-            if (symlinkTarget && inputFormatClass == SymlinkTextInputFormat.class) {
+            if (symlinkTarget && inputFormatClass.getName().equals(SYMLINK_TEXT_INPUT_FORMAT_CLASS)) {
                 String serde = getDeserializerClassName(schema);
                 // LazySimpleSerDe is used by TEXTFILE and SEQUENCEFILE. Default to TEXTFILE
                 // per Hive spec (https://hive.apache.org/javadocs/r2.1.1/api/org/apache/hadoop/hive/ql/io/SymlinkTextInputFormat.html)
@@ -447,7 +447,7 @@ public final class HiveUtil
     {
         try {
             ObjectInspector inspector = deserializer.getObjectInspector();
-            checkArgument(inspector.getCategory() == Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
+            checkArgument(inspector.getCategory() == ObjectInspector.Category.STRUCT, "expected STRUCT: %s", inspector.getCategory());
             return (StructObjectInspector) inspector;
         }
         catch (SerDeException e) {
@@ -683,36 +683,9 @@ public final class HiveUtil
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
     }
 
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isArrayType(Type type)
-    {
-        return type instanceof ArrayType;
-    }
-
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isMapType(Type type)
-    {
-        return type instanceof MapType;
-    }
-
-    /**
-     * @deprecated Use {@code instanceof} directly, as that allows variable assignment.
-     */
-    @Deprecated
-    public static boolean isRowType(Type type)
-    {
-        return type instanceof RowType;
-    }
-
     public static boolean isStructuralType(Type type)
     {
-        return isArrayType(type) || isMapType(type) || isRowType(type);
+        return (type instanceof ArrayType) || (type instanceof MapType) || (type instanceof RowType);
     }
 
     public static boolean isStructuralType(HiveType hiveType)
@@ -1126,8 +1099,7 @@ public final class HiveUtil
     public static boolean isHiveSystemSchema(String schemaName)
     {
         if ("information_schema".equals(schemaName)) {
-            // For things like listing columns in information_schema.columns table, we need to explicitly filter out Hive's own information_schema.
-            // TODO https://github.com/trinodb/trino/issues/1559 this should be filtered out in engine.
+            // `information_schema` is filtered within engine. This condition exists for internal handling in Hive connector.
             return true;
         }
         if ("sys".equals(schemaName)) {

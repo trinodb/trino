@@ -176,9 +176,9 @@ public abstract class BaseJdbcConnectorTest
         String schema = getSession().getSchema().orElseThrow();
         try (TestTable table = new TestTable(onRemoteDatabase(), schema + ".char_trailing_space", "(x char(10))", List.of("'test'"))) {
             String tableName = table.getName();
-            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test'", "VALUES 'test'");
-            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test  '", "VALUES 'test'");
-            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test'");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test'", "VALUES 'test      '");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test  '", "VALUES 'test      '");
+            assertQuery("SELECT * FROM " + tableName + " WHERE x = char 'test        '", "VALUES 'test      '");
             assertQueryReturnsEmptyResult("SELECT * FROM " + tableName + " WHERE x = char ' test'");
         }
     }
@@ -1309,7 +1309,7 @@ public abstract class BaseJdbcConnectorTest
     {
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE VERBOSE SELECT * FROM nation a",
-                "'Physical input read time' = \\{duration=.*}");
+                "Physical input time: .*s");
     }
 
     protected QueryAssert assertConditionallyPushedDown(

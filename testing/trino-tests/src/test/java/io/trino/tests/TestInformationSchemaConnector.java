@@ -153,7 +153,7 @@ public class TestInformationSchemaConnector
                 "VALUES 2",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(3));
+                        .withListTablesCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')",
                 "VALUES 2",
@@ -188,14 +188,13 @@ public class TestInformationSchemaConnector
                 "VALUES 1",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(1)
                         .withGetColumnsCount(0));
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1000)",
                 "VALUES 1000",
                 new MetadataCallsCount()
                         .withListSchemasCount(1)
-                        .withListTablesCount(2)
+                        .withListTablesCount(1)
                         .withGetColumnsCount(1000));
 
         // Empty table schema and table name
