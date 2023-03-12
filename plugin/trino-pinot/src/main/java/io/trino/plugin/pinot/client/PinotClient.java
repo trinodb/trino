@@ -436,8 +436,9 @@ public class PinotClient
                 @JsonProperty String timeValue)
         {
             if (timeColumn != null && timeValue != null) {
-                offlineTimePredicate = Optional.of(format("%s < %s", timeColumn, timeValue));
-                onlineTimePredicate = Optional.of(format("%s >= %s", timeColumn, timeValue));
+                // See org.apache.pinot.broker.requesthandler.BaseBrokerRequestHandler::attachTimeBoundary
+                offlineTimePredicate = Optional.of(format("%s <= %s", timeColumn, timeValue));
+                onlineTimePredicate = Optional.of(format("%s > %s", timeColumn, timeValue));
             }
             else {
                 onlineTimePredicate = Optional.empty();
