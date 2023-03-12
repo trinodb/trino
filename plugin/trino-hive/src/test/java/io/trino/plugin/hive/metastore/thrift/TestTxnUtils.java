@@ -64,7 +64,9 @@ public class TestTxnUtils
         String trinoValue = createValidTxnWriteIdList(currentTxn, trinoIds);
 
         var hiveIds = trinoIds.stream()
-                .map(TestTxnUtils::toHiveTableValidWriteIds)
+                .map(ids -> {
+                    return toHiveTableValidWriteIds(ids);
+                })
                 .toList();
         String hiveValue = org.apache.hadoop.hive.metastore.txn.TxnUtils.createValidTxnWriteIdList(currentTxn, hiveIds).toString();
 

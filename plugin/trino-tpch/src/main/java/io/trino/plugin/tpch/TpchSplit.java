@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,13 +26,13 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TpchSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(TpchSplit.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TpchSplit.class).instanceSize());
 
     private final int totalParts;
     private final int partNumber;

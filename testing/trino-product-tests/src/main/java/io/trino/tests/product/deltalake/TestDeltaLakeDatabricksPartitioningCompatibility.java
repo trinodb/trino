@@ -25,7 +25,6 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -80,7 +79,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -134,7 +133,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -187,7 +186,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -243,7 +242,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -296,7 +295,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -352,7 +351,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -382,7 +381,7 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 }

@@ -20,12 +20,13 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -34,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public final class RedisSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(RedisSplit.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RedisSplit.class).instanceSize());
 
     private final String schemaName;
     private final String tableName;

@@ -24,7 +24,7 @@ import java.util.Optional;
 import static io.trino.memory.LowMemoryKillerTestingUtils.taskId;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
-import static org.testng.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
 {

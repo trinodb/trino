@@ -31,7 +31,7 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimeWithTimeZoneOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
-import static org.testng.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestISO8601JsonDateTimeFormatter
 {

@@ -14,15 +14,16 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class CanonicalColumnName
 {
-    private static final int INSTANCE_SIZE = instanceSize(CanonicalColumnName.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(CanonicalColumnName.class).instanceSize());
 
     private int hash;
     private final String originalName;

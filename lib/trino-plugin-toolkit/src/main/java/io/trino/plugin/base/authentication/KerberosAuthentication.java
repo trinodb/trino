@@ -58,11 +58,8 @@ public class KerberosAuthentication
     public void attemptLogin(Subject subject)
     {
         try {
-            synchronized (subject.getPrivateCredentials()) {
-                subject.getPrivateCredentials().clear();
-                LoginContext loginContext = new LoginContext("", subject, null, configuration);
-                loginContext.login();
-            }
+            LoginContext loginContext = new LoginContext("", subject, null, configuration);
+            loginContext.login();
         }
         catch (LoginException e) {
             throw new RuntimeException(e);

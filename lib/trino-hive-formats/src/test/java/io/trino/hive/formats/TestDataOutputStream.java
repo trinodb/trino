@@ -15,6 +15,7 @@ package io.trino.hive.formats;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -22,7 +23,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.airlift.slice.SizeOf.instanceSize;
 import static org.testng.Assert.assertEquals;
 
 public class TestDataOutputStream
@@ -181,7 +181,7 @@ public class TestDataOutputStream
         DataOutputStream output = new DataOutputStream(new ByteArrayOutputStream(0), bufferSize);
 
         long originalRetainedSize = output.getRetainedSize();
-        assertEquals(originalRetainedSize, instanceSize(DataOutputStream.class) + Slices.allocate(bufferSize).getRetainedSize());
+        assertEquals(originalRetainedSize, ClassLayout.parseClass(DataOutputStream.class).instanceSize() + Slices.allocate(bufferSize).getRetainedSize());
         output.writeLong(0);
         output.writeShort(0);
         assertEquals(output.getRetainedSize(), originalRetainedSize);

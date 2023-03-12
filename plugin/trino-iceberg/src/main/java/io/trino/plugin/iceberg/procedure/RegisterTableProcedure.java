@@ -21,7 +21,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
@@ -146,7 +145,7 @@ public class RegisterTableProcedure
         validateLocation(fileSystem, metadataLocation);
         try {
             // Try to read the metadata file. Invalid metadata file will throw the exception.
-            TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+            TableMetadataParser.read(fileSystem.toFileIo(), metadataLocation);
         }
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_INVALID_METADATA, metadataLocation + " is not a valid metadata file", e);
@@ -182,17 +181,17 @@ public class RegisterTableProcedure
             FileIterator fileIterator = fileSystem.listFiles(metadataDirectoryLocation);
             while (fileIterator.hasNext()) {
                 FileEntry fileEntry = fileIterator.next();
-                if (fileEntry.location().contains(METADATA_FILE_EXTENSION)) {
-                    OptionalInt version = parseVersion(fileEntry.location());
+                if (fileEntry.path().contains(METADATA_FILE_EXTENSION)) {
+                    OptionalInt version = parseVersion(fileEntry.path());
                     if (version.isPresent()) {
                         int versionNumber = version.getAsInt();
                         if (versionNumber > latestMetadataVersion) {
                             latestMetadataVersion = versionNumber;
                             latestMetadataLocations.clear();
-                            latestMetadataLocations.add(fileEntry.location());
+                            latestMetadataLocations.add(fileEntry.path());
                         }
                         else if (versionNumber == latestMetadataVersion) {
-                            latestMetadataLocations.add(fileEntry.location());
+                            latestMetadataLocations.add(fileEntry.path());
                         }
                     }
                 }

@@ -21,17 +21,18 @@ import io.trino.array.SliceBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.GroupedAccumulatorState;
 import libsvm.svm_parameter;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 
 public class LearnStateFactory
         implements AccumulatorStateFactory<LearnState>
 {
-    private static final long ARRAY_LIST_SIZE = instanceSize(ArrayList.class);
-    private static final long SVM_PARAMETERS_SIZE = instanceSize(svm_parameter.class);
+    private static final long ARRAY_LIST_SIZE = toIntExact(ClassLayout.parseClass(ArrayList.class).instanceSize());
+    private static final long SVM_PARAMETERS_SIZE = ClassLayout.parseClass(svm_parameter.class).instanceSize();
 
     @Override
     public LearnState createSingleState()

@@ -13,71 +13,45 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.InternalFunctionBundle;
-import io.trino.sql.query.QueryAssertions;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
-@TestInstance(PER_CLASS)
 public class TestCustomFunctions
+        extends AbstractTestFunctions
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
+    @BeforeClass
+    public void setupClass()
     {
-        assertions = new QueryAssertions();
-        assertions.addFunctions(InternalFunctionBundle.builder()
-                .scalars(CustomFunctions.class)
-                .build());
-    }
-
-    @AfterAll
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
+        registerScalar(CustomFunctions.class);
     }
 
     @Test
     public void testCustomAdd()
     {
-        assertThat(assertions.function("custom_add", "123", "456"))
-                .isEqualTo(579L);
+        assertFunction("custom_add(123, 456)", BIGINT, 579L);
     }
 
     @Test
     public void testSliceIsNull()
     {
-        assertThat(assertions.function("custom_is_null", "CAST(NULL AS VARCHAR)"))
-                .isEqualTo(true);
-
-        assertThat(assertions.function("custom_is_null", "'not null'"))
-                .isEqualTo(false);
+        assertFunction("custom_is_null(CAST(NULL AS VARCHAR))", BOOLEAN, true);
+        assertFunction("custom_is_null('not null')", BOOLEAN, false);
     }
 
     @Test
     public void testLongIsNull()
     {
-        assertThat(assertions.function("custom_is_null", "CAST(NULL AS BIGINT)"))
-                .isEqualTo(true);
-
-        assertThat(assertions.function("custom_is_null", "0"))
-                .isEqualTo(false);
+        assertFunction("custom_is_null(CAST(NULL AS BIGINT))", BOOLEAN, true);
+        assertFunction("custom_is_null(0)", BOOLEAN, false);
     }
 
     @Test
     public void testIdentityFunction()
     {
-        assertThat(assertions.function("identity&function", "\"identity.function\"(123)"))
-                .isEqualTo(123L);
-
-        assertThat(assertions.function("identity.function", "\"identity&function\"(123)"))
-                .isEqualTo(123L);
+        assertFunction("\"identity&function\"(\"identity.function\"(123))", BIGINT, 123L);
+        assertFunction("\"identity.function\"(\"identity&function\"(123))", BIGINT, 123L);
     }
 }

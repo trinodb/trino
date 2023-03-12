@@ -47,23 +47,22 @@ public class TestStreamingDirectExchangeBuffer
     {
         try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
-            ListenableFuture<Void> blocked = buffer.isBlocked();
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
             assertNull(buffer.pollPage());
 
             buffer.addTask(TASK_0);
             assertFalse(buffer.isFinished());
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
             assertNull(buffer.pollPage());
 
             buffer.addTask(TASK_1);
             assertFalse(buffer.isFinished());
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
             assertNull(buffer.pollPage());
 
             buffer.noMoreTasks();
             assertFalse(buffer.isFinished());
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
             assertNull(buffer.pollPage());
 
             buffer.addPages(TASK_0, ImmutableList.of(PAGE_0));
@@ -72,14 +71,13 @@ public class TestStreamingDirectExchangeBuffer
             assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_0.getRetainedSize());
             assertEquals(buffer.getRemainingCapacityInBytes(), DataSize.of(1, KILOBYTE).toBytes() - PAGE_0.getRetainedSize());
             assertFalse(buffer.isFinished());
-            assertTrue(blocked.isDone());
+            assertTrue(buffer.isBlocked().isDone());
             assertEquals(buffer.pollPage(), PAGE_0);
-            blocked = buffer.isBlocked();
             assertEquals(buffer.getRetainedSizeInBytes(), 0);
             assertEquals(buffer.getMaxRetainedSizeInBytes(), PAGE_0.getRetainedSize());
             assertEquals(buffer.getRemainingCapacityInBytes(), DataSize.of(1, KILOBYTE).toBytes());
             assertFalse(buffer.isFinished());
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
 
             buffer.taskFinished(TASK_0);
             assertFalse(buffer.isFinished());
@@ -102,7 +100,7 @@ public class TestStreamingDirectExchangeBuffer
 
             buffer.taskFinished(TASK_1);
             assertTrue(buffer.isFinished());
-            assertTrue(blocked.isDone());
+            assertTrue(buffer.isBlocked().isDone());
         }
     }
 
@@ -130,50 +128,47 @@ public class TestStreamingDirectExchangeBuffer
         // 0 tasks
         try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
-            ListenableFuture<Void> blocked = buffer.isBlocked();
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
 
             buffer.noMoreTasks();
 
             assertTrue(buffer.isFinished());
-            assertTrue(blocked.isDone());
+            assertTrue(buffer.isBlocked().isDone());
         }
 
         // single task
         try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
-            ListenableFuture<Void> blocked = buffer.isBlocked();
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
 
             buffer.addTask(TASK_0);
             buffer.noMoreTasks();
 
             assertFalse(buffer.isFinished());
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
 
             buffer.taskFinished(TASK_0);
 
             assertTrue(buffer.isFinished());
-            assertTrue(blocked.isDone());
+            assertTrue(buffer.isBlocked().isDone());
         }
 
         // single failed task
         try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
             assertFalse(buffer.isFinished());
-            ListenableFuture<Void> blocked = buffer.isBlocked();
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
 
             buffer.addTask(TASK_0);
 
             assertFalse(buffer.isFinished());
-            assertFalse(blocked.isDone());
+            assertFalse(buffer.isBlocked().isDone());
 
             RuntimeException error = new RuntimeException();
             buffer.taskFailed(TASK_0, error);
 
             assertFalse(buffer.isFinished());
             assertTrue(buffer.isFailed());
-            assertTrue(blocked.isDone());
+            assertTrue(buffer.isBlocked().isDone());
             assertThatThrownBy(buffer::pollPage).isEqualTo(error);
         }
     }
@@ -227,31 +222,6 @@ public class TestStreamingDirectExchangeBuffer
             assertFalse(buffer.isFinished());
             assertFalse(buffer.isFailed());
             assertNull(buffer.pollPage());
-        }
-    }
-
-    @Test
-    public void testSingleWakeUp()
-    {
-        try (StreamingDirectExchangeBuffer buffer = new StreamingDirectExchangeBuffer(directExecutor(), DataSize.of(1, KILOBYTE))) {
-            assertFalse(buffer.isFinished());
-            ListenableFuture<Void> blocked1 = buffer.isBlocked();
-            ListenableFuture<Void> blocked2 = buffer.isBlocked();
-            assertFalse(blocked1.isDone());
-            assertFalse(blocked2.isDone());
-
-            buffer.addTask(TASK_0);
-
-            buffer.addPages(TASK_0, ImmutableList.of(PAGE_0));
-            buffer.pollPage();
-
-            assertTrue(blocked1.isDone());
-            assertFalse(blocked2.isDone());
-
-            buffer.addPages(TASK_0, ImmutableList.of(PAGE_0));
-            buffer.pollPage();
-
-            assertTrue(blocked2.isDone());
         }
     }
 }

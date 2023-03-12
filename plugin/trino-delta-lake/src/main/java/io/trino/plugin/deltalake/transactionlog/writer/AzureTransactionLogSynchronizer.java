@@ -25,6 +25,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.UUID;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 public class AzureTransactionLogSynchronizer
@@ -49,7 +50,7 @@ public class AzureTransactionLogSynchronizer
         boolean conflict = false;
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            try (OutputStream outputStream = fileSystem.newOutputFile(tmpFilePath).create()) {
+            try (OutputStream outputStream = fileSystem.newOutputFile(tmpFilePath).create(newSimpleAggregatedMemoryContext())) {
                 outputStream.write(entryContents);
             }
             try {

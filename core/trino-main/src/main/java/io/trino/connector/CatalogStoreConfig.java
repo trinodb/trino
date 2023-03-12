@@ -21,7 +21,7 @@ public class CatalogStoreConfig
 {
     public enum CatalogStoreKind
     {
-        MEMORY, FILE
+        NONE, FILE
     }
 
     private CatalogStoreKind catalogStoreKind = CatalogStoreKind.FILE;

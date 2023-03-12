@@ -63,15 +63,13 @@ public class TestAggregationStatsRule
         Consumer<PlanNodeStatsAssertion> outputRowsCountAndZStatsAreNotFullyCalculated = check -> check
                 .outputRowsCountUnknown()
                 .symbolStats("z", symbolStatsAssertion -> symbolStatsAssertion
-                        .lowValue(10)
-                        .highValue(15)
+                        .unknownRange()
                         .distinctValuesCountUnknown()
                         .nullsFractionUnknown())
                 .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion
-                        .lowValue(0)
-                        .highValue(3)
-                        .distinctValuesCount(3)
-                        .nullsFraction(0));
+                        .unknownRange()
+                        .nullsFractionUnknown()
+                        .distinctValuesCountUnknown());
 
         testAggregation(
                 SymbolStatsEstimate.builder()

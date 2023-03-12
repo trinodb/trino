@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,11 +53,11 @@ public class EqualityInference
 {
     // Comparator used to determine Expression preference when determining canonicals
     private static final Comparator<Expression> CANONICAL_COMPARATOR = Comparator
-            // Current cost heuristic:
-            // 1) Prefer fewer input symbols
-            // 2) Prefer smaller expression trees
-            // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
-            // TODO: be more precise in determining the cost of an expression
+        // Current cost heuristic:
+        // 1) Prefer fewer input symbols
+        // 2) Prefer smaller expression trees
+        // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
+        // TODO: be more precise in determining the cost of an expression
             .comparingInt((ToIntFunction<Expression>) (expression -> SymbolsExtractor.extractAll(expression).size()))
             .thenComparingLong(expression -> SubExpressionExtractor.extract(expression).count())
             .thenComparing(Expression::toString);
@@ -130,7 +129,7 @@ public class EqualityInference
                         if (scopeRewritten != null) {
                             scopeExpressions.add(scopeRewritten);
                         }
-                        Expression scopeComplementRewritten = rewrite(candidate, symbol -> !scope.contains(symbol), false);
+                        Expression scopeComplementRewritten = rewrite(candidate, expression -> !scope.contains(expression), false);
                         if (scopeComplementRewritten != null) {
                             scopeComplementExpressions.add(scopeComplementRewritten);
                         }
@@ -212,7 +211,7 @@ public class EqualityInference
         Collection<Set<Expression>> equivalentClasses = equalities.getEquivalentClasses();
 
         // Map every expression to the set of equivalent expressions
-        Map<Expression, Set<Expression>> byExpression = new LinkedHashMap<>();
+        Map<Expression, Set<Expression>> byExpression = new HashMap<>();
         for (Set<Expression> equivalence : equivalentClasses) {
             equivalence.forEach(expression -> byExpression.put(expression, equivalence));
         }
@@ -227,14 +226,16 @@ public class EqualityInference
 
             SubExpressionExtractor.extract(expression)
                     .filter(e -> !e.equals(expression))
-                    .forEach(subExpression -> byExpression.getOrDefault(subExpression, ImmutableSet.of())
-                            .stream()
-                            .filter(e -> !e.equals(subExpression))
-                            .forEach(equivalentSubExpression -> {
-                                Expression rewritten = replaceExpression(expression, ImmutableMap.of(subExpression, equivalentSubExpression));
-                                equalities.findAndUnion(expression, rewritten);
-                                derivedExpressions.add(rewritten);
-                            }));
+                    .forEach(subExpression -> {
+                        byExpression.getOrDefault(subExpression, ImmutableSet.of())
+                                .stream()
+                                .filter(e -> !e.equals(subExpression))
+                                .forEach(equivalentSubExpression -> {
+                                    Expression rewritten = replaceExpression(expression, ImmutableMap.of(subExpression, equivalentSubExpression));
+                                    equalities.findAndUnion(expression, rewritten);
+                                    derivedExpressions.add(rewritten);
+                                });
+                    });
         }
 
         Multimap<Expression, Expression> equalitySets = makeEqualitySets(equalities);

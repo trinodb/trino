@@ -14,7 +14,6 @@
 package io.trino.sql.planner.planprinter;
 
 import io.trino.Session;
-import io.trino.connector.ConnectorName;
 import io.trino.execution.TableInfo;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
@@ -47,7 +46,6 @@ public class TableInfoSupplier
         Optional<String> connectorName = metadata.listCatalogs(session).stream()
                 .filter(catalogInfo -> catalogInfo.getCatalogName().equals(tableSchema.getCatalogName()))
                 .map(CatalogInfo::getConnectorName)
-                .map(ConnectorName::toString)
                 .findFirst();
         return new TableInfo(connectorName, tableSchema.getQualifiedName(), tableProperties.getPredicate());
     }

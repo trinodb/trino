@@ -27,17 +27,14 @@ public class TestAvroSchemaLiteral
         extends HiveProductTest
 {
     @Language("JSON")
-    private static final String SCHEMA_LITERAL = """
-            {
-              "namespace": "io.trino.test",
-              "name": "product_tests_avro_table",
-              "type": "record",
-              "fields": [
-                { "name":"string_col", "type":"string"},
-                { "name":"int_col", "type":"int" }
-              ]
-            }
-            """;
+    private static final String SCHEMA_LITERAL = "{\n" +
+            "  \"namespace\": \"io.trino.test\",\n" +
+            "  \"name\": \"product_tests_avro_table\",\n" +
+            "  \"type\": \"record\",\n" +
+            "  \"fields\": [\n" +
+            "    { \"name\":\"string_col\", \"type\":\"string\"},\n" +
+            "    { \"name\":\"int_col\", \"type\":\"int\" }\n" +
+            "]}";
 
     @Test(groups = AVRO)
     public void testHiveCreatedTable()

@@ -27,7 +27,6 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.planner.plan.WindowNode;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
@@ -206,12 +205,6 @@ public final class QueryCardinalityUtil
         public Range<Long> visitTopN(TopNNode node, Void context)
         {
             return applyLimit(node.getSource(), node.getCount());
-        }
-
-        @Override
-        public Range<Long> visitWindow(WindowNode node, Void context)
-        {
-            return node.getSource().accept(this, null);
         }
 
         private Range<Long> applyLimit(PlanNode source, long limit)

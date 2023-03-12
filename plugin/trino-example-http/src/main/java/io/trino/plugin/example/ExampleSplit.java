@@ -18,18 +18,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.net.URI;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(ExampleSplit.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ExampleSplit.class).instanceSize());
 
     private final String uri;
     private final boolean remotelyAccessible;

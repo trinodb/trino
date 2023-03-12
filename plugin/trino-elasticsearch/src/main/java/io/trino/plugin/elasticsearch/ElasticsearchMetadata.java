@@ -13,9 +13,13 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.BaseEncoding;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
@@ -98,7 +102,9 @@ import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGGREGATION;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
+import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_SUBQUERY;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -111,13 +117,17 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
+    private static final ObjectMapper JSON_PARSER = new ObjectMapperProvider().get();
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_efgnrtd_";
+
+    private static final String PASSTHROUGH_QUERY_SUFFIX = "$query";
     private static final String PASSTHROUGH_QUERY_RESULT_COLUMN_NAME = "result";
     private static final ColumnMetadata PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA = ColumnMetadata.builder()
             .setName(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME)
@@ -142,6 +152,7 @@ public class ElasticsearchMetadata
     private final Type ipAddressType;
     private final ElasticsearchClient client;
     private final String schemaName;
+    private final boolean legacyPassThroughQueryEnabled;
 
     @Inject
     public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
@@ -149,6 +160,7 @@ public class ElasticsearchMetadata
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         this.schemaName = config.getDefaultSchema();
+        this.legacyPassThroughQueryEnabled = config.isLegacyPassThroughQueryEnabled();
     }
 
     @Override
@@ -166,12 +178,44 @@ public class ElasticsearchMetadata
             String[] parts = tableName.getTableName().split(":", 2);
             String table = parts[0];
             Optional<String> query = Optional.empty();
+            ElasticsearchTableHandle.Type type = SCAN;
             if (parts.length == 2) {
-                query = Optional.of(parts[1]);
+                // TODO this query pass-through mechanism is deprecated in favor of the `raw_query` table function.
+                //  it should be eventually removed: https://github.com/trinodb/trino/issues/13050
+                if (table.endsWith(PASSTHROUGH_QUERY_SUFFIX)) {
+                    if (!this.legacyPassThroughQueryEnabled) {
+                        throw new TrinoException(
+                                UNSUPPORTED_SUBQUERY,
+                                "Pass-through query not supported. Please turn it on explicitly using elasticsearch.legacy-pass-through-query.enabled feature toggle");
+                    }
+                    table = table.substring(0, table.length() - PASSTHROUGH_QUERY_SUFFIX.length());
+                    byte[] decoded;
+                    try {
+                        decoded = BaseEncoding.base32().decode(parts[1].toUpperCase(ENGLISH));
+                    }
+                    catch (IllegalArgumentException e) {
+                        throw new TrinoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not base32-encoded correctly", table), e);
+                    }
+
+                    String queryJson = new String(decoded, UTF_8);
+                    try {
+                        // Ensure this is valid json
+                        JSON_PARSER.readTree(queryJson);
+                    }
+                    catch (JsonProcessingException e) {
+                        throw new TrinoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not valid JSON", table), e);
+                    }
+
+                    query = Optional.of(queryJson);
+                    type = QUERY;
+                }
+                else {
+                    query = Optional.of(parts[1]);
+                }
             }
 
             if (client.indexExists(table) && !client.getIndexMetadata(table).getSchema().getFields().isEmpty()) {
-                return new ElasticsearchTableHandle(SCAN, schemaName, table, query);
+                return new ElasticsearchTableHandle(type, schemaName, table, query);
             }
         }
 

@@ -1084,7 +1084,6 @@ public class TestDynamicFilterService
                         Optional.empty()),
                 ImmutableMap.of(symbol, VARCHAR),
                 stagePartitioning,
-                Optional.empty(),
                 ImmutableList.of(tableScanNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),

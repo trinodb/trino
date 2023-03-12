@@ -72,14 +72,8 @@ public final class ProtobufUtils
     public static FileDescriptor getFileDescriptor(String protoFile)
             throws DescriptorValidationException
     {
-        return getFileDescriptor(Optional.empty(), protoFile);
-    }
-
-    public static FileDescriptor getFileDescriptor(Optional<String> fileName, String protoFile)
-            throws DescriptorValidationException
-    {
         ProtoFileElement protoFileElement = ProtoParser.Companion.parse(Location.get(""), protoFile);
-        return getFileDescriptor(fileName, protoFileElement);
+        return getFileDescriptor(Optional.empty(), protoFileElement);
     }
 
     public static FileDescriptor getFileDescriptor(Optional<String> fileName, ProtoFileElement protoFileElement)
@@ -90,7 +84,7 @@ public final class ProtobufUtils
         int index = 0;
         for (String importStatement : protoFileElement.getImports()) {
             try {
-                FileDescriptor fileDescriptor = getFileDescriptor(Optional.of(importStatement), getProtoFile(importStatement));
+                FileDescriptor fileDescriptor = getFileDescriptor(getProtoFile(importStatement));
                 fileDescriptor.getMessageTypes().stream()
                         .map(Descriptor::getFullName)
                         .forEach(definedMessages::add);

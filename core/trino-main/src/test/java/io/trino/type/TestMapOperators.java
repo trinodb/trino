@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.operator.scalar.AbstractTestFunctions.asMap;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -60,7 +61,6 @@ import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;

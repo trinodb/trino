@@ -35,8 +35,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -115,9 +115,7 @@ public class ParquetFileWriterFactory
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .build();
 
-        CompressionCodec compressionCodec = Optional.ofNullable(conf.get(ParquetOutputFormat.COMPRESSION))
-                .map(CompressionCodec::valueOf)
-                .orElse(CompressionCodec.GZIP);
+        CompressionCodecName compressionCodecName = getCompression(conf);
 
         List<String> fileColumnNames = getColumnNames(schema);
         List<Type> fileColumnTypes = getColumnTypes(schema).stream()
@@ -162,7 +160,7 @@ public class ParquetFileWriterFactory
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
-                    compressionCodec,
+                    compressionCodecName,
                     nodeVersion.toString(),
                     isParquetOptimizedReaderEnabled(session),
                     Optional.of(parquetTimeZone),
@@ -178,5 +176,14 @@ public class ParquetFileWriterFactory
     public FileFormatDataSourceStats getReadStats()
     {
         return readStats;
+    }
+
+    private static CompressionCodecName getCompression(JobConf configuration)
+    {
+        String compressionName = configuration.get(ParquetOutputFormat.COMPRESSION);
+        if (compressionName == null) {
+            return CompressionCodecName.GZIP;
+        }
+        return CompressionCodecName.valueOf(compressionName);
     }
 }

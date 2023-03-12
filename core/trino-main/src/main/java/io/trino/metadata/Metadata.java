@@ -255,11 +255,6 @@ public interface Metadata
     void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
 
     /**
-     * Drop the specified field from the column.
-     */
-    void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath);
-
-    /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid

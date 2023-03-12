@@ -50,7 +50,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
-import org.assertj.core.util.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -91,13 +90,10 @@ public class PushPredicateIntoTableScan
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
 
-    private final boolean pruneWithPredicateExpression;
-
-    public PushPredicateIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, boolean pruneWithPredicateExpression)
+    public PushPredicateIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        this.pruneWithPredicateExpression = pruneWithPredicateExpression;
     }
 
     @Override
@@ -120,7 +116,7 @@ public class PushPredicateIntoTableScan
         Optional<PlanNode> rewritten = pushFilterIntoTableScan(
                 filterNode,
                 tableScan,
-                pruneWithPredicateExpression,
+                false,
                 context.getSession(),
                 context.getSymbolAllocator(),
                 plannerContext,
@@ -418,12 +414,6 @@ public class PushPredicateIntoTableScan
             }
         }
         return TupleDomain.withColumnDomains(enforcedDomainsBuilder.buildOrThrow());
-    }
-
-    @VisibleForTesting
-    public boolean getPruneWithPredicateExpression()
-    {
-        return pruneWithPredicateExpression;
     }
 
     private static class SplitExpression

@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -40,6 +41,7 @@ public class DeltaLakeMetadataFactory
 {
     private final HiveMetastoreFactory hiveMetastoreFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final HdfsEnvironment hdfsEnvironment;
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
     private final DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory;
@@ -64,6 +66,7 @@ public class DeltaLakeMetadataFactory
     public DeltaLakeMetadataFactory(
             HiveMetastoreFactory hiveMetastoreFactory,
             TrinoFileSystemFactory fileSystemFactory,
+            HdfsEnvironment hdfsEnvironment,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
             DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory,
@@ -80,6 +83,7 @@ public class DeltaLakeMetadataFactory
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
@@ -121,6 +125,7 @@ public class DeltaLakeMetadataFactory
         return new DeltaLakeMetadata(
                 deltaLakeMetastore,
                 fileSystemFactory,
+                hdfsEnvironment,
                 typeManager,
                 accessControlMetadata,
                 trinoViewHiveMetastore,

@@ -22,10 +22,6 @@ import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
 import io.trino.plugin.hive.coercions.VarcharCoercer;
 import io.trino.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
-import io.trino.plugin.hive.type.Category;
-import io.trino.plugin.hive.type.ListTypeInfo;
-import io.trino.plugin.hive.type.MapTypeInfo;
-import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -42,15 +38,17 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.annotation.Nullable;
 
@@ -85,6 +83,9 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecim
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
+import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
+import static io.trino.plugin.hive.util.HiveUtil.isMapType;
+import static io.trino.plugin.hive.util.HiveUtil.isRowType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
@@ -346,15 +347,15 @@ public class HivePageSource
         if (fromType == REAL && toType instanceof DecimalType toDecimalType) {
             return Optional.of(createRealToDecimalCoercer(toDecimalType));
         }
-        if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
+        if (isArrayType(fromType) && isArrayType(toType)) {
             return Optional.of(new ListCoercer(typeManager, fromHiveType, toHiveType));
         }
-        if ((fromType instanceof MapType) && (toType instanceof MapType)) {
+        if (isMapType(fromType) && isMapType(toType)) {
             return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType));
         }
-        if ((fromType instanceof RowType) && (toType instanceof RowType)) {
-            HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
-            HiveType toHiveTypeStruct = (toHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
+        if (isRowType(fromType) && isRowType(toType)) {
+            HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == ObjectInspector.Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
+            HiveType toHiveTypeStruct = (toHiveType.getCategory() == ObjectInspector.Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
 
             return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
         }

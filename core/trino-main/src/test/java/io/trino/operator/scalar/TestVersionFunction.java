@@ -13,21 +13,16 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.sql.query.QueryAssertions;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVersionFunction
+        extends AbstractTestFunctions
 {
     @Test
     public void testVersion()
     {
-        try (QueryAssertions assertions = new QueryAssertions()) {
-            assertThat(assertions.function("version"))
-                    .hasType(VARCHAR)
-                    .isEqualTo("<unknown>");
-        }
+        assertFunction("version()", VARCHAR, "<unknown>");
     }
 }

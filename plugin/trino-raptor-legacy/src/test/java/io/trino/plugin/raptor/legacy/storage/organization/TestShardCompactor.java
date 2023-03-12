@@ -62,12 +62,11 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestShardCompactor
@@ -185,7 +184,7 @@ public class TestShardCompactor
         MaterializedResult inputRowsSorted = sortAndMaterialize(inputPages, columnTypes, sortIndexes, sortOrders, sortTypes);
         MaterializedResult outputRows = extractColumns(getMaterializedRows(outputUuids, columnIds, columnTypes), sortIndexes, sortTypes);
 
-        assertThat(outputRows).containsExactlyElementsOf(inputRowsSorted);
+        assertEquals(outputRows, inputRowsSorted);
     }
 
     private static MaterializedResult extractColumns(MaterializedResult materializedRows, List<Integer> indexes, List<Type> types)

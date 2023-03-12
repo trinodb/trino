@@ -78,7 +78,7 @@ public class SqlTaskExecutionFactory
                         taskContext,
                         fragment.getRoot(),
                         TypeProvider.copyOf(fragment.getSymbols()),
-                        fragment.getOutputPartitioningScheme(),
+                        fragment.getPartitioningScheme(),
                         fragment.getPartitionedSources(),
                         outputBuffer);
             }

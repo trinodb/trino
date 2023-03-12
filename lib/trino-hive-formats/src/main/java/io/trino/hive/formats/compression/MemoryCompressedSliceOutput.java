@@ -13,11 +13,12 @@
  */
 package io.trino.hive.formats.compression;
 
-import io.airlift.compress.hadoop.HadoopStreams;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -29,23 +30,28 @@ import static java.util.Objects.requireNonNull;
 public final class MemoryCompressedSliceOutput
         extends BufferedOutputStreamSliceOutput
 {
-    private final HadoopStreams hadoopStreams;
     private final ChunkedSliceOutput bufferedOutput;
+    private final Supplier<MemoryCompressedSliceOutput> resetFactory;
+    private final Runnable onDestroy;
     private boolean closed;
     private boolean destroyed;
 
-    MemoryCompressedSliceOutput(HadoopStreams hadoopStreams, int minChunkSize, int maxChunkSize)
-            throws IOException
+    /**
+     * @param compressionStream the compressed output stream to delegate to
+     * @param bufferedOutput the output for the compressionStream
+     * @param resetFactory the function to create a new CompressedSliceOutput that reuses the bufferedOutput
+     * @param onDestroy used to cleanup the compression when done
+     */
+    public MemoryCompressedSliceOutput(
+            OutputStream compressionStream,
+            ChunkedSliceOutput bufferedOutput,
+            Supplier<MemoryCompressedSliceOutput> resetFactory,
+            Runnable onDestroy)
     {
-        this(hadoopStreams, new ChunkedSliceOutput(minChunkSize, maxChunkSize));
-    }
-
-    private MemoryCompressedSliceOutput(HadoopStreams hadoopStreams, ChunkedSliceOutput bufferedOutput)
-            throws IOException
-    {
-        super(hadoopStreams == null ? bufferedOutput : hadoopStreams.createOutputStream(bufferedOutput));
-        this.hadoopStreams = hadoopStreams;
+        super(compressionStream);
         this.bufferedOutput = requireNonNull(bufferedOutput, "bufferedOutput is null");
+        this.resetFactory = requireNonNull(resetFactory, "resetFactory is null");
+        this.onDestroy = requireNonNull(onDestroy, "onDestroy is null");
     }
 
     @Override
@@ -69,14 +75,11 @@ public final class MemoryCompressedSliceOutput
     }
 
     public MemoryCompressedSliceOutput createRecycledCompressedSliceOutput()
-            throws IOException
     {
         checkState(closed, "Stream has not been closed");
         checkState(!destroyed, "Stream has been destroyed");
         destroyed = true;
-
-        bufferedOutput.reset();
-        return new MemoryCompressedSliceOutput(hadoopStreams, bufferedOutput);
+        return resetFactory.get();
     }
 
     @Override
@@ -94,13 +97,35 @@ public final class MemoryCompressedSliceOutput
     {
         if (!destroyed) {
             destroyed = true;
-            close();
+            try {
+                close();
+            }
+            finally {
+                onDestroy.run();
+            }
         }
     }
 
     public static MemoryCompressedSliceOutput createUncompressedMemorySliceOutput(int minChunkSize, int maxChunkSize)
-            throws IOException
     {
-        return new MemoryCompressedSliceOutput(null, new ChunkedSliceOutput(minChunkSize, maxChunkSize));
+        return new UncompressedSliceOutputSupplier(minChunkSize, maxChunkSize).get();
+    }
+
+    private static class UncompressedSliceOutputSupplier
+            implements Supplier<MemoryCompressedSliceOutput>
+    {
+        private final ChunkedSliceOutput chunkedSliceOutput;
+
+        private UncompressedSliceOutputSupplier(int minChunkSize, int maxChunkSize)
+        {
+            chunkedSliceOutput = new ChunkedSliceOutput(minChunkSize, maxChunkSize);
+        }
+
+        @Override
+        public MemoryCompressedSliceOutput get()
+        {
+            chunkedSliceOutput.reset();
+            return new MemoryCompressedSliceOutput(chunkedSliceOutput, chunkedSliceOutput, this, () -> {});
+        }
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.SystemSessionProperties;
-import io.trino.cost.TaskCountEstimator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
@@ -52,9 +51,7 @@ public class TestOptimizeMixedDistinctAggregations
 {
     public TestOptimizeMixedDistinctAggregations()
     {
-        super(ImmutableMap.of(
-                SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true",
-                SystemSessionProperties.MARK_DISTINCT_STRATEGY, "always"));
+        super(ImmutableMap.of(SystemSessionProperties.OPTIMIZE_DISTINCT_AGGREGATIONS, "true"));
     }
 
     @Test
@@ -128,7 +125,7 @@ public class TestOptimizeMixedDistinctAggregations
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new SingleDistinctAggregationToGroupBy(),
-                                new MultipleDistinctAggregationToMarkDistinct(new TaskCountEstimator(() -> 4)))),
+                                new MultipleDistinctAggregationToMarkDistinct())),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),

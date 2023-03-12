@@ -63,7 +63,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
@@ -196,14 +195,6 @@ public class TrinoGlueCatalog
         }
     }
 
-    private List<String> listNamespaces(ConnectorSession session, Optional<String> namespace)
-    {
-        if (namespace.isPresent()) {
-            return ImmutableList.of(namespace.get());
-        }
-        return listNamespaces(session);
-    }
-
     @Override
     public void dropNamespace(ConnectorSession session, String namespace)
     {
@@ -298,7 +289,7 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         try {
-            List<String> namespaces = listNamespaces(session, namespace);
+            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
             for (String glueNamespace : namespaces) {
                 try {
                     // Add all tables from a namespace together, in case it is removed while fetching paginated results
@@ -374,7 +365,6 @@ public class TrinoGlueCatalog
             SchemaTableName schemaTableName,
             Schema schema,
             PartitionSpec partitionSpec,
-            SortOrder sortOrder,
             String location,
             Map<String, String> properties)
     {
@@ -383,7 +373,6 @@ public class TrinoGlueCatalog
                 schemaTableName,
                 schema,
                 partitionSpec,
-                sortOrder,
                 location,
                 properties,
                 Optional.of(session.getUser()));
@@ -674,7 +663,7 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
         try {
-            List<String> namespaces = listNamespaces(session, namespace);
+            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
             for (String glueNamespace : namespaces) {
                 try {
                     views.addAll(getPaginatedResults(
@@ -786,7 +775,7 @@ public class TrinoGlueCatalog
     {
         ImmutableList.Builder<SchemaTableName> materializedViews = ImmutableList.builder();
         try {
-            List<String> namespaces = listNamespaces(session, namespace);
+            List<String> namespaces = namespace.map(List::of).orElseGet(() -> listNamespaces(session));
             for (String glueNamespace : namespaces) {
                 try {
                     materializedViews.addAll(getPaginatedResults(

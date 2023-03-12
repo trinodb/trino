@@ -19,16 +19,17 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class EmptySplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(EmptySplit.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(EmptySplit.class).instanceSize());
 
     private final CatalogHandle catalogHandle;
 

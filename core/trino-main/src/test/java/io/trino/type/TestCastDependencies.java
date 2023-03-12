@@ -14,7 +14,7 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
-import io.trino.metadata.InternalFunctionBundle;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.CastDependency;
 import io.trino.spi.function.Convention;
@@ -23,8 +23,7 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.StandardTypes;
-import io.trino.sql.query.QueryAssertions;
-import org.junit.jupiter.api.TestInstance;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -35,40 +34,29 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public class TestCastDependencies
+        extends AbstractTestFunctions
 {
+    @BeforeClass
+    public void setUp()
+    {
+        registerParametricScalar(CastVarcharToInteger.class);
+        registerParametricScalar(CastAnyToVarchar.class);
+        registerParametricScalar(CastAnyFromVarchar.class);
+    }
+
     @Test
     public void testConventionDependencies()
     {
-        try (QueryAssertions assertions = new QueryAssertions()) {
-            assertions.addFunctions(InternalFunctionBundle.builder()
-                    .scalar(CastVarcharToInteger.class)
-                    .scalar(CastAnyToVarchar.class)
-                    .scalar(CastAnyFromVarchar.class)
-                    .build());
-
-            assertThat(assertions.function("cast_varchar_to_integer", "'11'"))
-                    .isEqualTo(11);
-
-            assertThat(assertions.function("cast_any_to_varchar", "BIGINT '11'"))
-                    .hasType(VARCHAR)
-                    .isEqualTo("11");
-
-            assertThat(assertions.function("cast_any_to_varchar", "DATE '2005-05-05'"))
-                    .hasType(VARCHAR)
-                    .isEqualTo("2005-05-05");
-
-            assertThat(assertions.function("cast_any_from_varchar", "DATE '2005-05-05'", "'2005-05-05'"))
-                    .isEqualTo(true);
-
-            assertThat(assertions.function("cast_any_from_varchar", "BIGINT '11'", "'12'"))
-                    .isEqualTo(false);
-        }
+        assertFunction("cast_varchar_to_integer('11')", INTEGER, 11);
+        assertFunction("cast_any_to_varchar(BIGINT '11')", VARCHAR, "11");
+        assertFunction("cast_any_to_varchar(DATE '2005-05-05')", VARCHAR, "2005-05-05");
+        assertFunction("cast_any_from_varchar(DATE '2005-05-05', '2005-05-05')", BOOLEAN, true);
+        assertFunction("cast_any_from_varchar(BIGINT '11', '12')", BOOLEAN, false);
     }
 
     @ScalarFunction("cast_varchar_to_integer")

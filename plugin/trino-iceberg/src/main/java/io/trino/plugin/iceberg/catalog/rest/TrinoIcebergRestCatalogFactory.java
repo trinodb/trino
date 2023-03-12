@@ -29,7 +29,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.net.URI;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +38,6 @@ public class TrinoIcebergRestCatalogFactory
     private final CatalogName catalogName;
     private final String trinoVersion;
     private final URI serverUri;
-    private final Optional<String> warehouse;
     private final SessionType sessionType;
     private final SecurityProperties securityProperties;
     private final boolean uniqueTableLocation;
@@ -59,7 +57,6 @@ public class TrinoIcebergRestCatalogFactory
         this.trinoVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         requireNonNull(restConfig, "restConfig is null");
         this.serverUri = restConfig.getBaseUri();
-        this.warehouse = restConfig.getWarehouse();
         this.sessionType = restConfig.getSessionType();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
@@ -74,7 +71,6 @@ public class TrinoIcebergRestCatalogFactory
         if (icebergCatalog == null) {
             ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
             properties.put(CatalogProperties.URI, serverUri.toString());
-            warehouse.ifPresent(location -> properties.put(CatalogProperties.WAREHOUSE_LOCATION, location));
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog();

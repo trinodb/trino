@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 import java.io.File;
@@ -29,9 +27,6 @@ import java.nio.file.Path;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
-import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,14 +51,9 @@ public class TestIcebergConnectorSmokeTest
         this.metastoreDir.deleteOnExit();
         this.metastore = createTestingFileHiveMetastore(metastoreDir);
         return IcebergQueryRunner.builder()
-                .setInitialTables(ImmutableList.<TpchTable<?>>builder()
-                        .addAll(REQUIRED_TPCH_TABLES)
-                        .add(LINE_ITEM)
-                        .build())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setMetastoreDirectory(metastoreDir)
-                .setIcebergProperties(ImmutableMap.of(
-                        "iceberg.register-table-procedure.enabled", "true",
-                        "iceberg.writer-sort-buffer-size", "1MB"))
+                .setIcebergProperties(ImmutableMap.of("iceberg.register-table-procedure.enabled", "true"))
                 .build();
     }
 
@@ -90,18 +80,6 @@ public class TestIcebergConnectorSmokeTest
     }
 
     @Override
-    protected String schemaPath()
-    {
-        return format("%s/%s", metastoreDir, getSession().getSchema().orElseThrow());
-    }
-
-    @Override
-    protected boolean locationExists(String location)
-    {
-        return Files.exists(Path.of(location));
-    }
-
-    @Override
     protected void deleteDirectory(String location)
     {
         try {
@@ -110,11 +88,5 @@ public class TestIcebergConnectorSmokeTest
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    @Override
-    protected boolean isFileSorted(String path, String sortColumnName)
-    {
-        return checkOrcFileSorting(path, sortColumnName);
     }
 }

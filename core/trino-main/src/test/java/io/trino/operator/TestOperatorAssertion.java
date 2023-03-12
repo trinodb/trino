@@ -13,10 +13,12 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.trino.spi.Page;
+import io.trino.testing.assertions.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -28,7 +30,6 @@ import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOperatorAssertion
 {
@@ -51,7 +52,7 @@ public class TestOperatorAssertion
     {
         Operator operator = new BlockedOperator(new Duration(15, MILLISECONDS));
         List<Page> pages = OperatorAssertion.toPages(operator, emptyIterator());
-        assertThat(pages).isEmpty();
+        Assert.assertEquals(pages, ImmutableList.of());
     }
 
     private class BlockedOperator

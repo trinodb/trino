@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.cassandra;
 
-import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -22,14 +21,12 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Set;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -43,7 +40,6 @@ public class CassandraConnector
     private final CassandraSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
-    private final Set<ConnectorTableFunction> connectorTableFunctions;
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -53,7 +49,6 @@ public class CassandraConnector
             CassandraSplitManager splitManager,
             CassandraRecordSetProvider recordSetProvider,
             CassandraPageSinkProvider pageSinkProvider,
-            Set<ConnectorTableFunction> connectorTableFunctions,
             CassandraSessionProperties sessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -61,7 +56,6 @@ public class CassandraConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
         this.sessionProperties = requireNonNull(sessionProperties.getSessionProperties(), "sessionProperties is null");
     }
 
@@ -94,12 +88,6 @@ public class CassandraConnector
     public ConnectorPageSinkProvider getPageSinkProvider()
     {
         return pageSinkProvider;
-    }
-
-    @Override
-    public Set<ConnectorTableFunction> getTableFunctions()
-    {
-        return connectorTableFunctions;
     }
 
     @Override

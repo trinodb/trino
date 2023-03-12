@@ -35,10 +35,10 @@ public class TestCatalogStoreConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.of("catalog.store", "memory");
+        Map<String, String> properties = ImmutableMap.of("catalog.store", "none");
 
         CatalogStoreConfig expected = new CatalogStoreConfig()
-                .setCatalogStoreKind(CatalogStoreKind.MEMORY);
+                .setCatalogStoreKind(CatalogStoreKind.NONE);
 
         assertFullMapping(properties, expected);
     }

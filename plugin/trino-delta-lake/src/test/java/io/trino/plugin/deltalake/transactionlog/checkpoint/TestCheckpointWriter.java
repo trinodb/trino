@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -192,14 +191,14 @@ public class TestCheckpointWriter
                 ImmutableSet.of(addFileEntryJsonStats),
                 ImmutableSet.of(removeFileEntry));
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, HDFS_ENVIRONMENT);
 
         File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
         targetFile.deleteOnExit();
 
         Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
         targetFile.delete(); // file must not exist when writer is called
-        writer.write(entries, createOutputFile(targetPath));
+        writer.write(SESSION, entries, targetPath);
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, true);
         assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
@@ -328,14 +327,14 @@ public class TestCheckpointWriter
                 ImmutableSet.of(addFileEntryParquetStats),
                 ImmutableSet.of(removeFileEntry));
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, HDFS_ENVIRONMENT);
 
         File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
         targetFile.deleteOnExit();
 
         Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
         targetFile.delete(); // file must not exist when writer is called
-        writer.write(entries, createOutputFile(targetPath));
+        writer.write(SESSION, entries, targetPath);
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, true);
         assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
@@ -399,14 +398,14 @@ public class TestCheckpointWriter
                 ImmutableSet.of(addFileEntryParquetStats),
                 ImmutableSet.of());
 
-        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, "test");
+        CheckpointWriter writer = new CheckpointWriter(typeManager, checkpointSchemaManager, HDFS_ENVIRONMENT);
 
         File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
         targetFile.deleteOnExit();
 
         Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
         targetFile.delete(); // file must not exist when writer is called
-        writer.write(entries, createOutputFile(targetPath));
+        writer.write(SESSION, entries, targetPath);
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, false);
         AddFileEntry addFileEntry = getOnlyElement(readEntries.getAddFileEntries());
@@ -502,10 +501,5 @@ public class TestCheckpointWriter
         }
 
         return checkpointBuilder.build();
-    }
-
-    private static TrinoOutputFile createOutputFile(Path path)
-    {
-        return new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION).newOutputFile(path.toString());
     }
 }

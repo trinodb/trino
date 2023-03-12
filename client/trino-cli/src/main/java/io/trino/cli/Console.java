@@ -49,7 +49,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.trino.cli.Completion.commandCompleter;
@@ -189,16 +191,7 @@ public class Console
                         clientOptions.progress.orElse(false));
             }
 
-            Optional<String> pager = clientOptions.pager;
-            runConsole(
-                    queryRunner,
-                    exiting,
-                    clientOptions.outputFormatInteractive,
-                    clientOptions.editingMode,
-                    getHistoryFile(clientOptions.historyFile),
-                    pager,
-                    clientOptions.progress.orElse(true),
-                    clientOptions.disableAutoSuggestion);
+            runConsole(queryRunner, exiting, clientOptions.editingMode, clientOptions.progress.orElse(true), clientOptions.disableAutoSuggestion);
             return true;
         }
         finally {
@@ -228,18 +221,10 @@ public class Console
         return reader.readLine("Password: ", (char) 0);
     }
 
-    private static void runConsole(
-            QueryRunner queryRunner,
-            AtomicBoolean exiting,
-            OutputFormat outputFormat,
-            ClientOptions.EditingMode editingMode,
-            Optional<Path> historyFile,
-            Optional<String> pager,
-            boolean progress,
-            boolean disableAutoSuggestion)
+    private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting, ClientOptions.EditingMode editingMode, boolean progress, boolean disableAutoSuggestion)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                InputReader reader = new InputReader(editingMode, historyFile, disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
+                InputReader reader = new InputReader(editingMode, getHistoryFile(), disableAutoSuggestion, commandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
             String remaining = "";
             while (!exiting.get()) {
@@ -299,12 +284,12 @@ public class Console
                 // execute any complete statements
                 StatementSplitter splitter = new StatementSplitter(line, STATEMENT_DELIMITERS);
                 for (Statement split : splitter.getCompleteStatements()) {
-                    OutputFormat currentOutputFormat = outputFormat;
+                    OutputFormat outputFormat = OutputFormat.ALIGNED;
                     if (split.terminator().equals("\\G")) {
-                        currentOutputFormat = OutputFormat.VERTICAL;
+                        outputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), currentOutputFormat, tableNameCompleter::populateCache, pager, progress, reader.getTerminal(), System.out, System.out);
+                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true, progress, reader.getTerminal(), System.out, System.out);
                 }
 
                 // replace remaining with trailing partial statement
@@ -328,7 +313,7 @@ public class Console
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, Optional.of(""), showProgress, getTerminal(), System.out, System.err)) {
+                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, false, showProgress, getTerminal(), System.out, System.err)) {
                     if (!ignoreErrors) {
                         return false;
                     }
@@ -351,7 +336,7 @@ public class Console
             String sql,
             OutputFormat outputFormat,
             Runnable schemaChanged,
-            Optional<String> pager,
+            boolean usePager,
             boolean showProgress,
             Terminal terminal,
             PrintStream out,
@@ -374,7 +359,7 @@ public class Console
         }
 
         try (Query query = queryRunner.startQuery(finalSql)) {
-            boolean success = query.renderOutput(terminal, out, errorChannel, outputFormat, pager, showProgress);
+            boolean success = query.renderOutput(terminal, out, errorChannel, outputFormat, usePager, showProgress);
 
             ClientSession session = queryRunner.getSession();
 
@@ -443,11 +428,12 @@ public class Console
         }
     }
 
-    private static Optional<Path> getHistoryFile(String path)
+    private static Path getHistoryFile()
     {
-        if (isNullOrEmpty(path)) {
-            return Optional.empty();
+        String path = System.getenv("TRINO_HISTORY_FILE");
+        if (!isNullOrEmpty(path)) {
+            return Paths.get(path);
         }
-        return Optional.of(Paths.get(path));
+        return Paths.get(nullToEmpty(USER_HOME.value()), ".trino_history");
     }
 }

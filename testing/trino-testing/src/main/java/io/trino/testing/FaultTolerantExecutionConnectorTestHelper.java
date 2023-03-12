@@ -37,9 +37,6 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("query.executor-pool-size", "10")
                 // enable exchange compression to follow production deployment recommendations
                 .put("exchange.compression-enabled", "true")
-                .put("max-tasks-waiting-for-execution-per-query", "2")
-                .put("max-tasks-waiting-for-node-per-stage", "2")
-                .put("query.schedule-split-batch-size", "2")
                 .buildOrThrow();
     }
 }

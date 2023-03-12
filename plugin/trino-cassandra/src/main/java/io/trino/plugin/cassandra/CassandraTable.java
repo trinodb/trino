@@ -24,10 +24,10 @@ import static java.util.Objects.requireNonNull;
 
 public class CassandraTable
 {
-    private final CassandraNamedRelationHandle tableHandle;
+    private final CassandraTableHandle tableHandle;
     private final List<CassandraColumnHandle> columns;
 
-    public CassandraTable(CassandraNamedRelationHandle tableHandle, List<CassandraColumnHandle> columns)
+    public CassandraTable(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
@@ -38,7 +38,7 @@ public class CassandraTable
         return columns;
     }
 
-    public CassandraNamedRelationHandle getTableHandle()
+    public CassandraTableHandle getTableHandle()
     {
         return tableHandle;
     }

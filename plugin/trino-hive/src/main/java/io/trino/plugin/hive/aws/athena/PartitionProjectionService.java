@@ -134,7 +134,7 @@ public final class PartitionProjectionService
                 metastoreTablePropertiesBuilder,
                 PARTITION_PROJECTION_LOCATION_TEMPLATE,
                 METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE,
-                Object::toString);
+                value -> value.toString().toLowerCase(Locale.ENGLISH));
 
         // Handle Column Properties
         tableMetadata.getColumns().stream()

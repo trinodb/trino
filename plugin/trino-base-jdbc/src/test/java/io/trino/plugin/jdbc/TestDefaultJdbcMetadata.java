@@ -365,7 +365,7 @@ public class TestDefaultJdbcMetadata
     }
 
     @Test
-    public void testMultiGroupKeyPredicatePushdown()
+    public void tesMultiGroupKeyPredicatePushdown()
     {
         ConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())

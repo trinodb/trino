@@ -552,28 +552,6 @@ public abstract class AbstractPredicatePushdownTest
                                                 ImmutableMap.of("ORDERSTATUS", "orderstatus"))))));
     }
 
-    @Test
-    public void testOnlyNullPredicateIsPushDownThroughJoinFilters()
-    {
-        assertPlan(
-                """
-                    WITH test_table AS (
-                        SELECT
-                        custkey,
-                        CASE
-                            WHEN name = 'ABC' then 'ABC'
-                            ELSE 'BCD'
-                        END AS new_name
-                        FROM customer)
-                    SELECT orderstatus
-                    FROM orders
-                    JOIN test_table
-                    ON orders.custkey = test_table.custkey
-                    WHERE test_table.new_name = 'TESTING'
-                    """,
-                output(values("orderstatus")));
-    }
-
     private Session noSemiJoinRewrite()
     {
         return Session.builder(getQueryRunner().getDefaultSession())

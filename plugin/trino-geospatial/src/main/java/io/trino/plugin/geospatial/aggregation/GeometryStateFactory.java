@@ -17,13 +17,12 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.GroupedAccumulatorState;
-
-import static io.airlift.slice.SizeOf.instanceSize;
+import org.openjdk.jol.info.ClassLayout;
 
 public class GeometryStateFactory
         implements AccumulatorStateFactory<GeometryState>
 {
-    private static final long OGC_GEOMETRY_BASE_INSTANCE_SIZE = instanceSize(OGCGeometry.class);
+    private static final long OGC_GEOMETRY_BASE_INSTANCE_SIZE = ClassLayout.parseClass(OGCGeometry.class).instanceSize();
 
     @Override
     public GeometryState createSingleState()

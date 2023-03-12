@@ -14,18 +14,19 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 public class SingleRowBlockWriter
         extends AbstractSingleRowBlock
         implements BlockBuilder
 {
-    public static final int INSTANCE_SIZE = instanceSize(SingleRowBlockWriter.class);
+    public static final int INSTANCE_SIZE = toIntExact(toIntExact(ClassLayout.parseClass(SingleRowBlockWriter.class).instanceSize()));
 
     private final BlockBuilder[] fieldBlockBuilders;
 

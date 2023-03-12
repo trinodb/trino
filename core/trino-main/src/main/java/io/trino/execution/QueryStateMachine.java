@@ -118,7 +118,6 @@ public class QueryStateMachine
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final QueryOutputManager outputManager;
-    private final Executor stateMachineExecutor;
 
     private final AtomicLong currentUserMemory = new AtomicLong();
     private final AtomicLong peakUserMemory = new AtomicLong();
@@ -184,7 +183,7 @@ public class QueryStateMachine
             URI self,
             ResourceGroupId resourceGroup,
             TransactionManager transactionManager,
-            Executor stateMachineExecutor,
+            Executor executor,
             Ticker ticker,
             Metadata metadata,
             WarningCollector warningCollector,
@@ -200,11 +199,10 @@ public class QueryStateMachine
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.stateMachineExecutor = requireNonNull(stateMachineExecutor, "stateMachineExecutor is null");
 
-        this.queryState = new StateMachine<>("query " + query, stateMachineExecutor, QUEUED, TERMINAL_QUERY_STATES);
-        this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, stateMachineExecutor, Optional.empty());
-        this.outputManager = new QueryOutputManager(stateMachineExecutor);
+        this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
+        this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
+        this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.version = requireNonNull(version, "version is null");
@@ -323,11 +321,6 @@ public class QueryStateMachine
     public Session getSession()
     {
         return session;
-    }
-
-    public Executor getStateMachineExecutor()
-    {
-        return stateMachineExecutor;
     }
 
     public long getPeakUserMemoryInBytes()
@@ -1417,9 +1410,9 @@ public class QueryStateMachine
                 outputTaskFailureListeners.add(listener);
                 failures = ImmutableMap.copyOf(outputTaskFailures);
             }
-            if (!failures.isEmpty()) {
-                executor.execute(() -> failures.forEach(listener::onTaskFailed));
-            }
+            executor.execute(() -> {
+                failures.forEach(listener::onTaskFailed);
+            });
         }
 
         public void outputTaskFailed(TaskId taskId, Throwable failure)
@@ -1429,13 +1422,11 @@ public class QueryStateMachine
                 outputTaskFailures.putIfAbsent(taskId, failure);
                 listeners = ImmutableList.copyOf(outputTaskFailureListeners);
             }
-            if (!listeners.isEmpty()) {
-                executor.execute(() -> {
-                    for (TaskFailureListener listener : listeners) {
-                        listener.onTaskFailed(taskId, failure);
-                    }
-                });
-            }
+            executor.execute(() -> {
+                for (TaskFailureListener listener : listeners) {
+                    listener.onTaskFailed(taskId, failure);
+                }
+            });
         }
 
         private synchronized Optional<QueryOutputInfo> getQueryOutputInfo()

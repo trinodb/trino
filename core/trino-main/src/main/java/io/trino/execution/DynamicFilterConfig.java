@@ -230,6 +230,7 @@ public class DynamicFilterConfig
         return this;
     }
 
+    @MaxDataSize("50MB")
     public DataSize getLargeBroadcastMaxSizePerDriver()
     {
         return largeBroadcastMaxSizePerDriver;
@@ -281,6 +282,7 @@ public class DynamicFilterConfig
         return this;
     }
 
+    @MaxDataSize("5MB")
     public DataSize getLargePartitionedMaxSizePerDriver()
     {
         return largePartitionedMaxSizePerDriver;

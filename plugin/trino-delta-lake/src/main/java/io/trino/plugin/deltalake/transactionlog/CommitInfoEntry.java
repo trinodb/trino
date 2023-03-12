@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -35,7 +34,7 @@ public class CommitInfoEntry
     private final String clusterId;
     private final long readVersion;
     private final String isolationLevel;
-    private final Optional<Boolean> isBlindAppend;
+    private final boolean isBlindAppend;
 
     @JsonCreator
     public CommitInfoEntry(
@@ -50,7 +49,7 @@ public class CommitInfoEntry
             @JsonProperty("clusterId") String clusterId,
             @JsonProperty("readVersion") long readVersion,
             @JsonProperty("isolationLevel") String isolationLevel,
-            @JsonProperty("isBlindAppend") Optional<Boolean> isBlindAppend)
+            @JsonProperty("isBlindAppend") boolean isBlindAppend)
     {
         this.version = version;
         this.timestamp = timestamp;
@@ -132,15 +131,10 @@ public class CommitInfoEntry
         return isolationLevel;
     }
 
-    @JsonProperty("isBlindAppend")
-    public Optional<Boolean> isBlindAppend()
+    @JsonProperty
+    public boolean isBlindAppend()
     {
         return isBlindAppend;
-    }
-
-    public CommitInfoEntry withVersion(long version)
-    {
-        return new CommitInfoEntry(version, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend);
     }
 
     @Override
@@ -173,7 +167,7 @@ public class CommitInfoEntry
                 Objects.equals(this.clusterId, other.clusterId) &&
                 this.readVersion == other.readVersion &&
                 Objects.equals(this.isolationLevel, other.isolationLevel) &&
-                Objects.equals(this.isBlindAppend, other.isBlindAppend);
+                this.isBlindAppend == other.isBlindAppend;
     }
 
     @Override

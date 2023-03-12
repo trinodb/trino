@@ -16,7 +16,6 @@ package io.trino.plugin.hive;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
@@ -57,7 +56,6 @@ public class HiveMetadataFactory
     private final boolean hideDeltaLakeTables;
     private final long perTransactionCacheMaximumSize;
     private final HiveMetastoreFactory metastoreFactory;
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
@@ -79,7 +77,6 @@ public class HiveMetadataFactory
     private final long perTransactionFileStatusCacheMaximumSize;
     private final PartitionProjectionService partitionProjectionService;
     private final boolean allowTableRename;
-    private final HiveTimestampPrecision hiveViewsTimestampPrecision;
 
     @Inject
     public HiveMetadataFactory(
@@ -87,7 +84,6 @@ public class HiveMetadataFactory
             HiveConfig hiveConfig,
             HiveMetastoreConfig hiveMetastoreConfig,
             HiveMetastoreFactory metastoreFactory,
-            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             ExecutorService executorService,
@@ -108,7 +104,6 @@ public class HiveMetadataFactory
         this(
                 catalogName,
                 metastoreFactory,
-                fileSystemFactory,
                 hdfsEnvironment,
                 partitionManager,
                 hiveConfig.getMaxConcurrentFileSystemOperations(),
@@ -139,14 +134,12 @@ public class HiveMetadataFactory
                 directoryLister,
                 hiveConfig.getPerTransactionFileStatusCacheMaximumSize(),
                 partitionProjectionService,
-                allowTableRename,
-                hiveConfig.getTimestampPrecision());
+                allowTableRename);
     }
 
     public HiveMetadataFactory(
             CatalogName catalogName,
             HiveMetastoreFactory metastoreFactory,
-            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             int maxConcurrentFileSystemOperations,
@@ -177,8 +170,7 @@ public class HiveMetadataFactory
             DirectoryLister directoryLister,
             long perTransactionFileStatusCacheMaximumSize,
             PartitionProjectionService partitionProjectionService,
-            boolean allowTableRename,
-            HiveTimestampPrecision hiveViewsTimestampPrecision)
+            boolean allowTableRename)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -192,7 +184,6 @@ public class HiveMetadataFactory
         this.perTransactionCacheMaximumSize = perTransactionCacheMaximumSize;
 
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -221,7 +212,6 @@ public class HiveMetadataFactory
         this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
         this.allowTableRename = allowTableRename;
-        this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
     }
 
     @Override
@@ -249,7 +239,6 @@ public class HiveMetadataFactory
                 catalogName,
                 metastore,
                 autoCommit,
-                fileSystemFactory,
                 hdfsEnvironment,
                 partitionManager,
                 writesToNonManagedTablesEnabled,
@@ -270,7 +259,6 @@ public class HiveMetadataFactory
                 directoryLister,
                 partitionProjectionService,
                 allowTableRename,
-                maxPartitionDropsPerQuery,
-                hiveViewsTimestampPrecision);
+                maxPartitionDropsPerQuery);
     }
 }

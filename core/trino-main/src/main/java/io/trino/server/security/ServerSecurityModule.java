@@ -26,7 +26,6 @@ import io.airlift.discovery.store.StoreResource;
 import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
-import io.airlift.openmetrics.MetricsResource;
 import io.trino.server.security.jwt.JwtAuthenticator;
 import io.trino.server.security.jwt.JwtAuthenticatorSupportModule;
 import io.trino.server.security.oauth2.OAuth2AuthenticationSupportModule;
@@ -60,7 +59,6 @@ public class ServerSecurityModule
         resourceSecurityBinder(binder)
                 .managementReadResource(ServiceResource.class)
                 .managementReadResource(MBeanResource.class)
-                .managementReadResource(MetricsResource.class)
                 .internalOnlyResource(DynamicAnnouncementResource.class)
                 .internalOnlyResource(StoreResource.class);
 

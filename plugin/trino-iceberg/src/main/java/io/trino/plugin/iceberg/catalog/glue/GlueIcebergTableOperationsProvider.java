@@ -19,7 +19,6 @@ import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
@@ -58,7 +57,7 @@ public class GlueIcebergTableOperationsProvider
         return new GlueIcebergTableOperations(
                 glueClient,
                 stats,
-                new ForwardingFileIo(fileSystemFactory.create(session)),
+                fileSystemFactory.create(session).toFileIo(),
                 session,
                 database,
                 table,

@@ -77,13 +77,15 @@ public class RemoveRedundantDateTrunc
             String functionName = extractFunctionName(node.getName());
             if (functionName.equals("date_trunc") && node.getArguments().size() == 2) {
                 Expression unitExpression = node.getArguments().get(0);
-                Expression argument = node.getArguments().get(1);
-                if (getType(argument) == DATE && getType(unitExpression) instanceof VarcharType && isEffectivelyLiteral(plannerContext, session, unitExpression)) {
+                if (getType(unitExpression) instanceof VarcharType && isEffectivelyLiteral(plannerContext, session, unitExpression)) {
                     Slice unitValue = (Slice) new ExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)
                             .optimize(NoOpSymbolResolver.INSTANCE);
                     if (unitValue != null && "day".equals(unitValue.toStringUtf8().toLowerCase(Locale.ENGLISH))) {
-                        // date_trunc(day, a_date) is a no-op
-                        return treeRewriter.rewrite(argument, context);
+                        Expression argument = node.getArguments().get(1);
+                        if (getType(argument) == DATE) {
+                            // date_trunc(day, a_date) is a no-op
+                            return treeRewriter.rewrite(argument, context);
+                        }
                     }
                 }
             }

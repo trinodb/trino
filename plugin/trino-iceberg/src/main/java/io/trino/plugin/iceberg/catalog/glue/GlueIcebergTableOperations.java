@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.AlreadyExistsException;
 import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
@@ -110,17 +109,7 @@ public class GlueIcebergTableOperations
         CreateTableRequest createTableRequest = new CreateTableRequest()
                 .withDatabaseName(database)
                 .withTableInput(tableInput);
-        try {
-            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
-        }
-        catch (AlreadyExistsException
-               | EntityNotFoundException
-               | InvalidInputException
-               | ResourceNumberLimitExceededException e) {
-            // clean up metadata files corresponding to the current transaction
-            fileIo.deleteFile(newMetadataLocation);
-            throw e;
-        }
+        stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
         shouldRefresh = true;
     }
 

@@ -17,11 +17,12 @@ import io.trino.array.BooleanBigArray;
 import io.trino.array.LongBigArray;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
-import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.lang.System.arraycopy;
 
 public class LongDecimalWithOverflowStateFactory
@@ -43,7 +44,7 @@ public class LongDecimalWithOverflowStateFactory
             extends AbstractGroupedAccumulatorState
             implements LongDecimalWithOverflowState
     {
-        private static final int INSTANCE_SIZE = instanceSize(GroupedLongDecimalWithOverflowState.class);
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedLongDecimalWithOverflowState.class).instanceSize());
         protected final BooleanBigArray isNotNull = new BooleanBigArray();
         /**
          * Stores 128-bit decimals as pairs of longs
@@ -133,7 +134,7 @@ public class LongDecimalWithOverflowStateFactory
     public static class SingleLongDecimalWithOverflowState
             implements LongDecimalWithOverflowState
     {
-        private static final int INSTANCE_SIZE = instanceSize(SingleLongDecimalWithOverflowState.class);
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleLongDecimalWithOverflowState.class).instanceSize());
         protected static final int SIZE = (int) sizeOf(new long[2]);
 
         protected final long[] unscaledDecimal = new long[2];

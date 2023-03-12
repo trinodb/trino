@@ -21,7 +21,6 @@ import com.google.common.collect.PeekingIterator;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
@@ -101,7 +100,6 @@ public class HiveSplitManager
 
     private final HiveTransactionManager transactionManager;
     private final HivePartitionManager partitionManager;
-    private final TrinoFileSystemFactory fileSystemFactory;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final Executor executor;
@@ -122,7 +120,6 @@ public class HiveSplitManager
             HiveConfig hiveConfig,
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
-            TrinoFileSystemFactory fileSystemFactory,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             ExecutorService executorService,
@@ -132,7 +129,6 @@ public class HiveSplitManager
         this(
                 transactionManager,
                 partitionManager,
-                fileSystemFactory,
                 namenodeStats,
                 hdfsEnvironment,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
@@ -152,7 +148,6 @@ public class HiveSplitManager
     public HiveSplitManager(
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
-            TrinoFileSystemFactory fileSystemFactory,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             Executor executor,
@@ -170,7 +165,6 @@ public class HiveSplitManager
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.executor = new ErrorCodedExecutor(executor);
@@ -259,7 +253,6 @@ public class HiveSplitManager
                 typeManager,
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
-                fileSystemFactory,
                 hdfsEnvironment,
                 namenodeStats,
                 transactionalMetadata.getDirectoryLister(),
@@ -269,7 +262,7 @@ public class HiveSplitManager
                 !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
                 isOptimizeSymlinkListing(session),
                 metastore.getValidWriteIds(session, hiveTable)
-                        .map(value -> value.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
+                        .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
                 hiveTable.getMaxScannedFileSize(),
                 maxPartitionsPerScan);
 

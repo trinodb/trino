@@ -22,10 +22,8 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.base.Joiner;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Streams;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeExecutor;
@@ -49,26 +47,29 @@ import java.io.UncheckedIOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.server.PluginLoader.CONNECTOR;
-import static io.trino.server.PluginLoader.PASSWORD_AUTHENTICATOR;
+import static io.trino.server.PluginReader.CONNECTOR;
+import static io.trino.server.PluginReader.PASSWORD_AUTHENTICATOR;
 import static io.trino.tests.product.launcher.env.DockerContainer.ensurePathExists;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
@@ -99,7 +100,8 @@ public final class Environment
     private final Map<String, DockerContainer> containers;
     private final Optional<EnvironmentListener> listener;
     private final boolean attached;
-    private final Map<String, List<String>> configuredFeatures;
+    private final List<String> configuredConnectors;
+    private final List<String> configuredPasswordAuthenticators;
 
     private Environment(
             String name,
@@ -107,14 +109,16 @@ public final class Environment
             Map<String, DockerContainer> containers,
             Optional<EnvironmentListener> listener,
             boolean attached,
-            Map<String, List<String>> configuredFeatures)
+            List<String> configuredConnectors,
+            List<String> configuredPasswordAuthenticators)
     {
         this.name = requireNonNull(name, "name is null");
         this.startupRetries = startupRetries;
         this.containers = requireNonNull(containers, "containers is null");
         this.listener = requireNonNull(listener, "listener is null");
         this.attached = attached;
-        this.configuredFeatures = requireNonNull(configuredFeatures, "configuredFeatures is null");
+        this.configuredConnectors = requireNonNull(configuredConnectors, "configuredConnectors is null");
+        this.configuredPasswordAuthenticators = requireNonNull(configuredPasswordAuthenticators, "configuredPasswordAuthenticators is null");
     }
 
     public Environment start()
@@ -278,9 +282,14 @@ public final class Environment
         return ImmutableList.copyOf(containers.values());
     }
 
-    public Map<String, List<String>> getConfiguredFeatures()
+    public List<String> getConfiguredConnectors()
     {
-        return configuredFeatures;
+        return configuredConnectors;
+    }
+
+    public List<String> getConfiguredPasswordAuthenticators()
+    {
+        return configuredPasswordAuthenticators;
     }
 
     @Override
@@ -298,9 +307,10 @@ public final class Environment
     @JsonProperty
     public List<String> getFeatures()
     {
-        return configuredFeatures.entrySet().stream()
-                .flatMap(entry -> entry.getValue().stream().map(feature -> entry.getKey() + feature))
-                .collect(toImmutableList());
+        return Stream.of(
+                getConfiguredConnectors().stream().map(x -> CONNECTOR + x),
+                getConfiguredPasswordAuthenticators().stream().map(x -> PASSWORD_AUTHENTICATOR + x)
+        ).flatMap(Function.identity()).collect(toImmutableList());
     }
 
     public static Builder builder(String name)
@@ -376,7 +386,8 @@ public final class Environment
         private Map<String, DockerContainer> containers = new HashMap<>();
         private Optional<Path> logsBaseDir = Optional.empty();
         private boolean attached;
-        private Multimap<String, String> configuredFeatures = HashMultimap.create();
+        private Set<String> configuredConnectors = new HashSet<>();
+        private Set<String> configuredPasswordAuthenticators = new HashSet<>();
 
         public Builder(String name)
         {
@@ -434,7 +445,8 @@ public final class Environment
         {
             requireNonNull(connectorName, "connectorName is null");
             checkState(connectorName.length() != 0, "Cannot register empty string as a connector in an Environment");
-            return addFeature(CONNECTOR, connectorName);
+            configuredConnectors.add(connectorName);
+            return this;
         }
 
         public Builder addConnector(String connectorName, MountableFile configFile)
@@ -460,7 +472,8 @@ public final class Environment
         {
             requireNonNull(name, "name is null");
             checkState(name.length() != 0, "Cannot register empty string as a password authenticator in an Environment");
-            return addFeature(PASSWORD_AUTHENTICATOR, name);
+            configuredPasswordAuthenticators.add(name);
+            return this;
         }
 
         public Builder addPasswordAuthenticator(String name, MountableFile configFile)
@@ -476,12 +489,6 @@ public final class Environment
             requireNonNull(containerPath, "containerPath is null");
             configureContainer(COORDINATOR, container -> container.withCopyFileToContainer(configFile, containerPath));
             return addPasswordAuthenticator(name);
-        }
-
-        public Builder addFeature(String feature, String name)
-        {
-            configuredFeatures.put(feature, name);
-            return this;
         }
 
         private static void updateContainerHostConfig(CreateContainerCmd createContainerCmd)
@@ -614,15 +621,14 @@ public final class Environment
 
             addConfiguredFeaturesConfig();
 
-            Map<String, List<String>> configuredFeatures = this.configuredFeatures.asMap().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(entry.getValue())));
             return new Environment(
                     name,
                     startupRetries,
                     containers,
                     listener,
                     attached,
-                    configuredFeatures);
+                    new ArrayList<>(configuredConnectors),
+                    new ArrayList<>(configuredPasswordAuthenticators));
         }
 
         private static Consumer<OutputFrame> writeContainerLogs(DockerContainer container, Path path)
@@ -673,11 +679,8 @@ public final class Environment
                 objectMapper.writeValue(tempFile,
                         Map.of("databases",
                                 Map.of("presto",
-                                        Map.of(
-                                                "configured_connectors",
-                                                configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
-                                                "configured_password_authenticators",
-                                                configuredFeatures.asMap().getOrDefault(PASSWORD_AUTHENTICATOR, ImmutableList.of())))));
+                                        Map.of("configured_connectors", configuredConnectors,
+                                                "configured_password_authenticators", configuredPasswordAuthenticators))));
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

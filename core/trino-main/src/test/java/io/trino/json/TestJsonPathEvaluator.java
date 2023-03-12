@@ -683,55 +683,6 @@ public class TestJsonPathEvaluator
                                 "value", NullNode.instance,
                                 "id", IntNode.valueOf(1)))));
 
-        // nested methods
-        assertThat(pathResult(
-                new ArrayNode(
-                        JsonNodeFactory.instance,
-                        ImmutableList.of(
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", TextNode.valueOf("first"), "key2", BooleanNode.TRUE)),
-                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key3", IntNode.valueOf(42))))),
-                path(true, keyValue(keyValue(wildcardArrayAccessor(contextVariable()))))))
-                .isEqualTo(sequence(
-                        // key1
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("name"),
-                                "value", TextNode.valueOf("key1"),
-                                "id", IntNode.valueOf(2))),
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("value"),
-                                "value", TextNode.valueOf("first"),
-                                "id", IntNode.valueOf(2))),
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("id"),
-                                "value", IntNode.valueOf(0),
-                                "id", IntNode.valueOf(2))),
-                        // key2
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("name"),
-                                "value", TextNode.valueOf("key2"),
-                                "id", IntNode.valueOf(3))),
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("value"),
-                                "value", BooleanNode.TRUE,
-                                "id", IntNode.valueOf(3))),
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("id"),
-                                "value", IntNode.valueOf(0),
-                                "id", IntNode.valueOf(3))),
-                        // key3
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("name"),
-                                "value", TextNode.valueOf("key3"),
-                                "id", IntNode.valueOf(4))),
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("value"),
-                                "value", IntNode.valueOf(42),
-                                "id", IntNode.valueOf(4))),
-                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
-                                "name", TextNode.valueOf("id"),
-                                "value", IntNode.valueOf(1),
-                                "id", IntNode.valueOf(4)))));
-
         // type mismatch
         assertThatThrownBy(() -> evaluate(
                 IntNode.valueOf(-5),

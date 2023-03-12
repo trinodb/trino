@@ -21,6 +21,7 @@ import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
@@ -31,15 +32,15 @@ import java.util.Properties;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class HiveSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(HiveSplit.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveSplit.class).instanceSize());
 
     private final String path;
     private final long start;
@@ -322,7 +323,7 @@ public class HiveSplit
 
     public static class BucketConversion
     {
-        private static final int INSTANCE_SIZE = instanceSize(BucketConversion.class);
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BucketConversion.class).instanceSize());
 
         private final BucketingVersion bucketingVersion;
         private final int tableBucketCount;
@@ -397,7 +398,7 @@ public class HiveSplit
 
     public static class BucketValidation
     {
-        private static final int INSTANCE_SIZE = instanceSize(BucketValidation.class);
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BucketValidation.class).instanceSize());
 
         private final BucketingVersion bucketingVersion;
         private final int bucketCount;

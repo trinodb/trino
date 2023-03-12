@@ -13,48 +13,22 @@
  */
 package io.trino.hive.formats.compression;
 
-import io.airlift.compress.hadoop.HadoopStreams;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import static java.util.Objects.requireNonNull;
-
-public final class Codec
+public interface Codec
 {
-    private final HadoopStreams hadoopStreams;
+    OutputStream createStreamCompressor(OutputStream outputStream)
+            throws IOException;
 
-    Codec(HadoopStreams hadoopStreams)
-    {
-        this.hadoopStreams = requireNonNull(hadoopStreams, "hadoopStreams is null");
-    }
+    ValueCompressor createValueCompressor();
 
-    public OutputStream createStreamCompressor(OutputStream outputStream)
-            throws IOException
-    {
-        return hadoopStreams.createOutputStream(outputStream);
-    }
+    MemoryCompressedSliceOutput createMemoryCompressedSliceOutput(int minChunkSize, int maxChunkSize)
+            throws IOException;
 
-    public ValueCompressor createValueCompressor()
-    {
-        return new ValueCompressor(hadoopStreams);
-    }
+    InputStream createStreamDecompressor(InputStream inputStream)
+            throws IOException;
 
-    public MemoryCompressedSliceOutput createMemoryCompressedSliceOutput(int minChunkSize, int maxChunkSize)
-            throws IOException
-    {
-        return new MemoryCompressedSliceOutput(hadoopStreams, minChunkSize, maxChunkSize);
-    }
-
-    public InputStream createStreamDecompressor(InputStream inputStream)
-            throws IOException
-    {
-        return hadoopStreams.createInputStream(inputStream);
-    }
-
-    public ValueDecompressor createValueDecompressor()
-    {
-        return new ValueDecompressor(hadoopStreams);
-    }
+    ValueDecompressor createValueDecompressor();
 }

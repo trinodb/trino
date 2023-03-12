@@ -16,63 +16,33 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableList;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
-import io.trino.sql.query.QueryAssertions;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import static io.trino.geospatial.KdbTree.buildKdbTree;
-import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public class TestKdbTreeCasts
+        extends AbstractTestFunctions
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
+    @BeforeClass
+    public void registerFunctions()
     {
-        assertions = new QueryAssertions();
-        assertions.addPlugin(new GeoPlugin());
-    }
-
-    @AfterAll
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
+        functionAssertions.installPlugin(new GeoPlugin());
     }
 
     @Test
     public void test()
     {
         String kdbTreeJson = makeKdbTreeJson();
+        assertFunction(format("typeof(cast('%s' AS KdbTree))", kdbTreeJson), VARCHAR, "KdbTree");
+        assertFunction(format("typeof(cast('%s' AS KDBTree))", kdbTreeJson), VARCHAR, "KdbTree");
+        assertFunction(format("typeof(cast('%s' AS kdbTree))", kdbTreeJson), VARCHAR, "KdbTree");
+        assertFunction(format("typeof(cast('%s' AS kdbtree))", kdbTreeJson), VARCHAR, "KdbTree");
 
-        assertThat(assertions.function("typeof", format("cast('%s' AS KdbTree)", kdbTreeJson)))
-                .hasType(VARCHAR)
-                .isEqualTo("KdbTree");
-
-        assertThat(assertions.function("typeof", format("cast('%s' AS KDBTree)", kdbTreeJson)))
-                .hasType(VARCHAR)
-                .isEqualTo("KdbTree");
-
-        assertThat(assertions.function("typeof", format("cast('%s' AS kdbTree)", kdbTreeJson)))
-                .hasType(VARCHAR)
-                .isEqualTo("KdbTree");
-
-        assertThat(assertions.function("typeof", format("cast('%s' AS kdbtree)", kdbTreeJson)))
-                .hasType(VARCHAR)
-                .isEqualTo("KdbTree");
-
-        assertTrinoExceptionThrownBy(() -> assertions.function("typeof", "cast('' AS KdbTree)").evaluate())
-                .hasMessage("Invalid JSON string for KDB tree")
-                .hasErrorCode(INVALID_CAST_ARGUMENT);
+        assertInvalidCast("typeof(cast('' AS KdbTree))", "Invalid JSON string for KDB tree");
     }
 
     private String makeKdbTreeJson()

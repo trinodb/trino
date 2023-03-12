@@ -34,7 +34,7 @@ public class QueryStatistics
     private final Duration queuedTime;
     private final Optional<Duration> scheduledTime;
     private final Optional<Duration> failedScheduledTime;
-    private final Optional<Duration> resourceWaitingTime;
+    private final Optional<Duration> waitingTime;
     private final Optional<Duration> analysisTime;
     private final Optional<Duration> planningTime;
     private final Optional<Duration> executionTime;
@@ -42,7 +42,6 @@ public class QueryStatistics
     private final Optional<Duration> failedInputBlockedTime;
     private final Optional<Duration> outputBlockedTime;
     private final Optional<Duration> failedOutputBlockedTime;
-    private final Optional<Duration> physicalInputReadTime;
 
     private final long peakUserMemoryBytes;
     private final long peakTaskUserMemory;
@@ -91,7 +90,7 @@ public class QueryStatistics
             Duration queuedTime,
             Optional<Duration> scheduledTime,
             Optional<Duration> failedScheduledTime,
-            Optional<Duration> resourceWaitingTime,
+            Optional<Duration> waitingTime,
             Optional<Duration> analysisTime,
             Optional<Duration> planningTime,
             Optional<Duration> executionTime,
@@ -99,7 +98,6 @@ public class QueryStatistics
             Optional<Duration> failedInputBlockedTime,
             Optional<Duration> outputBlockedTime,
             Optional<Duration> failedOutputBlockedTime,
-            Optional<Duration> physicalInputReadTime,
             long peakUserMemoryBytes,
             long peakTaskUserMemory,
             long peakTaskTotalMemory,
@@ -131,7 +129,7 @@ public class QueryStatistics
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.scheduledTime = requireNonNull(scheduledTime, "scheduledTime is null");
         this.failedScheduledTime = requireNonNull(failedScheduledTime, "failedScheduledTime is null");
-        this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
+        this.waitingTime = requireNonNull(waitingTime, "waitingTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
@@ -139,7 +137,6 @@ public class QueryStatistics
         this.failedInputBlockedTime = requireNonNull(failedInputBlockedTime, "failedInputBlockedTime is null");
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
         this.failedOutputBlockedTime = requireNonNull(failedOutputBlockedTime, "failedOutputBlockedTime is null");
-        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTaskUserMemory = peakTaskUserMemory;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
@@ -205,7 +202,7 @@ public class QueryStatistics
     @JsonProperty
     public Optional<Duration> getResourceWaitingTime()
     {
-        return resourceWaitingTime;
+        return waitingTime;
     }
 
     @JsonProperty
@@ -248,12 +245,6 @@ public class QueryStatistics
     public Optional<Duration> getFailedOutputBlockedTime()
     {
         return failedOutputBlockedTime;
-    }
-
-    @JsonProperty
-    public Optional<Duration> getPhysicalInputReadTime()
-    {
-        return physicalInputReadTime;
     }
 
     @JsonProperty

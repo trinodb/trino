@@ -36,6 +36,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.Table;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -436,15 +437,20 @@ public class TableWriterNode
     public static class RefreshMaterializedViewReference
             extends WriterTarget
     {
-        private final String table;
+        private final Table table;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
 
-        public RefreshMaterializedViewReference(String table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        public RefreshMaterializedViewReference(Table table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
         {
             this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+        }
+
+        public Table getTable()
+        {
+            return table;
         }
 
         public TableHandle getStorageTableHandle()
@@ -460,7 +466,7 @@ public class TableWriterNode
         @Override
         public String toString()
         {
-            return table;
+            return table.toString();
         }
 
         @Override

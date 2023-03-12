@@ -18,6 +18,7 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -259,10 +260,11 @@ public class TestAccumuloConnectorTest
         }
     }
 
+    @Test
     @Override
-    protected MaterializedResult getDescribeOrdersResult()
+    public void testDescribeTable()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "Accumulo row ID", "")
                 .row("custkey", "bigint", "Accumulo column custkey:custkey. Indexed: false", "")
                 .row("orderstatus", "varchar(1)", "Accumulo column orderstatus:orderstatus. Indexed: false", "")
@@ -273,6 +275,8 @@ public class TestAccumuloConnectorTest
                 .row("shippriority", "integer", "Accumulo column shippriority:shippriority. Indexed: false", "")
                 .row("comment", "varchar(79)", "Accumulo column comment:comment. Indexed: false", "")
                 .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        Assert.assertEquals(actualColumns, expectedColumns);
     }
 
     @Test

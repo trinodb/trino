@@ -123,10 +123,6 @@ public abstract class BaseTestJdbcResultSet
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Value is not a number: ");
 
-                assertThatThrownBy(() -> rs.getBoolean(column))
-                        .isInstanceOf(SQLException.class)
-                        .hasMessage("Value is not a boolean: ");
-
                 assertThat(rs.getAsciiStream(column)).isEmpty();
             });
 

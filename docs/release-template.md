@@ -1,4 +1,4 @@
-# Release xyz (dd MMM 2023)
+# Release xyz (dd MMM 2022)
 
 ## General
 
@@ -40,8 +40,6 @@
 
 ## Iceberg connector
 
-## Ignite connector
-
 ## JMX connector
 
 ## Kafka connector
@@ -76,7 +74,7 @@
 
 ## Redshift connector
 
-## SingleStore connector
+## SingleStore (MemSQL) connector
 
 ## SQL Server connector
 

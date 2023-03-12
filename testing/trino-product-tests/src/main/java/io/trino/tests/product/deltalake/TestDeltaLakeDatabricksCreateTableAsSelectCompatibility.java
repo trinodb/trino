@@ -43,7 +43,6 @@ import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLa
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -92,7 +91,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
                     .collect(toImmutableList()));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
     }
 
@@ -119,7 +118,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
                     .collect(toImmutableList()));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
     }
 
@@ -147,7 +146,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
                     .map(QueryAssert.Row::new)
                     .collect(toImmutableList()));
 
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
             removeS3Directory(bucketName, "databricks-compatibility-test-" + tableName);
 
             assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
@@ -169,7 +168,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
                     .collect(toImmutableList()));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
         }
     }
 
@@ -224,7 +223,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
             assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
         }
         finally {
-            dropDeltaTableWithRetry(tableName);
+            onDelta().executeQuery("DROP TABLE " + tableName);
         }
     }
 
@@ -253,7 +252,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
             assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
         }
         finally {
-            dropDeltaTableWithRetry(tableName);
+            onDelta().executeQuery("DROP TABLE " + tableName);
         }
     }
 

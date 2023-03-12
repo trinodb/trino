@@ -279,7 +279,7 @@ public class IcebergSplitSource
     {
         try {
             TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(path);
-            return inputFile.lastModified().toEpochMilli();
+            return inputFile.modificationTime();
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);
@@ -348,7 +348,7 @@ public class IcebergSplitSource
             }
             Type type = primitiveTypeForFieldId.get(fieldId);
             Domain statisticsDomain = domainForStatistics(
-                    column,
+                    column.getType(),
                     lowerBounds == null ? null : fromByteBuffer(type, lowerBounds.get(fieldId)),
                     upperBounds == null ? null : fromByteBuffer(type, upperBounds.get(fieldId)),
                     mayContainNulls);
@@ -360,13 +360,12 @@ public class IcebergSplitSource
     }
 
     private static Domain domainForStatistics(
-            IcebergColumnHandle columnHandle,
+            io.trino.spi.type.Type type,
             @Nullable Object lowerBound,
             @Nullable Object upperBound,
             boolean mayContainNulls)
     {
-        io.trino.spi.type.Type type = columnHandle.getType();
-        Type icebergType = toIcebergType(type, columnHandle.getColumnIdentity());
+        Type icebergType = toIcebergType(type);
         if (lowerBound == null && upperBound == null) {
             return Domain.create(ValueSet.all(type), mayContainNulls);
         }

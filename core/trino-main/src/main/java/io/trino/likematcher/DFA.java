@@ -14,23 +14,45 @@
 package io.trino.likematcher;
 
 import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-record DFA(int start, IntArrayList acceptStates, List<List<Transition>> transitions)
+record DFA(State start, State failed, List<State> states, Map<Integer, List<Transition>> transitions)
 {
     DFA
     {
-        requireNonNull(acceptStates, "acceptStates is null");
-        transitions = ImmutableList.copyOf(transitions);
+        requireNonNull(start, "start is null");
+        requireNonNull(failed, "failed is null");
+        states = ImmutableList.copyOf(states);
+        transitions = ImmutableMap.copyOf(transitions);
     }
 
-    record Transition(int value, int target)
+    public List<Transition> transitions(State state)
+    {
+        return transitions.get(state.id);
+    }
+
+    record State(int id, String label, boolean accept)
+    {
+        @Override
+        public String toString()
+        {
+            return "%s:%s%s".formatted(
+                    id,
+                    accept ? "*" : "",
+                    label);
+        }
+    }
+
+    record Transition(int value, State target)
     {
         @Override
         public String toString()
@@ -42,34 +64,43 @@ record DFA(int start, IntArrayList acceptStates, List<List<Transition>> transiti
     public static class Builder
     {
         private int nextId;
-        private int start;
-        private final IntArrayList acceptStates = new IntArrayList();
-        private final List<List<Transition>> transitions = new ArrayList<>();
+        private State start;
+        private State failed;
+        private final List<State> states = new ArrayList<>();
+        private final Map<Integer, List<Transition>> transitions = new HashMap<>();
 
-        public int addState(boolean accept)
+        public State addState(String label, boolean accept)
         {
-            int state = nextId++;
-            transitions.add(new ArrayList<>());
-            if (accept) {
-                acceptStates.add(state);
-            }
+            State state = new State(nextId++, label, accept);
+            states.add(state);
             return state;
         }
 
-        public int addStartState(boolean accept)
+        public State addStartState(String label, boolean accept)
         {
-            start = addState(accept);
-            return start;
+            checkState(start == null, "Start state already set");
+            State state = addState(label, accept);
+            start = state;
+            return state;
         }
 
-        public void addTransition(int from, int value, int to)
+        public State addFailState()
         {
-            transitions.get(from).add(new Transition(value, to));
+            checkState(failed == null, "Fail state already set");
+            State state = addState("fail", false);
+            failed = state;
+            return state;
+        }
+
+        public void addTransition(State from, int value, State to)
+        {
+            transitions.computeIfAbsent(from.id(), key -> new ArrayList<>())
+                    .add(new Transition(value, to));
         }
 
         public DFA build()
         {
-            return new DFA(start, acceptStates, transitions);
+            return new DFA(start, failed, states, transitions);
         }
     }
 }

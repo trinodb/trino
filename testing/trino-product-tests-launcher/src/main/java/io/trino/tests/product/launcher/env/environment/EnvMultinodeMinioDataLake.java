@@ -47,7 +47,7 @@ public class EnvMultinodeMinioDataLake
     {
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
-                "delta_lake",
+                "delta-lake",
                 forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
         builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg.properties")));

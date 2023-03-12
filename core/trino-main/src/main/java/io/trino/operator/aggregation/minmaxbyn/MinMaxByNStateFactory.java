@@ -18,12 +18,13 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.GroupedAccumulatorState;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 
 public final class MinMaxByNStateFactory
 {
@@ -37,7 +38,7 @@ public final class MinMaxByNStateFactory
             extends AbstractMinMaxByNState
             implements GroupedAccumulatorState
     {
-        private static final int INSTANCE_SIZE = instanceSize(GroupedMinMaxByNState.class);
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(GroupedMinMaxByNState.class).instanceSize());
 
         private final LongFunction<TypedKeyValueHeap> heapFactory;
         private final Function<Block, TypedKeyValueHeap> deserializer;
@@ -165,7 +166,7 @@ public final class MinMaxByNStateFactory
     public abstract static class SingleMinMaxByNState
             extends AbstractMinMaxByNState
     {
-        private static final int INSTANCE_SIZE = instanceSize(SingleMinMaxByNState.class);
+        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleMinMaxByNState.class).instanceSize());
 
         private final LongFunction<TypedKeyValueHeap> heapFactory;
         private final Function<Block, TypedKeyValueHeap> deserializer;

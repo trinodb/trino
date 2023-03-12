@@ -128,30 +128,26 @@ class AggregationAnalyzer
     public static void verifySourceAggregations(
             List<Expression> groupByExpressions,
             Scope sourceScope,
-            List<Expression> expressions,
+            Expression expression,
             Session session,
             Metadata metadata,
             Analysis analysis)
     {
         AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.empty(), session, metadata, analysis);
-        for (Expression expression : expressions) {
-            analyzer.analyze(expression);
-        }
+        analyzer.analyze(expression);
     }
 
     public static void verifyOrderByAggregations(
             List<Expression> groupByExpressions,
             Scope sourceScope,
             Scope orderByScope,
-            List<Expression> expressions,
+            Expression expression,
             Session session,
             Metadata metadata,
             Analysis analysis)
     {
         AggregationAnalyzer analyzer = new AggregationAnalyzer(groupByExpressions, sourceScope, Optional.of(orderByScope), session, metadata, analysis);
-        for (Expression expression : expressions) {
-            analyzer.analyze(expression);
-        }
+        analyzer.analyze(expression);
     }
 
     private AggregationAnalyzer(

@@ -122,6 +122,7 @@ public class TestRubixCaching
         config = new HdfsConfig();
         List<PropertyMetadata<?>> hiveSessionProperties = getHiveSessionProperties(
                 new HiveConfig(),
+                new RubixEnabledConfig().setCacheEnabled(true),
                 new OrcReaderConfig()).getSessionProperties();
         context = new HdfsContext(
                 TestingConnectorSession.builder()

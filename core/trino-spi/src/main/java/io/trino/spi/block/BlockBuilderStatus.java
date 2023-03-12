@@ -13,12 +13,14 @@
  */
 package io.trino.spi.block;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import org.openjdk.jol.info.ClassLayout;
+
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class BlockBuilderStatus
 {
-    public static final int INSTANCE_SIZE = instanceSize(BlockBuilderStatus.class) + PageBuilderStatus.INSTANCE_SIZE;
+    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BlockBuilderStatus.class).instanceSize()) + PageBuilderStatus.INSTANCE_SIZE;
 
     private final PageBuilderStatus pageBuilderStatus;
 

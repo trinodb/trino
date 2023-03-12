@@ -15,6 +15,7 @@ package io.trino.filesystem;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -22,6 +23,8 @@ import java.io.IOException;
 public interface TrinoInput
         extends Closeable
 {
+    SeekableInputStream inputStream();
+
     void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException;
 

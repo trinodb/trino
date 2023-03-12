@@ -18,15 +18,10 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.formats.FileCorruptionException;
+import io.trino.hive.formats.DataSeekableInputStream;
 import io.trino.hive.formats.ReadWriteUtils;
-import io.trino.hive.formats.TrinoDataInputStream;
-import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.compression.ValueDecompressor;
-import io.trino.hive.formats.encodings.ColumnData;
-import io.trino.hive.formats.encodings.ColumnEncoding;
-import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksum;
 import io.trino.hive.formats.rcfile.RcFileWriteValidation.WriteChecksumBuilder;
 import io.trino.spi.Page;
@@ -47,7 +42,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.ByteStreams.skipFully;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.trino.hive.formats.compression.CompressionKind.LZOP;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -76,7 +70,7 @@ public class RcFileReader
     private final String location;
     private final long fileSize;
     private final Map<Integer, Type> readColumns;
-    private final TrinoDataInputStream input;
+    private final DataSeekableInputStream input;
     private final long length;
 
     private final byte version;
@@ -109,7 +103,7 @@ public class RcFileReader
 
     public RcFileReader(
             TrinoInputFile inputFile,
-            ColumnEncodingFactory encoding,
+            RcFileEncoding encoding,
             Map<Integer, Type> readColumns,
             long offset,
             long length)
@@ -120,7 +114,7 @@ public class RcFileReader
 
     private RcFileReader(
             TrinoInputFile inputFile,
-            ColumnEncodingFactory encoding,
+            RcFileEncoding encoding,
             Map<Integer, Type> readColumns,
             long offset,
             long length,
@@ -131,7 +125,7 @@ public class RcFileReader
         this.location = inputFile.location();
         this.fileSize = inputFile.length();
         this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
-        this.input = new TrinoDataInputStream(inputFile.newStream());
+        this.input = new DataSeekableInputStream(inputFile.newInput().inputStream());
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.writeChecksumBuilder = writeValidation.map(validation -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
@@ -179,11 +173,8 @@ public class RcFileReader
         // setup the compression codec
         if (compressed) {
             String codecClassName = readLengthPrefixedString(input).toStringUtf8();
-            CompressionKind compressionKind = CompressionKind.fromHadoopClassName(codecClassName);
-            checkArgument(compressionKind != LZOP, "LZOP cannot be use with RCFile.  LZO compression can be used, but LZ4 is preferred.");
-            Codec codecFromHadoopClassName = compressionKind.createCodec();
             validateWrite(validation -> validation.getCodecClassName().equals(Optional.of(codecClassName)), "Unexpected compression codec");
-            this.decompressor = codecFromHadoopClassName.createValueDecompressor();
+            this.decompressor = CompressionKind.createCodecFromHadoopClassName(codecClassName).createValueDecompressor();
         }
         else {
             validateWrite(validation -> validation.getCodecClassName().equals(Optional.empty()), "Expected file to be compressed");
@@ -294,7 +285,14 @@ public class RcFileReader
         rowGroupPosition = 0;
         rowGroupRowCount = 0;
         currentChunkRowCount = 0;
-        input.close();
+        try {
+            input.close();
+        }
+        finally {
+            if (decompressor != null) {
+                decompressor.close();
+            }
+        }
         if (writeChecksumBuilder.isPresent()) {
             WriteChecksum actualChecksum = writeChecksumBuilder.get().build();
             validateWrite(validation -> validation.getChecksum().getTotalRowCount() == actualChecksum.getTotalRowCount(), "Invalid row count");
@@ -452,7 +450,7 @@ public class RcFileReader
         }
     }
 
-    private Slice readLengthPrefixedString(TrinoDataInputStream in)
+    private Slice readLengthPrefixedString(DataSeekableInputStream in)
             throws IOException
     {
         int length = toIntExact(ReadWriteUtils.readVInt(in));
@@ -461,21 +459,21 @@ public class RcFileReader
     }
 
     private void verify(boolean expression, String messageFormat, Object... args)
-            throws FileCorruptionException
+            throws RcFileCorruptionException
     {
         if (!expression) {
             throw corrupt(messageFormat, args);
         }
     }
 
-    private FileCorruptionException corrupt(String messageFormat, Object... args)
+    private RcFileCorruptionException corrupt(String messageFormat, Object... args)
     {
         closeQuietly();
-        return new FileCorruptionException(messageFormat, args);
+        return new RcFileCorruptionException(messageFormat, args);
     }
 
     private void validateWrite(Predicate<RcFileWriteValidation> test, String messageFormat, Object... args)
-            throws FileCorruptionException
+            throws RcFileCorruptionException
     {
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
             throw corrupt("Write validation failed: " + messageFormat, args);
@@ -502,9 +500,9 @@ public class RcFileReader
     static void validateFile(
             RcFileWriteValidation writeValidation,
             TrinoInputFile inputFile,
-            ColumnEncodingFactory encoding,
+            RcFileEncoding encoding,
             List<Type> types)
-            throws FileCorruptionException
+            throws RcFileCorruptionException
     {
         ImmutableMap.Builder<Integer, Type> readTypes = ImmutableMap.builder();
         for (int columnIndex = 0; columnIndex < types.size(); columnIndex++) {
@@ -521,11 +519,11 @@ public class RcFileReader
                 // ignored
             }
         }
-        catch (FileCorruptionException e) {
+        catch (RcFileCorruptionException e) {
             throw e;
         }
         catch (IOException e) {
-            throw new FileCorruptionException(e, "Validation failed");
+            throw new RcFileCorruptionException(e, "Validation failed");
         }
     }
 
@@ -623,7 +621,7 @@ public class RcFileReader
             // negative length is used to encode a run or the last value
             if (valueLength < 0) {
                 if (lastValueLength == -1) {
-                    throw new FileCorruptionException("First column value length is negative");
+                    throw new RcFileCorruptionException("First column value length is negative");
                 }
                 runLength = (~valueLength) - 1;
                 return lastValueLength;

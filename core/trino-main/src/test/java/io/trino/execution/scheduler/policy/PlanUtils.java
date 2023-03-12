@@ -195,7 +195,6 @@ final class PlanUtils
                 planNode,
                 types.buildOrThrow(),
                 SOURCE_DISTRIBUTION,
-                Optional.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StatsAndCosts.empty(),

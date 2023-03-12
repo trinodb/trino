@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TableFunctionHandle;
-import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.ptf.Argument;
 import io.trino.sql.planner.Symbol;
 
@@ -38,7 +37,6 @@ public class TableFunctionNode
         extends PlanNode
 {
     private final String name;
-    private final CatalogHandle functionCatalog;
     private final Map<String, Argument> arguments;
     private final List<Symbol> properOutputs;
     private final List<PlanNode> sources;
@@ -50,7 +48,6 @@ public class TableFunctionNode
     public TableFunctionNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("name") String name,
-            @JsonProperty("functionCatalog") CatalogHandle functionCatalog,
             @JsonProperty("arguments") Map<String, Argument> arguments,
             @JsonProperty("properOutputs") List<Symbol> properOutputs,
             @JsonProperty("sources") List<PlanNode> sources,
@@ -60,7 +57,6 @@ public class TableFunctionNode
     {
         super(id);
         this.name = requireNonNull(name, "name is null");
-        this.functionCatalog = requireNonNull(functionCatalog, "functionCatalog is null");
         this.arguments = ImmutableMap.copyOf(arguments);
         this.properOutputs = ImmutableList.copyOf(properOutputs);
         this.sources = ImmutableList.copyOf(sources);
@@ -75,12 +71,6 @@ public class TableFunctionNode
     public String getName()
     {
         return name;
-    }
-
-    @JsonProperty
-    public CatalogHandle getFunctionCatalog()
-    {
-        return functionCatalog;
     }
 
     @JsonProperty
@@ -147,16 +137,7 @@ public class TableFunctionNode
     public PlanNode replaceChildren(List<PlanNode> newSources)
     {
         checkArgument(sources.size() == newSources.size(), "wrong number of new children");
-        return new TableFunctionNode(
-                getId(),
-                name,
-                functionCatalog,
-                arguments,
-                properOutputs,
-                newSources,
-                tableArgumentProperties,
-                copartitioningLists,
-                handle);
+        return new TableFunctionNode(getId(), name, arguments, properOutputs, newSources, tableArgumentProperties, copartitioningLists, handle);
     }
 
     public static class TableArgumentProperties

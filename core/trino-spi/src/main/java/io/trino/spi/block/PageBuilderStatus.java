@@ -13,11 +13,13 @@
  */
 package io.trino.spi.block;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import org.openjdk.jol.info.ClassLayout;
+
+import static java.lang.Math.toIntExact;
 
 public class PageBuilderStatus
 {
-    public static final int INSTANCE_SIZE = instanceSize(PageBuilderStatus.class);
+    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PageBuilderStatus.class).instanceSize());
 
     public static final int DEFAULT_MAX_PAGE_SIZE_IN_BYTES = 1024 * 1024;
 

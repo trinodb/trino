@@ -83,6 +83,10 @@ Configuration properties
       - Disables using the address published by Elasticsearch to connect for
         queries.
       -
+    * - ``elasticsearch.legacy-pass-through-query.enabled``
+      - Enables legacy pass-through query. Deprecated, use the :ref:`raw_query
+        table function <elasticsearch-raw-query-function>` instead.
+      - false
 
 TLS security
 ------------
@@ -451,9 +455,8 @@ The ``raw_query`` function requires three parameters:
 Once executed, the query returns a single row containing the resulting JSON
 payload returned by Elasticsearch.
 
-For example, query the ``example`` catalog and use the ``raw_query`` table
-function to search for documents in the ``orders`` index where the country name
-is ``ALGERIA``::
+For example, the following use of the ``raw_query`` table function searches for
+documents in the ``orders`` index where the country name is ``ALGERIA``::
 
     SELECT
       *

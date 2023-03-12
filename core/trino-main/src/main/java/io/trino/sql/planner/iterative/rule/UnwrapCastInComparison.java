@@ -562,11 +562,11 @@ public class UnwrapCastInComparison
 
     public static Expression falseIfNotNull(Expression argument)
     {
-        return and(new IsNullPredicate(argument), new Cast(new NullLiteral(), toSqlType(BOOLEAN), false, true));
+        return and(new IsNullPredicate(argument), new NullLiteral());
     }
 
     public static Expression trueIfNotNull(Expression argument)
     {
-        return or(new IsNotNullPredicate(argument), new Cast(new NullLiteral(), toSqlType(BOOLEAN), false, true));
+        return or(new IsNotNullPredicate(argument), new NullLiteral());
     }
 }

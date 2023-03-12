@@ -18,18 +18,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SystemColumnHandle
         implements ColumnHandle
 {
-    private static final int INSTANCE_SIZE = instanceSize(SystemColumnHandle.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SystemColumnHandle.class).instanceSize());
 
     private final String columnName;
 

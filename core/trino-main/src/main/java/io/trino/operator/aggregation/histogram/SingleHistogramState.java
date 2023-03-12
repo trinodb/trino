@@ -18,14 +18,15 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import org.openjdk.jol.info.ClassLayout;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SingleHistogramState
         implements HistogramState
 {
-    private static final int INSTANCE_SIZE = instanceSize(SingleHistogramState.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleHistogramState.class).instanceSize());
 
     private final Type keyType;
     private final BlockPositionEqual equalOperator;

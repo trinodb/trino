@@ -378,7 +378,7 @@ public class NimbusOAuth2Client
         try {
             UserInfoResponse response = httpClient.execute(new UserInfoRequest(userinfoUrl.get(), new BearerAccessToken(accessToken)), UserInfoResponse::parse);
             if (!response.indicatesSuccess()) {
-                LOG.error("Received bad response from userinfo endpoint: %s", response.toErrorResponse().getErrorObject());
+                LOG.error("Received bad response from userinfo endpoint: " + response.toErrorResponse().getErrorObject());
                 return Optional.empty();
             }
             return Optional.of(response.toSuccessResponse().getUserInfo().toJWTClaimsSet());

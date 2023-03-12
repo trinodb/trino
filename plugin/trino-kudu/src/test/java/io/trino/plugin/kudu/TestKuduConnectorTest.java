@@ -38,11 +38,11 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -189,11 +189,12 @@ public class TestKuduConnectorTest
         throw new SkipException("TODO");
     }
 
+    @Test
     @Override
-    protected MaterializedResult getDescribeOrdersResult()
+    public void testDescribeTable()
     {
         String extra = "nullable, encoding=auto, compression=default";
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", extra, "")
                 .row("custkey", "bigint", extra, "")
                 .row("orderstatus", "varchar", extra, "")
@@ -204,13 +205,29 @@ public class TestKuduConnectorTest
                 .row("shippriority", "integer", extra, "")
                 .row("comment", "varchar", extra, "")
                 .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "nullable, encoding=auto, compression=default", "")
+                .row("custkey", "bigint", "nullable, encoding=auto, compression=default", "")
+                .row("orderstatus", "varchar", "nullable, encoding=auto, compression=default", "")
+                .row("totalprice", "double", "nullable, encoding=auto, compression=default", "")
+                .row("orderdate", "varchar", "nullable, encoding=auto, compression=default", "")
+                .row("orderpriority", "varchar", "nullable, encoding=auto, compression=default", "")
+                .row("clerk", "varchar", "nullable, encoding=auto, compression=default", "")
+                .row("shippriority", "integer", "nullable, encoding=auto, compression=default", "")
+                .row("comment", "varchar", "nullable, encoding=auto, compression=default", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
     }
 
     @Test

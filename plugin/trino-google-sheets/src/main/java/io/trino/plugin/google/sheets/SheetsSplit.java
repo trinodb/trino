@@ -20,56 +20,46 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.instanceSize;
-import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(SheetsSplit.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SheetsSplit.class).instanceSize());
 
-    private final Optional<String> schemaName;
-    private final Optional<String> tableName;
-    private final Optional<String> sheetExpression;
+    private final String schemaName;
+    private final String tableName;
     private final List<List<String>> values;
     private final List<HostAddress> hostAddresses;
 
     @JsonCreator
     public SheetsSplit(
-            @JsonProperty("schemaName") Optional<String> schemaName,
-            @JsonProperty("tableName") Optional<String> tableName,
-            @JsonProperty("sheetExpression") Optional<String> sheetExpression,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName,
             @JsonProperty("values") List<List<String>> values)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.sheetExpression = requireNonNull(sheetExpression, "sheetExpression is null");
         this.values = requireNonNull(values, "values is null");
         this.hostAddresses = ImmutableList.of();
     }
 
     @JsonProperty
-    public Optional<String> getSchemaName()
+    public String getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty
-    public Optional<String> getTableName()
+    public String getTableName()
     {
         return tableName;
-    }
-
-    @JsonProperty
-    public Optional<String> getSheetExpression()
-    {
-        return sheetExpression;
     }
 
     @JsonProperty
@@ -93,21 +83,19 @@ public class SheetsSplit
     @Override
     public Object getInfo()
     {
-        ImmutableMap.Builder<Object, Object> builder = ImmutableMap.builder()
-                .put("hostAddresses", hostAddresses);
-        schemaName.ifPresent(name -> builder.put("schemaName", name));
-        tableName.ifPresent(name -> builder.put("tableName", name));
-        sheetExpression.ifPresent(expression -> builder.put("sheetExpression", expression));
-        return builder.buildOrThrow();
+        return ImmutableMap.builder()
+                .put("schemaName", schemaName)
+                .put("tableName", tableName)
+                .put("hostAddresses", hostAddresses)
+                .buildOrThrow();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
-                + sizeOf(schemaName, SizeOf::estimatedSizeOf)
-                + sizeOf(tableName, SizeOf::estimatedSizeOf)
-                + sizeOf(sheetExpression, SizeOf::estimatedSizeOf)
+                + estimatedSizeOf(schemaName)
+                + estimatedSizeOf(tableName)
                 + estimatedSizeOf(values, value -> estimatedSizeOf(value, SizeOf::estimatedSizeOf))
                 + estimatedSizeOf(hostAddresses, HostAddress::getRetainedSizeInBytes);
     }

@@ -13,80 +13,72 @@
  */
 package io.trino.plugin.mongodb;
 
+import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.sql.query.QueryAssertions;
 import org.bson.types.ObjectId;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
 
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.time.ZoneOffset.UTC;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public class TestObjectIdFunctions
+        extends AbstractTestFunctions
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
+    @BeforeClass
+    public void registerFunctions()
     {
-        assertions = new QueryAssertions();
-        assertions.addPlugin(new MongoPlugin());
-    }
-
-    @AfterAll
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
+        functionAssertions.installPlugin(new MongoPlugin());
     }
 
     @Test
     public void testObjectid()
     {
-        assertThat(assertions.function("ObjectId", "'1234567890abcdef12345678'"))
-                .hasType(OBJECT_ID)
-                .isEqualTo(new SqlVarbinary(new ObjectId("1234567890abcdef12345678").toByteArray()));
+        assertFunction(
+                "ObjectId('1234567890abcdef12345678')",
+                OBJECT_ID,
+                new SqlVarbinary(new ObjectId("1234567890abcdef12345678").toByteArray()));
     }
 
     @Test
     public void testObjectidIgnoresSpaces()
     {
-        assertThat(assertions.function("ObjectId", "'12 34 56 78 90 ab cd ef   12 34 56 78'"))
-                .hasType(OBJECT_ID)
-                .isEqualTo(new SqlVarbinary(new ObjectId("1234567890abcdef12345678").toByteArray()));
+        assertFunction(
+                "ObjectId('12 34 56 78 90 ab cd ef   12 34 56 78')",
+                OBJECT_ID,
+                new SqlVarbinary(new ObjectId("1234567890abcdef12345678").toByteArray()));
     }
 
     @Test
     public void testObjectidTimestamp()
     {
-        assertThat(assertions.function("objectid_timestamp", "ObjectId('1234567890abcdef12345678')"))
-                .hasType(TIMESTAMP_TZ_MILLIS)
-                .isEqualTo(toTimestampWithTimeZone(ZonedDateTime.of(1979, 9, 5, 22, 51, 36, 0, UTC)));
+        assertFunction(
+                "objectid_timestamp(ObjectId('1234567890abcdef12345678'))",
+                TIMESTAMP_TZ_MILLIS,
+                toTimestampWithTimeZone(ZonedDateTime.of(1979, 9, 5, 22, 51, 36, 0, UTC)));
     }
 
     @Test
     public void testTimestampObjectid()
     {
-        assertThat(assertions.function("timestamp_objectid", "TIMESTAMP '1979-09-05 22:51:36 +00:00'"))
-                .hasType(OBJECT_ID)
-                .isEqualTo(new SqlVarbinary(new ObjectId("123456780000000000000000").toByteArray()));
+        assertFunction(
+                "timestamp_objectid(TIMESTAMP '1979-09-05 22:51:36 +00:00')",
+                OBJECT_ID,
+                new SqlVarbinary(new ObjectId("123456780000000000000000").toByteArray()));
     }
 
     @Test
     public void testTimestampObjectidNull()
     {
-        assertThat(assertions.function("timestamp_objectid", "null"))
-                .isNull(OBJECT_ID);
+        assertFunction(
+                "timestamp_objectid(null)",
+                OBJECT_ID,
+                null);
     }
 
     private SqlTimestampWithTimeZone toTimestampWithTimeZone(ZonedDateTime zonedDateTime)

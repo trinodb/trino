@@ -29,7 +29,6 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -93,7 +92,7 @@ public class TestDeltaLakeSelectCompatibility
                     .containsOnly(row(1, "spark=equal"));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 }

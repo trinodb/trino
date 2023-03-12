@@ -13,14 +13,16 @@
  */
 package io.trino.operator.window.matcher;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import org.openjdk.jol.info.ClassLayout;
+
+import static java.lang.Math.toIntExact;
 
 // TODO: optimize by
 //   - reference counting and copy on write
 //   - reuse allocated arrays
 class Captures
 {
-    private static final int INSTANCE_SIZE = instanceSize(Captures.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Captures.class).instanceSize());
 
     private final IntMultimap captures;
     private final IntMultimap labels;

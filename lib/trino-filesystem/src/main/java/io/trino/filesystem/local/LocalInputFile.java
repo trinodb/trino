@@ -15,11 +15,9 @@ package io.trino.filesystem.local;
 
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
@@ -41,13 +39,6 @@ public class LocalInputFile
     }
 
     @Override
-    public TrinoInputStream newStream()
-            throws IOException
-    {
-        return new FileTrinoInputStream(file);
-    }
-
-    @Override
     public long length()
             throws IOException
     {
@@ -55,10 +46,10 @@ public class LocalInputFile
     }
 
     @Override
-    public Instant lastModified()
+    public long modificationTime()
             throws IOException
     {
-        return Instant.ofEpochMilli(file.lastModified());
+        return file.lastModified();
     }
 
     @Override
@@ -77,6 +68,6 @@ public class LocalInputFile
     @Override
     public String toString()
     {
-        return location();
+        return file.getPath();
     }
 }

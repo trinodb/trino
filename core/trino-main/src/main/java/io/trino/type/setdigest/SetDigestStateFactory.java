@@ -17,14 +17,15 @@ package io.trino.type.setdigest;
 import io.trino.array.ObjectBigArray;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.GroupedAccumulatorState;
+import org.openjdk.jol.info.ClassLayout;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 
 public class SetDigestStateFactory
         implements AccumulatorStateFactory<SetDigestState>
 {
-    private static final int SIZE_OF_SINGLE = instanceSize(SingleSetDigestState.class);
-    private static final int SIZE_OF_GROUPED = instanceSize(GroupedSetDigestState.class);
+    private static final int SIZE_OF_SINGLE = toIntExact(ClassLayout.parseClass(SingleSetDigestState.class).instanceSize());
+    private static final int SIZE_OF_GROUPED = toIntExact(ClassLayout.parseClass(GroupedSetDigestState.class).instanceSize());
 
     @Override
     public SetDigestState createSingleState()

@@ -26,7 +26,6 @@ import java.util.List;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_JVM_CONFIG;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -54,20 +53,19 @@ public final class EnvMultinodeAllConnectors
                         "cassandra",
                         "clickhouse",
                         "druid",
-                        "delta_lake",
+                        "delta-lake",
                         "elasticsearch",
                         "gsheets",
                         "hive",
                         "hudi",
                         "iceberg",
-                        "ignite",
                         "kafka",
                         "kinesis",
                         "kudu",
                         "localfile",
                         "mariadb",
                         "memory",
-                        "singlestore",
+                        "memsql",
                         "mongodb",
                         "mysql",
                         "oracle",
@@ -75,11 +73,11 @@ public final class EnvMultinodeAllConnectors
                         "pinot",
                         "postgresql",
                         "prometheus",
-                        "raptor_legacy",
+                        "raptor-legacy",
                         "redis",
                         "redshift",
                         "sqlserver",
-                        "trino_thrift",
+                        "trino-thrift",
                         "tpcds")
                 .forEach(connector -> builder.addConnector(
                         connector,
@@ -92,9 +90,6 @@ public final class EnvMultinodeAllConnectors
                 container.withCopyFileToContainer(
                         forHostPath(configDir.getPath("prometheus-bearer.txt")),
                         CONTAINER_TRINO_ETC + "/catalog/prometheus-bearer.txt");
-                container.withCopyFileToContainer(
-                        forHostPath(configDir.getPath("jvm.config")),
-                        CONTAINER_TRINO_JVM_CONFIG);
             }
         });
     }

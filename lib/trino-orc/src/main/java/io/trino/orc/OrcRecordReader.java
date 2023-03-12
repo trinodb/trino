@@ -42,6 +42,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -58,7 +59,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -75,7 +75,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcRecordReader
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = instanceSize(OrcRecordReader.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcRecordReader.class).instanceSize());
 
     private final OrcDataSource orcDataSource;
 

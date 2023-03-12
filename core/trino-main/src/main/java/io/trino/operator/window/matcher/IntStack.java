@@ -14,14 +14,15 @@
 package io.trino.operator.window.matcher;
 
 import io.airlift.slice.SizeOf;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 
 class IntStack
 {
-    private static final int INSTANCE_SIZE = instanceSize(IntStack.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(IntStack.class).instanceSize());
 
     private int[] values;
     private int next;

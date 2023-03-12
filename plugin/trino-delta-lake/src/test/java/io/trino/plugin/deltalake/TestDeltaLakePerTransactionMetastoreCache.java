@@ -21,8 +21,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.Session;
-import io.trino.plugin.base.security.UserNameProvider;
-import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -57,7 +55,6 @@ import java.util.concurrent.ExecutorService;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
@@ -113,9 +110,6 @@ public class TestDeltaLakePerTransactionMetastoreCache
                         binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
                         newExporter(binder).export(ThriftMetastoreFactory.class)
                                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
-                        newOptionalBinder(binder, Key.get(UserNameProvider.class, ForHiveMetastore.class))
-                                .setDefault()
-                                .toInstance(SIMPLE_USER_NAME_PROVIDER);
                         install(new ThriftMetastoreAuthenticationModule());
                         binder.bind(BridgingHiveMetastoreFactory.class).in(Scopes.SINGLETON);
                         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
@@ -172,7 +166,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
             deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
         }
 
-        queryRunner.createCatalog(DELTA_CATALOG, "delta_lake", deltaLakeProperties.buildOrThrow());
+        queryRunner.createCatalog(DELTA_CATALOG, "delta-lake", deltaLakeProperties.buildOrThrow());
 
         if (createdDeltaLake) {
             List<TpchTable<? extends TpchEntity>> tpchTables = List.of(TpchTable.NATION, TpchTable.REGION);

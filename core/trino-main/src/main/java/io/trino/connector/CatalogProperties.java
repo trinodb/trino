@@ -26,13 +26,13 @@ import static java.util.Objects.requireNonNull;
 public class CatalogProperties
 {
     private final CatalogHandle catalogHandle;
-    private final ConnectorName connectorName;
+    private final String connectorName;
     private final Map<String, String> properties;
 
     @JsonCreator
     public CatalogProperties(
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
-            @JsonProperty("connectorName") ConnectorName connectorName,
+            @JsonProperty("connectorName") String connectorName,
             @JsonProperty("properties") Map<String, String> properties)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
@@ -47,7 +47,7 @@ public class CatalogProperties
     }
 
     @JsonProperty
-    public ConnectorName getConnectorName()
+    public String getConnectorName()
     {
         return connectorName;
     }

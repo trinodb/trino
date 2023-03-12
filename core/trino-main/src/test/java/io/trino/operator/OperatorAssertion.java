@@ -44,11 +44,10 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public final class OperatorAssertion
@@ -285,7 +284,7 @@ public final class OperatorAssertion
             pages = dropChannel(pages, hashChannels);
         }
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
-        assertThat(actual).containsExactlyElementsOf(expected);
+        assertEquals(actual, expected);
     }
 
     public static void assertOperatorEqualsIgnoreOrder(

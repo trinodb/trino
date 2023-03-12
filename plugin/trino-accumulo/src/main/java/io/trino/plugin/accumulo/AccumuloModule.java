@@ -34,6 +34,9 @@ import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.security.tokens.PasswordToken;
+import org.apache.log4j.JulAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.PatternLayout;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -54,6 +57,13 @@ public class AccumuloModule
     @Override
     public void configure(Binder binder)
     {
+        // Add appender to Log4J root logger
+        JulAppender appender = new JulAppender(); //create appender
+        appender.setLayout(new PatternLayout("%d %-5p %c - %m%n"));
+        appender.setThreshold(Level.INFO);
+        appender.activateOptions();
+        org.apache.log4j.Logger.getRootLogger().addAppender(appender);
+
         binder.bind(AccumuloConnector.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadata.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadataFactory.class).in(Scopes.SINGLETON);

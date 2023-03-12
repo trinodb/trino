@@ -16,5 +16,4 @@ package io.trino.spi.connector;
 public enum ConnectorCapabilities
 {
     NOT_NULL_COLUMN_CONSTRAINT,
-    MATERIALIZED_VIEW_GRACE_PERIOD,
 }

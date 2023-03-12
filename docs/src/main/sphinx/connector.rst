@@ -21,7 +21,6 @@ from different data sources.
     Hive            <connector/hive>
     Hudi            <connector/hudi>
     Iceberg         <connector/iceberg>
-    Ignite          <connector/ignite>
     JMX             <connector/jmx>
     Kafka           <connector/kafka>
     Kinesis         <connector/kinesis>
@@ -38,7 +37,7 @@ from different data sources.
     Prometheus      <connector/prometheus>
     Redis           <connector/redis>
     Redshift        <connector/redshift>
-    SingleStore     <connector/memsql>
+    SingleStore (MemSQL)          <connector/memsql>
     SQL Server      <connector/sqlserver>
     System          <connector/system>
     Thrift          <connector/thrift>

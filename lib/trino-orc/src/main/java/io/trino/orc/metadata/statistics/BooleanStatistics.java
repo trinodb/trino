@@ -14,11 +14,12 @@
 package io.trino.orc.metadata.statistics;
 
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 
 public class BooleanStatistics
         implements Hashable
@@ -26,7 +27,7 @@ public class BooleanStatistics
     // 1 byte to denote if null + 1 byte for the value
     public static final long BOOLEAN_VALUE_BYTES = Byte.BYTES + Byte.BYTES;
 
-    private static final int INSTANCE_SIZE = instanceSize(BooleanStatistics.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BooleanStatistics.class).instanceSize());
 
     private final long trueValueCount;
 

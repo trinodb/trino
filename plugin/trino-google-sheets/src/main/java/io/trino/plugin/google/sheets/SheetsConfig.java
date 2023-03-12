@@ -32,7 +32,7 @@ public class SheetsConfig
 {
     private Optional<String> credentialsFilePath = Optional.empty();
     private Optional<String> credentialsKey = Optional.empty();
-    private Optional<String> metadataSheetId = Optional.empty();
+    private String metadataSheetId;
     private int sheetsDataMaxCacheSize = 1000;
     private Duration sheetsDataExpireAfterWrite = new Duration(5, TimeUnit.MINUTES);
     private Duration readTimeout = new Duration(20, TimeUnit.SECONDS); // 20s is the default timeout of com.google.api.client.http.HttpRequest
@@ -74,7 +74,7 @@ public class SheetsConfig
     }
 
     @NotNull
-    public Optional<String> getMetadataSheetId()
+    public String getMetadataSheetId()
     {
         return metadataSheetId;
     }
@@ -84,7 +84,7 @@ public class SheetsConfig
     @ConfigDescription("Metadata sheet id containing table sheet mapping")
     public SheetsConfig setMetadataSheetId(String metadataSheetId)
     {
-        this.metadataSheetId = Optional.ofNullable(metadataSheetId);
+        this.metadataSheetId = metadataSheetId;
         return this;
     }
 

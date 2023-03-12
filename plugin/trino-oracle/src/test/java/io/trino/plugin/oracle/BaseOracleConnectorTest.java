@@ -35,6 +35,7 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -147,7 +148,19 @@ public abstract class BaseOracleConnectorTest
     @Override
     public void testShowColumns()
     {
-        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "decimal(19,0)", "", "")
+                .row("custkey", "decimal(19,0)", "", "")
+                .row("orderstatus", "varchar(1)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "timestamp(0)", "", "")
+                .row("orderpriority", "varchar(15)", "", "")
+                .row("clerk", "varchar(15)", "", "")
+                .row("shippriority", "decimal(10,0)", "", "")
+                .row("comment", "varchar(79)", "", "")
+                .build();
+        assertEquals(actual, expected);
     }
 
     /**
@@ -207,10 +220,11 @@ public abstract class BaseOracleConnectorTest
         return false;
     }
 
+    @Test
     @Override
-    protected MaterializedResult getDescribeOrdersResult()
+    public void testDescribeTable()
     {
-        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -221,6 +235,8 @@ public abstract class BaseOracleConnectorTest
                 .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test

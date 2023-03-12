@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.plugin.redis.util.JsonEncoder;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.StandaloneQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -46,7 +45,6 @@ public abstract class AbstractTestMinimalFunctionality
     protected String stringValueTableName;
     protected String hashValueTableName;
     protected StandaloneQueryRunner queryRunner;
-    protected QueryAssertions assertions;
 
     protected abstract Map<String, String> connectorProperties();
 
@@ -57,7 +55,6 @@ public abstract class AbstractTestMinimalFunctionality
         redisServer = new RedisServer();
 
         this.queryRunner = new StandaloneQueryRunner(SESSION);
-        assertions = new QueryAssertions(queryRunner);
 
         this.tableName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
         RedisTableDescription stringValueTableDescription = loadSimpleTableDescription(queryRunner, "string");
@@ -83,7 +80,6 @@ public abstract class AbstractTestMinimalFunctionality
 
         queryRunner.close();
         queryRunner = null;
-        assertions = null;
 
         redisServer.close();
         redisServer = null;

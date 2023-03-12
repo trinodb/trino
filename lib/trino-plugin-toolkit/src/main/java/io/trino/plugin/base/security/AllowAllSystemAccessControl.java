@@ -131,16 +131,6 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateCatalog(SystemSecurityContext context, String catalog)
-    {
-    }
-
-    @Override
-    public void checkCanDropCatalog(SystemSecurityContext context, String catalog)
-    {
-    }
-
-    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         return catalogs;

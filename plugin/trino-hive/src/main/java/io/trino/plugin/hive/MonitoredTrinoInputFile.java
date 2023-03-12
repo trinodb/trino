@@ -15,10 +15,9 @@ package io.trino.plugin.hive;
 
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.TrinoInputStream;
+import org.apache.iceberg.io.SeekableInputStream;
 
 import java.io.IOException;
-import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,13 +41,6 @@ public class MonitoredTrinoInputFile
     }
 
     @Override
-    public TrinoInputStream newStream()
-            throws IOException
-    {
-        return new MonitoredTrinoInputStream(stats, delegate.newStream());
-    }
-
-    @Override
     public long length()
             throws IOException
     {
@@ -56,10 +48,10 @@ public class MonitoredTrinoInputFile
     }
 
     @Override
-    public Instant lastModified()
+    public long modificationTime()
             throws IOException
     {
-        return delegate.lastModified();
+        return delegate.modificationTime();
     }
 
     @Override
@@ -94,6 +86,12 @@ public class MonitoredTrinoInputFile
         }
 
         @Override
+        public SeekableInputStream inputStream()
+        {
+            return new MonitoredSeekableInputStream(stats, delegate.inputStream());
+        }
+
+        @Override
         public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
                 throws IOException
         {
@@ -118,38 +116,32 @@ public class MonitoredTrinoInputFile
         {
             delegate.close();
         }
-
-        @Override
-        public String toString()
-        {
-            return delegate.toString();
-        }
     }
 
-    private static final class MonitoredTrinoInputStream
-            extends TrinoInputStream
+    private static final class MonitoredSeekableInputStream
+            extends SeekableInputStream
     {
         private final FileFormatDataSourceStats stats;
-        private final TrinoInputStream delegate;
+        private final SeekableInputStream delegate;
 
-        public MonitoredTrinoInputStream(FileFormatDataSourceStats stats, TrinoInputStream delegate)
+        public MonitoredSeekableInputStream(FileFormatDataSourceStats stats, SeekableInputStream delegate)
         {
             this.stats = requireNonNull(stats, "stats is null");
             this.delegate = requireNonNull(delegate, "delegate is null");
         }
 
         @Override
-        public long getPosition()
+        public long getPos()
                 throws IOException
         {
-            return delegate.getPosition();
+            return delegate.getPos();
         }
 
         @Override
-        public void seek(long position)
+        public void seek(long newPos)
                 throws IOException
         {
-            delegate.seek(position);
+            delegate.seek(newPos);
         }
 
         @Override

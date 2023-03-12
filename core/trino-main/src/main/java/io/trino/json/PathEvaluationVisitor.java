@@ -825,8 +825,7 @@ class PathEvaluationVisitor
                             ImmutableMap.of(
                                     "name", TextNode.valueOf(field.getKey()),
                                     "value", field.getValue(),
-                                    "id", IntNode.valueOf(objectId)))));
-            objectId++;
+                                    "id", IntNode.valueOf(objectId++)))));
         }
 
         return outputSequence.build();

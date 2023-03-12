@@ -13,11 +13,9 @@
  */
 package io.trino.parquet.reader.flat;
 
-import com.google.common.primitives.Longs;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.Int128ArrayBlock;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -67,11 +65,5 @@ public class Int128ColumnAdapter
     public long getSizeInBytes(long[] values)
     {
         return sizeOf(values);
-    }
-
-    @Override
-    public long[] merge(List<long[]> buffers)
-    {
-        return Longs.concat(buffers.toArray(long[][]::new));
     }
 }

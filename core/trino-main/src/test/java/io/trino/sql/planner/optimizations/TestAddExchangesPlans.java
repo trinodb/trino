@@ -42,7 +42,6 @@ import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_PARTITIONED_BUILD_MIN_ROW_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
@@ -225,7 +224,6 @@ public class TestAddExchangesPlans
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "true")
-                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
                         .build(),
                 anyTree(
                         node(MarkDistinctNode.class,
@@ -245,7 +243,6 @@ public class TestAddExchangesPlans
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "false")
-                        .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
                         .build(),
                 anyTree(
                         node(MarkDistinctNode.class,
@@ -651,28 +648,28 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 "SELECT\n" +
-                        "    a,\n" +
-                        "    ROW_NUMBER() OVER (\n" +
-                        "        PARTITION BY\n" +
-                        "            a\n" +
-                        "        ORDER BY\n" +
-                        "            a\n" +
-                        "    ) rn\n" +
-                        "FROM (\n" +
-                        "    SELECT\n" +
-                        "        a,\n" +
-                        "        b,\n" +
-                        "        COUNT(*)\n" +
-                        "    FROM (\n" +
-                        "        VALUES\n" +
-                        "            (1, 2)\n" +
-                        "    ) t (a, b)\n" +
-                        "    GROUP BY\n" +
-                        "        a,\n" +
-                        "        b\n" +
-                        ")\n" +
-                        "LIMIT\n" +
-                        "    2",
+                "    a,\n" +
+                "    ROW_NUMBER() OVER (\n" +
+                "        PARTITION BY\n" +
+                "            a\n" +
+                "        ORDER BY\n" +
+                "            a\n" +
+                "    ) rn\n" +
+                "FROM (\n" +
+                "    SELECT\n" +
+                "        a,\n" +
+                "        b,\n" +
+                "        COUNT(*)\n" +
+                "    FROM (\n" +
+                "        VALUES\n" +
+                "            (1, 2)\n" +
+                "    ) t (a, b)\n" +
+                "    GROUP BY\n" +
+                "        a,\n" +
+                "        b\n" +
+                ")\n" +
+                "LIMIT\n" +
+                "    2",
                 useExactPartitioning(),
                 anyTree(
                         exchange(REMOTE, REPARTITION,

@@ -306,8 +306,8 @@ public class TestIcebergRegisterTableProcedure
         String invalidMetadataFileName = "invalid-default.avro";
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
-            if (fileEntry.location().endsWith(".avro")) {
-                String file = fileEntry.location();
+            if (fileEntry.path().endsWith(".avro")) {
+                String file = fileEntry.path();
                 invalidMetadataFileName = file.substring(file.lastIndexOf("/") + 1);
                 break;
             }

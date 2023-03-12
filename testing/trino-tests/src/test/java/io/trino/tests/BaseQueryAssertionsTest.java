@@ -60,9 +60,9 @@ public abstract class BaseQueryAssertionsTest
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
+        queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
         Map<String, String> jdbcConfigurationProperties = TestingH2JdbcModule.createProperties();
-        queryRunner.createCatalog("jdbc", "base_jdbc", jdbcConfigurationProperties);
+        queryRunner.createCatalog("jdbc", "base-jdbc", jdbcConfigurationProperties);
 
         try (Connection connection = DriverManager.getConnection(jdbcConfigurationProperties.get("connection-url"));
                 Statement statement = connection.createStatement()) {
@@ -78,7 +78,7 @@ public abstract class BaseQueryAssertionsTest
                 .putAll(jdbcConfigurationProperties)
                 .put("aggregation-pushdown.enabled", "false")
                 .buildOrThrow();
-        queryRunner.createCatalog("jdbc_with_aggregation_pushdown_disabled", "base_jdbc", jdbcWithAggregationPushdownDisabledConfigurationProperties);
+        queryRunner.createCatalog("jdbc_with_aggregation_pushdown_disabled", "base-jdbc", jdbcWithAggregationPushdownDisabledConfigurationProperties);
     }
 
     @Test
@@ -111,11 +111,11 @@ public abstract class BaseQueryAssertionsTest
 
         QueryAssert queryAssert = assertThat(query("VALUES 'foobar'"));
         assertThatThrownBy(queryAssert::returnsEmptyResult)
-                .hasMessageContaining("[Rows for query [VALUES 'foobar']] \nExpecting empty but was: [[foobar]]");
+                .hasMessage("[Rows for query [VALUES 'foobar']] \nExpecting empty but was:<[[foobar]]>");
 
         queryAssert = assertThat(query("VALUES 'foo', 'bar'"));
         assertThatThrownBy(queryAssert::returnsEmptyResult)
-                .hasMessageContaining("[Rows for query [VALUES 'foo', 'bar']] \nExpecting empty but was: [[foo], [bar]]");
+                .hasMessage("[Rows for query [VALUES 'foo', 'bar']] \nExpecting empty but was:<[[foo], [bar]]>");
     }
 
     @Test
@@ -125,31 +125,24 @@ public abstract class BaseQueryAssertionsTest
 
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES X'001299'"))
-                .hasMessageMatching(
+                .hasMessageMatching("" +
                         // TODO the representation and thus messages should be the same regardless of query runner in use
-                        getQueryRunner() instanceof LocalQueryRunner
-                                ? "(?s).*" +
-                                "\\Q" +
-                                "Expecting actual:\n" +
-                                "  (00 12 34)\n" +
-                                "to contain exactly in any order:\n" +
-                                "  [(00 12 99)]\n" +
-                                "elements not found:\n" +
-                                "  (00 12 99)\n" +
-                                "and elements not expected:\n" +
-                                "  (00 12 34)" +
-                                "\\E.*"
-                                : "(?s).*" +
-                                "\\Q" +
-                                "Expecting actual:\n" +
-                                "  ([0, 18, 52])\n" +
-                                "to contain exactly in any order:\n" +
-                                "  [([0, 18, -103])]\n" +
-                                "elements not found:\n" +
-                                "  ([0, 18, -103])\n" +
-                                "and elements not expected:\n" +
-                                "  ([0, 18, 52])" +
-                                "\\E.*");
+                        // when using local query runner
+                        "(?s).*" +
+                        "(\\Q" +
+                        "Expecting:\n" +
+                        "  <(00 12 34)>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[(00 12 99)]>\n" +
+                        "elements not found:\n" +
+                        "  <(00 12 99)>" +
+                        "\\E|\\Q" +
+                        // when using distributed query runner
+                        "Expecting:\n" +
+                        "  <([0, 18, 52])>\n" +
+                        "to contain exactly in any order:\n" +
+                        "  <[([0, 18, -103])]>" +
+                        "\\E).*");
     }
 
     @Test
@@ -165,25 +158,25 @@ public abstract class BaseQueryAssertionsTest
                         getQueryRunner() instanceof LocalQueryRunner
                                 ? "(?s).*" +
                                 "\\Q" +
-                                "Expecting actual:\n" +
-                                "  ([00 12 34])\n" +
+                                "Expecting:\n" +
+                                "  <([00 12 34])>\n" +
                                 "to contain exactly in any order:\n" +
-                                "  [([00 12 99])]\n" +
+                                "  <[([00 12 99])]>\n" +
                                 "elements not found:\n" +
-                                "  ([00 12 99])\n" +
+                                "  <([00 12 99])>\n" +
                                 "and elements not expected:\n" +
-                                "  ([00 12 34])" +
+                                "  <([00 12 34])>" +
                                 "\\E.*"
                                 : "(?s).*" +
                                 "\\Q" +
-                                "Expecting actual:\n" +
-                                "  ([X'00 12 34'])\n" +
+                                "Expecting:\n" +
+                                "  <([X'00 12 34'])>\n" +
                                 "to contain exactly in any order:\n" +
-                                "  [([X'00 12 99'])]\n" +
+                                "  <[([X'00 12 99'])]>\n" +
                                 "elements not found:\n" +
-                                "  ([X'00 12 99'])\n" +
+                                "  <([X'00 12 99'])>\n" +
                                 "and elements not expected:\n" +
-                                "  ([X'00 12 34'])" +
+                                "  <([X'00 12 34'])>" +
                                 "\\E.*");
     }
 
@@ -200,10 +193,10 @@ public abstract class BaseQueryAssertionsTest
 
         QueryAssert queryAssert = assertThat(query("SELECT TIME '01:23:45.123456789012'"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789013'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012)\n" +
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(01:23:45.123456789012)>\n" +
                         "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789013)]");
+                        "  <[(01:23:45.123456789013)]>");
     }
 
     /**
@@ -220,16 +213,16 @@ public abstract class BaseQueryAssertionsTest
         QueryAssert queryAssert = assertThat(query("SELECT TIME '01:23:45.123456789012 +05:07'"));
         // different second fraction
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789013 +05:07'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012+05:07)\n" +
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(01:23:45.123456789012+05:07)>\n" +
                         "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789013+05:07)]");
+                        "  <[(01:23:45.123456789013+05:07)]>");
         // different zone
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIME '01:23:45.123456789012 +05:42'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (01:23:45.123456789012+05:07)\n" +
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(01:23:45.123456789012+05:07)>\n" +
                         "to contain exactly in any order:\n" +
-                        "  [(01:23:45.123456789012+05:42)]");
+                        "  <[(01:23:45.123456789012+05:42)]>");
     }
 
     /**
@@ -245,10 +238,10 @@ public abstract class BaseQueryAssertionsTest
 
         QueryAssert queryAssert = assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012'"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789013'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012)\n" +
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(2017-01-02 09:12:34.123456789012)>\n" +
                         "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789013)]");
+                        "  <[(2017-01-02 09:12:34.123456789013)]>");
     }
 
     /**
@@ -265,16 +258,16 @@ public abstract class BaseQueryAssertionsTest
         QueryAssert queryAssert = assertThat(query("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Warsaw'"));
         // different second fraction
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789013 Europe/Warsaw'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012 Europe/Warsaw)\n" +
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(2017-01-02 09:12:34.123456789012 Europe/Warsaw)>\n" +
                         "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789013 Europe/Warsaw)]");
+                        "  <[(2017-01-02 09:12:34.123456789013 Europe/Warsaw)]>");
         // different zone
         assertThatThrownBy(() -> queryAssert.matches("SELECT TIMESTAMP '2017-01-02 09:12:34.123456789012 Europe/Paris'"))
-                .hasMessageContaining("Expecting actual:\n" +
-                        "  (2017-01-02 09:12:34.123456789012 Europe/Warsaw)\n" +
+                .hasMessageContaining("Expecting:\n" +
+                        "  <(2017-01-02 09:12:34.123456789012 Europe/Warsaw)>\n" +
                         "to contain exactly in any order:\n" +
-                        "  [(2017-01-02 09:12:34.123456789012 Europe/Paris)]");
+                        "  <[(2017-01-02 09:12:34.123456789012 Europe/Paris)]>");
     }
 
     @Test

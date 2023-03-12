@@ -15,6 +15,7 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.MapType;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -22,11 +23,11 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.ObjLongConsumer;
 
-import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -34,7 +35,7 @@ public class MapBlockBuilder
         extends AbstractMapBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = instanceSize(MapBlockBuilder.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapBlockBuilder.class).instanceSize());
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;

@@ -33,7 +33,7 @@ properties as appropriate:
 
 .. code-block:: text
 
-    connector.name=trino_thrift
+    connector.name=trino-thrift
     trino.thrift.client.addresses=host:port,host:port
 
 Multiple Thrift systems

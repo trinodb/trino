@@ -30,20 +30,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.MapType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.TimeType;
-import io.trino.spi.type.TimeWithTimeZoneType;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
@@ -71,12 +61,6 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME_MICROS;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
-import static io.trino.spi.type.TinyintType.TINYINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -172,12 +156,11 @@ public abstract class AbstractTrinoCatalog
             SchemaTableName schemaTableName,
             Schema schema,
             PartitionSpec partitionSpec,
-            SortOrder sortOrder,
             String location,
             Map<String, String> properties,
             Optional<String> owner)
     {
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, location, properties);
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, location, properties);
         TableOperations ops = tableOperationsProvider.createTableOperations(
                 this,
                 session,
@@ -218,7 +201,7 @@ public abstract class AbstractTrinoCatalog
         String storageSchema = getStorageSchema(definition.getProperties()).orElse(viewName.getSchemaName());
         SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
         List<ColumnMetadata> columns = definition.getColumns().stream()
-                .map(column -> new ColumnMetadata(column.getName(), typeForMaterializedViewStorageTable(typeManager.getType(column.getType()))))
+                .map(column -> new ColumnMetadata(column.getName(), typeManager.getType(column.getType())))
                 .collect(toImmutableList());
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
@@ -227,61 +210,6 @@ public abstract class AbstractTrinoCatalog
         commit(appendFiles, session);
         transaction.commitTransaction();
         return storageTable;
-    }
-
-    /**
-     * Substitutes type not supported by Iceberg with a type that is supported.
-     * Upon reading from a materialized view, the types will be coerced back to the original ones,
-     * stored in the materialized view definition.
-     */
-    private Type typeForMaterializedViewStorageTable(Type type)
-    {
-        if (type == TINYINT || type == SMALLINT) {
-            return INTEGER;
-        }
-        if (type instanceof CharType) {
-            return VARCHAR;
-        }
-        if (type instanceof TimeType timeType) {
-            // Iceberg supports microsecond precision only
-            return timeType.getPrecision() <= 6
-                    ? TIME_MICROS
-                    : VARCHAR;
-        }
-        if (type instanceof TimeWithTimeZoneType) {
-            return VARCHAR;
-        }
-        if (type instanceof TimestampType timestampType) {
-            // Iceberg supports microsecond precision only
-            return timestampType.getPrecision() <= 6
-                    ? TIMESTAMP_MICROS
-                    : VARCHAR;
-        }
-        if (type instanceof TimestampWithTimeZoneType) {
-            // Iceberg does not store the time zone
-            // TODO allow temporal partitioning on these columns, or MV property to
-            //  drop zone info and use timestamptz directly
-            return VARCHAR;
-        }
-        if (type instanceof ArrayType arrayType) {
-            return new ArrayType(typeForMaterializedViewStorageTable(arrayType.getElementType()));
-        }
-        if (type instanceof MapType mapType) {
-            return new MapType(
-                    typeForMaterializedViewStorageTable(mapType.getKeyType()),
-                    typeForMaterializedViewStorageTable(mapType.getValueType()),
-                    typeManager.getTypeOperators());
-        }
-        if (type instanceof RowType rowType) {
-            return RowType.rowType(
-                    rowType.getFields().stream()
-                            .map(field -> new RowType.Field(field.getName(), typeForMaterializedViewStorageTable(field.getType())))
-                            .toArray(RowType.Field[]::new));
-        }
-
-        // Pass through all the types not explicitly handled above. If a type is not accepted by the connector,
-        // creation of the storage table will fail anyway.
-        return type;
     }
 
     protected ConnectorMaterializedViewDefinition getMaterializedViewDefinition(
@@ -299,7 +227,6 @@ public abstract class AbstractTrinoCatalog
                 definition.getColumns().stream()
                         .map(column -> new ConnectorMaterializedViewDefinition.Column(column.getName(), column.getType()))
                         .collect(toImmutableList()),
-                definition.getGracePeriod(),
                 definition.getComment(),
                 owner,
                 ImmutableMap.<String, Object>builder()

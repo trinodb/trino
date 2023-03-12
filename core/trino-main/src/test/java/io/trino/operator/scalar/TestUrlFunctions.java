@@ -13,35 +13,14 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.sql.query.QueryAssertions;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public class TestUrlFunctions
+        extends AbstractTestFunctions
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
-
-    @AfterAll
-    public void teardown()
-    {
-        assertions.close();
-        assertions = null;
-    }
-
     @Test
     public void testUrlExtract()
     {
@@ -59,43 +38,16 @@ public class TestUrlFunctions
     @Test
     public void testUrlExtractParameter()
     {
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k1')"))
-                .hasType(createVarcharType(53))
-                .isEqualTo("v1");
-
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k2')"))
-                .hasType(createVarcharType(53))
-                .isEqualTo("v2");
-
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k3')"))
-                .hasType(createVarcharType(53))
-                .isEqualTo("");
-
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k4')"))
-                .hasType(createVarcharType(53))
-                .isEqualTo("");
-
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k5')"))
-                .isNull(createVarcharType(53));
-
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k1=v2&k1&k1#Ref1', 'k1')"))
-                .hasType(createVarcharType(53))
-                .isEqualTo("v1");
-
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')"))
-                .hasType(createVarcharType(50))
-                .isEqualTo("");
-
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')"))
-                .hasType(createVarcharType(47))
-                .isEqualTo("a=b=c");
-
-        assertThat(assertions.expression("url_extract_parameter('http://example.com/path1/p.php?k1=a%26k2%3Db&k2=c#Ref1', 'k2')"))
-                .hasType(createVarcharType(54))
-                .isEqualTo("c");
-
-        assertThat(assertions.expression("url_extract_parameter('foo', 'k1')"))
-                .isNull(createVarcharType(3));
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k1')", createVarcharType(53), "v1");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k2')", createVarcharType(53), "v2");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k3')", createVarcharType(53), "");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k4')", createVarcharType(53), "");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k2=v2&k3&k4#Ref1', 'k5')", createVarcharType(53), null);
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=v1&k1=v2&k1&k1#Ref1', 'k1')", createVarcharType(53), "v1");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1&k1=v1&k1&k1#Ref1', 'k1')", createVarcharType(50), "");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k=a=b=c&x=y#Ref1', 'k')", createVarcharType(47), "a=b=c");
+        assertFunction("url_extract_parameter('http://example.com/path1/p.php?k1=a%26k2%3Db&k2=c#Ref1', 'k2')", createVarcharType(54), "c");
+        assertFunction("url_extract_parameter('foo', 'k1')", createVarcharType(3), null);
     }
 
     @Test
@@ -112,14 +64,10 @@ public class TestUrlFunctions
         for (String[] outputInputPair : outputInputPairs) {
             String input = outputInputPair[1];
             String output = outputInputPair[0];
-            assertThat(assertions.function("url_encode", "'" + input + "'"))
-                    .hasType(createVarcharType(input.length() * 12))
-                    .isEqualTo(output);
+            assertFunction("url_encode('" + input + "')", createVarcharType(input.length() * 12), output);
         }
 
-        assertThat(assertions.function("url_encode", "'\uD867\uDE3D'"))
-                .hasType(createVarcharType(12))
-                .isEqualTo("%F0%A9%B8%BD");
+        assertFunction("url_encode('\uD867\uDE3D')", createVarcharType(12), "%F0%A9%B8%BD");
     }
 
     @Test
@@ -136,36 +84,17 @@ public class TestUrlFunctions
         for (String[] inputOutputPair : inputOutputPairs) {
             String input = inputOutputPair[0];
             String output = inputOutputPair[1];
-            assertThat(assertions.function("url_decode", "'" + input + "'"))
-                    .hasType(createVarcharType(input.length()))
-                    .isEqualTo(output);
+            assertFunction("url_decode('" + input + "')", createVarcharType(input.length()), output);
         }
     }
 
     private void validateUrlExtract(String url, String protocol, String host, Long port, String path, String query, String fragment)
     {
-        assertThat(assertions.function("url_extract_protocol", "'" + url + "'"))
-                .hasType(createVarcharType(url.length()))
-                .isEqualTo(protocol);
-
-        assertThat(assertions.function("url_extract_host", "'" + url + "'"))
-                .hasType(createVarcharType(url.length()))
-                .isEqualTo(host);
-
-        assertThat(assertions.function("url_extract_port", "'" + url + "'"))
-                .hasType(BIGINT)
-                .isEqualTo(port);
-
-        assertThat(assertions.function("url_extract_path", "'" + url + "'"))
-                .hasType(createVarcharType(url.length()))
-                .isEqualTo(path);
-
-        assertThat(assertions.function("url_extract_query", "'" + url + "'"))
-                .hasType(createVarcharType(url.length()))
-                .isEqualTo(query);
-
-        assertThat(assertions.function("url_extract_fragment", "'" + url + "'"))
-                .hasType(createVarcharType(url.length()))
-                .isEqualTo(fragment);
+        assertFunction("url_extract_protocol('" + url + "')", createVarcharType(url.length()), protocol);
+        assertFunction("url_extract_host('" + url + "')", createVarcharType(url.length()), host);
+        assertFunction("url_extract_port('" + url + "')", BIGINT, port);
+        assertFunction("url_extract_path('" + url + "')", createVarcharType(url.length()), path);
+        assertFunction("url_extract_query('" + url + "')", createVarcharType(url.length()), query);
+        assertFunction("url_extract_fragment('" + url + "')", createVarcharType(url.length()), fragment);
     }
 }

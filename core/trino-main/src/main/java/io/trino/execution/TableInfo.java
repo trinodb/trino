@@ -16,7 +16,6 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.Session;
-import io.trino.connector.ConnectorName;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -91,7 +90,6 @@ public class TableInfo
         Optional<String> connectorName = metadata.listCatalogs(session).stream()
                 .filter(catalogInfo -> catalogInfo.getCatalogName().equals(tableSchema.getCatalogName()))
                 .map(CatalogInfo::getConnectorName)
-                .map(ConnectorName::toString)
                 .findFirst();
         return new TableInfo(connectorName, tableSchema.getQualifiedName(), tableProperties.getPredicate());
     }

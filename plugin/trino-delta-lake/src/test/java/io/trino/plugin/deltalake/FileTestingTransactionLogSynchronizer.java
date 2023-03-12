@@ -13,17 +13,16 @@
  */
 package io.trino.plugin.deltalake;
 
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
 
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 
 public class FileTestingTransactionLogSynchronizer
         implements TransactionLogSynchronizer
@@ -38,9 +37,8 @@ public class FileTestingTransactionLogSynchronizer
     public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
     {
         try {
-            TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(session);
-            TrinoOutputFile outputFile = fileSystem.newOutputFile(newLogEntryPath.toString());
-            try (OutputStream outputStream = outputFile.createOrOverwrite()) {
+            FileSystem fileSystem = newLogEntryPath.getFileSystem(newEmptyConfiguration());
+            try (FSDataOutputStream outputStream = fileSystem.createFile(newLogEntryPath).build()) {
                 outputStream.write(entryContents);
             }
         }

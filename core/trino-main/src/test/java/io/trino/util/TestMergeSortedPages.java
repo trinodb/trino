@@ -41,8 +41,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -72,7 +71,7 @@ public class TestMergeSortedPages
                 .row(3, 2)
                 .row(4, 1)
                 .build();
-        assertThat(actual).containsExactlyElementsOf(expected);
+        assertEquals(actual, expected);
     }
 
     @Test
@@ -108,7 +107,7 @@ public class TestMergeSortedPages
                 .row(7)
                 .row(8)
                 .build();
-        assertThat(actual).containsExactlyElementsOf(expected);
+        assertEquals(actual, expected);
     }
 
     @Test
@@ -218,7 +217,7 @@ public class TestMergeSortedPages
                 .row(401, 1, 7)
                 .row(402, 1, 6)
                 .build();
-        assertThat(actual).containsExactlyElementsOf(expected);
+        assertEquals(actual, expected);
     }
 
     @Test
@@ -244,7 +243,7 @@ public class TestMergeSortedPages
                                 .build()));
         MaterializedResult expected = resultBuilder(TEST_SESSION, types)
                 .build();
-        assertThat(actual).containsExactlyElementsOf(expected);
+        assertEquals(actual, expected);
     }
 
     @Test
@@ -312,7 +311,7 @@ public class TestMergeSortedPages
                 .row(17.0, "a0", null)
                 .row(16.0, "a1", null)
                 .build();
-        assertThat(actual).containsExactlyElementsOf(expected);
+        assertEquals(actual, expected);
     }
 
     @Test
@@ -343,10 +342,10 @@ public class TestMergeSortedPages
         assertFalse(mergedPages.isFinished());
 
         Page page = mergedPages.getResult();
-        assertThat(toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page)))
-                .containsExactlyElementsOf(resultBuilder(TEST_SESSION, types)
-                        .row(1)
-                        .build());
+        MaterializedResult expected = resultBuilder(TEST_SESSION, types)
+                .row(1)
+                .build();
+        assertEquals(toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page)), expected);
 
         // merge source finished
         assertTrue(mergedPages.process());

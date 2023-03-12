@@ -209,10 +209,8 @@ public class LazyOutputBuffer
         if (outputBuffer == null) {
             synchronized (this) {
                 if (delegate == null) {
-                    if (stateMachine.getState().isTerminal()) {
-                        // only set complete when finished, otherwise
-                        boolean complete = stateMachine.getState() == FINISHED;
-                        return immediateFuture(emptyResults(taskInstanceId, 0, complete));
+                    if (stateMachine.getState() == FINISHED) {
+                        return immediateFuture(emptyResults(taskInstanceId, 0, true));
                     }
 
                     PendingRead pendingRead = new PendingRead(bufferId, token, maxSize);
@@ -312,31 +310,19 @@ public class LazyOutputBuffer
     @Override
     public void abort()
     {
-        List<PendingRead> pendingReads = ImmutableList.of();
         OutputBuffer outputBuffer = delegate;
         if (outputBuffer == null) {
             synchronized (this) {
                 if (delegate == null) {
                     // ignore abort if the buffer already in a terminal state.
-                    if (!stateMachine.abort()) {
-                        return;
-                    }
+                    stateMachine.abort();
 
-                    pendingReads = ImmutableList.copyOf(this.pendingReads);
-                    this.pendingReads.clear();
+                    // Do not free readers on fail
+                    return;
                 }
                 outputBuffer = delegate;
             }
         }
-
-        // if there is no output buffer, send an empty result without buffer completed signaled
-        if (outputBuffer == null) {
-            for (PendingRead pendingRead : pendingReads) {
-                pendingRead.getFutureResult().set(emptyResults(taskInstanceId, 0, false));
-            }
-            return;
-        }
-
         outputBuffer.abort();
     }
 

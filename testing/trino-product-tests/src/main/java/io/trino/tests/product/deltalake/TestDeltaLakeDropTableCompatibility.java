@@ -31,7 +31,6 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.hive.Engine.DELTA;
 import static io.trino.tests.product.hive.Engine.TRINO;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
@@ -130,7 +129,7 @@ public class TestDeltaLakeDropTableCompatibility
             }
         }
         finally {
-            dropDeltaTableWithRetry(schemaName + "." + tableName);
+            onDelta().executeQuery("DROP TABLE IF EXISTS " + schemaName + "." + tableName);
             onDelta().executeQuery("DROP SCHEMA " + schemaName);
         }
     }

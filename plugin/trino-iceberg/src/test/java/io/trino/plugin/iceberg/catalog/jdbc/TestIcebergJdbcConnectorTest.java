@@ -15,23 +15,16 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.plugin.iceberg.BaseIcebergConnectorTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
-import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,8 +32,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestIcebergJdbcConnectorTest
         extends BaseIcebergConnectorTest
 {
-    private File warehouseLocation;
-
     public TestIcebergJdbcConnectorTest()
     {
         super(new IcebergConfig().getFileFormat());
@@ -50,21 +41,14 @@ public class TestIcebergJdbcConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.createTempDirectory("test_iceberg_jdbc_connector_test").toFile();
-        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
         TestingIcebergJdbcServer server = closeAfterClass(new TestingIcebergJdbcServer());
         return IcebergQueryRunner.builder()
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "jdbc")
-                                .put("iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver")
                                 .put("iceberg.jdbc-catalog.connection-url", server.getJdbcUrl())
-                                .put("iceberg.jdbc-catalog.connection-user", USER)
-                                .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                                 .put("iceberg.jdbc-catalog.catalog-name", "tpch")
-                                .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.toPath().resolve("iceberg_data").toFile().getAbsolutePath())
                                 .buildOrThrow())
                 .setInitialTables(ImmutableList.<TpchTable<?>>builder()
                         .addAll(REQUIRED_TPCH_TABLES)
@@ -83,12 +67,6 @@ public class TestIcebergJdbcConnectorTest
                       WITH \\(
                          location = '.*'
                       \\)""");
-    }
-
-    @Override
-    protected boolean isFileSorted(String path, String sortColumnName)
-    {
-        throw new SkipException("Not implemented");
     }
 
     @Override
@@ -198,27 +176,6 @@ public class TestIcebergJdbcConnectorTest
     }
 
     @Override
-    public void testMaterializedViewAllTypes()
-    {
-        assertThatThrownBy(super::testMaterializedViewAllTypes)
-                .hasMessage("createMaterializedView is not supported for Iceberg JDBC catalogs");
-    }
-
-    @Override
-    public void testMaterializedViewGracePeriod()
-    {
-        assertThatThrownBy(super::testMaterializedViewGracePeriod)
-                .hasMessage("createMaterializedView is not supported for Iceberg JDBC catalogs");
-    }
-
-    @Override
-    public void testFederatedMaterializedViewWithGracePeriod()
-    {
-        assertThatThrownBy(super::testFederatedMaterializedViewWithGracePeriod)
-                .hasMessage("createMaterializedView is not supported for Iceberg JDBC catalogs");
-    }
-
-    @Override
     public void testMaterializedViewBaseTableGone(boolean initialized)
     {
         assertThatThrownBy(() -> super.testMaterializedViewBaseTableGone(initialized))
@@ -262,15 +219,6 @@ public class TestIcebergJdbcConnectorTest
     }
 
     @Override
-    public void testDropAmbiguousRowFieldCaseSensitivity()
-    {
-        // TODO https://github.com/trinodb/trino/issues/16273 The connector can't read row types having ambiguous field names in ORC files. e.g. row(X int, x int)
-        assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
-                .hasMessageContaining("Error opening Iceberg split")
-                .hasStackTraceContaining("Multiple entries with same key");
-    }
-
-    @Override
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
         assertThat(e)
@@ -288,6 +236,14 @@ public class TestIcebergJdbcConnectorTest
     protected boolean supportsRowGroupStatistics(String typeName)
     {
         return !typeName.equalsIgnoreCase("varbinary");
+    }
+
+    @Override
+    protected Session withSmallRowGroups(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty("iceberg", "orc_writer_max_stripe_rows", "10")
+                .build();
     }
 
     @Override

@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.transactionlog.writer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
-import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -79,11 +78,6 @@ public class TransactionLogWriter
     public void appendRemoveFileEntry(RemoveFileEntry removeFileEntry)
     {
         entries.add(DeltaLakeTransactionLogEntry.removeFileEntry(removeFileEntry));
-    }
-
-    public void appendCdfFileEntry(CdfFileEntry cdfFileEntry)
-    {
-        entries.add(DeltaLakeTransactionLogEntry.cdfFileEntry(cdfFileEntry));
     }
 
     public boolean isUnsafe()

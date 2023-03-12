@@ -27,35 +27,11 @@ general to most specific.
     provide further information about Trino and the concepts in use.
 
 
-.. _trino-concept-architecture:
-
-Architecture
+Server types
 ------------
 
-Trino is a distributed query engine that processes data in parallel across
-multiple servers. There are two types of Trino servers,
-:ref:`coordinators <trino-concept-coordinator>` and
-:ref:`workers <trino-concept-worker>`. The following sections describe these
-servers and other components of Trino's architecture.
-
-.. _trino-concept-cluster:
-
-Cluster
-^^^^^^^
-
-A Trino cluster consists of a :ref:`coordinator <trino-concept-coordinator>` and
-many :ref:`workers <trino-concept-worker>`. Users connect to the coordinator
-with their :ref:`SQL <glossSQL>` query tool. The coordinator collaborates with the
-workers. The coordinator and the workers access the connected
-:ref:`data sources <trino-concept-data-sources>`. This access is configured in
-:ref:`catalogs <trino-concept-catalog>`.
-
-Processing each query is a stateful operation. The workload is orchestrated by
-the coordinator and spread parallel across all workers in the cluster. Each node
-runs Trino in one JVM instance, and processing is parallelized further using
-threads.
-
-.. _trino-concept-coordinator:
+There are two types of Trino servers: coordinators and workers. The
+following section explains the difference between the two.
 
 Coordinator
 ^^^^^^^^^^^
@@ -76,8 +52,6 @@ Trino workers.
 
 Coordinators communicate with workers and clients using a REST API.
 
-.. _trino-concept-worker:
-
 Worker
 ^^^^^^
 
@@ -93,8 +67,6 @@ for task execution.
 
 Workers communicate with other workers and Trino coordinators
 using a REST API.
-
-.. _trino-concept-data-sources:
 
 Data sources
 ------------
@@ -130,8 +102,6 @@ different instances of a similar database. For example, if you have
 two Hive clusters, you can configure two catalogs in a single Trino
 cluster that both use the Hive connector, allowing you to query data
 from both Hive clusters, even within the same SQL query.
-
-.. _trino-concept-catalog:
 
 Catalog
 ^^^^^^^

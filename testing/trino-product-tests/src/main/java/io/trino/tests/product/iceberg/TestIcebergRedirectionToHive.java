@@ -143,21 +143,6 @@ public class TestIcebergRedirectionToHive
     }
 
     @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
-    public void testRedirectInvalidSystemTable()
-    {
-        String tableName = "hive_invalid_table_" + randomNameSuffix();
-        String hiveTableName = "hive.default." + tableName;
-        String icebergTableName = "iceberg.default." + tableName;
-
-        createHiveTable(hiveTableName, false);
-
-        assertQueryFailure(() -> onTrino().executeQuery("TABLE iceberg.default.\"" + tableName + "$invalid\""))
-                .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Table '" + icebergTableName + "$invalid' redirected to '" + hiveTableName + "$invalid', but the target table '" + hiveTableName + "$invalid' does not exist");
-
-        onTrino().executeQuery("DROP TABLE " + hiveTableName);
-    }
-
-    @Test(groups = {HIVE_ICEBERG_REDIRECTIONS, PROFILE_SPECIFIC_TESTS})
     public void testRedirectPartitionsToPartitioned()
     {
         String tableName = "hive_partitioned_table_" + randomNameSuffix();

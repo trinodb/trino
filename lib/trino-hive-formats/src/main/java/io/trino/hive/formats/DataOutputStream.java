@@ -15,6 +15,7 @@ package io.trino.hive.formats;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.DataOutput;
@@ -28,7 +29,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 
 public final class DataOutputStream
         extends OutputStream
@@ -37,7 +38,7 @@ public final class DataOutputStream
     private static final int DEFAULT_BUFFER_SIZE = 4 * 1024;
     private static final int MINIMUM_CHUNK_SIZE = 1024;
 
-    private static final int INSTANCE_SIZE = instanceSize(DataOutputStream.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DataOutputStream.class).instanceSize());
 
     private final OutputStream outputStream;
 

@@ -67,7 +67,6 @@ public interface QueryDao
             "  failed_input_blocked_time_millis BIGINT NOT NULL,\n" +
             "  output_blocked_time_millis BIGINT NOT NULL,\n" +
             "  failed_output_blocked_time_millis BIGINT NOT NULL,\n" +
-            "  physical_input_read_time_millis BIGINT NOT NULL,\n" +
             "  peak_memory_bytes BIGINT NOT NULL,\n" +
             "  peak_task_memory_bytes BIGINT NOT NULL,\n" +
             "  physical_input_bytes BIGINT NOT NULL,\n" +
@@ -83,10 +82,8 @@ public interface QueryDao
             "  cumulative_memory DOUBLE NOT NULL,\n" +
             "  failed_cumulative_memory DOUBLE NOT NULL,\n" +
             "  completed_splits BIGINT NOT NULL,\n" +
-            "  retry_policy VARCHAR(255) NOT NULL,\n" +
-            "  operator_summaries_json MEDIUMTEXT NOT NULL\n" +
-            ")\n" +
-            "DEFAULT CHARACTER SET utf8")
+            "  retry_policy VARCHAR(255) NOT NULL\n" +
+            ")")
     void createTable();
 
     @SqlUpdate("INSERT INTO trino_queries (\n" +
@@ -138,7 +135,6 @@ public interface QueryDao
             "  failed_input_blocked_time_millis,\n" +
             "  output_blocked_time_millis,\n" +
             "  failed_output_blocked_time_millis,\n" +
-            "  physical_input_read_time_millis,\n" +
             "  peak_memory_bytes,\n" +
             "  peak_task_memory_bytes,\n" +
             "  physical_input_bytes,\n" +
@@ -154,8 +150,7 @@ public interface QueryDao
             "  cumulative_memory,\n" +
             "  failed_cumulative_memory,\n" +
             "  completed_splits,\n" +
-            "  retry_policy,\n" +
-            "  operator_summaries_json\n" +
+            "  retry_policy\n" +
             ")\n" +
             "VALUES (\n" +
             " :queryId,\n" +
@@ -206,7 +201,6 @@ public interface QueryDao
             " :failedInputBlockedTimeMillis,\n" +
             " :outputBlockedTimeMillis,\n" +
             " :failedOutputBlockedTimeMillis,\n" +
-            " :physicalInputReadTimeMillis,\n" +
             " :peakMemoryBytes,\n" +
             " :peakTaskMemoryBytes,\n" +
             " :physicalInputBytes,\n" +
@@ -222,8 +216,7 @@ public interface QueryDao
             " :cumulativeMemory,\n" +
             " :failedCumulativeMemory,\n" +
             " :completedSplits,\n" +
-            " :retryPolicy,\n" +
-            " :operatorSummariesJson\n" +
+            " :retryPolicy\n" +
             ")")
     void store(@BindBean QueryEntity entity);
 }

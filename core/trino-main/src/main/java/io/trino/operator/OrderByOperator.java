@@ -157,7 +157,7 @@ public class OrderByOperator
 
     private Optional<Spiller> spiller = Optional.empty();
     private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
-    private Optional<Runnable> finishMemoryRevoke = Optional.empty();
+    private Runnable finishMemoryRevoke = () -> {};
 
     private Iterator<Optional<Page>> sortedPages;
 
@@ -205,9 +205,6 @@ public class OrderByOperator
             return;
         }
         checkSuccess(spillInProgress, "spilling failed");
-        if (finishMemoryRevoke.isPresent()) {
-            return;
-        }
 
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
@@ -223,8 +220,7 @@ public class OrderByOperator
                     // spill since revocable memory could not be converted to user memory immediately
                     // TODO: this should be asynchronous
                     getFutureValue(spillToDisk());
-                    finishMemoryRevoke.orElseThrow().run();
-                    finishMemoryRevoke = Optional.empty();
+                    finishMemoryRevoke.run();
                 }
             }
 
@@ -306,7 +302,7 @@ public class OrderByOperator
 
         if (revocableMemoryContext.getBytes() == 0) {
             verify(pageIndex.getPositionCount() == 0 || state == State.HAS_OUTPUT);
-            finishMemoryRevoke = Optional.of(() -> {});
+            finishMemoryRevoke = () -> {};
             return immediateVoidFuture();
         }
 
@@ -321,10 +317,10 @@ public class OrderByOperator
 
         pageIndex.sort(sortChannels, sortOrder);
         spillInProgress = spiller.get().spill(pageIndex.getSortedPages());
-        finishMemoryRevoke = Optional.of(() -> {
+        finishMemoryRevoke = () -> {
             pageIndex.clear();
             updateMemoryUsage();
-        });
+        };
 
         return spillInProgress;
     }
@@ -332,8 +328,8 @@ public class OrderByOperator
     @Override
     public void finishMemoryRevoke()
     {
-        finishMemoryRevoke.orElseThrow().run();
-        finishMemoryRevoke = Optional.empty();
+        finishMemoryRevoke.run();
+        finishMemoryRevoke = () -> {};
     }
 
     private List<WorkProcessor<Page>> getSpilledPages()

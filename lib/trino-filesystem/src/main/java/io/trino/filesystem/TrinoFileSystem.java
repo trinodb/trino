@@ -13,33 +13,39 @@
  */
 package io.trino.filesystem;
 
+import org.apache.iceberg.io.FileIO;
+
 import java.io.IOException;
 import java.util.Collection;
 
 public interface TrinoFileSystem
 {
-    TrinoInputFile newInputFile(String location);
+    TrinoInputFile newInputFile(String path);
 
-    TrinoInputFile newInputFile(String location, long length);
+    TrinoInputFile newInputFile(String path, long length);
 
-    TrinoOutputFile newOutputFile(String location);
+    TrinoOutputFile newOutputFile(String path);
 
-    void deleteFile(String location)
+    void deleteFile(String path)
             throws IOException;
 
     /**
-     * Delete files in batches, possibly non-atomically.
-     * If an error occurs, some files may have been deleted.
+     * Delete paths in batches, it is not guaranteed to be atomic.
+     *
+     * @param paths collection of paths to be deleted
+     * @throws IOException when there is a problem with deletion of one or more specific paths
      */
-    void deleteFiles(Collection<String> locations)
+    void deleteFiles(Collection<String> paths)
             throws IOException;
 
-    void deleteDirectory(String location)
+    void deleteDirectory(String path)
             throws IOException;
 
     void renameFile(String source, String target)
             throws IOException;
 
-    FileIterator listFiles(String location)
+    FileIterator listFiles(String path)
             throws IOException;
+
+    FileIO toFileIo();
 }

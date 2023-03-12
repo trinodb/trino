@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
@@ -21,6 +20,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;

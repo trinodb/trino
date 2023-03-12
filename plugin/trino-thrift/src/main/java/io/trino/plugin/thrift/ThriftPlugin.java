@@ -30,7 +30,7 @@ public class ThriftPlugin
 
     public ThriftPlugin()
     {
-        this("trino_thrift", new ThriftClientModule());
+        this("trino-thrift", new ThriftClientModule());
     }
 
     public ThriftPlugin(String name, Module module)

@@ -17,19 +17,20 @@ import io.airlift.slice.OutputStreamSliceOutput;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.stream.OrcDataOutput;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 
-import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class OutputStreamOrcDataSink
         implements OrcDataSink
 {
-    private static final int INSTANCE_SIZE = instanceSize(OutputStreamOrcDataSink.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OutputStreamOrcDataSink.class).instanceSize());
 
     private final OutputStreamSliceOutput output;
     private final AggregatedMemoryContext memoryContext;
@@ -47,10 +48,12 @@ public class OutputStreamOrcDataSink
     public static OutputStreamOrcDataSink create(OutputStream outputStream)
             throws IOException
     {
-        return new OutputStreamOrcDataSink(outputStream, newSimpleAggregatedMemoryContext());
+        AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
+        return new OutputStreamOrcDataSink(outputStream, memoryContext);
     }
 
     private OutputStreamOrcDataSink(OutputStream outputStream, AggregatedMemoryContext memoryContext)
+            throws IOException
     {
         this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");

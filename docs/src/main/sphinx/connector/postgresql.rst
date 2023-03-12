@@ -346,7 +346,7 @@ where running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-As a simple example, query the ``example`` catalog and select an entire table::
+As a simple example, to select an entire table::
 
     SELECT
       *

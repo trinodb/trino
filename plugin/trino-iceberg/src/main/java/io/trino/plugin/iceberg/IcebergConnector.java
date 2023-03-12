@@ -40,7 +40,6 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.immutableEnumSet;
-import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -101,9 +100,7 @@ public class IcebergConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return immutableEnumSet(
-                NOT_NULL_COLUMN_CONSTRAINT,
-                MATERIALIZED_VIEW_GRACE_PERIOD);
+        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
     }
 
     @Override

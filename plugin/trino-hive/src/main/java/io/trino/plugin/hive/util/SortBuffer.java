@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,13 +31,13 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.addExact;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SortBuffer
 {
-    private static final int INSTANCE_SIZE = instanceSize(SortBuffer.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortBuffer.class).instanceSize());
 
     private final long maxMemoryBytes;
     private final List<Type> types;

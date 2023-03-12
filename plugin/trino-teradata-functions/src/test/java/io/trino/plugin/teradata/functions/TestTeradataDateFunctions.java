@@ -13,203 +13,150 @@
  */
 package io.trino.plugin.teradata.functions;
 
+import io.trino.Session;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.SqlDate;
-import io.trino.sql.query.QueryAssertions;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import io.trino.spi.type.TimestampType;
+import org.joda.time.DateTime;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.toIntExact;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public class TestTeradataDateFunctions
+        extends AbstractTestFunctions
 {
-    private QueryAssertions assertions;
+    private static final Session SESSION = testSessionBuilder()
+            .setCatalog("catalog")
+            .setSchema("schema")
+            .build();
 
-    @BeforeAll
-    public void init()
+    protected TestTeradataDateFunctions()
     {
-        assertions = new QueryAssertions(testSessionBuilder()
-                .setCatalog("catalog")
-                .setSchema("schema")
-                .build());
-        assertions.addPlugin(new TeradataFunctionsPlugin());
+        super(SESSION);
     }
 
-    @AfterAll
-    public void teardown()
+    @BeforeClass
+    public void setUp()
     {
-        assertions.close();
-        assertions = null;
+        functionAssertions.installPlugin(new TeradataFunctionsPlugin());
     }
 
     @Test
     public void testMinimalToDate()
     {
-        assertThat(assertions.function("to_date", "'1988/04/08'", "'yyyy/mm/dd'"))
-                .hasType(DateType.DATE)
-                .isEqualTo(new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
-
-        assertThat(assertions.function("to_date", "'04-08-1988'", "'mm-dd-yyyy'"))
-                .hasType(DateType.DATE)
-                .isEqualTo(new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
-
-        assertThat(assertions.function("to_date", "'04.1988,08'", "'mm.yyyy,dd'"))
-                .hasType(DateType.DATE)
-                .isEqualTo(new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
-
-        assertThat(assertions.function("to_date", "';198804:08'", "';yyyymm:dd'"))
-                .hasType(DateType.DATE)
-                .isEqualTo(new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
+        assertDate("to_date('1988/04/08','yyyy/mm/dd')", 1988, 4, 8);
+        assertDate("to_date('04-08-1988','mm-dd-yyyy')", 1988, 4, 8);
+        assertDate("to_date('04.1988,08','mm.yyyy,dd')", 1988, 4, 8);
+        assertDate("to_date(';198804:08',';yyyymm:dd')", 1988, 4, 8);
     }
 
     @Test
     public void testMinimalToTimestamp()
     {
-        assertThat(assertions.function("to_timestamp", "'1988/04/08'", "'yyyy/mm/dd'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 0, 0, 0, 0));
+        assertTimestamp("to_timestamp('1988/04/08','yyyy/mm/dd')", 1988, 4, 8, 0, 0, 0);
+        assertTimestamp("to_timestamp('04-08-1988','mm-dd-yyyy')", 1988, 4, 8, 0, 0, 0);
+        assertTimestamp("to_timestamp('04.1988,08','mm.yyyy,dd')", 1988, 4, 8, 0, 0, 0);
+        assertTimestamp("to_timestamp(';198804:08',';yyyymm:dd')", 1988, 4, 8, 0, 0, 0);
 
-        assertThat(assertions.function("to_timestamp", "'04-08-1988'", "'mm-dd-yyyy'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 0, 0, 0, 0));
+        assertTimestamp("to_timestamp('1988/04/08 2','yyyy/mm/dd hh')", 1988, 4, 8, 2, 0, 0);
 
-        assertThat(assertions.function("to_timestamp", "'04.1988,08'", "'mm.yyyy,dd'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 0, 0, 0, 0));
+        assertTimestamp("to_timestamp('1988/04/08 14','yyyy/mm/dd hh24')", 1988, 4, 8, 14, 0, 0);
+        assertTimestamp("to_timestamp('1988/04/08 14:15','yyyy/mm/dd hh24:mi')", 1988, 4, 8, 14, 15, 0);
+        assertTimestamp("to_timestamp('1988/04/08 14:15:16','yyyy/mm/dd hh24:mi:ss')", 1988, 4, 8, 14, 15, 16);
 
-        assertThat(assertions.function("to_timestamp", "';198804:08'", "';yyyymm:dd'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 0, 0, 0, 0));
-
-        assertThat(assertions.function("to_timestamp", "'1988/04/08 2'", "'yyyy/mm/dd hh'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 2, 0, 0, 0));
-
-        assertThat(assertions.function("to_timestamp", "'1988/04/08 14'", "'yyyy/mm/dd hh24'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 14, 0, 0, 0));
-
-        assertThat(assertions.function("to_timestamp", "'1988/04/08 14:15'", "'yyyy/mm/dd hh24:mi'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 14, 15, 0, 0));
-
-        assertThat(assertions.function("to_timestamp", "'1988/04/08 14:15:16'", "'yyyy/mm/dd hh24:mi:ss'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 14, 15, 16, 0));
-
-        assertThat(assertions.function("to_timestamp", "'1988/04/08 2:3:4'", "'yyyy/mm/dd hh24:mi:ss'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 2, 3, 4, 0));
-
-        assertThat(assertions.function("to_timestamp", "'1988/04/08 02:03:04'", "'yyyy/mm/dd hh24:mi:ss'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 1988, 4, 8, 2, 3, 4, 0));
+        assertTimestamp("to_timestamp('1988/04/08 2:3:4','yyyy/mm/dd hh24:mi:ss')", 1988, 4, 8, 2, 3, 4);
+        assertTimestamp("to_timestamp('1988/04/08 02:03:04','yyyy/mm/dd hh24:mi:ss')", 1988, 4, 8, 2, 3, 4);
     }
 
     @Test
     public void testMinimalToChar()
     {
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 14:15:16");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 14:15:16 +02:09','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 14:15:16");
 
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04'", "'yyyy/mm/dd hh24:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
+        assertVarchar("to_char(DATE '1988-04-08','yyyy/mm/dd hh24:mi:ss')", "1988/04/08 00:00:00");
 
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 14:15:16'", "'yyyy/mm/dd hh24:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 14:15:16");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 14:15:16 +02:09'", "'yyyy/mm/dd hh24:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 14:15:16");
-
-        assertThat(assertions.function("to_char", "DATE '1988-04-08'", "'yyyy/mm/dd hh24:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 00:00:00");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.0'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.00'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.0000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.00000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.000000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.0000000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.00000000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.000000000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.0000000000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.00000000000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
-
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 02:03:04.000000000000'", "'yyyy/mm/dd hh:mi:ss'"))
-                .hasType(VARCHAR)
-                .isEqualTo("1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.0000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.00000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08 02:03:04.000000000000','yyyy/mm/dd hh:mi:ss')", "1988/04/08 02:03:04");
     }
 
     @Test
     public void testYY()
     {
-        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08'", "'yy'"))
-                .hasType(VARCHAR)
-                .isEqualTo("88");
+        assertVarchar("to_char(TIMESTAMP '1988-04-08','yy')", "88");
+        assertTimestamp("to_timestamp('88/04/08','yy/mm/dd')", 2088, 4, 8, 0, 0, 0);
+        assertDate("to_date('88/04/08','yy/mm/dd')", 2088, 4, 8);
+    }
 
-        assertThat(assertions.function("to_timestamp", "'88/04/08'", "'yy/mm/dd'"))
-                .hasType(TIMESTAMP_MILLIS)
-                .isEqualTo(sqlTimestampOf(3, 2088, 4, 8, 0, 0, 0, 0));
+    // TODO: implement this feature SWARM-355
+    @Test(enabled = false)
+    public void testDefaultValues()
+    {
+        DateTime current = new DateTime();
+        assertDate("to_date('1988','yyyy')", 1988, current.getMonthOfYear(), 1);
+        assertDate("to_date('04','mm')", current.getYear(), 4, 1);
+        assertDate("to_date('8','dd')", current.getYear(), current.getMonthOfYear(), 8);
+    }
 
-        assertThat(assertions.function("to_date", "'88/04/08'", "'yy/mm/dd'"))
-                .hasType(DateType.DATE)
-                .isEqualTo(new SqlDate(toIntExact(LocalDate.of(2088, 4, 8).toEpochDay())));
+    // TODO: implement this feature SWARM-354
+    @Test(enabled = false)
+    public void testCaseInsensitive()
+    {
+        assertDate("to_date('1988/04/08','YYYY/MM/DD')", 1988, 4, 8);
+        assertDate("to_date('1988/04/08','yYYy/mM/Dd')", 1988, 4, 8);
     }
 
     @Test
     public void testWhitespace()
     {
-        assertThat(assertions.expression("to_date('8 04 1988','dd mm yyyy')"))
-                .hasType(DateType.DATE)
-                .isEqualTo(new SqlDate(toIntExact(LocalDate.of(1988, 4, 8).toEpochDay())));
+        assertDate("to_date('8 04 1988','dd mm yyyy')", 1988, 4, 8);
+    }
+
+    // TODO: implement this feature SWARM-353
+    @Test(enabled = false)
+    public void testEscapedText()
+    {
+        assertDate("to_date('1988-04-08 TEXT','yyyy-mm-dd \"TEXT\"')", 1988, 4, 8);
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private void assertTimestamp(String projection, int year, int month, int day, int hour, int minutes, int seconds)
+    {
+        assertFunction(
+                projection,
+                TimestampType.TIMESTAMP_MILLIS,
+                sqlTimestampOf(3, year, month, day, hour, minutes, seconds, 0));
+    }
+
+    private void assertDate(String projection, int year, int month, int day)
+    {
+        assertFunction(
+                projection,
+                DateType.DATE,
+                new SqlDate(toIntExact(LocalDate.of(year, month, day).toEpochDay())));
+    }
+
+    private void assertVarchar(String projection, String expected)
+    {
+        assertFunction(projection, VARCHAR, expected);
     }
 }

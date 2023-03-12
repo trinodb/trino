@@ -71,7 +71,6 @@ public class CatalogAccessControlRule
 
     public enum AccessMode
     {
-        OWNER("owner"),
         ALL("all"),
         READ_ONLY("read-only"),
         NONE("none");
@@ -113,9 +112,6 @@ public class CatalogAccessControlRule
 
         boolean implies(AccessMode other)
         {
-            if (this == OWNER && (other == ALL || other == READ_ONLY)) {
-                return true;
-            }
             if (this == ALL && other == READ_ONLY) {
                 return true;
             }

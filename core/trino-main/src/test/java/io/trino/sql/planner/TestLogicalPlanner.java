@@ -31,11 +31,8 @@ import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
-import io.trino.sql.planner.iterative.IterativeOptimizer;
-import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
-import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -823,15 +820,15 @@ public class TestLogicalPlanner
                 "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation) n ON NULL",
                 CREATED,
                 anyTree(
-                        correlatedJoin(
-                                List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
-                                "CAST(null AS boolean)",
-                                tableScan("region", Map.of(
-                                        "r_row_number", "row_number",
-                                        "r_regionkey", "regionkey",
-                                        "r_name", "name",
-                                        "r_comment", "comment")),
-                                anyTree(tableScan("nation")))));
+                    correlatedJoin(
+                            List.of("r_row_number", "r_regionkey", "r_name", "r_comment"),
+                            "CAST(null AS boolean)",
+                            tableScan("region", Map.of(
+                                    "r_row_number", "row_number",
+                                    "r_regionkey", "regionkey",
+                                    "r_name", "name",
+                                    "r_comment", "comment")),
+                            anyTree(tableScan("nation")))));
         assertPlan(
                 "SELECT regionkey, n.name FROM region LEFT JOIN LATERAL (SELECT name FROM nation) n ON NULL",
                 any(
@@ -1033,24 +1030,7 @@ public class TestLogicalPlanner
                                                 project(
                                                         any(
                                                                 tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
-                optimizer -> !
-                        (optimizer instanceof AddLocalExchanges
-                                || optimizer instanceof CheckSubqueryNodesAreRewritten
-                                || isPushPredicateIntoTableScanWithPrunePredicateOperation(optimizer)));
-    }
-
-    private boolean isPushPredicateIntoTableScanWithPrunePredicateOperation(PlanOptimizer optimizer)
-    {
-        if (optimizer instanceof IterativeOptimizer iterativeOptimizer) {
-            return iterativeOptimizer.getRules().stream().anyMatch(rule -> {
-                if (rule instanceof PushPredicateIntoTableScan pushPredicateIntoTableScan) {
-                    return pushPredicateIntoTableScan.getPruneWithPredicateExpression();
-                }
-                return false;
-            });
-        }
-
-        return false;
+                optimizer -> !(optimizer instanceof AddLocalExchanges || optimizer instanceof CheckSubqueryNodesAreRewritten));
     }
 
     @Test
@@ -2319,14 +2299,6 @@ public class TestLogicalPlanner
                                 ImmutableList.of(new LongLiteral("1"), new LongLiteral("3")),
                                 ImmutableList.of(new LongLiteral("2"), new LongLiteral("6")),
                                 ImmutableList.of(new LongLiteral("3"), new LongLiteral("9"))))));
-    }
-
-    @Test
-    public void testPruneWindow()
-    {
-        assertPlan("SELECT count() OVER() c FROM (SELECT 1 WHERE false)",
-                output(
-                        values("c")));
     }
 
     private Session noJoinReordering()

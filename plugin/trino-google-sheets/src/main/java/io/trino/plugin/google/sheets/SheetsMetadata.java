@@ -18,16 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.connector.TableFunctionApplicationResult;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
+import io.trino.spi.connector.TableNotFoundException;
 
 import javax.inject.Inject;
 
@@ -37,9 +34,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.google.sheets.SheetsConnectorTableHandle.tableNotFound;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
-import static io.trino.plugin.google.sheets.ptf.Sheet.SheetFunctionHandle;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsMetadata
@@ -66,7 +61,7 @@ public class SheetsMetadata
     }
 
     @Override
-    public SheetsNamedTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public SheetsTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
         if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
@@ -78,24 +73,23 @@ public class SheetsMetadata
             return null;
         }
 
-        return new SheetsNamedTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new SheetsTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        SheetsConnectorTableHandle tableHandle = (SheetsConnectorTableHandle) table;
-        SheetsTable sheetsTable = sheetsClient.getTable(tableHandle)
-                .orElseThrow(() -> new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Metadata not found for table " + tableNotFound(tableHandle)));
-        return new ConnectorTableMetadata(getSchemaTableName(tableHandle), sheetsTable.getColumnsMetadata());
+        SheetsTableHandle tableHandle = (SheetsTableHandle) table;
+        return getTableMetadata(tableHandle.toSchemaTableName())
+                .orElseThrow(() -> new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Metadata not found for table " + tableHandle.getTableName()));
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        SheetsConnectorTableHandle sheetsTableHandle = (SheetsConnectorTableHandle) tableHandle;
-        SheetsTable table = sheetsClient.getTable(sheetsTableHandle)
-                .orElseThrow(() -> tableNotFound(sheetsTableHandle));
+        SheetsTableHandle sheetsTableHandle = (SheetsTableHandle) tableHandle;
+        SheetsTable table = sheetsClient.getTable(sheetsTableHandle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(sheetsTableHandle.toSchemaTableName()));
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
@@ -150,35 +144,5 @@ public class SheetsMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         return ((SheetsColumnHandle) columnHandle).getColumnMetadata();
-    }
-
-    @Override
-    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
-    {
-        if (!(handle instanceof SheetFunctionHandle)) {
-            return Optional.empty();
-        }
-
-        ConnectorTableHandle tableHandle = ((SheetFunctionHandle) handle).getTableHandle();
-        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
-        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
-        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
-                .map(ColumnSchema::getName)
-                .map(columnHandlesByName::get)
-                .collect(toImmutableList());
-
-        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
-    }
-
-    private static SchemaTableName getSchemaTableName(SheetsConnectorTableHandle handle)
-    {
-        if (handle instanceof SheetsNamedTableHandle namedTableHandle) {
-            return new SchemaTableName(namedTableHandle.getSchemaName(), namedTableHandle.getTableName());
-        }
-        if (handle instanceof SheetsSheetTableHandle) {
-            // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
-            return new SchemaTableName("_generated", "_generated");
-        }
-        throw new IllegalStateException("Found unexpected table handle type " + handle);
     }
 }

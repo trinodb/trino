@@ -23,6 +23,7 @@ import io.trino.server.ServerConfig;
 import javax.inject.Inject;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.connector.CatalogStore.NO_STORED_CATALOGS;
 
 public class DynamicCatalogManagerModule
         extends AbstractConfigurationAwareModule
@@ -34,18 +35,15 @@ public class DynamicCatalogManagerModule
             binder.bind(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             CatalogStoreConfig config = buildConfigObject(CatalogStoreConfig.class);
             switch (config.getCatalogStoreKind()) {
-                case MEMORY -> binder.bind(CatalogStore.class).to(InMemoryCatalogStore.class).in(Scopes.SINGLETON);
+                case NONE -> binder.bind(CatalogStore.class).toInstance(NO_STORED_CATALOGS);
                 case FILE -> {
-                    configBinder(binder).bindConfig(FileCatalogStoreConfig.class);
+                    configBinder(binder).bindConfig(StaticCatalogManagerConfig.class);
                     binder.bind(CatalogStore.class).to(FileCatalogStore.class).in(Scopes.SINGLETON);
                 }
             }
             binder.bind(ConnectorServicesProvider.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CatalogManager.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CoordinatorLazyRegister.class).asEagerSingleton();
-
-            configBinder(binder).bindConfig(CatalogPruneTaskConfig.class);
-            binder.bind(CatalogPruneTask.class).in(Scopes.SINGLETON);
         }
         else {
             binder.bind(WorkerDynamicCatalogManager.class).in(Scopes.SINGLETON);

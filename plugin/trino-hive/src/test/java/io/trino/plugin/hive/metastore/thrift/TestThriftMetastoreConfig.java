@@ -50,7 +50,6 @@ public class TestThriftMetastoreConfig
                 .setTruststorePath(null)
                 .setTruststorePassword(null)
                 .setImpersonationEnabled(false)
-                .setUseSparkTableStatisticsFallback(true)
                 .setDelegationTokenCacheTtl(new Duration(1, HOURS))
                 .setDelegationTokenCacheMaximumSize(1000)
                 .setDeleteFilesOnDrop(false)
@@ -86,7 +85,6 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.txn-lock-max-wait", "5m")
                 .put("hive.metastore.thrift.write-statistics-threads", "10")
                 .put("hive.metastore.thrift.assume-canonical-partition-keys", "true")
-                .put("hive.metastore.thrift.use-spark-table-statistics-fallback", "false")
                 .buildOrThrow();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
@@ -108,8 +106,7 @@ public class TestThriftMetastoreConfig
                 .setDeleteFilesOnDrop(true)
                 .setMaxWaitForTransactionLock(new Duration(5, MINUTES))
                 .setAssumeCanonicalPartitionKeys(true)
-                .setWriteStatisticsThreads(10)
-                .setUseSparkTableStatisticsFallback(false);
+                .setWriteStatisticsThreads(10);
 
         assertFullMapping(properties, expected);
     }

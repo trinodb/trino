@@ -45,7 +45,6 @@ import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_91_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -128,7 +127,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -188,7 +187,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -256,7 +255,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -341,7 +340,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -406,7 +405,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
         }
         finally {
             // cleanup
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -415,7 +414,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     public void testTrinoWriteStatsAsJsonDisabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_disabled_trino_" + randomNameSuffix();
-        testWriteStatsAsJsonDisabled(sql -> onTrino().executeQuery(sql), tableName, "delta.default." + tableName, 3.0, 1.0);
+        testWriteStatsAsJsonDisabled(sql -> onTrino().executeQuery(sql), tableName, "delta.default." + tableName);
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
@@ -423,10 +422,10 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     public void testDatabricksWriteStatsAsJsonDisabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_disabled_databricks_" + randomNameSuffix();
-        testWriteStatsAsJsonDisabled(sql -> onDelta().executeQuery(sql), tableName, "default." + tableName, null, null);
+        testWriteStatsAsJsonDisabled(sql -> onDelta().executeQuery(sql), tableName, "default." + tableName);
     }
 
-    private void testWriteStatsAsJsonDisabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName, Double dataSize, Double distinctValues)
+    private void testWriteStatsAsJsonDisabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName)
     {
         onDelta().executeQuery(format(
                 "CREATE TABLE default.%s" +
@@ -445,11 +444,11 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
                             row("a_number", null, 1.0, 0.0, null, null, null),
-                            row("a_string", dataSize, distinctValues, 0.0, null, null, null),
+                            row("a_string", null, null, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -493,16 +492,16 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
                             row(null, null, null, null, null, null, null)));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS}, dataProvider = "testTrinoCheckpointWriteStatsAsJson")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testTrinoWriteStatsAsJsonEnabled(String type, String inputValue, Double dataSize, Double distinctValues, Double nullsFraction, Object statsValue)
+    public void testTrinoWriteStatsAsJsonEnabled(String type, String inputValue, Double nullsFraction, Object statsValue)
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_enabled_trino_" + randomNameSuffix();
-        testWriteStatsAsJsonEnabled(sql -> onTrino().executeQuery(sql), tableName, "delta.default." + tableName, type, inputValue, dataSize, distinctValues, nullsFraction, statsValue);
+        testWriteStatsAsJsonEnabled(sql -> onTrino().executeQuery(sql), tableName, "delta.default." + tableName, type, inputValue, nullsFraction, statsValue);
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS}, dataProvider = "testDeltaCheckpointWriteStatsAsJson")
@@ -510,10 +509,10 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     public void testDatabricksWriteStatsAsJsonEnabled(String type, String inputValue, Double nullsFraction, Object statsValue)
     {
         String tableName = "test_dl_checkpoints_write_stats_as_json_enabled_databricks_" + randomNameSuffix();
-        testWriteStatsAsJsonEnabled(sql -> onDelta().executeQuery(sql), tableName, "default." + tableName, type, inputValue, null, null, nullsFraction, statsValue);
+        testWriteStatsAsJsonEnabled(sql -> onDelta().executeQuery(sql), tableName, "default." + tableName, type, inputValue, nullsFraction, statsValue);
     }
 
-    private void testWriteStatsAsJsonEnabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName, String type, String inputValue, Double dataSize, Double distinctValues, Double nullsFraction, Object statsValue)
+    private void testWriteStatsAsJsonEnabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName, String type, String inputValue, Double nullsFraction, Object statsValue)
     {
         String createTableSql = format(
                 "CREATE TABLE default.%s" +
@@ -547,11 +546,11 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
 
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
-                            row("col", dataSize, distinctValues, nullsFraction, null, statsValue, statsValue),
+                            row("col", null, null, nullsFraction, null, statsValue, statsValue),
                             row(null, null, null, null, 3.0, null, null)));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -559,22 +558,22 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     public Object[][] testTrinoCheckpointWriteStatsAsJson()
     {
         return new Object[][] {
-                {"boolean", "true", null, 1.0, 0.0, null},
-                {"integer", "1", null, 1.0, 0.0, "1"},
-                {"tinyint", "2", null, 1.0, 0.0, "2"},
-                {"smallint", "3", null, 1.0, 0.0, "3"},
-                {"bigint", "1000", null, 1.0, 0.0, "1000"},
-                {"real", "0.1", null, 1.0, 0.0, "0.1"},
-                {"double", "1.0", null, 1.0, 0.0, "1.0"},
-                {"decimal(3,2)", "3.14", null, 1.0, 0.0, "3.14"},
-                {"decimal(30,1)", "12345", null, 1.0, 0.0, "12345.0"},
-                {"string", "'test'", 12.0, 1.0, 0.0, null},
-                {"binary", "X'65683F'", 9.0, 1.0, 0.0, null},
-                {"date", "date '2021-02-03'", null, 1.0, 0.0, "2021-02-03"},
-                {"timestamp", "timestamp '2001-08-22 11:04:05.321 UTC'", null, 1.0, 0.0, "2001-08-22 11:04:05.321 UTC"},
-                {"array<int>", "array[1]", null, null, null, null},
-                {"map<string,int>", "map(array['key1', 'key2'], array[1, 2])", null, null, null, null},
-                {"struct<x bigint>", "cast(row(1) as row(x bigint))", null, null, null, null},
+                {"boolean", "true", 0.0, null},
+                {"integer", "1", 0.0, "1"},
+                {"tinyint", "2", 0.0, "2"},
+                {"smallint", "3", 0.0, "3"},
+                {"bigint", "1000", 0.0, "1000"},
+                {"real", "0.1", 0.0, "0.1"},
+                {"double", "1.0", 0.0, "1.0"},
+                {"decimal(3,2)", "3.14", 0.0, "3.14"},
+                {"decimal(30,1)", "12345", 0.0, "12345.0"},
+                {"string", "'test'", 0.0, null},
+                {"binary", "X'65683F'", 0.0, null},
+                {"date", "date '2021-02-03'", 0.0, "2021-02-03"},
+                {"timestamp", "timestamp '2001-08-22 11:04:05.321 UTC'", 0.0, "2001-08-22 11:04:05.321 UTC"},
+                {"array<int>", "array[1]", null, null},
+                {"map<string,int>", "map(array['key1', 'key2'], array[1, 2])", null, null},
+                {"struct<x bigint>", "cast(row(1) as row(x bigint))", null, null},
         };
     }
 
@@ -606,7 +605,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     public void testTrinoWriteStatsAsStructEnabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_struct_enabled_trino_" + randomNameSuffix();
-        testWriteStatsAsStructEnabled(sql -> onTrino().executeQuery(sql), tableName, "delta.default." + tableName, 3.0, 1.0);
+        testWriteStatsAsStructEnabled(sql -> onTrino().executeQuery(sql), tableName, "delta.default." + tableName);
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
@@ -614,10 +613,10 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     public void testDatabricksWriteStatsAsStructEnabled()
     {
         String tableName = "test_dl_checkpoints_write_stats_as_struct_enabled_databricks_" + randomNameSuffix();
-        testWriteStatsAsStructEnabled(sql -> onDelta().executeQuery(sql), tableName, "default." + tableName, null, null);
+        testWriteStatsAsStructEnabled(sql -> onDelta().executeQuery(sql), tableName, "default." + tableName);
     }
 
-    private void testWriteStatsAsStructEnabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName, Double dataSize, Double distinctValues)
+    private void testWriteStatsAsStructEnabled(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName)
     {
         onDelta().executeQuery(format(
                 "CREATE TABLE default.%s" +
@@ -637,11 +636,11 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
                             row("a_number", null, 1.0, 0.0, null, null, null),
-                            row("a_string", dataSize, distinctValues, 0.0, null, null, null),
+                            row("a_string", null, null, 0.0, null, null, null),
                             row(null, null, null, null, 1.0, null, null)));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 

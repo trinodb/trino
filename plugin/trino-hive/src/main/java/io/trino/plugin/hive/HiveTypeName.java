@@ -15,16 +15,17 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTypeName
 {
-    private static final int INSTANCE_SIZE = instanceSize(HiveTypeName.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HiveTypeName.class).instanceSize() + ClassLayout.parseClass(String.class).instanceSize());
 
     private final String value;
 

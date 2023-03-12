@@ -24,6 +24,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,15 +32,15 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
-    private static final int INSTANCE_SIZE = instanceSize(SimplePagesHashStrategy.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SimplePagesHashStrategy.class).instanceSize());
     private final List<Type> types;
     private final List<Optional<BlockPositionComparison>> comparisonOperators;
     private final List<Integer> outputChannels;

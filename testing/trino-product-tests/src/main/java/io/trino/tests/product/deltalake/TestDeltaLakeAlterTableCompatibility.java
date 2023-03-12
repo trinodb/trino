@@ -32,7 +32,6 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_91_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
-import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
@@ -88,7 +87,7 @@ public class TestDeltaLakeAlterTableCompatibility
                     .hasMessageMatching(".* Table .* requires Delta Lake writer version 5 which is not supported");
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -121,7 +120,7 @@ public class TestDeltaLakeAlterTableCompatibility
                     .containsOnly(row(1), row(2));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -155,7 +154,7 @@ public class TestDeltaLakeAlterTableCompatibility
                     .containsOnly(row(1, "part1"), row(2, "part2"));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
@@ -370,7 +369,7 @@ public class TestDeltaLakeAlterTableCompatibility
                     .containsOnly(row(1, 2, 3));
         }
         finally {
-            dropDeltaTableWithRetry("default." + tableName);
+            onDelta().executeQuery("DROP TABLE default." + tableName);
         }
     }
 }

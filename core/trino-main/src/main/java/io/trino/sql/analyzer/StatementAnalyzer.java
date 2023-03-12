@@ -66,7 +66,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MaterializedViewFreshness.Freshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
@@ -130,7 +130,6 @@ import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
-import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
@@ -141,7 +140,6 @@ import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DereferenceExpression;
-import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropSchema;
@@ -251,7 +249,6 @@ import io.trino.transaction.TransactionManager;
 import io.trino.type.TypeCoercion;
 
 import java.math.RoundingMode;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -279,7 +276,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
-import static io.trino.SystemSessionProperties.isLegacyMaterializedViewGracePeriod;
 import static io.trino.metadata.FunctionResolver.toPath;
 import static io.trino.metadata.MetadataManager.toQualifiedFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -299,7 +295,6 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static io.trino.spi.StandardErrorCode.INVALID_CATALOG_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_CHECK_CONSTRAINT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
@@ -398,7 +393,6 @@ class StatementAnalyzer
     private final TypeCoercion typeCoercion;
     private final Session session;
     private final SqlParser sqlParser;
-    private final SessionTimeProvider sessionTimeProvider;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
     private final TransactionManager transactionManager;
@@ -417,7 +411,6 @@ class StatementAnalyzer
             Analysis analysis,
             PlannerContext plannerContext,
             SqlParser sqlParser,
-            SessionTimeProvider sessionTimeProvider,
             GroupProvider groupProvider,
             AccessControl accessControl,
             TransactionManager transactionManager,
@@ -437,7 +430,6 @@ class StatementAnalyzer
         this.metadata = plannerContext.getMetadata();
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.sessionTimeProvider = requireNonNull(sessionTimeProvider, "sessionTimeProvider is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -693,6 +685,19 @@ class StatementAnalyzer
             List<Type> tableTypes = insertColumns.stream()
                     .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
                     .collect(toImmutableList());
+
+            List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(Field::getType)
+                    .collect(toImmutableList());
+
+            if (!typesMatchForInsert(tableTypes, queryTypes)) {
+                throw semanticException(
+                        TYPE_MISMATCH,
+                        refreshMaterializedView,
+                        "Insert query has mismatched column types: Table: [%s], Query: [%s]",
+                        Joiner.on(", ").join(tableTypes),
+                        Joiner.on(", ").join(queryTypes));
+            }
 
             Stream<Column> columns = Streams.zip(
                     insertColumns.stream(),
@@ -1025,24 +1030,6 @@ class StatementAnalyzer
         }
 
         @Override
-        protected Scope visitCreateCatalog(CreateCatalog node, Optional<Scope> scope)
-        {
-            for (Property property : node.getProperties()) {
-                if (property.isSetToDefault()) {
-                    throw semanticException(INVALID_CATALOG_PROPERTY, property, "Catalog properties do not support DEFAULT value");
-                }
-            }
-            validateProperties(node.getProperties(), scope);
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
-        protected Scope visitDropCatalog(DropCatalog node, Optional<Scope> scope)
-        {
-            return createAndAssignScope(node, scope);
-        }
-
-        @Override
         protected Scope visitCreateSchema(CreateSchema node, Optional<Scope> scope)
         {
             validateProperties(node.getProperties(), scope);
@@ -1352,7 +1339,9 @@ class StatementAnalyzer
             if (node.isReplace() && node.isNotExists()) {
                 throw semanticException(NOT_SUPPORTED, node, "'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
             }
-            node.getGracePeriod().ifPresent(gracePeriod -> analyzeExpression(gracePeriod, Scope.create()));
+            if (node.getGracePeriod().isPresent()) {
+                throw new TrinoException(NOT_SUPPORTED, "GRACE PERIOD is not supported yet");
+            }
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
@@ -1590,16 +1579,6 @@ class StatementAnalyzer
                     // If a table function has ONLY PASS THROUGH returned type, it does not produce any proper columns,
                     // so the function's analyze() method should not return the proper columns descriptor.
                     throw semanticException(AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
-                }
-                if (function.getArguments().stream()
-                        .filter(TableArgumentSpecification.class::isInstance)
-                        .map(TableArgumentSpecification.class::cast)
-                        .noneMatch(TableArgumentSpecification::isPassThroughColumns)) {
-                    // According to SQL standard ISO/IEC 9075-2, 10.4 <routine invocation>, p. 764,
-                    // if there is no generic table parameter that specifies PASS THROUGH, then number of proper columns shall be positive.
-                    // For GENERIC_TABLE and DescribedTable returned types, this is enforced by the Descriptor constructor, which requires positive number of fields.
-                    // Here we enforce it for the remaining returned type specification: ONLY_PASS_THROUGH.
-                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "A table function with ONLY_PASS_THROUGH return type must have a table argument with pass-through columns.");
                 }
                 properColumnsDescriptor = null;
             }
@@ -2143,19 +2122,19 @@ class StatementAnalyzer
 
             Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
             if (optionalMaterializedView.isPresent()) {
-                MaterializedViewDefinition materializedViewDefinition = optionalMaterializedView.get();
-                if (isMaterializedViewSufficientlyFresh(session, name, materializedViewDefinition)) {
-                    // If materialized view is sufficiently fresh with respect to its grace period, answer the query using the storage table
-                    QualifiedName storageName = getMaterializedViewStorageTableName(materializedViewDefinition)
+                Freshness freshness = metadata.getMaterializedViewFreshness(session, name).getFreshness();
+                if (freshness == FRESH || freshness == Freshness.UNKNOWN) {
+                    // If materialized view is current, answer the query using the storage table
+                    QualifiedName storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get())
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Materialized view '%s' is fresh but does not have storage table name", name));
                     QualifiedObjectName storageTableName = createQualifiedObjectName(session, table, storageName);
                     checkStorageTableNotRedirected(storageTableName);
                     TableHandle tableHandle = metadata.getTableHandle(session, storageTableName)
                             .orElseThrow(() -> semanticException(INVALID_VIEW, table, "Storage table '%s' does not exist", storageTableName));
-                    return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.of(tableHandle));
+                    return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), Optional.of(tableHandle));
                 }
                 // This is a stale materialized view and should be expanded like a logical view
-                return createScopeForMaterializedView(table, name, scope, materializedViewDefinition, Optional.empty());
+                return createScopeForMaterializedView(table, name, scope, optionalMaterializedView.get(), Optional.empty());
             }
 
             // This could be a reference to a logical view or a table
@@ -2213,43 +2192,6 @@ class StatementAnalyzer
             }
 
             return tableScope;
-        }
-
-        private boolean isMaterializedViewSufficientlyFresh(Session session, QualifiedObjectName name, MaterializedViewDefinition materializedViewDefinition)
-        {
-            MaterializedViewFreshness materializedViewFreshness = metadata.getMaterializedViewFreshness(session, name);
-            MaterializedViewFreshness.Freshness freshness = materializedViewFreshness.getFreshness();
-
-            if (isLegacyMaterializedViewGracePeriod(session)) {
-                return switch (freshness) {
-                    case FRESH, UNKNOWN -> true;
-                    case STALE -> false;
-                };
-            }
-
-            if (freshness == FRESH) {
-                return true;
-            }
-            Optional<Instant> lastFreshTime = materializedViewFreshness.getLastFreshTime();
-            if (lastFreshTime.isEmpty()) {
-                // E.g. never refreshed, or connector not updated to report fresh time
-                return false;
-            }
-            if (materializedViewDefinition.getGracePeriod().isEmpty()) {
-                // Unlimited grace period
-                return true;
-            }
-            Duration gracePeriod = materializedViewDefinition.getGracePeriod().get();
-            if (gracePeriod.isZero()) {
-                // Consider 0 as a special value meaning "do not accept any staleness". This makes 0 more reliable, and more likely what user wanted,
-                // regardless of lastFreshTime, query time or rounding.
-                return false;
-            }
-
-            // Can be negative
-            // TODO should we compare lastFreshTime with session.start() or with current time? The freshness is calculated with respect to current state of things.
-            Duration staleness = Duration.between(lastFreshTime.get(), sessionTimeProvider.getStart(session));
-            return staleness.compareTo(gracePeriod) <= 0;
         }
 
         private void checkStorageTableNotRedirected(QualifiedObjectName source)
@@ -4507,9 +4449,12 @@ class StatementAnalyzer
                 //     SELECT a + sum(b) GROUP BY a
                 List<Expression> distinctGroupingColumns = ImmutableSet.copyOf(groupByAnalysis.getOriginalExpressions()).asList();
 
-                verifySourceAggregations(distinctGroupingColumns, sourceScope, outputExpressions, session, metadata, analysis);
-                if (!orderByExpressions.isEmpty()) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.orElseThrow(), orderByExpressions, session, metadata, analysis);
+                for (Expression expression : outputExpressions) {
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, session, metadata, analysis);
+                }
+
+                for (Expression expression : orderByExpressions) {
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.orElseThrow(), expression, session, metadata, analysis);
                 }
             }
         }

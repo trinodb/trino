@@ -43,7 +43,6 @@ public class ThriftHiveMetastoreFactory
     private final boolean deleteFilesOnDrop;
     private final boolean translateHiveViews;
     private final boolean assumeCanonicalPartitionKeys;
-    private final boolean useSparkTableStatisticsFallback;
     private final ExecutorService writeStatisticsExecutor;
     private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
 
@@ -70,7 +69,6 @@ public class ThriftHiveMetastoreFactory
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
 
         this.assumeCanonicalPartitionKeys = thriftConfig.isAssumeCanonicalPartitionKeys();
-        this.useSparkTableStatisticsFallback = thriftConfig.isUseSparkTableStatisticsFallback();
         this.writeStatisticsExecutor = requireNonNull(writeStatisticsExecutor, "writeStatisticsExecutor is null");
     }
 
@@ -103,7 +101,6 @@ public class ThriftHiveMetastoreFactory
                 deleteFilesOnDrop,
                 translateHiveViews,
                 assumeCanonicalPartitionKeys,
-                useSparkTableStatisticsFallback,
                 stats,
                 writeStatisticsExecutor);
     }

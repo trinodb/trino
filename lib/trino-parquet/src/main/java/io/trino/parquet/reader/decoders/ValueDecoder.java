@@ -25,19 +25,6 @@ public interface ValueDecoder<T>
 
     void skip(int n);
 
-    class EmptyValueDecoder<T>
-            implements ValueDecoder<T>
-    {
-        @Override
-        public void init(SimpleSliceInputStream input) {}
-
-        @Override
-        public void read(T values, int offset, int length) {}
-
-        @Override
-        public void skip(int n) {}
-    }
-
     interface ValueDecodersProvider<T>
     {
         ValueDecoder<T> create(ParquetEncoding encoding, PrimitiveField field);

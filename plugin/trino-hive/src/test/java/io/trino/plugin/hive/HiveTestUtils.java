@@ -31,16 +31,6 @@ import io.trino.plugin.hive.azure.HiveAzureConfig;
 import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
-import io.trino.plugin.hive.line.CsvFileWriterFactory;
-import io.trino.plugin.hive.line.CsvPageSourceFactory;
-import io.trino.plugin.hive.line.JsonFileWriterFactory;
-import io.trino.plugin.hive.line.JsonPageSourceFactory;
-import io.trino.plugin.hive.line.RegexFileWriterFactory;
-import io.trino.plugin.hive.line.RegexPageSourceFactory;
-import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
-import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
-import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
-import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -49,6 +39,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
@@ -160,9 +151,13 @@ public final class HiveTestUtils
 
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
     {
+        return getHiveSessionProperties(hiveConfig, new RubixEnabledConfig(), orcReaderConfig);
+    }
+
+    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, RubixEnabledConfig rubixEnabledConfig, OrcReaderConfig orcReaderConfig)
+    {
         return new HiveSessionProperties(
                 hiveConfig,
-                new HiveFormatsConfig(),
                 orcReaderConfig,
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
@@ -173,7 +168,6 @@ public final class HiveTestUtils
     {
         return new HiveSessionProperties(
                 hiveConfig,
-                new HiveFormatsConfig(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
@@ -184,7 +178,6 @@ public final class HiveTestUtils
     {
         return new HiveSessionProperties(
                 hiveConfig,
-                new HiveFormatsConfig(),
                 new OrcReaderConfig(),
                 new OrcWriterConfig(),
                 parquetReaderConfig,
@@ -196,11 +189,6 @@ public final class HiveTestUtils
         TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         return ImmutableSet.<HivePageSourceFactory>builder()
-                .add(new CsvPageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new JsonPageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new RegexPageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
@@ -214,15 +202,8 @@ public final class HiveTestUtils
 
     public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
-        NodeVersion nodeVersion = new NodeVersion("test_version");
         return ImmutableSet.<HiveFileWriterFactory>builder()
-                .add(new CsvFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
-                .add(new JsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
-                .add(new RegexFileWriterFactory())
-                .add(new SimpleTextFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
-                .add(new SimpleSequenceFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion))
-                .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
+                .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig))
                 .add(getDefaultOrcFileWriterFactory(hdfsEnvironment))
                 .build();
     }

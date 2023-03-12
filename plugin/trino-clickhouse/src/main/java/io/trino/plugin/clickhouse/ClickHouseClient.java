@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.clickhouse;
 
-import com.clickhouse.data.ClickHouseColumn;
-import com.clickhouse.data.ClickHouseDataType;
-import com.clickhouse.data.ClickHouseVersion;
+import com.clickhouse.client.ClickHouseColumn;
+import com.clickhouse.client.ClickHouseDataType;
+import com.clickhouse.client.ClickHouseVersion;
 import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -94,9 +94,7 @@ import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
-import static com.clickhouse.data.ClickHouseValues.convertToQuotedString;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -181,6 +179,7 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static ru.yandex.clickhouse.ClickHouseUtil.escape;
 
 public class ClickHouseClient
         extends BaseJdbcClient
@@ -300,7 +299,7 @@ public class ClickHouseClient
         formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).ifPresent(value -> tableOptions.add("ORDER BY " + value));
         formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
         formatProperty(ClickHouseTableProperties.getPartitionBy(tableProperties)).ifPresent(value -> tableOptions.add("PARTITION BY " + value));
-        ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + quoted(value)));
+        ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
         tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT %s", clickhouseVarcharLiteral(comment))));
 
         return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build()));
@@ -364,7 +363,7 @@ public class ClickHouseClient
                 .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().orElseThrow()));
 
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
-        ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + quoted(value)));
+        ClickHouseTableProperties.getSampleBy(properties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             String sql = format(
@@ -465,7 +464,7 @@ public class ClickHouseClient
     private static String clickhouseVarcharLiteral(String value)
     {
         requireNonNull(value, "value is null");
-        return convertToQuotedString(value);
+        return "'" + escape(value) + "'";
     }
 
     @Override
@@ -721,10 +720,10 @@ public class ClickHouseClient
         }
         if (prop.size() == 1) {
             // only one column
-            return Optional.of(quoted(prop.get(0)));
+            return Optional.of(prop.get(0));
         }
         // include more than one column
-        return Optional.of(prop.stream().map(this::quoted).collect(Collectors.joining(",", "(", ")")));
+        return Optional.of("(" + String.join(",", prop) + ")");
     }
 
     private static LongWriteFunction uInt8WriteFunction(ClickHouseVersion version)

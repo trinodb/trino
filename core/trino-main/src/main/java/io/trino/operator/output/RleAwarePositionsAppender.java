@@ -15,13 +15,14 @@ package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -31,10 +32,10 @@ import static java.util.Objects.requireNonNull;
 public class RleAwarePositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = instanceSize(RleAwarePositionsAppender.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(RleAwarePositionsAppender.class).instanceSize());
     private static final int NO_RLE = -1;
 
-    private final BlockPositionIsDistinctFrom isDistinctFromOperator;
+    private final BlockPositionEqual equalOperator;
     private final PositionsAppender delegate;
 
     @Nullable
@@ -43,10 +44,10 @@ public class RleAwarePositionsAppender
     // NO_RLE means flat state, 0 means initial empty state, positive means RLE state and the current RLE position count.
     private int rlePositionCount;
 
-    public RleAwarePositionsAppender(BlockPositionIsDistinctFrom isDistinctFromOperator, PositionsAppender delegate)
+    public RleAwarePositionsAppender(BlockPositionEqual equalOperator, PositionsAppender delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.isDistinctFromOperator = requireNonNull(isDistinctFromOperator, "isDistinctFromOperator is null");
+        this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
     }
 
     @Override
@@ -74,7 +75,7 @@ public class RleAwarePositionsAppender
         }
         else if (rleValue != null) {
             // we are in the RLE state
-            if (!isDistinctFromOperator.isDistinctFrom(rleValue, 0, value, 0)) {
+            if (equalOperator.equalNullSafe(rleValue, 0, value, 0)) {
                 // the values match. we can just add positions.
                 this.rlePositionCount += positionCount;
                 return;

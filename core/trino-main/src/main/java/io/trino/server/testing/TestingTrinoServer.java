@@ -34,10 +34,8 @@ import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
-import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.connector.CatalogManagerModule;
-import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.dispatcher.DispatchManager;
@@ -68,7 +66,7 @@ import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
-import io.trino.server.PluginInstaller;
+import io.trino.server.PluginManager;
 import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionPropertyDefaults;
@@ -144,7 +142,7 @@ public class TestingTrinoServer
     private final Path baseDataDir;
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
-    private final PluginInstaller pluginInstaller;
+    private final PluginManager pluginManager;
     private final Optional<CatalogManager> catalogManager;
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
@@ -242,7 +240,7 @@ public class TestingTrinoServer
         if (coordinator) {
             // TODO: enable failure detector
             serverProperties.put("failure-detector.enabled", "false");
-            serverProperties.put("catalog.store", "memory");
+            serverProperties.put("catalog.store", "none");
 
             // Reduce memory footprint in tests
             serverProperties.put("query.min-expire-age", "5s");
@@ -257,7 +255,6 @@ public class TestingTrinoServer
                 .add(new JaxrsModule())
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
-                .add(new JmxOpenMetricsModule())
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
@@ -282,10 +279,6 @@ public class TestingTrinoServer
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                 });
-
-        if (coordinator) {
-            modules.add(new TestingSessionTimeModule());
-        }
 
         if (discoveryUri.isPresent()) {
             requireNonNull(environment, "environment required when discoveryUri is present");
@@ -314,7 +307,7 @@ public class TestingTrinoServer
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
-        pluginInstaller = injector.getInstance(PluginInstaller.class);
+        pluginManager = injector.getInstance(PluginManager.class);
 
         Optional<CatalogManager> catalogManager = Optional.empty();
         if (injector.getExistingBinding(Key.get(CatalogManager.class)) != null) {
@@ -399,7 +392,7 @@ public class TestingTrinoServer
 
     public void installPlugin(Plugin plugin)
     {
-        pluginInstaller.installPlugin(plugin, ignored -> plugin.getClass().getClassLoader());
+        pluginManager.installPlugin(plugin, ignored -> plugin.getClass().getClassLoader());
     }
 
     public DispatchManager getDispatchManager()
@@ -438,7 +431,7 @@ public class TestingTrinoServer
             // this is a worker so catalogs are dynamically registered
             return;
         }
-        catalogManager.get().createCatalog(catalogName, new ConnectorName(connectorName), properties, false);
+        catalogManager.get().createCatalog(catalogName, connectorName, properties);
     }
 
     public void loadExchangeManager(String name, Map<String, String> properties)

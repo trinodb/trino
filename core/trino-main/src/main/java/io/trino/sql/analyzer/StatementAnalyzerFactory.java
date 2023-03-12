@@ -38,7 +38,6 @@ public class StatementAnalyzerFactory
 {
     private final PlannerContext plannerContext;
     private final SqlParser sqlParser;
-    private final SessionTimeProvider sessionTimeProvider;
     private final AccessControl accessControl;
     private final TransactionManager transactionManager;
     private final GroupProvider groupProvider;
@@ -53,7 +52,6 @@ public class StatementAnalyzerFactory
     public StatementAnalyzerFactory(
             PlannerContext plannerContext,
             SqlParser sqlParser,
-            SessionTimeProvider sessionTimeProvider,
             AccessControl accessControl,
             TransactionManager transactionManager,
             GroupProvider groupProvider,
@@ -66,7 +64,6 @@ public class StatementAnalyzerFactory
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.sessionTimeProvider = requireNonNull(sessionTimeProvider, "sessionTimeProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
@@ -83,7 +80,6 @@ public class StatementAnalyzerFactory
         return new StatementAnalyzerFactory(
                 plannerContext,
                 sqlParser,
-                sessionTimeProvider,
                 accessControl,
                 transactionManager,
                 groupProvider,
@@ -106,7 +102,6 @@ public class StatementAnalyzerFactory
                 analysis,
                 plannerContext,
                 sqlParser,
-                sessionTimeProvider,
                 groupProvider,
                 accessControl,
                 transactionManager,
@@ -130,7 +125,6 @@ public class StatementAnalyzerFactory
         return new StatementAnalyzerFactory(
                 plannerContext,
                 new SqlParser(),
-                SessionTimeProvider.DEFAULT,
                 accessControl,
                 new NoOpTransactionManager(),
                 user -> ImmutableSet.of(),

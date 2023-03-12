@@ -31,7 +31,6 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.SessionTimeProvider;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -102,7 +101,6 @@ public class RemoveUnsupportedDynamicFilters
                 new StatementAnalyzerFactory(
                         plannerContext,
                         new SqlParser(),
-                        SessionTimeProvider.DEFAULT,
                         new AllowAllAccessControl(),
                         new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),

@@ -47,8 +47,6 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
-import io.trino.sql.planner.plan.TableFunctionNode;
-import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -173,7 +171,7 @@ public class PlanFragmenter
             PartitioningHandleReassigner partitioningHandleReassigner = new PartitioningHandleReassigner(fragment.getPartitioning(), metadata, session);
             newRoot = SimplePlanRewriter.rewriteWith(partitioningHandleReassigner, newRoot);
         }
-        PartitioningScheme outputPartitioningScheme = fragment.getOutputPartitioningScheme();
+        PartitioningScheme outputPartitioningScheme = fragment.getPartitioningScheme();
         Partitioning newOutputPartitioning = outputPartitioningScheme.getPartitioning();
         if (outputPartitioningScheme.getPartitioning().getHandle().getCatalogHandle().isPresent()) {
             // Do not replace the handle if the source's output handle is a system one, e.g. broadcast.
@@ -184,7 +182,6 @@ public class PlanFragmenter
                 newRoot,
                 fragment.getSymbols(),
                 fragment.getPartitioning(),
-                fragment.getPartitionCount(),
                 fragment.getPartitionedSources(),
                 new PartitioningScheme(
                         newOutputPartitioning,
@@ -252,7 +249,6 @@ public class PlanFragmenter
                     root,
                     symbols,
                     properties.getPartitioningHandle(),
-                    properties.getPartitionCount(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     statsAndCosts.getForSubplan(root),
@@ -330,33 +326,21 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
         {
-            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(
-                    scheme.getPartitioning().getHandle(),
-                    scheme.getPartitionCount(),
-                    metadata,
-                    session));
+            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(scheme.getPartitioning().getHandle(), metadata, session));
             return context.defaultRewrite(node, context.get());
         }
 
         @Override
         public PlanNode visitTableExecute(TableExecuteNode node, RewriteContext<FragmentProperties> context)
         {
-            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(
-                    scheme.getPartitioning().getHandle(),
-                    scheme.getPartitionCount(),
-                    metadata,
-                    session));
+            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(scheme.getPartitioning().getHandle(), metadata, session));
             return context.defaultRewrite(node, context.get());
         }
 
         @Override
         public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<FragmentProperties> context)
         {
-            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(
-                    scheme.getPartitioning().getHandle(),
-                    scheme.getPartitionCount(),
-                    metadata,
-                    session));
+            node.getPartitioningScheme().ifPresent(scheme -> context.get().setDistribution(scheme.getPartitioning().getHandle(), metadata, session));
             return context.defaultRewrite(node, context.get());
         }
 
@@ -367,22 +351,6 @@ public class PlanFragmenter
             // don't attempt to overwrite one's already been chosen
             if (node.getRowCount() != 0 || !context.get().hasDistribution()) {
                 context.get().setSingleNodeDistribution();
-            }
-            return context.defaultRewrite(node, context.get());
-        }
-
-        @Override
-        public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<FragmentProperties> context)
-        {
-            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
-        }
-
-        @Override
-        public PlanNode visitTableFunctionProcessor(TableFunctionProcessorNode node, RewriteContext<FragmentProperties> context)
-        {
-            if (node.getSource().isEmpty()) {
-                // context is mutable. The leaf node should set the PartitioningHandle.
-                context.get().addSourceDistribution(node.getId(), SOURCE_DISTRIBUTION, metadata, session);
             }
             return context.defaultRewrite(node, context.get());
         }
@@ -400,11 +368,7 @@ public class PlanFragmenter
                 context.get().setSingleNodeDistribution();
             }
             else if (exchange.getType() == ExchangeNode.Type.REPARTITION) {
-                context.get().setDistribution(
-                        partitioningScheme.getPartitioning().getHandle(),
-                        partitioningScheme.getPartitionCount(),
-                        metadata,
-                        session);
+                context.get().setDistribution(partitioningScheme.getPartitioning().getHandle(), metadata, session);
             }
 
             ImmutableList.Builder<FragmentProperties> childrenProperties = ImmutableList.builder();
@@ -463,7 +427,6 @@ public class PlanFragmenter
         private final PartitioningScheme partitioningScheme;
 
         private Optional<PartitioningHandle> partitioningHandle = Optional.empty();
-        private Optional<Integer> partitionCount = Optional.empty();
         private final Set<PlanNodeId> partitionedSources = new HashSet<>();
 
         public FragmentProperties(PartitioningScheme partitioningScheme)
@@ -498,15 +461,10 @@ public class PlanFragmenter
             return this;
         }
 
-        public FragmentProperties setDistribution(
-                PartitioningHandle distribution,
-                Optional<Integer> partitionCount,
-                Metadata metadata,
-                Session session)
+        public FragmentProperties setDistribution(PartitioningHandle distribution, Metadata metadata, Session session)
         {
             if (partitioningHandle.isEmpty()) {
                 partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
                 return this;
             }
 
@@ -527,7 +485,6 @@ public class PlanFragmenter
 
             if (isCompatibleScaledWriterPartitioning(currentPartitioning, distribution)) {
                 this.partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
                 return this;
             }
 
@@ -638,11 +595,6 @@ public class PlanFragmenter
         public PartitioningHandle getPartitioningHandle()
         {
             return partitioningHandle.get();
-        }
-
-        public Optional<Integer> getPartitionCount()
-        {
-            return partitionCount;
         }
 
         public Set<PlanNodeId> getPartitionedSources()

@@ -386,9 +386,6 @@ public class EffectivePredicateExtractor
                             }
                             else {
                                 Type type = types.get(node.getOutputSymbols().get(i));
-                                if (!type.isComparable() && !type.isOrderable()) {
-                                    return TRUE_LITERAL;
-                                }
                                 if (hasNestedNulls(type, item)) {
                                     // Workaround solution to deal with array and row comparisons don't support null elements currently.
                                     // TODO: remove when comparisons are fixed
@@ -418,9 +415,6 @@ public class EffectivePredicateExtractor
                             hasNull[i] = true;
                         }
                         else {
-                            if (!type.isComparable() && !type.isOrderable()) {
-                                return TRUE_LITERAL;
-                            }
                             if (hasNestedNulls(type, item)) {
                                 // Workaround solution to deal with array and row comparisons don't support null elements currently.
                                 // TODO: remove when comparisons are fixed

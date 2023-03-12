@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
@@ -67,10 +66,8 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
-public final class TableStatisticsReader
+public class TableStatisticsReader
 {
-    private TableStatisticsReader() {}
-
     private static final Logger log = Logger.get(TableStatisticsReader.class);
 
     // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
@@ -88,39 +85,35 @@ public final class TableStatisticsReader
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
-    public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, IcebergTableHandle tableHandle, Table icebergTable)
+    private final TypeManager typeManager;
+    private final ConnectorSession session;
+    private final Table icebergTable;
+
+    private TableStatisticsReader(TypeManager typeManager, ConnectorSession session, Table icebergTable)
     {
-        return makeTableStatistics(
-                typeManager,
-                icebergTable,
-                tableHandle.getSnapshotId(),
-                tableHandle.getEnforcedPredicate(),
-                tableHandle.getUnenforcedPredicate(),
-                isExtendedStatisticsEnabled(session));
+        this.typeManager = typeManager;
+        this.session = session;
+        this.icebergTable = icebergTable;
     }
 
-    @VisibleForTesting
-    public static TableStatistics makeTableStatistics(
-            TypeManager typeManager,
-            Table icebergTable,
-            Optional<Long> snapshot,
-            TupleDomain<IcebergColumnHandle> enforcedConstraint,
-            TupleDomain<IcebergColumnHandle> unenforcedConstraint,
-            boolean extendedStatisticsEnabled)
+    public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, IcebergTableHandle tableHandle, Table icebergTable)
     {
-        if (snapshot.isEmpty()) {
+        return new TableStatisticsReader(typeManager, session, icebergTable).makeTableStatistics(tableHandle);
+    }
+
+    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
+    {
+        if (tableHandle.getSnapshotId().isEmpty()) {
             // No snapshot, so no data.
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
         }
-        long snapshotId = snapshot.get();
+        long snapshotId = tableHandle.getSnapshotId().get();
 
-        // Including both enforced and unenforced constraint matches how Splits will eventually be generated and allows
-        // us to provide more accurate estimates. Stats will be estimated again by FilterStatsCalculator based on the
-        // unenforced constraint.
-        TupleDomain<IcebergColumnHandle> effectivePredicate = enforcedConstraint.intersect(unenforcedConstraint);
-        if (effectivePredicate.isNone()) {
+        TupleDomain<IcebergColumnHandle> enforcedPredicate = tableHandle.getEnforcedPredicate();
+
+        if (enforcedPredicate.isNone()) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
@@ -137,7 +130,7 @@ public final class TableStatisticsReader
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(effectivePredicate))
+                .filter(toIcebergExpression(enforcedPredicate))
                 .useSnapshot(snapshotId)
                 .includeColumnStats();
 
@@ -158,12 +151,10 @@ public final class TableStatisticsReader
         }
 
         Map<Integer, Long> ndvs = readNdvs(
-                icebergTable,
                 snapshotId,
                 // TODO We don't need NDV information for columns not involved in filters/joins. Engine should provide set of columns
                 //  it makes sense to find NDV information for.
-                idToColumnHandle.keySet(),
-                extendedStatisticsEnabled);
+                idToColumnHandle.keySet());
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.getRecordCount();
@@ -219,9 +210,9 @@ public final class TableStatisticsReader
         return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
-    private static Map<Integer, Long> readNdvs(Table icebergTable, long snapshotId, Set<Integer> columnIds, boolean extendedStatisticsEnabled)
+    private Map<Integer, Long> readNdvs(long snapshotId, Set<Integer> columnIds)
     {
-        if (!extendedStatisticsEnabled) {
+        if (!isExtendedStatisticsEnabled(session)) {
             return ImmutableMap.of();
         }
 

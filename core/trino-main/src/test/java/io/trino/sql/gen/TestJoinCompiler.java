@@ -30,6 +30,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import io.trino.type.TypeTestUtils;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -45,6 +45,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -210,7 +211,7 @@ public class TestJoinCompiler
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), outputChannels.size());
         // verify size
-        int instanceSize = instanceSize(hashStrategy.getClass());
+        int instanceSize = toIntExact(ClassLayout.parseClass(hashStrategy.getClass()).instanceSize());
         long sizeInBytes = instanceSize +
                 (channels.size() > 0 ? sizeOf(channels.get(0).elements()) * channels.size() : 0) +
                 channels.stream()

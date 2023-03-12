@@ -23,7 +23,7 @@ Requirements
 You need to perform the following steps:
 
 * Provide an HTTP/S service that accepts POST events with a JSON body.
-* Configure ``http-event-listener.connect-ingest-uri`` in the event listener properties file
+* Configure ``http-event-listener.ingest-uri`` in the event listener properties file
   with the URI of the service.
 * Detail the events to send in the :ref:`http_event_listener_configuration` section.
 

@@ -260,13 +260,7 @@ abstract class AbstractTrinoResultSet
             throws SQLException
     {
         Object value = column(columnIndex);
-        if (value == null) {
-            return false;
-        }
-        if (value instanceof Boolean) {
-            return (Boolean) value;
-        }
-        throw new SQLException("Value is not a boolean: " + value);
+        return (value != null) ? (Boolean) value : false;
     }
 
     @Override

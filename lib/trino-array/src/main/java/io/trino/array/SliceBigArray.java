@@ -14,13 +14,14 @@
 package io.trino.array;
 
 import io.airlift.slice.Slice;
+import org.openjdk.jol.info.ClassLayout;
 
-import static io.airlift.slice.SizeOf.instanceSize;
+import static java.lang.Math.toIntExact;
 
 public final class SliceBigArray
 {
-    private static final int INSTANCE_SIZE = instanceSize(SliceBigArray.class);
-    private static final int SLICE_INSTANCE_SIZE = instanceSize(Slice.class);
+    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SliceBigArray.class).instanceSize());
+    private static final int SLICE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Slice.class).instanceSize());
     private final ObjectBigArray<Slice> array;
     private final ReferenceCountMap trackedSlices = new ReferenceCountMap();
     private long sizeOfSlices;

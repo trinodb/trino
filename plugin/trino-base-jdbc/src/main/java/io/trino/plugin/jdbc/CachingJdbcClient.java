@@ -93,15 +93,7 @@ public class CachingJdbcClient
             IdentityCacheMapping identityMapping,
             BaseJdbcConfig config)
     {
-        this(
-                delegate,
-                sessionPropertiesProviders,
-                identityMapping,
-                config.getMetadataCacheTtl(),
-                config.getSchemaNamesCacheTtl(),
-                config.getTableNamesCacheTtl(),
-                config.isCacheMissing(),
-                config.getCacheMaximumSize());
+        this(delegate, sessionPropertiesProviders, identityMapping, config.getMetadataCacheTtl(), config.isCacheMissing(), config.getCacheMaximumSize());
     }
 
     public CachingJdbcClient(
@@ -109,26 +101,6 @@ public class CachingJdbcClient
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IdentityCacheMapping identityMapping,
             Duration metadataCachingTtl,
-            boolean cacheMissing,
-            long cacheMaximumSize)
-    {
-        this(delegate,
-                sessionPropertiesProviders,
-                identityMapping,
-                metadataCachingTtl,
-                metadataCachingTtl,
-                metadataCachingTtl,
-                cacheMissing,
-                cacheMaximumSize);
-    }
-
-    public CachingJdbcClient(
-            JdbcClient delegate,
-            Set<SessionPropertiesProvider> sessionPropertiesProviders,
-            IdentityCacheMapping identityMapping,
-            Duration metadataCachingTtl,
-            Duration schemaNamesCachingTtl,
-            Duration tableNamesCachingTtl,
             boolean cacheMissing,
             long cacheMaximumSize)
     {
@@ -139,27 +111,25 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        long cacheSize = metadataCachingTtl.equals(CACHING_DISABLED)
-                // Disables the cache entirely
-                ? 0
-                : cacheMaximumSize;
-
-        schemaNamesCache = buildCache(cacheSize, schemaNamesCachingTtl);
-        tableNamesCache = buildCache(cacheSize, tableNamesCachingTtl);
-        tableHandlesByNameCache = buildCache(cacheSize, metadataCachingTtl);
-        tableHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
-        columnsCache = buildCache(cacheSize, metadataCachingTtl);
-        statisticsCache = buildCache(cacheSize, metadataCachingTtl);
-    }
-
-    private static <K, V> Cache<K, V> buildCache(long cacheSize, Duration cachingTtl)
-    {
-        return EvictableCacheBuilder.newBuilder()
-                .maximumSize(cacheSize)
-                .expireAfterWrite(cachingTtl.toMillis(), MILLISECONDS)
+        EvictableCacheBuilder<Object, Object> cacheBuilder = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(metadataCachingTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
-                .recordStats()
-                .build();
+                .recordStats();
+
+        if (metadataCachingTtl.equals(CACHING_DISABLED)) {
+            // Disables the cache entirely
+            cacheBuilder.maximumSize(0);
+        }
+        else {
+            cacheBuilder.maximumSize(cacheMaximumSize);
+        }
+
+        schemaNamesCache = cacheBuilder.build();
+        tableNamesCache = cacheBuilder.build();
+        tableHandlesByNameCache = cacheBuilder.build();
+        tableHandlesByQueryCache = cacheBuilder.build();
+        columnsCache = cacheBuilder.build();
+        statisticsCache = cacheBuilder.build();
     }
 
     @Override
@@ -611,12 +581,6 @@ public class CachingJdbcClient
     private void invalidateColumnsCache(SchemaTableName table)
     {
         invalidateCache(columnsCache, key -> key.table.equals(table));
-    }
-
-    @VisibleForTesting
-    CacheStats getSchemaNamesCacheStats()
-    {
-        return schemaNamesCache.stats();
     }
 
     @VisibleForTesting

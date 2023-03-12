@@ -77,7 +77,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -224,6 +223,7 @@ public class PipelinedQueryScheduler
                 metadata,
                 remoteTaskFactory,
                 nodeTaskMap,
+                queryExecutor,
                 schedulerStats,
                 plan,
                 summarizeTaskInfo);
@@ -581,7 +581,7 @@ public class PipelinedQueryScheduler
 
         private static PipelinedOutputBufferManager createSingleStreamOutputBuffer(SqlStage stage)
         {
-            PartitioningHandle partitioningHandle = stage.getFragment().getOutputPartitioningScheme().getPartitioning().getHandle();
+            PartitioningHandle partitioningHandle = stage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
             checkArgument(partitioningHandle.isSingleNode(), "partitioning is expected to be single node: " + partitioningHandle);
             return new PartitionedPipelinedOutputBufferManager(partitioningHandle, 1);
         }
@@ -873,8 +873,7 @@ public class PipelinedQueryScheduler
                 });
             }
 
-            // Preserve topological ordering in stageExecutionsMap
-            Map<StageId, StageExecution> stageExecutions = new LinkedHashMap<>();
+            Map<StageId, StageExecution> stageExecutions = new HashMap<>();
             for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
                 TaskLifecycleListener taskLifecycleListener;
@@ -947,7 +946,7 @@ public class PipelinedQueryScheduler
                         partitioningCache,
                         fragment.getRoot(),
                         fragment.getRemoteSourceNodes(),
-                        fragment.getPartitionCount());
+                        fragment.getPartitioningScheme().getPartitionCount());
                 for (SqlStage childStage : stageManager.getChildren(stage.getStageId())) {
                     result.put(childStage.getFragment().getId(), bucketToPartition);
                 }
@@ -990,7 +989,7 @@ public class PipelinedQueryScheduler
             for (SqlStage parentStage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 for (SqlStage childStage : stageManager.getChildren(parentStage.getStageId())) {
                     PlanFragmentId fragmentId = childStage.getFragment().getId();
-                    PartitioningHandle partitioningHandle = childStage.getFragment().getOutputPartitioningScheme().getPartitioning().getHandle();
+                    PartitioningHandle partitioningHandle = childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
 
                     PipelinedOutputBufferManager outputBufferManager;
                     if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
@@ -1027,7 +1026,7 @@ public class PipelinedQueryScheduler
             Session session = queryStateMachine.getSession();
             PlanFragment fragment = stageExecution.getFragment();
             PartitioningHandle partitioningHandle = fragment.getPartitioning();
-            Optional<Integer> partitionCount = fragment.getPartitionCount();
+            Optional<Integer> partitionCount = fragment.getPartitioningScheme().getPartitionCount();
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
             if (!splitSources.isEmpty()) {
                 queryStateMachine.addStateChangeListener(new StateChangeListener<>()

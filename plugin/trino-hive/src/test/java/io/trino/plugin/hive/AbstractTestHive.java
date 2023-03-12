@@ -37,7 +37,6 @@ import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.fs.TrinoFileStatusRemoteIterator;
-import io.trino.plugin.hive.line.LinePageSource;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -226,7 +225,6 @@ import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.RCBINARY;
 import static io.trino.plugin.hive.HiveStorageFormat.RCTEXT;
-import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
 import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
@@ -407,7 +405,7 @@ public abstract class AbstractTestHive
             .add(new ColumnMetadata("smallint_to_bigint", SMALLINT))
             .add(new ColumnMetadata("integer_to_bigint", INTEGER))
             .add(new ColumnMetadata("integer_to_varchar", INTEGER))
-            .add(new ColumnMetadata("varchar_to_integer", createUnboundedVarcharType()))
+            //.add(new ColumnMetadata("varchar_to_integer", createUnboundedVarcharType())) // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
             .add(new ColumnMetadata("float_to_double", REAL))
             .add(new ColumnMetadata("varchar_to_drop_in_row", createUnboundedVarcharType()))
             .build();
@@ -429,10 +427,10 @@ public abstract class AbstractTestHive
 
     private static final MaterializedResult MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_BEFORE =
             MaterializedResult.resultBuilder(SESSION, TINYINT, TINYINT, TINYINT, SMALLINT, SMALLINT, INTEGER, INTEGER, createUnboundedVarcharType(), REAL, createUnboundedVarcharType())
-                    .row((byte) -11, (byte) 12, (byte) -13, (short) 14, (short) 15, -16, 17, "2147483647", 18.0f, "2016-08-01")
-                    .row((byte) 21, (byte) -22, (byte) 23, (short) -24, (short) 25, 26, -27, "asdf", -28.0f, "2016-08-02")
-                    .row((byte) -31, (byte) -32, (byte) 33, (short) 34, (short) -35, 36, 37, "-923", 39.5f, "2016-08-03")
-                    .row(null, (byte) 42, (byte) 43, (short) 44, (short) -45, 46, 47, "2147483648", 49.5f, "2016-08-03")
+                    .row((byte) -11, (byte) 12, (byte) -13, (short) 14, (short) 15, -16, 17, /*"2147483647",*/ 18.0f, "2016-08-01")
+                    .row((byte) 21, (byte) -22, (byte) 23, (short) -24, (short) 25, 26, -27, /*"asdf",*/ -28.0f, "2016-08-02")
+                    .row((byte) -31, (byte) -32, (byte) 33, (short) 34, (short) -35, 36, 37, /*"-923",*/ 39.5f, "2016-08-03")
+                    .row(null, (byte) 42, (byte) 43, (short) 44, (short) -45, 46, 47, /*"2147483648",*/ 49.5f, "2016-08-03")
                     .build();
 
     private static final MaterializedResult MISMATCH_SCHEMA_TABLE_DATA_BEFORE =
@@ -445,7 +443,7 @@ public abstract class AbstractTestHive
                                 result.add(rowResult);
                                 result.add(Arrays.asList(rowResult, null, rowResult));
                                 result.add(ImmutableMap.of(rowResult.get(1), rowResult));
-                                result.add(rowResult.get(9));
+                                result.add(rowResult.get(8));
                                 return new MaterializedRow(materializedRow.getPrecision(), result);
                             }).collect(toImmutableList()))
                     .build();
@@ -458,7 +456,7 @@ public abstract class AbstractTestHive
             .add(new ColumnMetadata("smallint_to_bigint", BIGINT))
             .add(new ColumnMetadata("integer_to_bigint", BIGINT))
             .add(new ColumnMetadata("integer_to_varchar", createUnboundedVarcharType()))
-            .add(new ColumnMetadata("varchar_to_integer", INTEGER))
+            //.add(new ColumnMetadata("varchar_to_integer", INTEGER))
             .add(new ColumnMetadata("float_to_double", DOUBLE))
             .add(new ColumnMetadata("varchar_to_drop_in_row", createUnboundedVarcharType()))
             .build();
@@ -479,10 +477,10 @@ public abstract class AbstractTestHive
 
     private static final MaterializedResult MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_AFTER =
             MaterializedResult.resultBuilder(SESSION, SMALLINT, INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, createUnboundedVarcharType(), INTEGER, DOUBLE, createUnboundedVarcharType())
-                    .row((short) -11, 12, -13L, 14, 15L, -16L, "17", 2147483647, 18.0, "2016-08-01")
-                    .row((short) 21, -22, 23L, -24, 25L, 26L, "-27", null, -28.0, "2016-08-02")
-                    .row((short) -31, -32, 33L, 34, -35L, 36L, "37", -923, 39.5, "2016-08-03")
-                    .row(null, 42, 43L, 44, -45L, 46L, "47", null, 49.5, "2016-08-03")
+                    .row((short) -11, 12, -13L, 14, 15L, -16L, "17", /*2147483647,*/ 18.0, "2016-08-01")
+                    .row((short) 21, -22, 23L, -24, 25L, 26L, "-27", /*null,*/ -28.0, "2016-08-02")
+                    .row((short) -31, -32, 33L, 34, -35L, 36L, "37", /*-923,*/ 39.5, "2016-08-03")
+                    .row(null, 42, 43L, 44, -45L, 46L, "47", /*null,*/ 49.5, "2016-08-03")
                     .build();
 
     private static final MaterializedResult MISMATCH_SCHEMA_TABLE_DATA_AFTER =
@@ -497,15 +495,15 @@ public abstract class AbstractTestHive
                                 result.add(appendFieldRowResult);
                                 result.add(Arrays.asList(appendFieldRowResult, null, appendFieldRowResult));
                                 result.add(ImmutableMap.of(result.get(1), dropFieldRowResult));
-                                result.add(result.get(9));
+                                result.add(result.get(8));
                                 return new MaterializedRow(materializedRow.getPrecision(), result);
                             }).collect(toImmutableList()))
                     .build();
 
     protected Set<HiveStorageFormat> createTableFormats = difference(
             ImmutableSet.copyOf(HiveStorageFormat.values()),
-            // exclude formats that change table schema with serde and read-only formats
-            ImmutableSet.of(AVRO, CSV, REGEX));
+            // exclude formats that change table schema with serde
+            ImmutableSet.of(AVRO, CSV));
 
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(TYPE_OPERATORS);
@@ -822,7 +820,6 @@ public abstract class AbstractTestHive
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new HdfsFileSystemFactory(hdfsEnvironment),
                 hdfsEnvironment,
                 partitionManager,
                 10,
@@ -881,13 +878,11 @@ public abstract class AbstractTestHive
                 countingDirectoryLister,
                 1000,
                 new PartitionProjectionService(hiveConfig, ImmutableMap.of(), new TestingTypeManager()),
-                true,
-                HiveTimestampPrecision.DEFAULT_PRECISION);
+                true);
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
                 partitionManager,
-                new HdfsFileSystemFactory(hdfsEnvironment),
                 new NamenodeStats(),
                 hdfsEnvironment,
                 executor,
@@ -911,7 +906,6 @@ public abstract class AbstractTestHive
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER, BLOCK_TYPE_OPERATORS),
                 TESTING_TYPE_MANAGER,
                 getHiveConfig(),
-                getSortingFileWriterConfig(),
                 locationService,
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
@@ -936,13 +930,8 @@ public abstract class AbstractTestHive
     protected HiveConfig getHiveConfig()
     {
         return new HiveConfig()
-                .setTemporaryStagingDirectoryPath(temporaryStagingDirectory.toAbsolutePath().toString());
-    }
-
-    protected SortingFileWriterConfig getSortingFileWriterConfig()
-    {
-        return new SortingFileWriterConfig()
                 .setMaxOpenSortFiles(10)
+                .setTemporaryStagingDirectoryPath(temporaryStagingDirectory.toAbsolutePath().toString())
                 .setWriterSortBufferSize(DataSize.of(100, KILOBYTE));
     }
 
@@ -2349,6 +2338,19 @@ public abstract class AbstractTestHive
         }
     }
 
+    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*" + INVALID_COLUMN + ".*")
+    public void testGetRecordsInvalidColumn()
+            throws Exception
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata connectorMetadata = transaction.getMetadata();
+            ConnectorTableHandle table = getTableHandle(connectorMetadata, tableUnpartitioned);
+            ConnectorSession session = newSession();
+            connectorMetadata.beginQuery(session);
+            readTable(transaction, table, ImmutableList.of(invalidColumnHandle), session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
+        }
+    }
+
     @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
     public void testPartitionSchemaMismatch()
             throws Exception
@@ -2771,7 +2773,7 @@ public abstract class AbstractTestHive
 
             assertThat(listAllDataFiles(context, stagingPathRoot))
                     .filteredOn(file -> file.contains(".tmp-sort."))
-                    .size().isGreaterThan(bucketCount * getSortingFileWriterConfig().getMaxOpenSortFiles() * 2);
+                    .size().isGreaterThan(bucketCount * getHiveConfig().getMaxOpenSortFiles() * 2);
 
             // finish the write
             Collection<Slice> fragments = getFutureValue(sink.finish());
@@ -5289,11 +5291,6 @@ public abstract class AbstractTestHive
                 return OrcPageSource.class;
             case PARQUET:
                 return ParquetPageSource.class;
-            case CSV:
-            case JSON:
-            case TEXTFILE:
-            case SEQUENCEFILE:
-                return LinePageSource.class;
             default:
                 throw new AssertionError("File type does not use a PageSource: " + hiveStorageFormat);
         }

@@ -81,22 +81,22 @@ public final class SqlStage
             Session session,
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
-            Executor stateMachineExecutor,
+            Executor executor,
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
-        checkArgument(fragment.getOutputPartitioningScheme().getBucketToPartition().isEmpty(), "bucket to partition is not expected to be set at this point");
+        checkArgument(fragment.getPartitioningScheme().getBucketToPartition().isEmpty(), "bucket to partition is not expected to be set at this point");
         requireNonNull(tables, "tables is null");
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        requireNonNull(stateMachineExecutor, "stateMachineExecutor is null");
+        requireNonNull(executor, "executor is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
 
         SqlStage sqlStage = new SqlStage(
                 session,
-                new StageStateMachine(stageId, fragment, tables, stateMachineExecutor, schedulerStats),
+                new StageStateMachine(stageId, fragment, tables, executor, schedulerStats),
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo);

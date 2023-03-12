@@ -21,56 +21,10 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static io.trino.hive.formats.ReadWriteUtils.computeVIntLength;
 import static org.testng.Assert.assertEquals;
 
 public class TestReadWriteUtils
 {
-    @Test
-    public void testVIntLength()
-    {
-        SliceOutput output = Slices.allocate(100).getOutput();
-
-        assertEquals(calculateVintLength(output, Integer.MAX_VALUE), 5);
-
-        assertEquals(calculateVintLength(output, 16777216), 5);
-        assertEquals(calculateVintLength(output, 16777215), 4);
-
-        assertEquals(calculateVintLength(output, 65536), 4);
-        assertEquals(calculateVintLength(output, 65535), 3);
-
-        assertEquals(calculateVintLength(output, 256), 3);
-        assertEquals(calculateVintLength(output, 255), 2);
-
-        assertEquals(calculateVintLength(output, 128), 2);
-        assertEquals(calculateVintLength(output, 127), 1);
-
-        assertEquals(calculateVintLength(output, -112), 1);
-        assertEquals(calculateVintLength(output, -113), 2);
-
-        assertEquals(calculateVintLength(output, -256), 2);
-        assertEquals(calculateVintLength(output, -257), 3);
-
-        assertEquals(calculateVintLength(output, -65536), 3);
-        assertEquals(calculateVintLength(output, -65537), 4);
-
-        assertEquals(calculateVintLength(output, -16777216), 4);
-        assertEquals(calculateVintLength(output, -16777217), 5);
-
-        assertEquals(calculateVintLength(output, Integer.MIN_VALUE), 5);
-    }
-
-    private static int calculateVintLength(SliceOutput output, int value)
-    {
-        // write vint to compute expected size
-        output.reset();
-        ReadWriteUtils.writeVLong(output, value);
-        int expectedSize = output.size();
-
-        assertEquals(computeVIntLength(value), expectedSize);
-        return expectedSize;
-    }
-
     @Test
     public void testVInt()
             throws Exception
@@ -99,7 +53,7 @@ public class TestReadWriteUtils
     private static void assertVIntRoundTrip(SliceOutput output, long value)
             throws IOException
     {
-        Slice oldBytes = writeVint(output, value);
+        Slice oldBytes = writeVintOld(output, value);
 
         long readValueOld = WritableUtils.readVLong(oldBytes.getInput());
         assertEquals(readValueOld, value);
@@ -111,7 +65,7 @@ public class TestReadWriteUtils
         assertEquals(readValueNewStream, value);
     }
 
-    private static Slice writeVint(SliceOutput output, long value)
+    private static Slice writeVintOld(SliceOutput output, long value)
             throws IOException
     {
         output.reset();
@@ -133,8 +87,6 @@ public class TestReadWriteUtils
             ReadWriteUtils.writeVInt(output, (int) value);
             Slice vIntNew = Slices.copyOf(output.slice());
             assertEquals(vIntNew, vLongOld);
-
-            assertEquals(computeVIntLength((int) value), vIntNew.length());
         }
         return vLongOld;
     }

@@ -136,9 +136,8 @@ running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-As an example, query the ``example`` catalog and use ``STRING_TO_MV`` and
-``MV_LENGTH`` from `Druid SQL's multi-value string functions
-<https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
+As an example, use ``STRING_TO_MV`` and ``MV_LENGTH`` from
+`Druid SQL's multi-value string functions <https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
 to split and then count the number of comma-separated values in a column::
 
     SELECT

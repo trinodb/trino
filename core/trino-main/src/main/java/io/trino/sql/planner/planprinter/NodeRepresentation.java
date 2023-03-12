@@ -16,7 +16,6 @@ package io.trino.sql.planner.planprinter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.FormatMethod;
 import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
@@ -80,7 +79,6 @@ public class NodeRepresentation
         checkArgument(estimatedCost.size() == estimatedStats.size(), "size of cost and stats list does not match");
     }
 
-    @FormatMethod
     public void appendDetails(String string, Object... args)
     {
         if (args.length == 0) {
