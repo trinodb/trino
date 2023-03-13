@@ -546,7 +546,7 @@ public class PlanOptimizers
                                 new TransformCorrelatedSingleRowSubqueryToProject(),
                                 new RemoveAggregationInSemiJoin(),
                                 new MergeProjectWithValues(metadata),
-                                new ReplaceJoinOverConstantWithProject())),
+                                new ReplaceJoinOverConstantWithProject(metadata))),
                 new CheckSubqueryNodesAreRewritten(),
                 simplifyOptimizer, // Should run after MergeProjectWithValues
                 new StatsRecordingPlanOptimizer(
