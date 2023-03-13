@@ -266,8 +266,8 @@ public class TestIcebergJdbcConnectorTest
     @Override
     protected boolean supportsIcebergFileStatistics(String typeName)
     {
-        return !(typeName.equalsIgnoreCase("varbinary")) &&
-                !(typeName.equalsIgnoreCase("uuid"));
+        return !typeName.equalsIgnoreCase("varbinary") &&
+                !typeName.equalsIgnoreCase("uuid");
     }
 
     @Override
