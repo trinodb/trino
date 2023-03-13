@@ -1033,10 +1033,11 @@ to the connector using a :doc:`WITH </sql/create-table-as>` clause::
       :ref:`hive_examples` for more information.
     -
   * - ``format``
-    - The table file format. Valid values include ``ORC``, ``PARQUET``, ``AVRO``,
-      ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``, ``TEXTFILE``, and
-      ``CSV``. The catalog property ``hive.storage-format`` sets the default
-      value and can change it to a different default.
+    - The table file format. Valid values include ``ORC``, ``PARQUET``,
+      ``AVRO``, ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``,
+      ``TEXTFILE``, ``CSV``, and ``REGEX``. The catalog property
+      ``hive.storage-format`` sets the default value and can change it to a
+      different default.
     -
   * - ``null_format``
     - The serialization format for ``NULL`` value. Requires TextFile, RCText,
