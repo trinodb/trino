@@ -203,6 +203,7 @@ public final class TestRun
             if (impactedFeaturesFile.isPresent()) {
                 try {
                     this.impactedFeatures = Optional.of(Files.asCharSource(impactedFeaturesFile.get(), StandardCharsets.UTF_8).readLines());
+                    log.info("Impacted features: %s", this.impactedFeatures);
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
