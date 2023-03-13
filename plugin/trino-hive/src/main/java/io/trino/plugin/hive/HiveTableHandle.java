@@ -150,7 +150,7 @@ public class HiveTableHandle
                 bucketFilter,
                 analyzePartitionValues,
                 constraintColumns,
-                ImmutableSet.of(),
+                ImmutableSet.<ColumnHandle>builder().addAll(partitionColumns).addAll(dataColumns).build(),
                 transaction,
                 recordScannedFiles,
                 maxSplitFileSize);
