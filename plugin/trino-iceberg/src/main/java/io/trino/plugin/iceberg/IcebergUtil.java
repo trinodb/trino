@@ -90,6 +90,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -543,7 +544,7 @@ public final class IcebergUtil
                 String partitionValue;
                 if (type.typeId() == FIXED || type.typeId() == BINARY) {
                     // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = Base64.getEncoder().encodeToString(((ByteBuffer) value).array());
+                    partitionValue = Base64.getEncoder().encodeToString(getWrappedBytes(((ByteBuffer) value)));
                 }
                 else {
                     partitionValue = value.toString();
