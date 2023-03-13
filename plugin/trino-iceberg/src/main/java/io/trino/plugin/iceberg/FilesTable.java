@@ -15,6 +15,9 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -39,6 +42,8 @@ import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -203,9 +208,9 @@ public class FilesTable
             columns.add(getIntegerBigintMapBlock(dataFile.nanValueCounts()));
             columns.add(getIntegerVarcharMapBlock(dataFile.lowerBounds()));
             columns.add(getIntegerVarcharMapBlock(dataFile.upperBounds()));
-            columns.add(dataFile.keyMetadata());
-            columns.add(dataFile.splitOffsets());
-            columns.add(dataFile.equalityFieldIds());
+            columns.add(toVarbinarySlice(dataFile.keyMetadata()));
+            columns.add(toBigintArrayBlock(dataFile.splitOffsets()));
+            columns.add(toIntegerArrayBlock(dataFile.equalityFieldIds()));
             checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
             return columns;
         }
@@ -254,6 +259,37 @@ public class FilesTable
             });
             blockBuilder.closeEntry();
             return integerToVarcharMapType.getObject(blockBuilder, 0);
+        }
+
+        @Nullable
+        private static Block toIntegerArrayBlock(List<Integer> values)
+        {
+            if (values == null) {
+                return null;
+            }
+            BlockBuilder builder = INTEGER.createBlockBuilder(null, values.size());
+            values.forEach(value -> INTEGER.writeLong(builder, value));
+            return builder.build();
+        }
+
+        @Nullable
+        private static Block toBigintArrayBlock(List<Long> values)
+        {
+            if (values == null) {
+                return null;
+            }
+            BlockBuilder builder = BIGINT.createBlockBuilder(null, values.size());
+            values.forEach(value -> BIGINT.writeLong(builder, value));
+            return builder.build();
+        }
+
+        @Nullable
+        private static Slice toVarbinarySlice(ByteBuffer value)
+        {
+            if (value == null) {
+                return null;
+            }
+            return Slices.wrappedBuffer(value);
         }
     }
 
