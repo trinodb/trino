@@ -50,10 +50,6 @@
                             <shadeSourcesContent>false</shadeSourcesContent>
                             <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <promoteTransitiveDependencies>false</promoteTransitiveDependencies>
-                            <artifactSet>
-                                <excludes>
-                                </excludes>
-                            </artifactSet>
                             <relocations>
                                 <relocation>
                                     <pattern>org.apache.zookeeper</pattern>
@@ -66,6 +62,10 @@
                                     <excludes>
                                         <exclude>org/apache/phoenix/shaded/org/apache/zookeeper/client/StaticHostProvider.class</exclude>
                                         <exclude>org/apache/phoenix/shaded/org/apache/zookeeper/client/StaticHostProvider$*.class</exclude>
+                                        <!-- TODO: https://issues.apache.org/jira/browse/PHOENIX-6903 -->
+                                        <exclude>javax/xml/bind/**</exclude>
+                                        <exclyde>META-INF/services/javax.xml.bind.JAXBContext</exclyde>
+                                        <exclude>org/apache/phoenix/shaded/com/sun/xml/bind/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
