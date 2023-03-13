@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.trino.plugin.hive.coercions.CharCoercer;
 import io.trino.plugin.hive.coercions.DoubleToFloatCoercer;
 import io.trino.plugin.hive.coercions.FloatToDoubleCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
@@ -43,6 +44,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -313,6 +315,12 @@ public class HivePageSource
             }
             return Optional.empty();
         }
+        if (fromType instanceof CharType fromCharType && toType instanceof CharType toCharType) {
+            if (narrowerThan(toCharType, fromCharType)) {
+                return Optional.of(new CharCoercer(fromCharType, toCharType));
+            }
+            return Optional.empty();
+        }
         if (fromHiveType.equals(HIVE_BYTE) && (toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return Optional.of(new IntegerNumberUpscaleCoercer<>(fromType, toType));
         }
@@ -370,6 +378,13 @@ public class HivePageSource
             return !first.isUnbounded();
         }
         return first.getBoundedLength() < second.getBoundedLength();
+    }
+
+    public static boolean narrowerThan(CharType first, CharType second)
+    {
+        requireNonNull(first, "first is null");
+        requireNonNull(second, "second is null");
+        return first.getLength() < second.getLength();
     }
 
     private static class ListCoercer
