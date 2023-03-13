@@ -50,6 +50,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
+import static java.sql.JDBCType.CHAR;
 import static java.sql.JDBCType.DECIMAL;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.FLOAT;
@@ -108,6 +109,8 @@ public abstract class BaseTestHiveCoercion
                 "long_decimal_to_bounded_varchar",
                 "varchar_to_bigger_varchar",
                 "varchar_to_smaller_varchar",
+                "char_to_bigger_char",
+                "char_to_smaller_char",
                 "id");
 
         Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal, floatToDecimalVal);
@@ -162,6 +165,8 @@ public abstract class BaseTestHiveCoercion
                         "  DECIMAL '12345678.123456123456', " +
                         "  'abc', " +
                         "  'abc', " +
+                        "  'abc', " +
+                        "  'abc', " +
                         "  1), " +
                         "(" +
                         "  CAST(ROW (NULL, 1, -100, -2323, -12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
@@ -188,6 +193,8 @@ public abstract class BaseTestHiveCoercion
                         "  DECIMAL '-12345678.123456123456', " +
                         "  DECIMAL '-12345.12345', " +
                         "  DECIMAL '-12345678.123456123456', " +
+                        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+                        "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  1)",
@@ -325,6 +332,12 @@ public abstract class BaseTestHiveCoercion
                         "abc",
                         "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0"))
                 .put("varchar_to_smaller_varchar", ImmutableList.of(
+                        "ab",
+                        "\uD83D\uDCB0\uD83D\uDCB0"))
+                .put("char_to_bigger_char", ImmutableList.of(
+                        "abc ",
+                        "\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0 "))
+                .put("char_to_smaller_char", ImmutableList.of(
                         "ab",
                         "\uD83D\uDCB0\uD83D\uDCB0"))
                 .put("id", ImmutableList.of(
@@ -549,6 +562,8 @@ public abstract class BaseTestHiveCoercion
                 row("long_decimal_to_bounded_varchar", "varchar(30)"),
                 row("varchar_to_bigger_varchar", "varchar(4)"),
                 row("varchar_to_smaller_varchar", "varchar(2)"),
+                row("char_to_bigger_char", "char(4)"),
+                row("char_to_smaller_char", "char(2)"),
                 row("id", "bigint"));
     }
 
@@ -593,6 +608,8 @@ public abstract class BaseTestHiveCoercion
                 .put("long_decimal_to_bounded_varchar", VARCHAR)
                 .put("varchar_to_bigger_varchar", VARCHAR)
                 .put("varchar_to_smaller_varchar", VARCHAR)
+                .put("char_to_bigger_char", CHAR)
+                .put("char_to_smaller_char", CHAR)
                 .put("id", BIGINT)
                 .put("nested_field", BIGINT)
                 .buildOrThrow();
@@ -631,6 +648,8 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN long_decimal_to_bounded_varchar long_decimal_to_bounded_varchar varchar(30)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_bigger_varchar varchar_to_bigger_varchar varchar(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_char char_to_bigger_char char(4)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_char char_to_smaller_char char(2)", tableName));
     }
 
     protected static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)

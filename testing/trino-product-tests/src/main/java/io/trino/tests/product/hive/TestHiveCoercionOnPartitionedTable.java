@@ -96,7 +96,9 @@ public class TestHiveCoercionOnPartitionedTable
                         "    short_decimal_to_bounded_varchar   DECIMAL(10,5)," +
                         "    long_decimal_to_bounded_varchar    DECIMAL(20,12)," +
                         "    varchar_to_bigger_varchar          VARCHAR(3)," +
-                        "    varchar_to_smaller_varchar         VARCHAR(3)" +
+                        "    varchar_to_smaller_varchar         VARCHAR(3)," +
+                        "    char_to_bigger_char                CHAR(3)," +
+                        "    char_to_smaller_char               CHAR(3)" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
