@@ -56,6 +56,7 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
+import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.session.PropertyMetadata;
@@ -109,6 +110,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
+    private final BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final Function<SchemaTableName, List<List<?>>> data;
     private final Function<SchemaTableName, Metrics> metrics;
@@ -155,6 +157,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout,
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
+            BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges,
             Supplier<Iterable<EventListener>> eventListeners,
             Function<SchemaTableName, List<List<?>>> data,
             Function<SchemaTableName, Metrics> metrics,
@@ -198,6 +201,7 @@ public class MockConnectorFactory
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
+        this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.analyzeProperties = requireNonNull(analyzeProperties, "analyzeProperties is null");
         this.schemaProperties = requireNonNull(schemaProperties, "schemaProperties is null");
@@ -251,6 +255,7 @@ public class MockConnectorFactory
                 getInsertLayout,
                 getNewTableLayout,
                 getTableProperties,
+                listTablePrivileges,
                 eventListeners,
                 roleGrants,
                 partitioningProvider,
@@ -376,6 +381,7 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
         private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties = defaultGetTableProperties();
+        private BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges = defaultListTablePrivileges();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
         private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
@@ -565,6 +571,13 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withListTablePrivileges(BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges)
+        {
+            provideAccessControl = true;
+            this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
+            return this;
+        }
+
         public Builder withEventListener(EventListener listener)
         {
             requireNonNull(listener, "listener is null");
@@ -732,6 +745,7 @@ public class MockConnectorFactory
                     getInsertLayout,
                     getNewTableLayout,
                     getTableProperties,
+                    listTablePrivileges,
                     eventListeners,
                     data,
                     metrics,
@@ -799,6 +813,11 @@ public class MockConnectorFactory
         public static BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> defaultGetTableProperties()
         {
             return (session, tableHandle) -> new ConnectorTableProperties();
+        }
+
+        public static BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> defaultListTablePrivileges()
+        {
+            return (session, tableHandle) -> ImmutableList.of();
         }
 
         public static Function<SchemaTableName, List<ColumnMetadata>> defaultGetColumns()
