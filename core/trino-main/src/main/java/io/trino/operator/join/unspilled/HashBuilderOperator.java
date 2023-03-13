@@ -41,6 +41,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Like {@link io.trino.operator.join.HashBuilderOperator} but simplified,
+ * without spill support.
+ */
 @ThreadSafe
 public class HashBuilderOperator
         implements Operator
