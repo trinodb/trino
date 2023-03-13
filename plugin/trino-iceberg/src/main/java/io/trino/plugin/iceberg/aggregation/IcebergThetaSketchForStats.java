@@ -39,6 +39,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.base.io.ByteBuffers.getBytes;
 import static io.trino.plugin.iceberg.IcebergTypes.convertTrinoValueToIceberg;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
@@ -107,19 +108,5 @@ public final class IcebergThetaSketchForStats
         if (input != null) {
             union.union(input);
         }
-    }
-
-    private static byte[] getBytes(ByteBuffer byteBuffer)
-    {
-        int length = byteBuffer.remaining();
-        if (byteBuffer.hasArray() && byteBuffer.arrayOffset() == 0) {
-            byte[] bytes = byteBuffer.array();
-            if (bytes.length == length) {
-                return bytes;
-            }
-        }
-        byte[] bytes = new byte[length];
-        byteBuffer.get(bytes);
-        return bytes;
     }
 }

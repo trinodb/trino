@@ -31,7 +31,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.function.Consumer;
 
-import static com.datastax.oss.driver.api.core.data.ByteUtils.fromHexString;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -191,7 +190,7 @@ public class TestSelect
                 .containsOnly(
                         row("\0",
                                 Long.MIN_VALUE,
-                                fromHexString("0x00").array(),
+                                new byte[] {0},
                                 false,
                                 0f,
                                 Double.MIN_VALUE,
@@ -305,7 +304,7 @@ public class TestSelect
                 .containsOnly(
                         row("\0",
                                 Long.MIN_VALUE,
-                                fromHexString("0x00").array(),
+                                new byte[] {0},
                                 false,
                                 0f,
                                 Double.MIN_VALUE,
