@@ -5536,12 +5536,12 @@ public abstract class BaseIcebergConnectorTest
 
         List<Long> initialSnapshots = getSnapshotIds(tableName);
         String tableLocation = getTableLocation(tableName);
-        List<String> initialFiles = getAllMetadataFilesFromTableDirectoryForTable(tableLocation);
+        List<String> initialFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
 
         assertThat(query("SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '3', VARCHAR 'one two')");
-        List<String> updatedFiles = getAllMetadataFilesFromTableDirectoryForTable(tableLocation);
+        List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
         List<Long> updatedSnapshots = getSnapshotIds(tableName);
         assertThat(updatedFiles.size()).isEqualTo(initialFiles.size() - 1);
         assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
@@ -5679,11 +5679,11 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
         String tableLocation = getTableLocation(tableName);
         Path orphanMetadataFile = Files.createFile(Path.of(getIcebergTableMetadataPath(tableLocation).toString(), "invalidData." + format));
-        List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectoryForTable(tableLocation);
+        List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
 
-        List<String> updatedMetadataFiles = getAllMetadataFilesFromTableDirectoryForTable(tableLocation);
+        List<String> updatedMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
         assertThat(updatedMetadataFiles.size()).isLessThan(initialMetadataFiles.size());
         assertThat(updatedMetadataFiles).doesNotContain(orphanMetadataFile.toString());
     }
@@ -5703,12 +5703,13 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_table_cleaning_up_with_location" + randomNameSuffix();
         String tableLocation = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toUri().toASCIIString() + randomNameSuffix() + suffix;
+        String tableDirectory = new File(URI.create(tableLocation)).getPath(); // validates this is file:// URI and normalizes
 
         assertUpdate(format("CREATE TABLE %s (key varchar, value integer) WITH(location = '%s')", tableName, tableLocation));
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
-        List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectory(tableDirectory);
         List<Long> initialSnapshots = getSnapshotIds(tableName);
         assertThat(initialSnapshots).as("initialSnapshots")
                 .hasSize(3); // CREATE TABLE creates a snapshot
@@ -5716,7 +5717,7 @@ public abstract class BaseIcebergConnectorTest
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
-        List<String> prunedMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        List<String> prunedMetadataFiles = getAllMetadataFilesFromTableDirectory(tableDirectory);
         List<Long> prunedSnapshots = getSnapshotIds(tableName);
         assertThat(prunedMetadataFiles).as("prunedMetadataFiles")
                 .hasSize(initialMetadataFiles.size() - 1);
@@ -6707,16 +6708,10 @@ public abstract class BaseIcebergConnectorTest
                 .build();
     }
 
-    private List<String> getAllMetadataFilesFromTableDirectoryForTable(String tableLocation)
+    private List<String> getAllMetadataFilesFromTableDirectory(String tableLocation)
             throws IOException
     {
         return listAllTableFilesInDirectory(getIcebergTableMetadataPath(tableLocation));
-    }
-
-    private List<String> getAllMetadataFilesFromTableDirectory(String tableDataDir)
-            throws IOException
-    {
-        return listAllTableFilesInDirectory(Path.of(URI.create(tableDataDir).getPath()));
     }
 
     private List<String> listAllTableFilesInDirectory(Path tableDataPath)
