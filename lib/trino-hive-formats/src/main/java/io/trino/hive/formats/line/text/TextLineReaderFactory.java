@@ -68,7 +68,7 @@ public class TextLineReaderFactory
             Optional<Codec> codec = getExtension(inputFile.location())
                     .flatMap(CompressionKind::createCodecFromExtension);
             if (codec.isPresent()) {
-                checkArgument(start == 0 && length == inputFile.length(), "Compressed files are not splittable");
+                checkArgument(start == 0, "Compressed files are not splittable");
                 // for compressed input, we do not know the length of the uncompressed text
                 length = Long.MAX_VALUE;
                 inputStream = codec.get().createStreamDecompressor(inputStream);
