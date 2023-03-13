@@ -5701,26 +5701,31 @@ public abstract class BaseIcebergConnectorTest
     private void testCleaningUpWithTableWithSpecifiedLocation(String suffix)
             throws IOException
     {
-        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix() + suffix;
         String tableName = "test_table_cleaning_up_with_location" + randomNameSuffix();
+        String tableLocation = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toUri().toASCIIString() + randomNameSuffix() + suffix;
 
-        assertUpdate(format("CREATE TABLE %s (key varchar, value integer) WITH(location = '%s')", tableName, tempDirPath));
+        assertUpdate(format("CREATE TABLE %s (key varchar, value integer) WITH(location = '%s')", tableName, tableLocation));
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
 
-        List<String> initialFiles = getAllMetadataFilesFromTableDirectory(tempDirPath);
+        List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
         List<Long> initialSnapshots = getSnapshotIds(tableName);
+        assertThat(initialSnapshots).as("initialSnapshots")
+                .hasSize(3); // CREATE TABLE creates a snapshot
 
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
-        List<String> updatedFiles = getAllMetadataFilesFromTableDirectory(tempDirPath);
-        List<Long> updatedSnapshots = getSnapshotIds(tableName);
-        assertThat(updatedFiles.size()).isEqualTo(initialFiles.size() - 1);
-        assertThat(updatedSnapshots.size()).isLessThan(initialSnapshots.size());
-        assertThat(updatedSnapshots.size()).isEqualTo(1);
-        assertThat(initialSnapshots).containsAll(updatedSnapshots);
+        List<String> prunedMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        List<Long> prunedSnapshots = getSnapshotIds(tableName);
+        assertThat(prunedMetadataFiles).as("prunedMetadataFiles")
+                .hasSize(initialMetadataFiles.size() - 1);
+        assertThat(prunedSnapshots).as("prunedSnapshots")
+                .hasSizeLessThan(initialSnapshots.size())
+                .hasSize(1);
+        assertThat(initialSnapshots).containsAll(prunedSnapshots);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
