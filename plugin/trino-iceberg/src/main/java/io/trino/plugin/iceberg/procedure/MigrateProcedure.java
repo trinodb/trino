@@ -96,7 +96,6 @@ import static java.lang.Boolean.parseBoolean;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -193,7 +192,7 @@ public class MigrateProcedure
         if (parseBoolean(transactionalProperty)) {
             throw new TrinoException(NOT_SUPPORTED, "Migrating transactional tables is unsupported");
         }
-        if (!hiveTable.getTableType().equalsIgnoreCase(MANAGED_TABLE.name())) {
+        if (!"MANAGED_TABLE".equalsIgnoreCase(hiveTable.getTableType())) {
             throw new TrinoException(NOT_SUPPORTED, "The procedure supports migrating only managed tables: " + hiveTable.getTableType());
         }
         if (isDeltaLakeTable(hiveTable)) {
