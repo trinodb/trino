@@ -375,6 +375,7 @@ public class DatabaseShardManager
                     SECONDS.sleep(multiplyExact(attempt, 2));
                 }
                 catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
                     throw metadataError(ie);
                 }
             }

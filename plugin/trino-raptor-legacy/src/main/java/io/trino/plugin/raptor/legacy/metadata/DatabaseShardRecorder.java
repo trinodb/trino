@@ -58,6 +58,7 @@ public class DatabaseShardRecorder
                     MILLISECONDS.sleep(millis + ThreadLocalRandom.current().nextLong(0, millis));
                 }
                 catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
                     throw metadataError(ie);
                 }
             }
