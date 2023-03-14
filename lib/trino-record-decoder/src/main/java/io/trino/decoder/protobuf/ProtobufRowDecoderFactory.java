@@ -17,6 +17,7 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
 import io.trino.decoder.protobuf.DynamicMessageProvider.Factory;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -32,11 +33,13 @@ public class ProtobufRowDecoderFactory
     public static final String DEFAULT_MESSAGE = "schema";
 
     private final Factory dynamicMessageProviderFactory;
+    private final TypeManager typeManager;
 
     @Inject
-    public ProtobufRowDecoderFactory(Factory dynamicMessageProviderFactory)
+    public ProtobufRowDecoderFactory(Factory dynamicMessageProviderFactory, TypeManager typeManager)
     {
         this.dynamicMessageProviderFactory = requireNonNull(dynamicMessageProviderFactory, "dynamicMessageProviderFactory is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -44,6 +47,7 @@ public class ProtobufRowDecoderFactory
     {
         return new ProtobufRowDecoder(
                 dynamicMessageProviderFactory.create(Optional.ofNullable(decoderParams.get("dataSchema"))),
-                columns);
+                columns,
+                typeManager);
     }
 }

@@ -17,7 +17,11 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
+import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.util.JsonFormat;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.spi.TrinoException;
@@ -33,21 +37,31 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ProtobufColumnDecoder
 {
+    private static final Slice EMPTY_JSON = Slices.utf8Slice("{}");
+
     private static final Set<Type> SUPPORTED_PRIMITIVE_TYPES = ImmutableSet.of(
             BooleanType.BOOLEAN,
             TinyintType.TINYINT,
@@ -61,11 +75,15 @@ public class ProtobufColumnDecoder
     private final Type columnType;
     private final String columnMapping;
     private final String columnName;
+    private final TypeManager typeManager;
+    private final Type jsonType;
 
-    public ProtobufColumnDecoder(DecoderColumnHandle columnHandle)
+    public ProtobufColumnDecoder(DecoderColumnHandle columnHandle, TypeManager typeManager)
     {
         try {
             requireNonNull(columnHandle, "columnHandle is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.jsonType = typeManager.getType(new TypeSignature(JSON));
             this.columnType = columnHandle.getType();
             this.columnMapping = columnHandle.getMapping();
             this.columnName = columnHandle.getName();
@@ -81,7 +99,7 @@ public class ProtobufColumnDecoder
         }
     }
 
-    private static boolean isSupportedType(Type type)
+    private boolean isSupportedType(Type type)
     {
         if (isSupportedPrimitive(type)) {
             return true;
@@ -106,7 +124,8 @@ public class ProtobufColumnDecoder
             }
             return true;
         }
-        return false;
+
+        return type.equals(jsonType);
     }
 
     private static boolean isSupportedPrimitive(Type type)
@@ -118,7 +137,7 @@ public class ProtobufColumnDecoder
 
     public FieldValueProvider decodeField(DynamicMessage dynamicMessage)
     {
-        return new ProtobufValueProvider(locateField(dynamicMessage, columnMapping), columnType, columnName);
+        return new ProtobufValueProvider(locateField(dynamicMessage, columnMapping), columnType, columnName, typeManager);
     }
 
     @Nullable
@@ -128,8 +147,15 @@ public class ProtobufColumnDecoder
         Optional<Descriptor> valueDescriptor = Optional.of(message.getDescriptorForType());
         for (String pathElement : Splitter.on('/').omitEmptyStrings().split(columnMapping)) {
             if (valueDescriptor.filter(descriptor -> descriptor.findFieldByName(pathElement) != null).isEmpty()) {
-                return null;
+                // Search the message to see if this column is oneof type
+                Optional<OneofDescriptor> oneofDescriptor = message.getDescriptorForType().getOneofs().stream()
+                        .filter(descriptor -> descriptor.getName().equals(columnMapping))
+                        .findFirst();
+
+                return oneofDescriptor.map(descriptor -> createOneofJson(message, descriptor))
+                        .orElse(null);
             }
+
             FieldDescriptor fieldDescriptor = valueDescriptor.get().findFieldByName(pathElement);
             value = ((DynamicMessage) value).getField(fieldDescriptor);
             valueDescriptor = getDescriptor(fieldDescriptor);
@@ -143,5 +169,41 @@ public class ProtobufColumnDecoder
             return Optional.of(fieldDescriptor.getMessageType());
         }
         return Optional.empty();
+    }
+
+    private static Object createOneofJson(DynamicMessage message, OneofDescriptor descriptor)
+    {
+        // Collect all oneof field names from the descriptor
+        Set<String> oneofColumns = descriptor.getFields().stream()
+                .map(FieldDescriptor::getName)
+                .collect(toImmutableSet());
+
+        // Find the oneof field in the message; there will be at most one
+        List<Entry<FieldDescriptor, Object>> oneofFields = message.getAllFields().entrySet().stream()
+                .filter(entry -> oneofColumns.contains(entry.getKey().getName()))
+                .collect(toImmutableList());
+
+        if (oneofFields.size() > 1) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected to find at most one 'oneof' field in message, found fields: %s", oneofFields));
+        }
+
+        // If found, map the field to a JSON string containing a single field:value pair, else return an empty JSON string {}
+        if (!oneofFields.isEmpty()) {
+            try {
+                // Create a new DynamicMessage where the only set field is the oneof field, so we can use the protobuf-java-util to encode the message as JSON
+                // If we encoded the entire input message, it would include all fields
+                Entry<FieldDescriptor, Object> oneofField = oneofFields.get(0);
+                DynamicMessage oneofMessage = DynamicMessage.newBuilder(oneofField.getKey().getContainingType())
+                        .setField(oneofField.getKey(), oneofField.getValue())
+                        .build();
+                return Slices.utf8Slice(JsonFormat.printer()
+                        .omittingInsignificantWhitespace()
+                        .print(oneofMessage));
+            }
+            catch (Exception e) {
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to convert oneof message to JSON", e);
+            }
+        }
+        return EMPTY_JSON;
     }
 }
