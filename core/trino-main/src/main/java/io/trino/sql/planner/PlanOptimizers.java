@@ -1000,11 +1000,13 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(
-                        new PushPartialAggregationThroughJoin(),
-                        new PushPartialAggregationThroughExchange(plannerContext),
-                        new PruneJoinColumns(),
-                        new PruneJoinChildrenColumns())));
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(new PushPartialAggregationThroughJoin().rules())
+                        .add(new PushPartialAggregationThroughExchange(plannerContext),
+                                new PruneJoinColumns(),
+                                new PruneJoinChildrenColumns(),
+                                new RemoveRedundantIdentityProjections())
+                        .build()));
         builder.add(new IterativeOptimizer(
                 plannerContext,
                 ruleStats,
