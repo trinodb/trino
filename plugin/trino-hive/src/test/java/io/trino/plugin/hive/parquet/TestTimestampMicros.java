@@ -115,22 +115,23 @@ public class TestTimestampMicros
 
         ReaderPageSource pageSourceWithProjections = pageSourceFactory.createPageSource(
                         newEmptyConfiguration(),
-                session,
-                new Path(parquetFile.toURI()),
-                0,
-                parquetFile.length(),
-                parquetFile.length(),
-                schema,
-                List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
-                TupleDomain.all(),
-                Optional.empty(),
-                OptionalInt.empty(),
-                false,
-                AcidTransaction.NO_ACID_TRANSACTION)
+                        session,
+                        new Path(parquetFile.toURI()),
+                        0,
+                        parquetFile.length(),
+                        parquetFile.length(),
+                        schema,
+                        List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
+                        TupleDomain.all(),
+                        Optional.empty(),
+                        OptionalInt.empty(),
+                        false,
+                        AcidTransaction.NO_ACID_TRANSACTION)
                 .orElseThrow();
 
-        pageSourceWithProjections.getReaderColumns()
-                .ifPresent(projections -> { throw new IllegalStateException("Unexpected projections: " + projections); });
+        pageSourceWithProjections.getReaderColumns().ifPresent(projections -> {
+            throw new IllegalStateException("Unexpected projections: " + projections);
+        });
 
         return pageSourceWithProjections.get();
     }
