@@ -13,13 +13,18 @@
  */
 package io.trino.decoder.protobuf;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Resources;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Timestamp;
 import io.airlift.slice.Slices;
+import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
+import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider;
+import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaUtils;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
@@ -31,11 +36,15 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.testing.TestingSession;
+import io.trino.type.JsonType;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.io.Resources.getResource;
 import static io.trino.decoder.protobuf.ProtobufRowDecoderFactory.DEFAULT_MESSAGE;
 import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -51,15 +60,19 @@ import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.lang.Math.PI;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestProtobufDecoder
 {
-    private static final ProtobufRowDecoderFactory DECODER_FACTORY = new ProtobufRowDecoderFactory(new FixedSchemaDynamicMessageProvider.Factory());
+    private static final ProtobufRowDecoderFactory DECODER_FACTORY = new ProtobufRowDecoderFactory(new FixedSchemaDynamicMessageProvider.Factory(), TESTING_TYPE_MANAGER);
 
     @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)
     public void testAllDataTypes(String stringData, Integer integerData, Long longData, Double doubleData, Float floatData, Boolean booleanData, String enumData, SqlTimestamp sqlTimestamp, byte[] bytesData)
@@ -102,6 +115,171 @@ public class TestProtobufDecoder
         checkValue(decodedRow, numberColumn, enumData);
         checkValue(decodedRow, timestampColumn, sqlTimestamp.getEpochMicros());
         checkValue(decodedRow, bytesColumn, Slices.wrappedBuffer(bytesData));
+    }
+
+    @Test
+    public void testOneofFixedSchemaProvider()
+            throws Exception
+    {
+        Set<String> oneofColumnNames = Set.of(
+                "stringColumn",
+                "integerColumn",
+                "longColumn",
+                "doubleColumn",
+                "floatColumn",
+                "booleanColumn",
+                "numberColumn",
+                "timestampColumn",
+                "bytesColumn",
+                "rowColumn",
+                "nestedRowColumn");
+
+        // Uses the file-based schema parser which generates a Descriptor that does not have any oneof fields -- all are null
+        Descriptor descriptor = getDescriptor("test_oneof.proto");
+        for (String oneofColumnName : oneofColumnNames) {
+            assertNull(descriptor.findFieldByName(oneofColumnName));
+        }
+    }
+
+    @Test
+    public void testOneofConfluentSchemaProvider()
+            throws Exception
+    {
+        String stringData = "Trino";
+        int integerData = 1;
+        long longData = 493857959588286460L;
+        double doubleData = PI;
+        float floatData = 3.14f;
+        boolean booleanData = true;
+        String enumData = "ONE";
+        SqlTimestamp sqlTimestamp = sqlTimestampOf(3, LocalDateTime.parse("2020-12-12T15:35:45.923"));
+        byte[] bytesData = "X'65683F'".getBytes(UTF_8);
+
+        // Uses the Confluent schema parser to generate the Descriptor which will include the oneof columns as fields
+        Descriptor descriptor = ((ProtobufSchema) new ProtobufSchemaProvider()
+                .parseSchema(Resources.toString(getResource("decoder/protobuf/test_oneof.proto"), UTF_8), List.of(), true)
+                .get())
+                .toDescriptor();
+
+        // Build the Row message
+        Descriptor rowDescriptor = descriptor.findNestedTypeByName("Row");
+        DynamicMessage.Builder rowBuilder = DynamicMessage.newBuilder(rowDescriptor);
+        rowBuilder.setField(rowDescriptor.findFieldByName("string_column"), stringData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("integer_column"), integerData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("long_column"), longData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("double_column"), doubleData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("float_column"), floatData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("boolean_column"), booleanData);
+        rowBuilder.setField(rowDescriptor.findFieldByName("number_column"), descriptor.findEnumTypeByName("Number").findValueByName(enumData));
+        rowBuilder.setField(rowDescriptor.findFieldByName("timestamp_column"), getTimestamp(sqlTimestamp));
+        rowBuilder.setField(rowDescriptor.findFieldByName("bytes_column"), bytesData);
+
+        DynamicMessage.Builder rowMessage = DynamicMessage.newBuilder(descriptor)
+                .setField(descriptor.findFieldByName("rowColumn"), rowBuilder.build());
+
+        Map<String, Object> expectedRowMessageValue = ImmutableMap.of("stringColumn", "Trino", "integerColumn", 1, "longColumn", "493857959588286460", "doubleColumn", 3.141592653589793, "floatColumn", 3.14, "booleanColumn", true, "numberColumn", "ONE", "timestampColumn", "2020-12-12T15:35:45.923Z", "bytesColumn", "WCc2NTY4M0Yn");
+
+        // Build the NestedRow message
+        Descriptor nestedDescriptor = descriptor.findNestedTypeByName("NestedRow");
+        DynamicMessage.Builder nestedMessageBuilder = DynamicMessage.newBuilder(nestedDescriptor);
+
+        nestedMessageBuilder.setField(nestedDescriptor.findFieldByName("nested_list"), ImmutableList.of(rowBuilder.build()));
+
+        Descriptor mapDescriptor = nestedDescriptor.findFieldByName("nested_map").getMessageType();
+        DynamicMessage.Builder mapBuilder = DynamicMessage.newBuilder(mapDescriptor);
+        mapBuilder.setField(mapDescriptor.findFieldByName("key"), "Key");
+        mapBuilder.setField(mapDescriptor.findFieldByName("value"), rowBuilder.build());
+        nestedMessageBuilder.setField(nestedDescriptor.findFieldByName("nested_map"), ImmutableList.of(mapBuilder.build()));
+
+        nestedMessageBuilder.setField(nestedDescriptor.findFieldByName("row"), rowBuilder.build());
+
+        DynamicMessage nestedMessage = nestedMessageBuilder.build();
+
+        {
+            // Empty message
+            assertOneof(DynamicMessage.newBuilder(descriptor), Map.of());
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("stringColumn"), stringData);
+            assertOneof(message, Map.of("stringColumn", stringData));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("integerColumn"), integerData);
+            assertOneof(message, Map.of("integerColumn", integerData));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("longColumn"), longData);
+            assertOneof(message, Map.of("longColumn", Long.toString(longData)));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("doubleColumn"), doubleData);
+            assertOneof(message, Map.of("doubleColumn", doubleData));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("floatColumn"), floatData);
+            assertOneof(message, Map.of("floatColumn", floatData));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("booleanColumn"), booleanData);
+            assertOneof(message, Map.of("booleanColumn", booleanData));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("numberColumn"), descriptor.findEnumTypeByName("Number").findValueByName(enumData));
+            assertOneof(message, Map.of("numberColumn", enumData));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("timestampColumn"), getTimestamp(sqlTimestamp));
+            assertOneof(message, Map.of("timestampColumn", "2020-12-12T15:35:45.923Z"));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("bytesColumn"), bytesData);
+            assertOneof(message, Map.of("bytesColumn", bytesData));
+        }
+        {
+            assertOneof(rowMessage, Map.of("rowColumn", expectedRowMessageValue));
+        }
+        {
+            DynamicMessage.Builder message = DynamicMessage.newBuilder(descriptor)
+                    .setField(descriptor.findFieldByName("nestedRowColumn"), nestedMessage);
+            assertOneof(message,
+                    Map.of("nestedRowColumn", ImmutableMap.of("nestedList", List.of(expectedRowMessageValue),
+                            "nestedMap", ImmutableMap.of("Key", expectedRowMessageValue),
+                            "row", expectedRowMessageValue)));
+        }
+    }
+
+    private void assertOneof(DynamicMessage.Builder messageBuilder,
+            Map<String, Object> setValue)
+            throws Exception
+    {
+        DecoderTestColumnHandle testColumnHandle = new DecoderTestColumnHandle(0, "column", VARCHAR, "column", null, null, false, false, false);
+        DecoderTestColumnHandle testOneofColumn = new DecoderTestColumnHandle(1, "testOneofColumn", JsonType.JSON, "testOneofColumn", null, null, false, false, false);
+
+        final var message = messageBuilder.setField(messageBuilder.getDescriptorForType().findFieldByName("column"), "value").build();
+
+        final var descriptor = ProtobufSchemaUtils.getSchema(message).toDescriptor();
+        final var decoder = new ProtobufRowDecoder(new FixedSchemaDynamicMessageProvider(descriptor), ImmutableSet.of(testColumnHandle, testOneofColumn), TESTING_TYPE_MANAGER);
+
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = decoder
+                .decodeRow(message.toByteArray())
+                .orElseThrow(AssertionError::new);
+
+        assertEquals(decodedRow.size(), 2);
+
+        final var obj = new ObjectMapper();
+        final var expected = obj.writeValueAsString(setValue);
+
+        assertEquals(decodedRow.get(testColumnHandle).getSlice().toStringUtf8(), "value");
+        assertEquals(decodedRow.get(testOneofColumn).getSlice().toStringUtf8(), expected);
     }
 
     @Test(dataProvider = "allTypesDataProvider", dataProviderClass = ProtobufDataProviders.class)

@@ -35,6 +35,8 @@ import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
@@ -48,6 +50,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
@@ -65,12 +68,14 @@ public class ProtobufValueProvider
     private final Object value;
     private final Type columnType;
     private final String columnName;
+    private final Type jsonType;
 
-    public ProtobufValueProvider(@Nullable Object value, Type columnType, String columnName)
+    public ProtobufValueProvider(@Nullable Object value, Type columnType, String columnName, TypeManager typeManager)
     {
         this.value = value;
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
+        this.jsonType = typeManager.getType(new TypeSignature(JSON));
     }
 
     @Override
@@ -128,7 +133,7 @@ public class ProtobufValueProvider
         return serializeObject(null, value, columnType, columnName);
     }
 
-    private static Slice getSlice(Object value, Type type, String columnName)
+    private Slice getSlice(Object value, Type type, String columnName)
     {
         requireNonNull(value, "value is null");
         if ((type instanceof VarcharType && value instanceof CharSequence) || value instanceof EnumValueDescriptor) {
@@ -139,11 +144,15 @@ public class ProtobufValueProvider
             return Slices.wrappedBuffer(((ByteString) value).toByteArray());
         }
 
+        if (type.equals(jsonType)) {
+            return (Slice) value;
+        }
+
         throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), type, columnName));
     }
 
     @Nullable
-    private static Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
+    private Block serializeObject(BlockBuilder builder, Object value, Type type, String columnName)
     {
         if (type instanceof ArrayType) {
             return serializeList(builder, value, type, columnName);
@@ -155,12 +164,16 @@ public class ProtobufValueProvider
             return serializeRow(builder, value, type, columnName);
         }
 
+        if (type.equals(jsonType)) {
+            return serializeJson(builder, value, type);
+        }
+
         serializePrimitive(builder, value, type, columnName);
         return null;
     }
 
     @Nullable
-    private static Block serializeList(BlockBuilder parentBlockBuilder, @Nullable Object value, Type type, String columnName)
+    private Block serializeList(BlockBuilder parentBlockBuilder, @Nullable Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -182,7 +195,7 @@ public class ProtobufValueProvider
         return blockBuilder.build();
     }
 
-    private static void serializePrimitive(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
+    private void serializePrimitive(BlockBuilder blockBuilder, @Nullable Object value, Type type, String columnName)
     {
         requireNonNull(blockBuilder, "parent blockBuilder is null");
 
@@ -226,7 +239,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private static Block serializeMap(BlockBuilder parentBlockBuilder, @Nullable Object value, Type type, String columnName)
+    private Block serializeMap(BlockBuilder parentBlockBuilder, @Nullable Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parentBlockBuilder is null");
@@ -265,7 +278,7 @@ public class ProtobufValueProvider
     }
 
     @Nullable
-    private static Block serializeRow(BlockBuilder parentBlockBuilder, @Nullable Object value, Type type, String columnName)
+    private Block serializeRow(BlockBuilder parentBlockBuilder, @Nullable Object value, Type type, String columnName)
     {
         if (value == null) {
             checkState(parentBlockBuilder != null, "parent block builder is null");
@@ -298,6 +311,16 @@ public class ProtobufValueProvider
             return blockBuilder.getObject(0, Block.class);
         }
         return null;
+    }
+
+    @Nullable
+    private static Block serializeJson(BlockBuilder builder, Object value, Type type)
+    {
+        if (builder != null) {
+            type.writeObject(builder, value);
+            return null;
+        }
+        return (Block) value;
     }
 
     private static long parseTimestamp(int precision, DynamicMessage timestamp)
