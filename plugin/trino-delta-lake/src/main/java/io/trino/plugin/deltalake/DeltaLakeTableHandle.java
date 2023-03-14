@@ -137,63 +137,6 @@ public class DeltaLakeTableHandle
         this.retriesEnabled = retriesEnabled;
     }
 
-    public static DeltaLakeTableHandle forDelete(
-            String schemaName,
-            String tableName,
-            String location,
-            Optional<MetadataEntry> metadataEntry,
-            TupleDomain<DeltaLakeColumnHandle> enforcedConstraint,
-            TupleDomain<DeltaLakeColumnHandle> unenforcedConstraint,
-            Optional<Set<ColumnHandle>> projectedColumns,
-            long readVersion,
-            boolean retriesEnabled)
-    {
-        return new DeltaLakeTableHandle(
-                schemaName,
-                tableName,
-                location,
-                metadataEntry,
-                enforcedConstraint,
-                unenforcedConstraint,
-                Optional.of(WriteType.DELETE),
-                projectedColumns,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                readVersion,
-                retriesEnabled);
-    }
-
-    public static DeltaLakeTableHandle forUpdate(
-            String schemaName,
-            String tableName,
-            String location,
-            Optional<MetadataEntry> metadataEntry,
-            TupleDomain<DeltaLakeColumnHandle> enforcedConstraint,
-            TupleDomain<DeltaLakeColumnHandle> unenforcedConstraint,
-            Optional<Set<ColumnHandle>> projectedColumns,
-            List<DeltaLakeColumnHandle> updatedColumns,
-            List<DeltaLakeColumnHandle> updateRowIdColumns,
-            long readVersion,
-            boolean retriesEnabled)
-    {
-        checkArgument(!updatedColumns.isEmpty(), "Update must specify at least one column to set");
-        return new DeltaLakeTableHandle(
-                schemaName,
-                tableName,
-                location,
-                metadataEntry,
-                enforcedConstraint,
-                unenforcedConstraint,
-                Optional.of(UPDATE),
-                projectedColumns,
-                Optional.of(updatedColumns),
-                Optional.of(updateRowIdColumns),
-                Optional.empty(),
-                readVersion,
-                retriesEnabled);
-    }
-
     public DeltaLakeTableHandle withProjectedColumns(Set<ColumnHandle> projectedColumns)
     {
         return new DeltaLakeTableHandle(
