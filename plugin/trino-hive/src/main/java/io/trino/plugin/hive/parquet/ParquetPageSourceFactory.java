@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.BloomFilterStore;
+import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
@@ -28,7 +29,6 @@ import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
-import io.trino.parquet.reader.ParquetReaderColumn;
 import io.trino.parquet.reader.TrinoColumnIndexStore;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -71,7 +71,6 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
@@ -81,7 +80,6 @@ import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
-import static io.trino.parquet.reader.ParquetReaderColumn.getParquetReaderFields;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -277,24 +275,23 @@ public class ParquetPageSourceFactory
                                     .map(HiveColumnHandle.class::cast)
                                     .collect(toUnmodifiableList()))
                     .orElse(columns);
-            List<ParquetReaderColumn> parquetReaderColumns = createParquetReaderColumns(baseColumns, fileSchema, messageColumn, useColumnNames);
 
             ParquetDataSourceId dataSourceId = dataSource.getId();
-            ConnectorPageSource parquetPageSource = new ParquetPageSource(
-                    new ParquetReader(
-                            Optional.ofNullable(fileMetaData.getCreatedBy()),
-                            getParquetReaderFields(parquetReaderColumns),
-                            blocks.build(),
-                            blockStarts.build(),
-                            dataSource,
-                            timeZone,
-                            newSimpleAggregatedMemoryContext(),
-                            options,
-                            exception -> handleException(dataSourceId, exception),
-                            Optional.of(parquetPredicate),
-                            columnIndexes.build(),
-                            parquetWriteValidation),
-                    parquetReaderColumns);
+            ParquetDataSource finalDataSource = dataSource;
+            ParquetReaderProvider parquetReaderProvider = fields -> new ParquetReader(
+                    Optional.ofNullable(fileMetaData.getCreatedBy()),
+                    fields,
+                    blocks.build(),
+                    blockStarts.build(),
+                    finalDataSource,
+                    timeZone,
+                    newSimpleAggregatedMemoryContext(),
+                    options,
+                    exception -> handleException(dataSourceId, exception),
+                    Optional.of(parquetPredicate),
+                    columnIndexes.build(),
+                    parquetWriteValidation);
+            ConnectorPageSource parquetPageSource = createParquetPageSource(baseColumns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
             return new ReaderPageSource(parquetPageSource, readerProjections);
         }
         catch (Exception e) {
@@ -483,24 +480,45 @@ public class ParquetPageSourceFactory
         return null;
     }
 
-    public static List<ParquetReaderColumn> createParquetReaderColumns(List<HiveColumnHandle> baseColumns, MessageType fileSchema, MessageColumnIO messageColumn, boolean useColumnNames)
+    public interface ParquetReaderProvider
     {
+        ParquetReader createParquetReader(List<Field> fields)
+                throws IOException;
+    }
+
+    public static ConnectorPageSource createParquetPageSource(
+            List<HiveColumnHandle> baseColumns,
+            MessageType fileSchema,
+            MessageColumnIO messageColumn,
+            boolean useColumnNames,
+            ParquetReaderProvider parquetReaderProvider)
+            throws IOException
+    {
+        ParquetPageSource.Builder pageSourceBuilder = ParquetPageSource.builder();
+        ImmutableList.Builder<Field> parquetColumnFieldsBuilder = ImmutableList.builder();
+        int sourceChannel = 0;
         for (HiveColumnHandle column : baseColumns) {
-            checkArgument(column == PARQUET_ROW_INDEX_COLUMN || column.getColumnType() == REGULAR, "column type must be REGULAR: %s", column);
+            if (column == PARQUET_ROW_INDEX_COLUMN) {
+                pageSourceBuilder.addRowIndexColumn();
+                continue;
+            }
+            checkArgument(column.getColumnType() == REGULAR, "column type must be REGULAR: %s", column);
+            org.apache.parquet.schema.Type parquetType = getParquetType(column, fileSchema, useColumnNames);
+            if (parquetType == null) {
+                pageSourceBuilder.addNullColumn(column.getBaseType());
+                continue;
+            }
+            String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
+            Optional<Field> field = constructField(column.getBaseType(), lookupColumnByName(messageColumn, columnName));
+            if (field.isEmpty()) {
+                pageSourceBuilder.addNullColumn(column.getBaseType());
+                continue;
+            }
+            parquetColumnFieldsBuilder.add(field.get());
+            pageSourceBuilder.addSourceColumn(sourceChannel);
+            sourceChannel++;
         }
 
-        return baseColumns.stream()
-                .map(column -> {
-                    boolean isRowIndexColumn = column == PARQUET_ROW_INDEX_COLUMN;
-                    return new ParquetReaderColumn(
-                            column.getBaseType(),
-                            isRowIndexColumn ? Optional.empty() : Optional.ofNullable(getParquetType(column, fileSchema, useColumnNames))
-                                    .flatMap(field -> {
-                                        String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
-                                        return constructField(column.getBaseType(), lookupColumnByName(messageColumn, columnName));
-                                    }),
-                            isRowIndexColumn);
-                })
-                .collect(toImmutableList());
+        return pageSourceBuilder.build(parquetReaderProvider.createParquetReader(parquetColumnFieldsBuilder.build()));
     }
 }

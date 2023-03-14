@@ -24,12 +24,10 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
-import io.trino.parquet.reader.ParquetReaderColumn;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.ReaderColumns;
-import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.TrinoException;
@@ -77,9 +75,9 @@ import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
-import static io.trino.parquet.reader.ParquetReaderColumn.getParquetReaderFields;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
-import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createParquetReaderColumns;
+import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.ParquetReaderProvider;
+import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createParquetPageSource;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getColumnIndexStore;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetMessageType;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetTupleDomain;
@@ -230,14 +228,14 @@ public class HudiPageSourceProvider
                                     .map(HiveColumnHandle.class::cast)
                                     .collect(toUnmodifiableList()))
                     .orElse(columns);
-            List<ParquetReaderColumn> parquetReaderColumns = createParquetReaderColumns(baseColumns, fileSchema, messageColumn, useColumnNames);
             ParquetDataSourceId dataSourceId = dataSource.getId();
-            ParquetReader parquetReader = new ParquetReader(
+            ParquetDataSource finalDataSource = dataSource;
+            ParquetReaderProvider parquetReaderProvider = fields -> new ParquetReader(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
-                    getParquetReaderFields(parquetReaderColumns),
+                    fields,
                     blocks.build(),
                     blockStarts.build(),
-                    dataSource,
+                    finalDataSource,
                     timeZone,
                     newSimpleAggregatedMemoryContext(),
                     options.withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
@@ -246,10 +244,7 @@ public class HudiPageSourceProvider
                     Optional.of(parquetPredicate),
                     columnIndexes.build(),
                     Optional.empty());
-
-            return new ParquetPageSource(
-                    parquetReader,
-                    parquetReaderColumns);
+            return createParquetPageSource(baseColumns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
         }
         catch (IOException | RuntimeException e) {
             try {
