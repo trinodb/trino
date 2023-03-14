@@ -1066,8 +1066,36 @@ public class PlanBuilder
             Optional<JoinNode.DistributionType> distributionType,
             Map<DynamicFilterId, Symbol> dynamicFilters)
     {
+        return join(idAllocator.getNextId(),
+                type,
+                left,
+                right,
+                criteria,
+                leftOutputSymbols,
+                rightOutputSymbols,
+                filter,
+                leftHashSymbol,
+                rightHashSymbol,
+                distributionType,
+                dynamicFilters);
+    }
+
+    public JoinNode join(
+            PlanNodeId id,
+            JoinNode.Type type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> leftOutputSymbols,
+            List<Symbol> rightOutputSymbols,
+            Optional<Expression> filter,
+            Optional<Symbol> leftHashSymbol,
+            Optional<Symbol> rightHashSymbol,
+            Optional<JoinNode.DistributionType> distributionType,
+            Map<DynamicFilterId, Symbol> dynamicFilters)
+    {
         return new JoinNode(
-                idAllocator.getNextId(),
+                id,
                 type,
                 left,
                 right,

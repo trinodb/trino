@@ -69,7 +69,7 @@ public class OptimizerConfig
     private boolean preferPartialAggregation = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
-    private boolean pushPartialAggregationThroughJoin;
+    private boolean pushPartialAggregationThroughJoin = true;
     private boolean preAggregateCaseAggregationsEnabled = true;
     private boolean optimizeMixedDistinctAggregations;
     private boolean enableForcedExchangeBelowGroupId = true;
