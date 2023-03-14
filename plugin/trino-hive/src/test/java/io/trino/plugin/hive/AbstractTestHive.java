@@ -146,6 +146,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -231,6 +232,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
@@ -303,6 +305,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -2591,6 +2594,69 @@ public abstract class AbstractTestHive
             }
             finally {
                 dropTable(temporaryCreateTable);
+            }
+        }
+    }
+
+    @Test
+    public void testTableCreationWithTrailingSpaceInLocation()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_table_creation_with_trailing_space_in_location_" + randomNameSuffix());
+        String tableDefaultLocationWithTrailingSpace = null;
+        try {
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                SemiTransactionalHiveMetastore metastore = transaction.getMetastore();
+
+                // Write data
+                tableDefaultLocationWithTrailingSpace = getTableDefaultLocation(new HdfsContext(session), metastore, HDFS_ENVIRONMENT, tableName.getSchemaName(), tableName.getTableName()) + " ";
+                Path dataFilePath = new Path(tableDefaultLocationWithTrailingSpace, "foo.txt");
+                FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(tableDefaultLocationWithTrailingSpace));
+                try (OutputStream outputStream = fs.create(dataFilePath)) {
+                    outputStream.write("hello\u0001world\nbye\u0001world".getBytes(UTF_8));
+                }
+
+                // create table
+                ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                        tableName,
+                        ImmutableList.<ColumnMetadata>builder()
+                                .add(new ColumnMetadata("t_string1", VARCHAR))
+                                .add(new ColumnMetadata("t_string2", VARCHAR))
+                                .build(),
+                        ImmutableMap.<String, Object>builder()
+                                .putAll(createTableProperties(TEXTFILE, ImmutableList.of()))
+                                .put(EXTERNAL_LOCATION_PROPERTY, tableDefaultLocationWithTrailingSpace)
+                                .buildOrThrow());
+
+                ConnectorMetadata metadata = transaction.getMetadata();
+                metadata.createTable(session, tableMetadata, false);
+
+                transaction.commit();
+            }
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+                metadata.beginQuery(session);
+
+                // verify the data
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(TEXTFILE));
+                assertEqualsIgnoreOrder(
+                        result.getMaterializedRows(),
+                        MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR)
+                                .row("hello", "world")
+                                .row("bye", "world")
+                                .build());
+            }
+        }
+        finally {
+            dropTable(tableName);
+            if (tableDefaultLocationWithTrailingSpace != null) {
+                FileSystem fs = hdfsEnvironment.getFileSystem(new HdfsContext(SESSION), new Path(tableDefaultLocationWithTrailingSpace));
+                fs.delete(new Path(tableDefaultLocationWithTrailingSpace), true);
             }
         }
     }
