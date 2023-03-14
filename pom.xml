@@ -2069,6 +2069,11 @@
                             <artifactId>pedantic-pom-enforcers</artifactId>
                             <version>2.0.0</version>
                         </dependency>
+                        <dependency>
+                            <groupId>de.skuzzle.enforcer</groupId>
+                            <artifactId>restrict-imports-enforcer-rule</artifactId>
+                            <version>2.1.0</version>
+                        </dependency>
                     </dependencies>
                 </plugin>
 
