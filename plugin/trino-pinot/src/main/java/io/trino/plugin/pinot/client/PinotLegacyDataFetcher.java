@@ -246,6 +246,7 @@ public class PinotLegacyDataFetcher
                 return pinotDataTableWithSizeBuilder.build().iterator();
             }
             catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 throw new PinotException(PINOT_EXCEPTION, Optional.of(query), "Pinot query execution was interrupted", e);
             }
         }
