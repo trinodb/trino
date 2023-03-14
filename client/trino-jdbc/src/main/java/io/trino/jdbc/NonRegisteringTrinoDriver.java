@@ -33,7 +33,17 @@ import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
 public class NonRegisteringTrinoDriver
         implements Driver, Closeable
 {
-    private final OkHttpClient httpClient = newHttpClient();
+    private final OkHttpClient httpClient;
+
+    public NonRegisteringTrinoDriver()
+    {
+        this(new OkHttpClient());
+    }
+
+    public NonRegisteringTrinoDriver(OkHttpClient httpClient)
+    {
+        this.httpClient = addDriverUserAgent(httpClient);
+    }
 
     @Override
     public void close()
@@ -117,10 +127,9 @@ public class NonRegisteringTrinoDriver
         throw new SQLFeatureNotSupportedException();
     }
 
-    private static OkHttpClient newHttpClient()
+    private static OkHttpClient addDriverUserAgent(OkHttpClient httpClient)
     {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION));
-        return builder.build();
+        return httpClient.newBuilder()
+                .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION)).build();
     }
 }
