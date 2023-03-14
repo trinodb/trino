@@ -186,6 +186,10 @@ See unit conversion functions :func:`degrees` and :func:`radians`.
 
     Returns the sine of ``x``.
 
+.. function:: sinh(x) -> double
+
+    Returns the hyperbolic sine of ``x``.
+
 .. function:: tan(x) -> double
 
     Returns the tangent of ``x``.
