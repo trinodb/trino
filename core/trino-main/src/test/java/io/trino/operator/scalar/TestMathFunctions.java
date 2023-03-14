@@ -2501,6 +2501,21 @@ public class TestMathFunctions
     }
 
     @Test
+    public void testSinh()
+    {
+        for (double doubleValue : DOUBLE_VALUES) {
+            assertThat(assertions.function("sinh", Double.toString(doubleValue)))
+                    .isEqualTo(Math.sinh(doubleValue));
+
+            assertThat(assertions.function("sinh", "REAL '%s'".formatted((float) doubleValue)))
+                    .isEqualTo(Math.sinh((float) doubleValue));
+        }
+
+        assertThat(assertions.function("sinh", "NULL"))
+                .isNull(DOUBLE);
+    }
+
+    @Test
     public void testSqrt()
     {
         for (double doubleValue : DOUBLE_VALUES) {
