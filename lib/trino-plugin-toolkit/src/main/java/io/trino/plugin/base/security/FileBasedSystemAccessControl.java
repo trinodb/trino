@@ -965,7 +965,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
+                .map(rule -> rule.getFilter(table.getCatalogName(), tableName.getSchemaName()))
                 // we return the first one we find
                 .findFirst()
                 .stream()
@@ -984,7 +984,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         List<ViewExpression> masks = tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
+                .map(rule -> rule.getColumnMask(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
                 // we return the first one we find
                 .findFirst()
                 .stream()

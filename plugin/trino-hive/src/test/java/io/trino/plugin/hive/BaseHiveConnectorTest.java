@@ -5525,7 +5525,7 @@ public abstract class BaseHiveConnectorTest
                 "SELECT a FROM " + tableName + " WHERE b = 'b'",
                 "VALUES ('a')");
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+        String tableLocation = getTableLocation(tableName);
 
         // Reverse the table so that the Hive column ordering does not match the Parquet column ordering
         String reversedTableName = "test_parquet_by_column_index_reversed";
@@ -5578,7 +5578,7 @@ public abstract class BaseHiveConnectorTest
                 singleColumnTableName));
         assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + singleColumnTableName + " VALUES ('a')", 1);
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + singleColumnTableName).getOnlyValue();
+        String tableLocation = getTableLocation(singleColumnTableName);
         String multiColumnTableName = "test_parquet_missing_columns_two";
         assertUpdate(sessionUsingColumnIndex, format(
                 "CREATE TABLE %s(" +
@@ -5630,7 +5630,7 @@ public abstract class BaseHiveConnectorTest
                 missingNestedFieldsTableName));
         assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + missingNestedFieldsTableName + " VALUES (ARRAY[ROW(2)])", 1);
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + missingNestedFieldsTableName).getOnlyValue();
+        String tableLocation = getTableLocation(missingNestedFieldsTableName);
         String missingNestedArrayTableName = "test_parquet_missing_nested_array";
         assertUpdate(sessionUsingColumnIndex, format(
                 "CREATE TABLE %s(" +
@@ -7866,7 +7866,7 @@ public abstract class BaseHiveConnectorTest
                 "SELECT b, c.f1.g2, c.f3, d FROM " + tableName,
                 "VALUES ('ala', 873321, X'abcdef', 12345678)");
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+        String tableLocation = getTableLocation(tableName);
 
         assertUpdate(session, format(
                 "CREATE TABLE %s(" +
@@ -8707,6 +8707,11 @@ public abstract class BaseHiveConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, "timestamp_precision", precision.name())
                 .build();
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
     }
 
     private static final class BucketedFilterTestSetup

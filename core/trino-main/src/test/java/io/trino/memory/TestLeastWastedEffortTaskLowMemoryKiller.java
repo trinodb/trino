@@ -261,6 +261,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         null,
                         null,
                         null,
+                        null,
                         new Duration(0, MILLISECONDS),
                         new Duration(0, MILLISECONDS),
                         0,

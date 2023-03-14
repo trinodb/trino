@@ -279,6 +279,7 @@ import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.Part
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.plugin.hive.type.Category.PRIMITIVE;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
 import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
@@ -346,7 +347,7 @@ public class HiveMetadata
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String TABLE_COMMENT = "comment";
     public static final String STORAGE_TABLE = "storage_table";
-    private static final String TRANSACTIONAL = "transactional";
+    public static final String TRANSACTIONAL = "transactional";
     public static final String PRESTO_VIEW_COMMENT = "Presto View";
     public static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = "/* Presto View */";
 
@@ -838,10 +839,14 @@ public class HiveMetadata
             return TableStatistics.empty();
         }
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle)
-                .entrySet().stream()
-                .filter(entry -> !((HiveColumnHandle) entry.getValue()).isHidden())
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        Set<ColumnHandle> projectedColumns = hiveTableHandle.getProjectedColumns();
+        // Return column statistics only for projectedColumns
+        // plus, since column statistics are not supported for non-primitive types in hive, filter those out
+        Map<String, ColumnHandle> columns = projectedColumns.stream()
+                .map(columnHandle -> (HiveColumnHandle) columnHandle)
+                .filter(entry -> !entry.isHidden() && entry.getHiveType().getCategory().equals(PRIMITIVE))
+                .collect(toImmutableMap(HiveColumnHandle::getName, Function.identity()));
+
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint(hiveTableHandle.getEnforcedConstraint()));
@@ -3463,7 +3468,11 @@ public class HiveMetadata
 
     private static HiveStorageFormat extractHiveStorageFormat(Table table)
     {
-        StorageFormat storageFormat = table.getStorage().getStorageFormat();
+        return extractHiveStorageFormat(table.getStorage().getStorageFormat());
+    }
+
+    public static HiveStorageFormat extractHiveStorageFormat(StorageFormat storageFormat)
+    {
         String outputFormat = storageFormat.getOutputFormat();
         String serde = storageFormat.getSerde();
 

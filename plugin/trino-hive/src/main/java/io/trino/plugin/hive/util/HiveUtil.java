@@ -27,6 +27,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.trino.hadoop.TextLineLengthLimitExceededException;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -415,9 +416,16 @@ public final class HiveUtil
 
     public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
     {
-        // ORC uses a custom InputFormat but is always splittable
-        if (inputFormat.getClass().getSimpleName().equals("OrcInputFormat")) {
-            return true;
+        // TODO move this to HiveStorageFormat when Hadoop library is removed
+        switch (inputFormat.getClass().getSimpleName()) {
+            case "OrcInputFormat", "MapredParquetInputFormat", "AvroContainerInputFormat", "RCFileInputFormat", "SequenceFileInputFormat" -> {
+                // These formats have splitting built into the format
+                return true;
+            }
+            case "TextInputFormat" -> {
+                // Only uncompressed text input format is splittable
+                return CompressionKind.forFile(path.getName()).isEmpty();
+            }
         }
 
         // use reflection to get isSplittable method on FileInputFormat

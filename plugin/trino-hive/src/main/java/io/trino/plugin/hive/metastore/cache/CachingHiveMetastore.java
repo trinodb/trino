@@ -17,8 +17,11 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.jmx.CacheStatsMBean;
@@ -32,7 +35,9 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
+import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePartitionName;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -59,6 +64,7 @@ import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +83,8 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.difference;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
@@ -480,10 +488,43 @@ public class CachingHiveMetastore
         return delegate.getTable(hiveTableName.getDatabaseName(), hiveTableName.getTableName());
     }
 
+    /**
+     * The method will cache and return columns specified in the {@link Table#getDataColumns()}
+     * but may return more if other columns are already cached.
+     */
     @Override
     public PartitionStatistics getTableStatistics(Table table)
     {
-        return get(tableStatisticsCache, hiveTableName(table.getDatabaseName(), table.getTableName()), () -> delegate.getTableStatistics(table));
+        HiveTableName tableName = hiveTableName(table.getDatabaseName(), table.getTableName());
+        PartitionStatistics statistics = get(tableStatisticsCache, tableName, () -> delegate.getTableStatistics(table));
+        Set<String> dataColumns = table.getDataColumns().stream().map(Column::getName).collect(toImmutableSet());
+        if (statistics.getColumnStatistics().keySet().containsAll(dataColumns)) {
+            // all requested column stats are already cached
+            return statistics;
+        }
+
+        // some columns are missing in the cache, lets retrieve the missing stats
+        SetView<String> missingColumns = difference(dataColumns, statistics.getColumnStatistics().keySet());
+        Map<String, Column> columnNameToColumn = Maps.uniqueIndex(table.getDataColumns(), Column::getName);
+        Table tableWithOnlyMissingColumns = Table.builder(table)
+                .setDataColumns(missingColumns.stream().map(columnNameToColumn::get).collect(toImmutableList()))
+                .build();
+        PartitionStatistics missingColumnStatistics = delegate.getTableStatistics(tableWithOnlyMissingColumns);
+
+        // merge missing stats into the cached stats
+        return tableStatisticsCache.asMap().compute(
+                tableName,
+                (ignored, oldStats) -> {
+                    if (oldStats == null) {
+                        return missingColumnStatistics;
+                    }
+                    return new PartitionStatistics(
+                            missingColumnStatistics.getBasicStatistics(),
+                            ImmutableMap.<String, HiveColumnStatistics>builder()
+                                    .putAll(oldStats.getColumnStatistics())
+                                    .putAll(missingColumnStatistics.getColumnStatistics())
+                                    .buildKeepingLast());
+                });
     }
 
     private PartitionStatistics loadTableColumnStatistics(HiveTableName tableName)
@@ -492,23 +533,59 @@ public class CachingHiveMetastore
         return delegate.getTableStatistics(table);
     }
 
+    /**
+     * The method will cache and return columns specified in the {@link Table#getDataColumns()}
+     * but may return more if other columns are already cached for a given partition.
+     */
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
         HiveTableName hiveTableName = hiveTableName(table.getDatabaseName(), table.getTableName());
         Map<HivePartitionName, Partition> partitionsByName = partitions.stream()
                 .collect(toImmutableMap(partition -> hivePartitionName(hiveTableName, makePartitionName(table, partition)), identity()));
-        Map<HivePartitionName, PartitionStatistics> statistics = getAll(
-                partitionStatisticsCache,
-                partitionsByName.keySet(),
-                partitionNamesToLoad -> loadPartitionsColumnStatistics(table, partitionsByName, partitionNamesToLoad));
-        return statistics.entrySet()
-                .stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getPartitionName().orElseThrow(), Entry::getValue));
+
+        Set<String> dataColumns = table.getDataColumns().stream().map(Column::getName).collect(toImmutableSet());
+
+        ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
+        ImmutableList.Builder<HivePartitionName> missingPartitions = ImmutableList.builder();
+
+        partitionsByName.keySet().forEach(partition -> {
+            AtomicReference<PartitionStatistics> stats = partitionStatisticsCache.getIfPresent(partition);
+            if (stats != null && stats.get().getColumnStatistics().keySet().containsAll(dataColumns)) {
+                result.put(partition.getPartitionName().orElseThrow(), stats.get());
+            }
+            else {
+                missingPartitions.add(partition);
+            }
+        });
+
+        Map<HivePartitionName, PartitionStatistics> missingPartitionsStats = loadPartitionsColumnStatistics(table, partitionsByName, missingPartitions.build());
+        // merge missing stats into the cached stats
+        Map<HivePartitionName, AtomicReference<PartitionStatistics>> partitionStatisticsCacheMap = partitionStatisticsCache.asMap();
+        missingPartitionsStats.forEach((partition, stats) -> {
+            // make sure cache is not empty to avoid putIfAbsent call
+            uncheckedCacheGet(partitionStatisticsCache, partition, AtomicReference::new);
+            partitionStatisticsCacheMap.computeIfPresent(partition, (ignored, statsHolder) -> {
+                ImmutableMap.Builder<String, HiveColumnStatistics> merged = ImmutableMap.builder();
+                PartitionStatistics oldStats = statsHolder.get();
+                if (oldStats != null) {
+                    merged.putAll(oldStats.getColumnStatistics());
+                }
+                merged.putAll(stats.getColumnStatistics());
+                statsHolder.set(new PartitionStatistics(stats.getBasicStatistics(), merged.buildKeepingLast()));
+                return statsHolder;
+            });
+            result.put(partition.getPartitionName().orElseThrow(), stats);
+        });
+
+        return result.buildOrThrow();
     }
 
-    private Map<HivePartitionName, PartitionStatistics> loadPartitionsColumnStatistics(Table table, Map<HivePartitionName, Partition> partitionsByName, Set<HivePartitionName> partitionNamesToLoad)
+    private Map<HivePartitionName, PartitionStatistics> loadPartitionsColumnStatistics(Table table, Map<HivePartitionName, Partition> partitionsByName, Collection<HivePartitionName> partitionNamesToLoad)
     {
+        if (partitionNamesToLoad.isEmpty()) {
+            return ImmutableMap.of();
+        }
         ImmutableMap.Builder<HivePartitionName, PartitionStatistics> result = ImmutableMap.builder();
         List<Partition> partitionsToLoad = partitionNamesToLoad.stream()
                 .map(partitionsByName::get)

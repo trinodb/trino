@@ -91,6 +91,10 @@ public class TestIgniteConnectorTest
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
+            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
+                return false;
+
+            case SUPPORTS_JOIN_PUSHDOWN:
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE:
             case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:

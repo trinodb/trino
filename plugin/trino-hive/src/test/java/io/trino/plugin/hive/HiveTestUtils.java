@@ -35,6 +35,8 @@ import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
+import io.trino.plugin.hive.line.OpenXJsonFileWriterFactory;
+import io.trino.plugin.hive.line.OpenXJsonPageSourceFactory;
 import io.trino.plugin.hive.line.RegexFileWriterFactory;
 import io.trino.plugin.hive.line.RegexPageSourceFactory;
 import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
@@ -49,7 +51,6 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
-import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
@@ -161,11 +162,6 @@ public final class HiveTestUtils
 
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
     {
-        return getHiveSessionProperties(hiveConfig, new RubixEnabledConfig(), orcReaderConfig);
-    }
-
-    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, RubixEnabledConfig rubixEnabledConfig, OrcReaderConfig orcReaderConfig)
-    {
         return new HiveSessionProperties(
                 hiveConfig,
                 new HiveFormatsConfig(),
@@ -204,6 +200,7 @@ public final class HiveTestUtils
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new CsvPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new JsonPageSourceFactory(fileSystemFactory, stats, hiveConfig))
+                .add(new OpenXJsonPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new RegexPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
@@ -226,6 +223,7 @@ public final class HiveTestUtils
                 .add(new CsvFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new JsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new RegexFileWriterFactory())
+                .add(new OpenXJsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new SimpleTextFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new SimpleSequenceFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion))
                 .add(new RcFileFileWriterFactory(hdfsEnvironment, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))

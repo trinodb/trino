@@ -65,6 +65,8 @@ public final class HiveSessionProperties
     private static final String CSV_NATIVE_WRITER_ENABLED = "csv_native_writer_enabled";
     private static final String JSON_NATIVE_READER_ENABLED = "json_native_reader_enabled";
     private static final String JSON_NATIVE_WRITER_ENABLED = "json_native_writer_enabled";
+    private static final String OPENX_JSON_NATIVE_READER_ENABLED = "openx_json_native_reader_enabled";
+    private static final String OPENX_JSON_NATIVE_WRITER_ENABLED = "openx_json_native_writer_enabled";
     private static final String REGEX_NATIVE_READER_ENABLED = "regex_native_reader_enabled";
     private static final String TEXT_FILE_NATIVE_READER_ENABLED = "text_file_native_reader_enabled";
     private static final String TEXT_FILE_NATIVE_WRITER_ENABLED = "text_file_native_writer_enabled";
@@ -218,6 +220,16 @@ public final class HiveSessionProperties
                         JSON_NATIVE_WRITER_ENABLED,
                         "Use native JSON writer",
                         hiveFormatsConfig.isJsonNativeWriterEnabled(),
+                        false),
+                booleanProperty(
+                        OPENX_JSON_NATIVE_READER_ENABLED,
+                        "Use native OpenX JSON reader",
+                        hiveFormatsConfig.isOpenXJsonNativeReaderEnabled(),
+                        false),
+                booleanProperty(
+                        OPENX_JSON_NATIVE_WRITER_ENABLED,
+                        "Use native OpenX JSON writer",
+                        hiveFormatsConfig.isOpenXJsonNativeWriterEnabled(),
                         false),
                 booleanProperty(
                         REGEX_NATIVE_READER_ENABLED,
@@ -668,6 +680,16 @@ public final class HiveSessionProperties
     public static boolean isJsonNativeWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(JSON_NATIVE_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isOpenXJsonNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OPENX_JSON_NATIVE_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isOpenXJsonNativeWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(OPENX_JSON_NATIVE_WRITER_ENABLED, Boolean.class);
     }
 
     public static boolean isRegexNativeReaderEnabled(ConnectorSession session)

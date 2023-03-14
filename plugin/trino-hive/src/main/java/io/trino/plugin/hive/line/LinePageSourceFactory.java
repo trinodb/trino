@@ -117,12 +117,12 @@ public abstract class LinePageSourceFactory
 
         // get header and footer count
         int headerCount = getHeaderCount(schema);
-        if (headerCount > 0) {
-            checkArgument(estimatedFileSize == start + length, "Header not supported for a split file");
+        if (headerCount > 1) {
+            checkArgument(start == 0, "Multiple header rows are not supported for a split file");
         }
         int footerCount = getFooterCount(schema);
         if (footerCount > 0) {
-            checkArgument(estimatedFileSize == start + length, "Footer not supported for a split file");
+            checkArgument(start == 0, "Footer not supported for a split file");
         }
 
         // setup projected columns

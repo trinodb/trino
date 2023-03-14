@@ -386,6 +386,7 @@ S
 - :func:`sign`
 - :func:`simplify_geometry`
 - :func:`sin`
+- :func:`sinh`
 - :func:`skewness`
 - :func:`slice`
 - :ref:`SOME <quantified_comparison_predicates>`

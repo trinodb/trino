@@ -69,6 +69,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
@@ -438,7 +439,7 @@ public class SqlServerClient
         if (tableHandle.isSynthetic()) {
             return ImmutableMap.of();
         }
-        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * from %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
+        PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
 
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
@@ -450,6 +451,13 @@ public class SqlServerClient
             return columns.buildOrThrow();
         }
         catch (SQLException e) {
+            if (e instanceof SQLServerException sqlServerException && sqlServerException.getSQLServerError().getErrorNumber() == 208) {
+                // The 208 indicates that the object doesn't exist or lack of permission.
+                // Throw TableNotFoundException because users shouldn't see such tables if they don't have the permission.
+                // TableNotFoundException will be suppressed when listing information_schema.
+                // https://learn.microsoft.com/sql/relational-databases/errors-events/mssqlserver-208-database-engine-error
+                throw new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName());
+            }
             throw new TrinoException(JDBC_ERROR, "Failed to get case sensitivity for columns. " + firstNonNull(e.getMessage(), e), e);
         }
     }

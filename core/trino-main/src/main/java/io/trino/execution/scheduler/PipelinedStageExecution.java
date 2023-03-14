@@ -78,6 +78,7 @@ import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -271,7 +272,7 @@ public class PipelinedStageExecution
     public synchronized void failTask(TaskId taskId, Throwable failureCause)
     {
         RemoteTask task = requireNonNull(tasks.get(taskId.getPartitionId()), () -> "task not found: " + taskId);
-        task.fail(failureCause);
+        task.failLocallyImmediately(failureCause);
         fail(failureCause);
     }
 
@@ -343,21 +344,22 @@ public class PipelinedStageExecution
         TaskState taskState = taskStatus.getState();
 
         switch (taskState) {
+            case FAILING:
             case FAILED:
                 RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
+                        // task is failed or failing, so we need to create a synthetic exception to fail the stage now
                         .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 fail(failure);
                 break;
+            case CANCELING:
             case CANCELED:
-                // A task should only be in the canceled state if the STAGE is cancelled
-                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the CANCELED state but stage is " + stateMachine.getState()));
-                break;
+            case ABORTING:
             case ABORTED:
-                // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                fail(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stateMachine.getState()));
+                // A task should only be in the aborting, aborted, canceling, or canceled state if the STAGE is done (ABORTED or FAILED)
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, format("A task is in the %s state but stage is %s", taskState, stateMachine.getState())));
                 break;
             case FLUSHING:
                 newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.getTaskId());

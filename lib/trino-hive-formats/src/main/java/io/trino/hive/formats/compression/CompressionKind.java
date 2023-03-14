@@ -95,9 +95,12 @@ public enum CompressionKind
             .filter(codec -> codec.fileExtension != null)
             .collect(toImmutableMap(codec -> codec.fileExtension, Function.identity()));
 
-    public static Optional<Codec> createCodecFromExtension(String extension)
+    public static Optional<CompressionKind> forFile(String fileName)
     {
-        return Optional.ofNullable(CODECS_BY_FILE_EXTENSION.get(extension))
-                .map(CompressionKind::createCodec);
+        int position = fileName.lastIndexOf('.');
+        if (position < 0) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(CODECS_BY_FILE_EXTENSION.get(fileName.substring(position)));
     }
 }

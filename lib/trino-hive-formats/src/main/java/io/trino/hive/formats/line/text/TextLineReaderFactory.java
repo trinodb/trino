@@ -65,10 +65,10 @@ public class TextLineReaderFactory
     {
         InputStream inputStream = inputFile.newStream();
         try {
-            Optional<Codec> codec = getExtension(inputFile.location())
-                    .flatMap(CompressionKind::createCodecFromExtension);
+            Optional<Codec> codec = CompressionKind.forFile(inputFile.location())
+                    .map(CompressionKind::createCodec);
             if (codec.isPresent()) {
-                checkArgument(start == 0 && length == inputFile.length(), "Compressed files are not splittable");
+                checkArgument(start == 0, "Compressed files are not splittable");
                 // for compressed input, we do not know the length of the uncompressed text
                 length = Long.MAX_VALUE;
                 inputStream = codec.get().createStreamDecompressor(inputStream);
@@ -102,14 +102,5 @@ public class TextLineReaderFactory
                 return;
             }
         }
-    }
-
-    private static Optional<String> getExtension(String location)
-    {
-        int position = location.lastIndexOf('.');
-        if (position < 0) {
-            return Optional.empty();
-        }
-        return Optional.of(location.substring(position));
     }
 }

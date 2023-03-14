@@ -533,7 +533,7 @@ public class TaskResource
                 .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
                 .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
                 // check for task failure after getting the result to ensure it's consistent with isBufferComplete()
-                .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailed())
+                .header(TRINO_TASK_FAILED, taskWithResults.isTaskFailedOrFailing())
                 .build();
     }
 }

@@ -13,7 +13,9 @@
  */
 package io.trino.spi.connector;
 
+import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
@@ -21,15 +23,31 @@ import static java.util.Objects.requireNonNull;
 public final class MaterializedViewFreshness
 {
     private final Freshness freshness;
+    private final Optional<Instant> lastFreshTime;
 
+    @Deprecated
     public MaterializedViewFreshness(Freshness freshness)
     {
+        this(freshness, Optional.empty());
+    }
+
+    public MaterializedViewFreshness(Freshness freshness, Optional<Instant> lastFreshTime)
+    {
         this.freshness = requireNonNull(freshness, "freshness is null");
+        this.lastFreshTime = requireNonNull(lastFreshTime, "lastFreshTime is null");
     }
 
     public Freshness getFreshness()
     {
         return freshness;
+    }
+
+    /**
+     * Last time when the materialized view was known to be fresh.
+     */
+    public Optional<Instant> getLastFreshTime()
+    {
+        return lastFreshTime;
     }
 
     @Override
@@ -42,13 +60,14 @@ public final class MaterializedViewFreshness
             return false;
         }
         MaterializedViewFreshness that = (MaterializedViewFreshness) obj;
-        return freshness == that.freshness;
+        return freshness == that.freshness
+                && Objects.equals(lastFreshTime, that.lastFreshTime);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(freshness);
+        return Objects.hash(freshness, lastFreshTime);
     }
 
     @Override
@@ -56,6 +75,7 @@ public final class MaterializedViewFreshness
     {
         return new StringJoiner(", ", MaterializedViewFreshness.class.getSimpleName() + "[", "]")
                 .add("freshness=" + freshness)
+                .add("lastFreshTime=" + lastFreshTime.orElse(null))
                 .toString();
     }
 

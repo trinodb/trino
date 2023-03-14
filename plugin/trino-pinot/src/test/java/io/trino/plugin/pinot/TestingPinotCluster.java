@@ -121,12 +121,13 @@ public class TestingPinotCluster
                 .withExposedPorts(BROKER_PORT);
         closer.register(broker::stop);
 
+        String serverConfig = secured ? "/var/pinot/server/config/pinot-server-secured.conf" : "/var/pinot/server/config/pinot-server.conf";
         server = new GenericContainer<>(parse(pinotImageName))
                 .withStartupAttempts(3)
                 .withNetwork(network)
                 .withClasspathResourceMapping("/pinot-server", "/var/pinot/server/config", BindMode.READ_ONLY)
                 .withEnv("JAVA_OPTS", "-Xmx512m -Dlog4j2.configurationFile=/opt/pinot/conf/pinot-server-log4j2.xml -Dplugins.dir=/opt/pinot/plugins")
-                .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", "/var/pinot/server/config/pinot-server.conf")
+                .withCommand("StartServer", "-clusterName", "pinot", "-zkAddress", getZookeeperInternalHostPort(), "-configFileName", serverConfig)
                 .withNetworkAliases("pinot-server", "localhost")
                 .withExposedPorts(SERVER_PORT, SERVER_ADMIN_PORT, GRPC_PORT);
         closer.register(server::stop);

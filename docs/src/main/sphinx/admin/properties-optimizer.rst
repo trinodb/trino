@@ -178,6 +178,18 @@ to use table scan node partitioning. When the table bucket count is small
 compared to the number of workers, then the table scan is distributed across
 all workers for improved parallelism.
 
+``optimizer.colocated-joins-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+* **Session property:** ``colocated_join``
+
+Use co-located joins when both sides of a join have the same table partitioning on the join keys
+and the conditions for ``optimizer.use-table-scan-node-partitioning`` are met.
+For example, a join on bucketed Hive tables with matching bucketing schemes can
+avoid exchanging data between workers using a co-located join to improve query performance.
+
 ``optimizer.filter-conjunction-independence-factor``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
