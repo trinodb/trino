@@ -44,8 +44,18 @@ public class CachingKerberosHadoopAuthentication
     public synchronized UserGroupInformation getUserGroupInformation()
     {
         if (nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null) {
-            userGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
-            nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
+            UserGroupInformation newUserGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
+            if (userGroupInformation != null) {
+                getSubject(userGroupInformation).getPrincipals().clear();
+                Subject newSubject = getSubject(newUserGroupInformation);
+                getSubject(userGroupInformation).getPrincipals().addAll(newSubject.getPrincipals());
+                getSubject(userGroupInformation).getPrivateCredentials().addAll(newSubject.getPrivateCredentials());
+                getSubject(userGroupInformation).getPublicCredentials().addAll(newSubject.getPublicCredentials());
+                nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
+            }
+            else {
+                userGroupInformation = newUserGroupInformation;
+            }
         }
         return userGroupInformation;
     }

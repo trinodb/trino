@@ -191,13 +191,7 @@ public class HivePageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        // Must be wrapped in doAs entirely
-        // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
-        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(
-                session.getIdentity(),
-                isMergeSink ? this::doMergeSinkFinish : this::doInsertSinkFinish);
-
-        return MoreFutures.toCompletableFuture(result);
+        return MoreFutures.toCompletableFuture(isMergeSink ? doMergeSinkFinish() : doInsertSinkFinish());
     }
 
     private ListenableFuture<Collection<Slice>> doMergeSinkFinish()
@@ -244,9 +238,7 @@ public class HivePageSink
     @Override
     public void abort()
     {
-        // Must be wrapped in doAs entirely
-        // Implicit FileSystem initializations are possible in HiveRecordWriter#rollback -> RecordWriter#close
-        hdfsEnvironment.doAs(session.getIdentity(), this::doAbort);
+        doAbort();
     }
 
     private void doAbort()
@@ -279,9 +271,7 @@ public class HivePageSink
     public CompletableFuture<?> appendPage(Page page)
     {
         if (page.getPositionCount() > 0) {
-            // Must be wrapped in doAs entirely
-            // Implicit FileSystem initializations are possible in HiveRecordWriter#addRow or #createWriter
-            hdfsEnvironment.doAs(session.getIdentity(), () -> doAppend(page));
+            doAppend(page);
         }
 
         return NOT_BLOCKED;

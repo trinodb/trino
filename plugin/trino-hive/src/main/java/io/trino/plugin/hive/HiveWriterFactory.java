@@ -170,6 +170,7 @@ public class HiveWriterFactory
     private final HiveWriterStats hiveWriterStats;
     private final Optional<Type> rowType;
     private final Optional<HiveType> hiveRowtype;
+    private final HdfsEnvironment hdfsEnvironment;
 
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
@@ -289,6 +290,7 @@ public class HiveWriterFactory
                 .filter(entry -> entry.getValue() != null)
                 .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toString()));
 
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), writePath);
         this.conf = toJobConf(conf);
 
@@ -544,7 +546,8 @@ public class HiveWriterFactory
                     outputConf,
                     typeManager,
                     parquetTimeZone,
-                    session);
+                    session,
+                    hdfsEnvironment);
         }
 
         String writerImplementation = hiveFileWriter.getClass().getName();

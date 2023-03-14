@@ -46,14 +46,14 @@ class HdfsOutputFile
     public OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return create(false, memoryContext);
+        return new TrinoOutputStream(create(false, memoryContext), environment, context.getIdentity());
     }
 
     @Override
     public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return create(true, memoryContext);
+        return new TrinoOutputStream(create(true, memoryContext), environment, context.getIdentity());
     }
 
     private OutputStream create(boolean overwrite, AggregatedMemoryContext memoryContext)

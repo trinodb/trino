@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.airlift.units.DataSize;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.parquet.ParquetRecordWriter;
 import io.trino.plugin.hive.util.FieldSetterFactory;
@@ -76,6 +77,8 @@ public class RecordFileWriter
 
     private boolean committed;
     private long finalWrittenBytes = -1;
+    private final HdfsEnvironment hdfsEnvironment;
+    private final ConnectorSession session;
 
     public RecordFileWriter(
             Path path,
@@ -86,7 +89,8 @@ public class RecordFileWriter
             JobConf conf,
             TypeManager typeManager,
             DateTimeZone parquetTimeZone,
-            ConnectorSession session)
+            ConnectorSession session,
+            HdfsEnvironment hdfsEnvironment)
     {
         this.path = requireNonNull(path, "path is null");
         this.conf = requireNonNull(conf, "conf is null");
@@ -129,6 +133,8 @@ public class RecordFileWriter
         }
 
         this.estimatedWriterMemoryUsage = estimatedWriterMemoryUsage.toBytes();
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
     @Override
@@ -165,9 +171,11 @@ public class RecordFileWriter
     @Override
     public void appendRows(Page dataPage)
     {
-        for (int position = 0; position < dataPage.getPositionCount(); position++) {
-            appendRow(dataPage, position);
-        }
+        hdfsEnvironment.doAs(session.getIdentity(), () -> {
+            for (int position = 0; position < dataPage.getPositionCount(); position++) {
+                appendRow(dataPage, position);
+            }
+        });
     }
 
     public void appendRow(Page dataPage, int position)
@@ -194,7 +202,10 @@ public class RecordFileWriter
     public Closeable commit()
     {
         try {
-            recordWriter.close(false);
+            hdfsEnvironment.doAs(session.getIdentity(), () -> {
+                recordWriter.close(false);
+                return null;
+            });
             committed = true;
         }
         catch (IOException e) {
@@ -209,16 +220,19 @@ public class RecordFileWriter
     {
         Closeable rollbackAction = createRollbackAction(path, conf);
         try (rollbackAction) {
-            recordWriter.close(true);
+            hdfsEnvironment.doAs(session.getIdentity(), () -> {
+                recordWriter.close(true);
+                return null;
+            });
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
     }
 
-    private static Closeable createRollbackAction(Path path, JobConf conf)
+    private Closeable createRollbackAction(Path path, JobConf conf)
     {
-        return () -> path.getFileSystem(conf).delete(path, false);
+        return () -> hdfsEnvironment.doAs(session.getIdentity(), () -> path.getFileSystem(conf).delete(path, false));
     }
 
     @Override
