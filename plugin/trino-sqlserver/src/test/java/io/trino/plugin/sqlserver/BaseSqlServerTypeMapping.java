@@ -804,6 +804,63 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_sqlserver_datetimeoffset"));
     }
 
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestampWithTimeZone(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        SqlDataTypeTest.create()
+
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00 UTC'", "TIMESTAMP '1970-01-01 00:00:00 UTC'")
+
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9 UTC'", "TIMESTAMP '1970-01-01 00:00:00.9 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123000 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123000 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.999 UTC'")
+                // max supported precision
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456 UTC'", "TIMESTAMP '1970-01-01 00:00:00.123456 UTC'")
+
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.1 UTC'", "TIMESTAMP '2020-09-27 12:34:56.1 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.9 UTC'", "TIMESTAMP '2020-09-27 12:34:56.9 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123000 UTC'", "TIMESTAMP '2020-09-27 12:34:56.123000 UTC'")
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.999 UTC'", "TIMESTAMP '2020-09-27 12:34:56.999 UTC'")
+                // max supported precision
+                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.1234567 UTC'", "TIMESTAMP '2020-09-27 12:34:56.1234567 UTC'")
+
+                // round down
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.12345671 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1234567 UTC'")
+
+                // nanoc round up, end result rounds down
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1234567499 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1234567 UTC'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456749999 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1234567 UTC'")
+
+                // round up
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.12345675 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1234568 UTC'")
+
+                // max precision
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.111222333444 UTC'", "TIMESTAMP '1970-01-01 00:00:00.1112223 UTC'")
+
+                // round up to next second
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.99999995 UTC'", "TIMESTAMP '1970-01-01 00:00:01.0000000 UTC'")
+
+                // round up to next day
+                .addRoundTrip("TIMESTAMP '1970-01-01 23:59:59.99999995 UTC'", "TIMESTAMP '1970-01-02 00:00:00.0000000 UTC'")
+
+                // negative epoch
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.99999995 UTC'", "TIMESTAMP '1970-01-01 00:00:00.0000000 UTC'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999949999 UTC'", "TIMESTAMP '1969-12-31 23:59:59.9999999 UTC'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.99999994 UTC'", "TIMESTAMP '1969-12-31 23:59:59.9999999 UTC'")
+
+                // CTAS with Trino, where the coercion is done by the connector
+                .execute(getQueryRunner(), session, trinoCreateAsSelect("test_timestamp_tz"))
+                // INSERT with Trino, where the coercion is done by the engine
+                .execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp_tz"));
+    }
+
     @DataProvider
     public Object[][] sessionZonesDataProvider()
     {

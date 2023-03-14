@@ -629,6 +629,15 @@ public class SqlServerClient
             return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType, precision));
         }
 
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            int precision = min(timestampWithTimeZoneType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
+            String dataType = format("datetimeoffset(%d)", precision);
+            if (timestampWithTimeZoneType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortTimestampWithTimeZoneWriteFunction());
+            }
+            return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
+        }
+
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 

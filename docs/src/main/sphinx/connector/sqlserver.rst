@@ -279,7 +279,9 @@ The connector maps Trino types to the corresponding SQL Server types following t
   * - ``TIMESTAMP(n)``
     - ``DATETIME2(n)``
     - ``0 <= n <= 7``
-
+  * - ``TIMESTAMP(n) WITH TIME ZONE``
+    - ``DATETIMEOFFSET[(n)]``
+    - ``0 <= n <= 7``
 Complete list of `SQL Server data types
 <https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
 
