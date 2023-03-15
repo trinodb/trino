@@ -851,9 +851,10 @@ public class IcebergMetadata
 
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
         Table icebergTable = transaction.table();
+        Schema schema = icebergTable.schema();
         Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
                 .map(field -> field.transform().getResultType(
-                        icebergTable.schema().findType(field.sourceId())))
+                        schema.findType(field.sourceId())))
                 .toArray(Type[]::new);
 
         AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
