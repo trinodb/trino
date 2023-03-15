@@ -32,8 +32,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.Optional;
 
@@ -55,18 +53,14 @@ public class TestIcebergFileMetastoreTableOperationsInsertFailure
 
     @Override
     protected LocalQueryRunner createQueryRunner()
+            throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema(SCHEMA_NAME)
                 .build();
 
-        try {
-            baseDir = Files.createTempDirectory(null).toFile();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        baseDir = Files.createTempDirectory(null).toFile();
 
         HiveMetastore metastore = new FileHiveMetastore(
                 new NodeVersion("testversion"),
