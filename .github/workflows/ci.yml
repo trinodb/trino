@@ -31,7 +31,7 @@ env:
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
-  TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK: true
+  TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK: false
   TEST_REPORT_RETENTION_DAYS: 5
   HEAP_DUMP_RETENTION_DAYS: 14
   # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout

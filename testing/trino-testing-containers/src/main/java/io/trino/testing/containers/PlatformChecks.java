@@ -21,6 +21,7 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.ImageNameSubstitutor;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.padEnd;
 import static com.sun.jna.Platform.isARM;
 import static java.lang.System.exit;
@@ -30,15 +31,11 @@ import static java.util.Locale.ENGLISH;
 public class PlatformChecks
         extends ImageNameSubstitutor
 {
-    private static final boolean TESTCONTAINERS_SKIP_ARCH_CHECK = "true".equalsIgnoreCase(getenv("TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK"));
+    private static final boolean FAIL_ON_ARCHITECTURE_MISMATCH = "true".equalsIgnoreCase(firstNonNull(getenv("TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK"), "true"));
 
     @Override
     public DockerImageName apply(DockerImageName dockerImageName)
     {
-        if (TESTCONTAINERS_SKIP_ARCH_CHECK) {
-            return dockerImageName;
-        }
-
         DockerClient client = DockerClientFactory.lazyClient();
         if (!imageExists(client, dockerImageName)) {
             pullImage(client, dockerImageName);
@@ -52,20 +49,23 @@ public class PlatformChecks
 
         if (hasIncompatibleRuntime) {
             String dockerArch = client.versionCmd().exec().getArch();
+            String level = FAIL_ON_ARCHITECTURE_MISMATCH ? "WARNING" : "ERROR";
 
             System.err.println("""
 
-                    !!! ERROR !!!
+                    !!! %s !!!
                     Detected incompatible Docker image and host architectures. The performance of running docker images in such scenarios can vary or not work at all.
                     Host: %s (%s).
                     Docker architecture: %s.
                     Docker image architecture: %s.
 
                     Set environment variable TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK=true to skip this check.
-                    !!! ERROR !!!
-                    """.formatted(System.getProperty("os.name"), System.getProperty("os.arch"), dockerArch, imageArch));
+                    !!! %1$s !!!
+                    """.formatted(level, System.getProperty("os.name"), System.getProperty("os.arch"), dockerArch, imageArch));
 
-            exit(99);
+            if (FAIL_ON_ARCHITECTURE_MISMATCH) {
+                exit(99);
+            }
         }
 
         return dockerImageName;
