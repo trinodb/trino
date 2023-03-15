@@ -223,8 +223,8 @@ public class TestDateTimeFunctions
         assertThat(assertions.function("from_unixtime", "7200", "'Asia/Tokyo'"))
                 .matches("TIMESTAMP '1970-01-01 11:00:00.000 Asia/Tokyo'");
 
-        assertThat(assertions.function("from_unixtime", "7200", "'Europe/Moscow'"))
-                .matches("TIMESTAMP '1970-01-01 05:00:00.000 Europe/Moscow'");
+        assertThat(assertions.function("from_unixtime", "7200", "'Europe/Kiev'"))
+                .matches("TIMESTAMP '1970-01-01 05:00:00.000 Europe/Kiev'");
 
         assertThat(assertions.function("from_unixtime", "7200", "'America/New_York'"))
                 .matches("TIMESTAMP '1969-12-31 21:00:00.000 America/New_York'");

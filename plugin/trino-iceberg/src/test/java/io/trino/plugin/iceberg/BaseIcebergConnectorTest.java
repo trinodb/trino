@@ -2925,22 +2925,22 @@ public abstract class BaseIcebergConnectorTest
                 "('abcd', 1)," +
                 "('abxy', 2)," +
                 "('ab598', 3)," +
-                "('mommy', 4)," +
-                "('moscow', 5)," +
+                "('Kielce', 4)," +
+                "('Kiev', 5)," +
                 "('Greece', 6)," +
                 "('Grozny', 7)", 8);
 
-        assertQuery("SELECT partition.d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES NULL, 'ab', 'mo', 'Gr'");
+        assertQuery("SELECT partition.d_trunc FROM \"test_truncate_text_transform$partitions\"", "VALUES NULL, 'ab', 'Ki', 'Gr'");
 
         assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'ab'", "VALUES 1, 2, 3");
         assertQuery(
                 select + " WHERE partition.d_trunc = 'ab'",
                 format == AVRO ? "VALUES ('ab', 3, NULL, NULL, NULL, NULL)" : "VALUES ('ab', 3, 'ab598', 'abxy', 1, 3)");
 
-        assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'mo'", "VALUES 4, 5");
+        assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'Ki'", "VALUES 4, 5");
         assertQuery(
-                select + " WHERE partition.d_trunc = 'mo'",
-                format == AVRO ? "VALUES ('mo', 2, NULL, NULL, NULL, NULL)" : "VALUES ('mo', 2, 'mommy', 'moscow', 4, 5)");
+                select + " WHERE partition.d_trunc = 'Ki'",
+                format == AVRO ? "VALUES ('Ki', 2, NULL, NULL, NULL, NULL)" : "VALUES ('Ki', 2, 'Kielce', 'Kiev', 4, 5)");
 
         assertQuery("SELECT b FROM test_truncate_text_transform WHERE substring(d, 1, 2) = 'Gr'", "VALUES 6, 7");
         assertQuery(
@@ -2955,7 +2955,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SHOW STATS FOR test_truncate_text_transform"))
                 .skippingTypesCheck()
                 .matches("VALUES " +
-                        "  ('d', " + (format == PARQUET ? "553e0" : "NULL") + ", NULL, " + (format == AVRO ? "NULL" : "0.125e0") + ", NULL, NULL, NULL), " +
+                        "  ('d', " + (format == PARQUET ? "550e0" : "NULL") + ", NULL, " + (format == AVRO ? "NULL" : "0.125e0") + ", NULL, NULL, NULL), " +
                         (format == AVRO ? "  ('b', NULL, NULL, NULL, NULL, NULL, NULL), " : "  ('b', NULL, NULL, 0e0, NULL, '1', '101'), ") +
                         "  (NULL, NULL, NULL, NULL, 8e0, NULL, NULL)");
 
@@ -3228,8 +3228,8 @@ public abstract class BaseIcebergConnectorTest
                         "('abcd', 1)," +
                         "('abxy', 2)," +
                         "('ab598', 3)," +
-                        "('mommy', 4)," +
-                        "('moscow', 5)," +
+                        "('Kielce', 4)," +
+                        "('Kiev', 5)," +
                         "('Greece', 6)," +
                         "('Grozny', 7)",
                 7);
@@ -3247,7 +3247,7 @@ public abstract class BaseIcebergConnectorTest
         }
         if (format == PARQUET) {
             expected = "VALUES " +
-                    "  ('d', 367e0, NULL, 0e0, NULL, NULL, NULL), " +
+                    "  ('d', 364e0, NULL, 0e0, NULL, NULL, NULL), " +
                     "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
         }
