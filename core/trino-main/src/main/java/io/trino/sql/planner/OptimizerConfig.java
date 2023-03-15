@@ -70,7 +70,7 @@ public class OptimizerConfig
     private boolean preferPartialAggregation = true;
     private boolean pushAggregationThroughOuterJoin = true;
     private boolean enableIntermediateAggregations;
-    private boolean pushPartialAggregationThoughJoin;
+    private boolean pushPartialAggregationThroughJoin;
     private boolean preAggregateCaseAggregationsEnabled = true;
     private boolean optimizeMixedDistinctAggregations;
     private boolean enableForcedExchangeBelowGroupId = true;
@@ -435,15 +435,15 @@ public class OptimizerConfig
         return this;
     }
 
-    public boolean isPushPartialAggregationThoughJoin()
+    public boolean isPushPartialAggregationThroughJoin()
     {
-        return pushPartialAggregationThoughJoin;
+        return pushPartialAggregationThroughJoin;
     }
 
     @Config("optimizer.push-partial-aggregation-through-join")
-    public OptimizerConfig setPushPartialAggregationThoughJoin(boolean pushPartialAggregationThoughJoin)
+    public OptimizerConfig setPushPartialAggregationThroughJoin(boolean pushPartialAggregationThroughJoin)
     {
-        this.pushPartialAggregationThoughJoin = pushPartialAggregationThoughJoin;
+        this.pushPartialAggregationThroughJoin = pushPartialAggregationThroughJoin;
         return this;
     }
 
