@@ -34,7 +34,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hudi.HudiSplitSource.buildTableMetaClient;
+import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
