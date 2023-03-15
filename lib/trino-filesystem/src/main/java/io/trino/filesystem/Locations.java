@@ -21,11 +21,17 @@ public final class Locations
 
     public static String appendPath(String location, String path)
     {
-        checkArgument(location.indexOf('?') < 0, "location contains a query string: %s", location);
-        checkArgument(location.indexOf('#') < 0, "location contains a fragment: %s", location);
+        validateLocation(location);
+
         if (!location.endsWith("/")) {
             location += "/";
         }
         return location + path;
+    }
+
+    private static void validateLocation(String location)
+    {
+        checkArgument(location.indexOf('?') < 0, "location contains a query string: %s", location);
+        checkArgument(location.indexOf('#') < 0, "location contains a fragment: %s", location);
     }
 }
