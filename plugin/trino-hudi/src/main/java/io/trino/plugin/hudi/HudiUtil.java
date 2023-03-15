@@ -27,11 +27,13 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.model.HoodieFileFormat;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 import org.apache.hudi.hadoop.utils.HoodieInputFormatUtils;
 
@@ -150,6 +152,14 @@ public final class HudiUtil
             partitionKeys.add(new HivePartitionKey(name, value));
         }
         return partitionKeys.build();
+    }
+
+    public static HoodieTableMetaClient buildTableMetaClient(Configuration configuration, String basePath)
+    {
+        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(configuration).setBasePath(basePath).build();
+        // Do not load the bootstrap index, will not read bootstrap base data or a mapping index defined
+        client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
+        return client;
     }
 
     public static FileStatus getFileStatus(HoodieBaseFile baseFile)
