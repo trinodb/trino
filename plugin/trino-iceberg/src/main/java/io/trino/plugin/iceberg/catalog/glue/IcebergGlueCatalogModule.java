@@ -14,10 +14,13 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -61,5 +64,13 @@ public class IcebergGlueCatalogModule
         install(new GlueMetastoreModule());
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(MigrateProcedure.class).in(Scopes.SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    @ForGlueHiveMetastore
+    public static RequestHandler2 createRequestHandler(IcebergGlueCatalogConfig config)
+    {
+        return new SkipArchiveRequestHandler(config.isSkipArchive());
     }
 }
