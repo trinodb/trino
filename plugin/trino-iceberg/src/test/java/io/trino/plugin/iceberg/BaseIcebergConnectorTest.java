@@ -3238,25 +3238,20 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT * FROM test_apply_functional_constraint WHERE length(d) = 4 AND b % 7 = 2",
                 "VALUES ('abxy', 2)");
 
-        String expected = null;
-        if (format == ORC) {
-            expected = "VALUES " +
+        String expected = switch (format) {
+            case ORC -> "VALUES " +
                     "  ('d', NULL, NULL, 0e0, NULL, NULL, NULL), " +
                     "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
-        }
-        if (format == PARQUET) {
-            expected = "VALUES " +
+            case PARQUET -> "VALUES " +
                     "  ('d', 364e0, NULL, 0e0, NULL, NULL, NULL), " +
                     "  ('b', NULL, NULL, 0e0, NULL, '1', '7'), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
-        }
-        else if (format == AVRO) {
-            expected = "VALUES " +
+            case AVRO -> "VALUES " +
                     "  ('d', NULL, NULL, NULL, NULL, NULL, NULL), " +
                     "  ('b', NULL, NULL, NULL, NULL, NULL, NULL), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
-        }
+        };
         assertThat(query("SHOW STATS FOR test_apply_functional_constraint"))
                 .skippingTypesCheck()
                 .matches(expected);
