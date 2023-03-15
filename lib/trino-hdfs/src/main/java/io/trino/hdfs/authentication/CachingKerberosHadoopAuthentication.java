@@ -41,9 +41,9 @@ public class CachingKerberosHadoopAuthentication
     }
 
     @Override
-    public synchronized UserGroupInformation getUserGroupInformation()
+    public synchronized UserGroupInformation getUserGroupInformation(boolean forceLogin)
     {
-        if (nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null) {
+        if (nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null || forceLogin) {
             UserGroupInformation newUserGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
             if (userGroupInformation != null) {
                 getSubject(userGroupInformation).getPrincipals().clear();

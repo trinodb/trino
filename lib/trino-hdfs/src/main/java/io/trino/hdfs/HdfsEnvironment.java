@@ -97,4 +97,15 @@ public class HdfsEnvironment
     {
         hdfsAuthentication.doAs(identity, action);
     }
+
+    public void idempotentDoAs(ConnectorIdentity identity, Runnable action)
+    {
+        hdfsAuthentication.idempotentDoAs(identity, action);
+    }
+
+    public <R, E extends Exception> R idempotentDoAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
+            throws E
+    {
+        return hdfsAuthentication.idempotentDoAs(identity, action);
+    }
 }

@@ -63,9 +63,9 @@ class HdfsOutputFile
         FileSystem fileSystem = environment.getFileSystem(context, file);
         FileSystem rawFileSystem = getRawFileSystem(fileSystem);
         if (rawFileSystem instanceof MemoryAwareFileSystem memoryAwareFileSystem) {
-            return environment.doAs(context.getIdentity(), () -> memoryAwareFileSystem.create(file, memoryContext));
+            return environment.idempotentDoAs(context.getIdentity(), () -> memoryAwareFileSystem.create(file, memoryContext));
         }
-        return environment.doAs(context.getIdentity(), () -> fileSystem.create(file, overwrite));
+        return environment.idempotentDoAs(context.getIdentity(), () -> fileSystem.create(file, overwrite));
     }
 
     @Override

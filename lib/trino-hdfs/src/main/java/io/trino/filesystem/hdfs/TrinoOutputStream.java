@@ -39,7 +39,7 @@ public class TrinoOutputStream
     public void write(int b)
             throws IOException
     {
-        hdfsEnvironment.doAs(connectorIdentity, () -> {
+        hdfsEnvironment.idempotentDoAs(connectorIdentity, () -> {
             out.write(b);
             return null;
         });
@@ -49,7 +49,7 @@ public class TrinoOutputStream
     public void write(byte[] b)
             throws IOException
     {
-        hdfsEnvironment.doAs(connectorIdentity, () -> {
+        hdfsEnvironment.idempotentDoAs(connectorIdentity, () -> {
             out.write(b);
             return null;
         });
@@ -59,7 +59,7 @@ public class TrinoOutputStream
     public void write(byte[] b, int off, int len)
             throws IOException
     {
-        hdfsEnvironment.doAs(connectorIdentity, () -> {
+        hdfsEnvironment.idempotentDoAs(connectorIdentity, () -> {
             out.write(b, off, len);
             return null;
         });
@@ -69,7 +69,7 @@ public class TrinoOutputStream
     public void flush()
             throws IOException
     {
-        hdfsEnvironment.doAs(connectorIdentity, () -> {
+        hdfsEnvironment.idempotentDoAs(connectorIdentity, () -> {
             out.flush();
             return null;
         });
@@ -79,7 +79,7 @@ public class TrinoOutputStream
     public void close()
             throws IOException
     {
-        hdfsEnvironment.doAs(connectorIdentity, () -> {
+        hdfsEnvironment.idempotentDoAs(connectorIdentity, () -> {
             out.close();
             return null;
         });

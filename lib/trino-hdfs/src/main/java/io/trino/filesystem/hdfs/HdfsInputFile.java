@@ -86,7 +86,7 @@ class HdfsInputFile
             throws IOException
     {
         FileSystem fileSystem = environment.getFileSystem(context, file);
-        return environment.doAs(context.getIdentity(), () -> fileSystem.exists(file));
+        return environment.idempotentDoAs(context.getIdentity(), () -> fileSystem.exists(file));
     }
 
     @Override
@@ -105,7 +105,7 @@ class HdfsInputFile
             throws IOException
     {
         FileSystem fileSystem = environment.getFileSystem(context, file);
-        return environment.doAs(context.getIdentity(), () -> fileSystem.open(file));
+        return environment.idempotentDoAs(context.getIdentity(), () -> fileSystem.open(file));
     }
 
     private FileStatus lazyStatus()
@@ -113,7 +113,7 @@ class HdfsInputFile
     {
         if (status == null) {
             FileSystem fileSystem = environment.getFileSystem(context, file);
-            status = environment.doAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
+            status = environment.idempotentDoAs(context.getIdentity(), () -> fileSystem.getFileStatus(file));
         }
         return status;
     }

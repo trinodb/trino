@@ -22,7 +22,7 @@ public class SimpleHadoopAuthentication
         implements HadoopAuthentication
 {
     @Override
-    public UserGroupInformation getUserGroupInformation()
+    public UserGroupInformation getUserGroupInformation(boolean forceLogin)
     {
         try {
             return UserGroupInformation.getLoginUser();

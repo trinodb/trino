@@ -17,5 +17,10 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 public interface HadoopAuthentication
 {
-    UserGroupInformation getUserGroupInformation();
+    UserGroupInformation getUserGroupInformation(boolean forceLogin);
+
+    default UserGroupInformation getUserGroupInformation()
+    {
+        return getUserGroupInformation(false);
+    }
 }

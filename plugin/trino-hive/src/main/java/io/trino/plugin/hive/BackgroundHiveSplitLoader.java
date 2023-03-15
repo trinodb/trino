@@ -439,7 +439,7 @@ public class BackgroundHiveSplitLoader
                 throw new TrinoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
             InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema, true);
-            List<Path> targetPaths = hdfsEnvironment.doAs(
+            List<Path> targetPaths = hdfsEnvironment.idempotentDoAs(
                     hdfsContext.getIdentity(),
                     () -> getTargetPathsFromSymlink(fs, path));
             Set<Path> parents = targetPaths.stream()
@@ -532,7 +532,7 @@ public class BackgroundHiveSplitLoader
             FileInputFormat.setInputPaths(jobConf, path);
             // Pass SerDes and Table parameters into input format configuration
             fromProperties(schema).forEach(jobConf::set);
-            InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> inputFormat.getSplits(jobConf, 0));
+            InputSplit[] splits = hdfsEnvironment.idempotentDoAs(hdfsContext.getIdentity(), () -> inputFormat.getSplits(jobConf, 0));
 
             return addSplitsToSource(splits, splitFactory);
         }
@@ -592,7 +592,7 @@ public class BackgroundHiveSplitLoader
                 ((JobConfigurable) targetInputFormat).configure(targetJob);
             }
             FileInputFormat.setInputPaths(targetJob, targetPath);
-            InputSplit[] targetSplits = hdfsEnvironment.doAs(
+            InputSplit[] targetSplits = hdfsEnvironment.idempotentDoAs(
                     hdfsContext.getIdentity(),
                     () -> targetInputFormat.getSplits(targetJob, 0));
 

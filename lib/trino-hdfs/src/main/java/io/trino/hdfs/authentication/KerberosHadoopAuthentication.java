@@ -54,7 +54,7 @@ public class KerberosHadoopAuthentication
     }
 
     @Override
-    public UserGroupInformation getUserGroupInformation()
+    public UserGroupInformation getUserGroupInformation(boolean forceLogin)
     {
         Subject subject = kerberosAuthentication.getSubject();
         return createUserGroupInformationForSubject(subject);

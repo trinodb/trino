@@ -24,4 +24,11 @@ public class NoHdfsAuthentication
     {
         return action.run();
     }
+
+    @Override
+    public <R, E extends Exception> R idempotentDoAs(ConnectorIdentity identity, GenericExceptionAction<R, E> action)
+            throws E
+    {
+        return action.run();
+    }
 }

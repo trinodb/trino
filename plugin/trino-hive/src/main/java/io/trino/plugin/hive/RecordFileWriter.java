@@ -202,7 +202,7 @@ public class RecordFileWriter
     public Closeable commit()
     {
         try {
-            hdfsEnvironment.doAs(session.getIdentity(), () -> {
+            hdfsEnvironment.idempotentDoAs(session.getIdentity(), () -> {
                 recordWriter.close(false);
                 return null;
             });
@@ -220,7 +220,7 @@ public class RecordFileWriter
     {
         Closeable rollbackAction = createRollbackAction(path, conf);
         try (rollbackAction) {
-            hdfsEnvironment.doAs(session.getIdentity(), () -> {
+            hdfsEnvironment.idempotentDoAs(session.getIdentity(), () -> {
                 recordWriter.close(true);
                 return null;
             });
@@ -232,7 +232,7 @@ public class RecordFileWriter
 
     private Closeable createRollbackAction(Path path, JobConf conf)
     {
-        return () -> hdfsEnvironment.doAs(session.getIdentity(), () -> path.getFileSystem(conf).delete(path, false));
+        return () -> hdfsEnvironment.idempotentDoAs(session.getIdentity(), () -> path.getFileSystem(conf).delete(path, false));
     }
 
     @Override

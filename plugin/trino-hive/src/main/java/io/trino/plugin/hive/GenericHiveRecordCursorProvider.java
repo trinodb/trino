@@ -92,7 +92,7 @@ public class GenericHiveRecordCursorProvider
                         .collect(toUnmodifiableList()))
                 .orElse(columns);
 
-        RecordCursor cursor = hdfsEnvironment.doAs(session.getIdentity(), () -> {
+        RecordCursor cursor = hdfsEnvironment.idempotentDoAs(session.getIdentity(), () -> {
             RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(
                     configuration,
                     path,

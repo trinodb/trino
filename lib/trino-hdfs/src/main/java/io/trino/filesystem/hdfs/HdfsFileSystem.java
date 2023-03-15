@@ -74,7 +74,7 @@ class HdfsFileSystem
     {
         Path file = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, file);
-        environment.doAs(context.getIdentity(), () -> {
+        environment.idempotentDoAs(context.getIdentity(), () -> {
             if (!fileSystem.delete(file, false)) {
                 throw new IOException("Failed to delete file: " + file);
             }
@@ -92,17 +92,20 @@ class HdfsFileSystem
                         mapping(HadoopPaths::hadoopPath, toList())));
         for (Entry<Path, List<Path>> directoryWithPaths : pathsGroupedByDirectory.entrySet()) {
             FileSystem rawFileSystem = getRawFileSystem(environment.getFileSystem(context, directoryWithPaths.getKey()));
-            environment.doAs(context.getIdentity(), () -> {
-                if (rawFileSystem instanceof FileSystemWithBatchDelete fileSystemWithBatchDelete) {
+            if (rawFileSystem instanceof FileSystemWithBatchDelete fileSystemWithBatchDelete) {
+                environment.idempotentDoAs(context.getIdentity(), () -> {
                     fileSystemWithBatchDelete.deleteFiles(directoryWithPaths.getValue());
-                }
-                else {
-                    for (Path path : directoryWithPaths.getValue()) {
+                    return null;
+                });
+            }
+            else {
+                for (Path path : directoryWithPaths.getValue()) {
+                    environment.idempotentDoAs(context.getIdentity(), () -> {
                         rawFileSystem.delete(path, false);
-                    }
+                        return null;
+                    });
                 }
-                return null;
-            });
+            }
         }
     }
 
@@ -112,7 +115,7 @@ class HdfsFileSystem
     {
         Path directory = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, directory);
-        environment.doAs(context.getIdentity(), () -> {
+        environment.idempotentDoAs(context.getIdentity(), () -> {
             if (!fileSystem.delete(directory, true) && fileSystem.exists(directory)) {
                 throw new IOException("Failed to delete directory: " + directory);
             }
@@ -127,7 +130,7 @@ class HdfsFileSystem
         Path sourcePath = hadoopPath(source);
         Path targetPath = hadoopPath(target);
         FileSystem fileSystem = environment.getFileSystem(context, sourcePath);
-        environment.doAs(context.getIdentity(), () -> {
+        environment.idempotentDoAs(context.getIdentity(), () -> {
             if (!fileSystem.rename(sourcePath, targetPath)) {
                 throw new IOException(format("Failed to rename [%s] to [%s]", source, target));
             }
@@ -141,7 +144,8 @@ class HdfsFileSystem
     {
         Path directory = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, directory);
-        return environment.doAs(context.getIdentity(), () -> {
+        // Listing files is safe to retry
+        return environment.idempotentDoAs(context.getIdentity(), () -> {
             try {
                 return new HdfsFileIterator(location, fileSystem, fileSystem.listFiles(directory, true));
             }
