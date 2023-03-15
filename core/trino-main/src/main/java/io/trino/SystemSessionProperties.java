@@ -485,7 +485,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
-                        optimizerConfig.isPushPartialAggregationThoughJoin(),
+                        optimizerConfig.isPushPartialAggregationThroughJoin(),
                         false),
                 booleanProperty(
                         PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED,
