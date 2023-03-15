@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.ptf.EmptyTableFunctionHandle.EMPTY_HANDLE;
 import static io.trino.spi.ptf.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -81,7 +82,7 @@ public final class TableFunctionAnalysis
     {
         private Descriptor returnedType;
         private final Map<String, List<Integer>> requiredColumns = new HashMap<>();
-        private ConnectorTableFunctionHandle handle = new ConnectorTableFunctionHandle() {};
+        private ConnectorTableFunctionHandle handle = EMPTY_HANDLE;
 
         private Builder() {}
 
