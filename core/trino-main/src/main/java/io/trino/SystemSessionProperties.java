@@ -245,7 +245,7 @@ public final class SystemSessionProperties
                         MAX_HASH_PARTITION_COUNT,
                         "Maximum number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getMaxHashPartitionCount(),
-                        value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT, 1, false),
+                        value -> validateIntegerValue(value, MAX_HASH_PARTITION_COUNT, 1, false),
                         false),
                 integerProperty(
                         MIN_HASH_PARTITION_COUNT,
