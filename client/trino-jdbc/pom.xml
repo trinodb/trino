@@ -74,13 +74,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-blackhole</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -92,11 +85,6 @@
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
@@ -104,78 +92,36 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-memory</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-parser</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-password-authenticators</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -188,13 +134,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -357,6 +296,20 @@
                     <artifactId>maven-resources-plugin</artifactId>
                     <configuration>
                         <propertiesEncoding>ISO-8859-1</propertiesEncoding>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <exclude>io.airlift:units</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                        </rules>
                     </configuration>
                 </plugin>
             </plugins>

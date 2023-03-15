@@ -75,13 +75,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <!-- Exclude JDK 8 incompatible version -->
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>units</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
