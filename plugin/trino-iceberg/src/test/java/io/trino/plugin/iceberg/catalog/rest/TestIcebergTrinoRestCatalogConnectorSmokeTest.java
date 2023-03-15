@@ -35,12 +35,12 @@ import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendC
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestIcebergRestCatalogConnectorSmokeTest
+public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private File warehouseLocation;
 
-    public TestIcebergRestCatalogConnectorSmokeTest()
+    public TestIcebergTrinoRestCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
     }
