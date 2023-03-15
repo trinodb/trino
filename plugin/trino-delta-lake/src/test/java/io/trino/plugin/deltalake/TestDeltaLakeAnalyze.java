@@ -266,7 +266,7 @@ public class TestDeltaLakeAnalyze
         String tableName = "test_analyze_" + randomNameSuffix();
 
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation",
                 25);
 
@@ -490,7 +490,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_statistics_" + randomNameSuffix();
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation",
                 25);
 
@@ -522,7 +522,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_statistics_" + randomNameSuffix();
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "CREATE TABLE " + tableName
                         + " WITH ("
                         + "   partitioned_by = ARRAY['regionkey']"
@@ -558,7 +558,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_statistics_on_insert_when_stats_not_collected_before_" + randomNameSuffix();
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         assertQuery(
@@ -602,7 +602,7 @@ public class TestDeltaLakeAnalyze
 
         // insert modified rows
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
         // without ANALYZE all stats but size and NDV should be updated
@@ -651,7 +651,8 @@ public class TestDeltaLakeAnalyze
                         "(null, null, null, null, 25.0, null, null)");
 
         // insert modified rows
-        assertUpdate(disableStatisticsCollectionOnWrite(getSession()),
+        assertUpdate(
+                withStatsOnWrite(false),
                 "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
         // without ANALYZE all stats but size and NDV should be updated
@@ -719,10 +720,11 @@ public class TestDeltaLakeAnalyze
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private static Session disableStatisticsCollectionOnWrite(Session session)
+    private Session withStatsOnWrite(boolean value)
     {
+        Session session = getSession();
         return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, Boolean.toString(value))
                 .build();
     }
 }
