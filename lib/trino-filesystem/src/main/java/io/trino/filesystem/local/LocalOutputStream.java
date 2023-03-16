@@ -13,50 +13,34 @@
  */
 package io.trino.filesystem.local;
 
-import io.trino.filesystem.TrinoInput;
-
-import java.io.EOFException;
-import java.io.File;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.OutputStream;
 
 import static io.trino.filesystem.local.LocalUtils.handleException;
-import static java.lang.Math.min;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
-class LocalInput
-        implements TrinoInput
+class LocalOutputStream
+        extends OutputStream
 {
     private final String location;
-    private final File file;
-    private final RandomAccessFile input;
+    private final OutputStream stream;
     private boolean closed;
 
-    public LocalInput(String location, File file)
-            throws IOException
+    public LocalOutputStream(String location, OutputStream stream)
     {
         this.location = requireNonNull(location, "location is null");
-        this.file = requireNonNull(file, "file is null");
-        this.input = new RandomAccessFile(file, "r");
+        this.stream = new BufferedOutputStream(requireNonNull(stream, "stream is null"), 4 * 1024);
     }
 
     @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    public void write(int b)
             throws IOException
     {
         ensureOpen();
-        checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
-        if (position < 0) {
-            throw new IOException("Negative seek offset");
-        }
-        if (position >= file.length()) {
-            throw new EOFException("Cannot read at %s. File size is %s: %s".formatted(position, file.length(), location));
-        }
-
         try {
-            input.seek(position);
-            input.readFully(buffer, bufferOffset, bufferLength);
+            stream.write(b);
         }
         catch (IOException e) {
             throw handleException(location, e);
@@ -64,15 +48,31 @@ class LocalInput
     }
 
     @Override
-    public int readTail(byte[] buffer, int bufferOffset, int bufferLength)
+    public void write(byte[] buffer, int offset, int length)
+            throws IOException
+    {
+        checkFromIndexSize(offset, length, buffer.length);
+
+        ensureOpen();
+        try {
+            stream.write(buffer, offset, length);
+        }
+        catch (IOException e) {
+            throw handleException(location, e);
+        }
+    }
+
+    @Override
+    public void flush()
             throws IOException
     {
         ensureOpen();
-        checkFromIndexSize(bufferOffset, bufferLength, buffer.length);
-
-        int readSize = (int) min(file.length(), bufferLength);
-        readFully(file.length() - readSize, buffer, bufferOffset, readSize);
-        return readSize;
+        try {
+            stream.flush();
+        }
+        catch (IOException e) {
+            throw handleException(location, e);
+        }
     }
 
     private void ensureOpen()
@@ -87,13 +87,14 @@ class LocalInput
     public void close()
             throws IOException
     {
-        closed = true;
-        input.close();
-    }
-
-    @Override
-    public String toString()
-    {
-        return file.getPath();
+        if (!closed) {
+            closed = true;
+            try {
+                stream.close();
+            }
+            catch (IOException e) {
+                throw handleException(location, e);
+            }
+        }
     }
 }
