@@ -24,7 +24,6 @@ import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.hive.FileWriter;
@@ -109,6 +108,7 @@ public abstract class AbstractDeltaLakePageSink
 
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     protected final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
+    private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
 
     public AbstractDeltaLakePageSink(
             TypeOperators typeOperators,
@@ -122,7 +122,8 @@ public abstract class AbstractDeltaLakePageSink
             Location outputPathDirectory,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
-            String trinoVersion)
+            String trinoVersion,
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         requireNonNull(inputColumns, "inputColumns is null");
@@ -132,6 +133,7 @@ public abstract class AbstractDeltaLakePageSink
         this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session);
         this.maxOpenWriters = maxOpenWriters;
         this.dataFileInfoCodec = requireNonNull(dataFileInfoCodec, "dataFileInfoCodec is null");
+        this.parquetSchemaMapping = requireNonNull(parquetSchemaMapping, "parquetSchemaMapping is null");
 
         // determine the input index of the partition columns and data columns
         int[] partitionColumnInputIndex = new int[originalPartitionColumns.size()];
@@ -461,14 +463,13 @@ public abstract class AbstractDeltaLakePageSink
                 identityMapping[i] = i;
             }
 
-            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(parquetTypes, dataColumnNames, false, false);
             return new ParquetFileWriter(
                     fileSystem.newOutputFile(path),
                     rollbackAction,
                     parquetTypes,
                     dataColumnNames,
-                    schemaConverter.getMessageType(),
-                    schemaConverter.getPrimitiveTypes(),
+                    parquetSchemaMapping.messageType(),
+                    parquetSchemaMapping.primitiveTypes(),
                     parquetWriterOptions,
                     identityMapping,
                     compressionCodec,
