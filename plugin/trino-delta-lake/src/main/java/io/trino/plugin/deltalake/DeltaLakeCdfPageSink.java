@@ -42,7 +42,8 @@ public class DeltaLakeCdfPageSink
             Location outputPath,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
-            String trinoVersion)
+            String trinoVersion,
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
     {
         super(
                 typeOperators,
@@ -56,7 +57,8 @@ public class DeltaLakeCdfPageSink
                 outputPath,
                 session,
                 stats,
-                trinoVersion);
+                trinoVersion,
+                parquetSchemaMapping);
     }
 
     @Override
