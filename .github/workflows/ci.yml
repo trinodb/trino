@@ -985,7 +985,10 @@ jobs:
           DATABRICKS_TOKEN:
           GCP_CREDENTIALS_KEY:
           GCP_STORAGE_BUCKET:
+          # Preventing pulling images. Otherwise all images would get downloaded (and not used).
           TESTCONTAINERS_NEVER_PULL: true
+          # The architecture check pulls images.
+          TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK: true
         run: |
           # converts filtered YAML file into JSON
           ./.github/bin/build-pt-matrix-from-impacted-connectors.py -v -m .github/test-pt-matrix.yaml -i impacted-features.log -o matrix.json
