@@ -43,8 +43,8 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionStandardSplitSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -108,8 +108,7 @@ public class EventDrivenTaskSourceFactory
             }
         }
         long targetPartitionSizeInBytes = getFaultTolerantExecutionTargetTaskInputSize(session).toBytes();
-        // TODO: refactor to define explicitly
-        long standardSplitSizeInBytes = targetPartitionSizeInBytes / getFaultTolerantExecutionTargetTaskSplitCount(session);
+        long standardSplitSizeInBytes = getFaultTolerantExecutionStandardSplitSize(session).toBytes();
         int maxTaskSplitCount = getFaultTolerantExecutionMaxTaskSplitCount(session);
         return new EventDrivenTaskSource(
                 session.getQueryId(),

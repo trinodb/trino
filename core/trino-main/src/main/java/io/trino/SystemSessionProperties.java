@@ -163,7 +163,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD = "legacy_materialized_view_grace_period";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
-    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
+    public static final String FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE = "fault_tolerant_execution_standard_split_size";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY = "fault_tolerant_execution_coordinator_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
@@ -813,10 +813,10 @@ public final class SystemSessionProperties
                         "Target size in bytes of all task inputs for a single fault tolerant task",
                         queryManagerConfig.getFaultTolerantExecutionTargetTaskInputSize(),
                         false),
-                integerProperty(
-                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT,
-                        "Target number of splits for a single fault tolerant task (split weight aware)",
-                        queryManagerConfig.getFaultTolerantExecutionTargetTaskSplitCount(),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE,
+                        "Standard split size for a single fault tolerant task (split weight aware)",
+                        queryManagerConfig.getFaultTolerantExecutionStandardSplitSize(),
                         false),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT,
@@ -1541,9 +1541,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, DataSize.class);
     }
 
-    public static int getFaultTolerantExecutionTargetTaskSplitCount(Session session)
+    public static DataSize getFaultTolerantExecutionStandardSplitSize(Session session)
     {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT, Integer.class);
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE, DataSize.class);
     }
 
     public static int getFaultTolerantExecutionMaxTaskSplitCount(Session session)
