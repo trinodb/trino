@@ -749,11 +749,11 @@ public final class HiveUtil
     public static OrcWriterOptions getOrcWriterOptions(Map<String, String> schema, OrcWriterOptions orcWriterOptions)
     {
         if (schema.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
-            if (!schema.containsKey(ORC_BLOOM_FILTER_FPP_KEY)) {
-                throw new TrinoException(HIVE_INVALID_METADATA, "FPP for bloom filter is missing");
-            }
             try {
-                double fpp = parseDouble(schema.get(ORC_BLOOM_FILTER_FPP_KEY));
+                // use default fpp DEFAULT_BLOOM_FILTER_FPP if fpp key does not exist in table metadata
+                double fpp = schema.containsKey(ORC_BLOOM_FILTER_FPP_KEY)
+                        ? parseDouble(schema.get(ORC_BLOOM_FILTER_FPP_KEY))
+                        : orcWriterOptions.getBloomFilterFpp();
                 return orcWriterOptions
                         .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.get(ORC_BLOOM_FILTER_COLUMNS_KEY))))
                         .withBloomFilterFpp(fpp);

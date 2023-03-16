@@ -116,4 +116,14 @@ public class TestOrcWriterOptions
                 .put(ORC_BLOOM_FILTER_FPP_KEY, fpp)
                 .buildOrThrow();
     }
+
+    @Test
+    public void testOrcWriterOptionsWithMissingFPPValue()
+    {
+        Map<String, String> tableProperties = ImmutableMap.<String, String>builder()
+                .put(ORC_BLOOM_FILTER_COLUMNS_KEY, "column_with_bloom_filter")
+                .buildOrThrow();
+        OrcWriterOptions orcWriterOptions = getOrcWriterOptions(tableProperties, new OrcWriterOptions());
+        assertThat(orcWriterOptions.getBloomFilterFpp()).isEqualTo(0.05);
+    }
 }
