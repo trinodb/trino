@@ -123,6 +123,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
                         "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -191,6 +193,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
                         "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -232,6 +236,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -249,6 +255,8 @@ public class TestDeltaLakeAnalyze
                 extendedStatisticsDisabled,
                 "ANALYZE " + tableName,
                 "ANALYZE not supported if extended statistics are disabled. Enable via delta.extended-statistics.enabled config property or extended_statistics_enabled session property.");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -284,6 +292,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 434.0, 5.0, 0.0, null, null, null)," +
                         "('name', 33.0, 5.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 30.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -381,6 +391,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', null, null, 0.0, null, null, null)," +
                         "('name', null, null, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -501,6 +513,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -535,6 +549,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -565,6 +581,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1.0, 1.0, 0.0, null, null, null)," +
                         "('name', 1.0, 1.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 26.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -608,6 +626,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 3714.0, 50.0, 0.0, null, null, null)," +
                         "('name', 354.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -655,6 +675,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 3714.0, 50.0, 0.0, null, null, null)," +
                         "('name', 354.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -693,6 +715,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
                         "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private static Session disableStatisticsCollectionOnWrite(Session session)
