@@ -1434,9 +1434,11 @@ public class DeltaLakeMetadata
             // it is not obvious why we need to persist this readVersion
             transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, INSERT_OPERATION, handle.getReadVersion()));
 
-            List<String> partitionColumns = getColumnMappingMode(handle.getMetadataEntry()) == ColumnMappingMode.NAME
-                    ? getPartitionColumnsForNameMapping(handle.getMetadataEntry().getOriginalPartitionColumns(), handle.getInputColumns())
-                    : handle.getMetadataEntry().getOriginalPartitionColumns();
+            ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
+            List<String> partitionColumns = getPartitionColumns(
+                    handle.getMetadataEntry().getOriginalPartitionColumns(),
+                    handle.getInputColumns(),
+                    columnMappingMode);
             appendAddFileEntries(transactionLogWriter, dataFileInfos, partitionColumns, true);
 
             transactionLogWriter.flush();
@@ -1470,7 +1472,16 @@ public class DeltaLakeMetadata
         return Optional.empty();
     }
 
-    private static List<String> getPartitionColumnsForNameMapping(List<String> originalPartitionColumns, List<DeltaLakeColumnHandle> dataColumns)
+    private static List<String> getPartitionColumns(List<String> originalPartitionColumns, List<DeltaLakeColumnHandle> dataColumns, ColumnMappingMode columnMappingMode)
+    {
+        return switch (columnMappingMode) {
+            case NAME, ID -> getPartitionColumnsForNameOrIdMapping(originalPartitionColumns, dataColumns);
+            case NONE -> originalPartitionColumns;
+            case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported column mapping mode");
+        };
+    }
+
+    private static List<String> getPartitionColumnsForNameOrIdMapping(List<String> originalPartitionColumns, List<DeltaLakeColumnHandle> dataColumns)
     {
         Map<String, DeltaLakeColumnHandle> nameToDataColumns = dataColumns.stream()
                 .collect(toImmutableMap(DeltaLakeColumnHandle::getColumnName, Function.identity()));
@@ -1600,9 +1611,11 @@ public class DeltaLakeMetadata
                 transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(file, writeTimestamp, true));
             }
 
-            List<String> partitionColumns = getColumnMappingMode(handle.getMetadataEntry()) == ColumnMappingMode.NAME
-                    ? getPartitionColumnsForNameMapping(handle.getMetadataEntry().getOriginalPartitionColumns(), mergeHandle.getInsertTableHandle().getInputColumns())
-                    : handle.getMetadataEntry().getOriginalPartitionColumns();
+            ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
+            List<String> partitionColumns = getPartitionColumns(
+                    handle.getMetadataEntry().getOriginalPartitionColumns(),
+                    mergeHandle.getInsertTableHandle().getInputColumns(),
+                    columnMappingMode);
             appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, true);
 
             transactionLogWriter.flush();
@@ -1841,7 +1854,7 @@ public class DeltaLakeMetadata
         checkSupportedWriterVersion(session, handle);
         checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
         ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
-        if (!(columnMappingMode == NONE || columnMappingMode == ColumnMappingMode.NAME)) {
+        if (!(columnMappingMode == NONE || columnMappingMode == ColumnMappingMode.NAME || columnMappingMode == ColumnMappingMode.ID)) {
             throw new TrinoException(NOT_SUPPORTED, "Writing with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
         }
         // TODO: Check writer-features

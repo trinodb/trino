@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -43,13 +44,17 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSchemaMapping;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -94,6 +99,15 @@ public class DeltaLakePageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
         DeltaLakeOutputTableHandle tableHandle = (DeltaLakeOutputTableHandle) outputTableHandle;
+        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(
+                serializeSchemaAsJson(
+                        tableHandle.getInputColumns(),
+                        ImmutableMap.of(),
+                        tableHandle.getInputColumns().stream().collect(toImmutableMap(DeltaLakeColumnHandle::getColumnName, ignored -> true)),
+                        tableHandle.getInputColumns().stream().collect(toImmutableMap(DeltaLakeColumnHandle::getColumnName, ignored -> ImmutableMap.of()))),
+                typeManager,
+                NONE, // TODO support ID and NAME column mapping
+                tableHandle.getPartitionedBy());
         return new DeltaLakePageSink(
                 typeManager.getTypeOperators(),
                 tableHandle.getInputColumns(),
@@ -105,13 +119,16 @@ public class DeltaLakePageSinkProvider
                 Location.of(tableHandle.getLocation()),
                 session,
                 stats,
-                trinoVersion);
+                trinoVersion,
+                parquetSchemaMapping);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
     {
         DeltaLakeInsertTableHandle tableHandle = (DeltaLakeInsertTableHandle) insertTableHandle;
+        MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
+        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, typeManager);
         return new DeltaLakePageSink(
                 typeManager.getTypeOperators(),
                 tableHandle.getInputColumns(),
@@ -123,7 +140,8 @@ public class DeltaLakePageSinkProvider
                 Location.of(tableHandle.getLocation()),
                 session,
                 stats,
-                trinoVersion);
+                trinoVersion,
+                parquetSchemaMapping);
     }
 
     @Override
@@ -133,6 +151,7 @@ public class DeltaLakePageSinkProvider
         switch (executeHandle.getProcedureId()) {
             case OPTIMIZE:
                 DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
+                DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(optimizeHandle.getMetadataEntry(), typeManager);
                 return new DeltaLakePageSink(
                         typeManager.getTypeOperators(),
                         optimizeHandle.getTableColumns(),
@@ -144,7 +163,8 @@ public class DeltaLakePageSinkProvider
                         Location.of(executeHandle.getTableLocation()),
                         session,
                         stats,
-                        trinoVersion);
+                        trinoVersion,
+                        parquetSchemaMapping);
         }
 
         throw new IllegalArgumentException("Unknown procedure: " + executeHandle.getProcedureId());
@@ -156,6 +176,7 @@ public class DeltaLakePageSinkProvider
         DeltaLakeMergeTableHandle merge = (DeltaLakeMergeTableHandle) mergeHandle;
         DeltaLakeInsertTableHandle tableHandle = merge.getInsertTableHandle();
         ConnectorPageSink pageSink = createPageSink(transactionHandle, session, tableHandle, pageSinkId);
+        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(tableHandle.getMetadataEntry(), typeManager);
 
         return new DeltaLakeMergeSink(
                 typeManager.getTypeOperators(),
@@ -171,7 +192,8 @@ public class DeltaLakePageSinkProvider
                 tableHandle.getInputColumns(),
                 domainCompactionThreshold,
                 () -> createCdfPageSink(merge, session),
-                changeDataFeedEnabled(tableHandle.getMetadataEntry()));
+                changeDataFeedEnabled(tableHandle.getMetadataEntry()),
+                parquetSchemaMapping);
     }
 
     private DeltaLakeCdfPageSink createCdfPageSink(
@@ -203,6 +225,8 @@ public class DeltaLakePageSinkProvider
                 .build();
         Location tableLocation = Location.of(mergeTableHandle.getTableHandle().getLocation());
 
+        DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(metadataEntry, typeManager, true);
+
         return new DeltaLakeCdfPageSink(
                 typeManager.getTypeOperators(),
                 allColumns,
@@ -215,6 +239,7 @@ public class DeltaLakePageSinkProvider
                 tableLocation.appendPath(CHANGE_DATA_FOLDER_NAME),
                 session,
                 stats,
-                trinoVersion);
+                trinoVersion,
+                parquetSchemaMapping);
     }
 }
