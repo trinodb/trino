@@ -538,7 +538,7 @@ public abstract class AbstractTestTrinoFileSystem
         // file outside of root is not allowed
         // the check is over the entire statement, because some file system delay path checks until the data is uploaded
         assertThatThrownBy(() -> getFileSystem().newOutputFile(createLocation("../file")).createOrOverwrite().close())
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOfAny(IOException.class, IllegalArgumentException.class)
                 .hasMessageContaining(createLocation("../file").toString());
 
         try (TempBlob absolute = new TempBlob(createLocation("b"))) {

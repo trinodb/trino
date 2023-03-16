@@ -118,6 +118,7 @@
         <module>lib/trino-array</module>
         <module>lib/trino-collect</module>
         <module>lib/trino-filesystem</module>
+        <module>lib/trino-filesystem-azure</module>
         <module>lib/trino-filesystem-manager</module>
         <module>lib/trino-filesystem-s3</module>
         <module>lib/trino-geospatial-toolkit</module>
@@ -331,6 +332,12 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem</artifactId>
                 <type>test-jar</type>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-azure</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
