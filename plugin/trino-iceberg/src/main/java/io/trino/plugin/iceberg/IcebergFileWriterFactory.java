@@ -271,11 +271,10 @@ public class IcebergFileWriterFactory
     public static OrcWriterOptions withBloomFilterOptions(OrcWriterOptions orcWriterOptions, Map<String, String> storageProperties)
     {
         if (storageProperties.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
-            if (!storageProperties.containsKey(ORC_BLOOM_FILTER_FPP_KEY)) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, "FPP for Bloom filter is missing");
-            }
             try {
-                double fpp = parseDouble(storageProperties.get(ORC_BLOOM_FILTER_FPP_KEY));
+                double fpp = storageProperties.containsKey(ORC_BLOOM_FILTER_FPP_KEY)
+                        ? parseDouble(storageProperties.get(ORC_BLOOM_FILTER_FPP_KEY))
+                        : orcWriterOptions.getBloomFilterFpp();
                 return OrcWriterOptions.builderFrom(orcWriterOptions)
                         .setBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(storageProperties.get(ORC_BLOOM_FILTER_COLUMNS_KEY))))
                         .setBloomFilterFpp(fpp)
