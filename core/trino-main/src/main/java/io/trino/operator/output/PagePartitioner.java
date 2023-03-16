@@ -259,6 +259,7 @@ public class PagePartitioner
         return partitionPositions;
     }
 
+    @SuppressWarnings("NumericCastThatLosesPrecision")
     private static int initialPartitionSize(int averagePositionsPerPartition)
     {
         // 1.1 coefficient compensates for the not perfect hash distribution.
@@ -354,7 +355,7 @@ public class PagePartitioner
         }
     }
 
-    private IntArrayList[] partitionNullablePositions(Page page, int position, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
+    private void partitionNullablePositions(Page page, int position, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
     {
         Block nullsBlock = page.getBlock(nullChannel);
         int[] nullPositions = new int[page.getPositionCount()];
@@ -376,10 +377,9 @@ public class PagePartitioner
             int partition = partitionFunction.applyAsInt(nonNullPosition);
             partitionPositions[partition].add(nonNullPosition);
         }
-        return partitionPositions;
     }
 
-    private IntArrayList[] partitionNotNullPositions(Page page, int startingPosition, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
+    private void partitionNotNullPositions(Page page, int startingPosition, IntArrayList[] partitionPositions, IntUnaryOperator partitionFunction)
     {
         int positionCount = page.getPositionCount();
         int[] partitionPerPosition = new int[positionCount];
@@ -391,8 +391,6 @@ public class PagePartitioner
         for (int position = startingPosition; position < positionCount; position++) {
             partitionPositions[partitionPerPosition[position]].add(position);
         }
-
-        return partitionPositions;
     }
 
     private Page getPartitionFunctionArguments(Page page)
