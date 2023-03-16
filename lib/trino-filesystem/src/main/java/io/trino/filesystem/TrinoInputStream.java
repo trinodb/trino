@@ -27,6 +27,8 @@ public abstract class TrinoInputStream
 
     /**
      * @param position the new position from the start of the file
+     * @throws IOException if the new position is negative, or an error occurs while seeking
+     * @throws java.io.EOFException if the new position is larger than the file size
      */
     public abstract void seek(long position)
             throws IOException;
