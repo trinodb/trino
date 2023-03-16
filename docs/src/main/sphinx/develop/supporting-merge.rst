@@ -109,7 +109,7 @@ the ``MERGE`` is executed as if the ``SearchedCaseExpression`` were written as::
     CASE
       WHEN present AND s.address = 'Berkeley' THEN
           -- Null values for delete; present=true; operation DELETE=2, case_number=0
-          row(null, null, null, false, 2, 0)
+          row(null, null, null, true, 2, 0)
       WHEN present AND s.customer = 'Joe Shmoe' THEN
           -- Update column values; present=true; operation UPDATE=3, case_number=1
           row(t.customer, t.purchases + 100.0, t.address, true, 3, 1)
