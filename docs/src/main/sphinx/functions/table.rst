@@ -15,6 +15,9 @@ Polymorphic table functions allow you to dynamically invoke custom logic from
 within the SQL query. They can be used for working with external systems as
 well as for enhancing Trino with capabilities going beyond the SQL standard.
 
+For the list of built-in table functions available in Trino, see :ref:`built in
+table functions<built_in_table_functions>`.
+
 Trino supports adding custom table functions. They are declared by connectors
 through implementing dedicated interfaces. For guidance on adding new table
 functions, see the :doc:`developer guide</develop/table-functions>`.
@@ -22,6 +25,23 @@ functions, see the :doc:`developer guide</develop/table-functions>`.
 Connectors offer support for different functions on a per-connector basis. For
 more information about supported table functions, refer to the :doc:`connector
 documentation <../../connector>`.
+
+.. _built_in_table_functions:
+
+Built-in table functions
+------------------------
+
+.. function:: exclude_columns(input => table, columns => descriptor) -> table
+
+    Excludes from ``table`` all columns listed in ``descriptor``::
+
+        SELECT *
+        FROM TABLE(exclude_columns(
+                                input => TABLE(orders),
+                                columns => DESCRIPTOR(clerk, comment)))
+
+    The argument ``input`` is a table or a query.
+    The argument ``columns`` is a descriptor without types.
 
 Table function invocation
 -------------------------
