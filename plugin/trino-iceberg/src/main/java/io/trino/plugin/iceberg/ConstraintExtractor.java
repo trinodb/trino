@@ -167,7 +167,7 @@ public final class ConstraintExtractor
     private static Optional<Domain> unwrapTimestampTzToDateCast(IcebergColumnHandle column, FunctionName functionName, long date)
     {
         Type type = column.getType();
-        checkArgument(type.equals(TIMESTAMP_TZ_MICROS), "Column of unexpected type %s: %s ", type, column);
+        checkArgument(type.equals(TIMESTAMP_TZ_MICROS), "Column of unexpected type %s: %s", type, column);
 
         // Verify no overflow. Date values must be in integer range.
         verify(date <= Integer.MAX_VALUE, "Date value out of range: %s", date);
@@ -242,7 +242,8 @@ public final class ConstraintExtractor
     private static Optional<Domain> unwrapDateTruncInComparison(String unit, FunctionName functionName, Constant constant)
     {
         Type type = constant.getType();
-        checkArgument(constant.getValue() != null && type.equals(TIMESTAMP_TZ_MICROS), "Unexpected constant: %s", constant);
+        checkArgument(constant.getValue() != null, "Unexpected constant: %s", constant);
+        checkArgument(type.equals(TIMESTAMP_TZ_MICROS), "Unexpected type: %s", type);
 
         // Normalized to UTC because for comparisons the zone is irrelevant
         ZonedDateTime dateTime = Instant.ofEpochMilli(((LongTimestampWithTimeZone) constant.getValue()).getEpochMillis())
