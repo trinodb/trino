@@ -319,58 +319,6 @@ Hive connector documentation.
       - Maximum number of partitions to drop in a single query.
       - 100,000
 
-Hive native reader and writer configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The following table lists native reader and writer configuration properties for
-the Hive connector.
-
-.. list-table:: Hive native reader and writer configuration
-    :widths: 35, 50, 15
-    :header-rows: 1
-
-    * - Property Name
-      - Description
-      - Default
-    * - ``csv.native-reader.enabled``
-      - Enable native reader of CSV files. The equivalent catalog
-        session property is ``csv_native_reader_enabled``.
-      - ``true``
-    * - ``csv.native-writer.enabled``
-      - Enable native writer of CSV files. The equivalent catalog
-        session property is ``csv_native_writer_enabled``.
-      - ``true``
-    * - ``json.native-reader.enabled``
-      - Enable native reader of JSON files. The equivalent catalog
-        session property is ``json_native_reader_enabled``.
-      - ``true``
-    * - ``json.native-writer.enabled``
-      - Enable native writer of JSON files. The equivalent catalog
-        session property is ``json_native_writer_enabled``.
-      - ``true``
-    * - ``sequence-file.native-reader.enabled``
-      - Enable native reader of SequenceFiles. The equivalent catalog
-        session property is ``sequence_file_native_reader_enabled``.
-      - ``true``
-    * - ``sequence-file.native-writer.enabled``
-      - Enable native writer of SequenceFile format. The equivalent catalog
-        session property is ``sequence_file_native_writer_enabled``.
-      - ``true``
-    * - ``text-file.native-reader.enabled``
-      - Enable native reader of text files. The equivalent catalog
-        session property is ``text_file_native_reader_enabled``.
-      - ``true``
-    * - ``text-file.native-writer.enabled``
-      - Enable native writer of text files. The equivalent catalog
-        session property is ``text_file_native_writer_enabled``.
-      - ``true``
-    * - ``regex.native-reader.enabled``
-      - Enable native reader of regex files.
-      - ``true``
-    * - ``regex.native-writer.enabled``
-      - Enable native writer of regex files.
-      - ``true``
-
 Metastores
 ----------
 
@@ -1552,12 +1500,20 @@ The following file types and formats are supported for the Hive connector:
 * JSON (using ``org.apache.hive.hcatalog.data.JsonSerDe``)
 * CSV (using ``org.apache.hadoop.hive.serde2.OpenCSVSerde``)
 * TextFile
+* Regex
 
-ORC format configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Trino has its own native readers and writers for each of these file formats that
+are enabled by default. Trino recommends that you use these native
+implementations in most cases. However, if you prefer to use the Hive
+ecosystem's legacy readers and writers, you can disable Trino's native
+implementations for some file formats.
+
+ORC file format
+^^^^^^^^^^^^^^^
 
 The following properties are used to configure the read and write operations
-with ORC files performed by the Hive connector.
+with ORC files performed by the Hive connector. For more information, see
+`Apache ORC <https://orc.apache.org/>_`.
 
 .. list-table:: ORC format configuration properties
     :widths: 30, 50, 20
@@ -1581,11 +1537,12 @@ with ORC files performed by the Hive connector.
 
 .. _hive-parquet-configuration:
 
-Parquet format configuration properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Parquet file format
+^^^^^^^^^^^^^^^^^^^
 
 The following properties are used to configure the read and write operations
-with Parquet files performed by the Hive connector.
+with Parquet files performed by the Hive connector. `Apache Parquet
+<https://parquet.apache.org/>_`.
 
 .. list-table:: Parquet format configuration properties
     :widths: 30, 50, 20
@@ -1646,6 +1603,114 @@ with Parquet files performed by the Hive connector.
         property to ``false`` to disable the optimized parquet reader by default
         for structural data types. The equivalent catalog session property is
         ``parquet_optimized_nested_reader_enabled``.
+      - ``true``
+
+SequenceFile format
+^^^^^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with SequenceFile files performed by the Hive connector.
+
+.. list-table:: SequenceFile format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property Name
+      - Description
+      - Default
+    * - ``sequence-file.native-reader.enabled``
+      - Enables native reader of SequenceFiles. The equivalent catalog
+        session property is ``sequence_file_native_reader_enabled``.
+      - ``true``
+    * - ``sequence-file.native-writer.enabled``
+      - Enables native writer of SequenceFile format. The equivalent catalog
+        session property is ``sequence_file_native_writer_enabled``.
+      - ``true``
+
+JSON file format
+^^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with JSON files performed by the Hive connector.
+
+.. list-table:: JSON format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property Name
+      - Description
+      - Default
+    * - ``json.native-reader.enabled``
+      - Enables native reader of JSON files. The equivalent catalog
+        session property is ``json_native_reader_enabled``.
+      - ``true``
+    * - ``json.native-writer.enabled``
+      - Enables native writer of JSON files. The equivalent catalog
+        session property is ``json_native_writer_enabled``.
+      - ``true``
+
+CSV file format
+^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with ORC files performed by the Hive connector.
+
+.. list-table:: CSV format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property Name
+      - Description
+      - Default
+    * - ``csv.native-reader.enabled``
+      - Enables native reader of CSV files. The equivalent catalog
+        session property is ``csv_native_reader_enabled``.
+      - ``true``
+    * - ``csv.native-writer.enabled``
+      - Enables native writer of CSV files. The equivalent catalog
+        session property is ``csv_native_writer_enabled``.
+      - ``true``
+
+TextFile file format
+^^^^^^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with TextFile files performed by the Hive connector.
+
+.. list-table:: TextFile format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property Name
+      - Description
+      - Default
+    * - ``text-file.native-reader.enabled``
+      - Enables native reader of text files. The equivalent catalog
+        session property is ``text_file_native_reader_enabled``.
+      - ``true``
+    * - ``text-file.native-writer.enabled``
+      - Enables native writer of text files. The equivalent catalog
+        session property is ``text_file_native_writer_enabled``.
+      - ``true``
+
+Regex file format
+^^^^^^^^^^^^^^^^^
+
+The following properties are used to configure the read and write operations
+with Regex files performed by the Hive connector.
+
+.. list-table:: Regex format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - Property Name
+      - Description
+      - Default
+    * - ``regex.native-reader.enabled``
+      - Enables native reader of regex files.
+      - ``true``
+    * - ``regex.native-writer.enabled``
+      - Enables native writer of regex files.
       - ``true``
 
 Hive 3-related limitations
