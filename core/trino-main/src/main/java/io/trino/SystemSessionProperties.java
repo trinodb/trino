@@ -162,7 +162,12 @@ public final class SystemSessionProperties
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
     public static final String LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD = "legacy_materialized_view_grace_period";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
-    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
+    public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_TASK_SIZING_STEP_SIZE = "fault_tolerant_execution_adaptive_task_sizing_step_size";
+    public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_TASK_SIZING_GROWTH_FACTOR = "fault_tolerant_execution_adaptive_task_sizing_growth_factor";
+    public static final String FAULT_TOLERANT_EXECUTION_NON_WRITER_TASK_INIT_TARGET_INPUT_SIZE = "fault_tolerant_execution_non_writer_task_init_target_input_size";
+    public static final String FAULT_TOLERANT_EXECUTION_NON_WRITER_TASK_MAX_INPUT_SIZE = "fault_tolerant_execution_non_writer_task_max_input_size";
+    public static final String FAULT_TOLERANT_EXECUTION_WRITER_TASK_INIT_TARGET_INPUT_SIZE = "fault_tolerant_execution_writer_task_init_target__input_size";
+    public static final String FAULT_TOLERANT_EXECUTION_WRITER_TASK_MAX_INPUT_SIZE = "fault_tolerant_execution_writer_task_max_input_size";
     public static final String FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE = "fault_tolerant_execution_standard_split_size";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY = "fault_tolerant_execution_coordinator_task_memory";
@@ -808,10 +813,35 @@ public final class SystemSessionProperties
                         featuresConfig.isHideInaccessibleColumns(),
                         value -> validateHideInaccessibleColumns(value, featuresConfig.isHideInaccessibleColumns()),
                         false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_ADAPTIVE_TASK_SIZING_STEP_SIZE,
+                        "The number of task assignments we pack in a stage before increasing task size",
+                        queryManagerConfig.getFaultTolerantExecutionAdaptiveTaskSizingStepSize(),
+                        false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_ADAPTIVE_TASK_SIZING_GROWTH_FACTOR,
+                        "Growth factor for adaptive task sizing for fault tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionAdaptiveTaskSizingGrowthFactor(),
+                        false),
                 dataSizeProperty(
-                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE,
-                        "Target size in bytes of all task inputs for a single fault tolerant task",
-                        queryManagerConfig.getFaultTolerantExecutionTargetTaskInputSize(),
+                        FAULT_TOLERANT_EXECUTION_NON_WRITER_TASK_INIT_TARGET_INPUT_SIZE,
+                        "Initial target input size for non-writer fault tolerant tasks",
+                        queryManagerConfig.getFaultTolerantExecutionNonWriterTaskInitTargetInputSize(),
+                        false),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_NON_WRITER_TASK_MAX_INPUT_SIZE,
+                        "Maximum input size for non-writer fault tolerant tasks",
+                        queryManagerConfig.getFaultTolerantExecutionNonWriterTaskMaxInputSize(),
+                        false),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_WRITER_TASK_INIT_TARGET_INPUT_SIZE,
+                        "Initial target input size for writer fault tolerant tasks",
+                        queryManagerConfig.getFaultTolerantExecutionWriterTaskInitTargetInputSize(),
+                        false),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_WRITER_TASK_MAX_INPUT_SIZE,
+                        "Maximum input size for writer fault tolerant tasks",
+                        queryManagerConfig.getFaultTolerantExecutionWriterTaskMaxInputSize(),
                         false),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE,
@@ -1536,9 +1566,34 @@ public final class SystemSessionProperties
         return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
     }
 
-    public static DataSize getFaultTolerantExecutionTargetTaskInputSize(Session session)
+    public static int getFaultTolerantExecutionAdaptiveTaskSizingStepSize(Session session)
     {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, DataSize.class);
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_TASK_SIZING_STEP_SIZE, Integer.class);
+    }
+
+    public static double getFaultTolerantExecutionAdaptiveTaskSizingGrowthFactor(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_TASK_SIZING_GROWTH_FACTOR, Double.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionNonWriterTaskInitTargetInputSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_NON_WRITER_TASK_INIT_TARGET_INPUT_SIZE, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionNonWriterTaskMaxInputSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_NON_WRITER_TASK_MAX_INPUT_SIZE, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionWriterTaskInitTargetInputSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_WRITER_TASK_INIT_TARGET_INPUT_SIZE, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionWriterTaskMaxInputSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_WRITER_TASK_MAX_INPUT_SIZE, DataSize.class);
     }
 
     public static DataSize getFaultTolerantExecutionStandardSplitSize(Session session)

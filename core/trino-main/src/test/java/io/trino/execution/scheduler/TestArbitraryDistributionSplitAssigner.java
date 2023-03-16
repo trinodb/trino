@@ -654,21 +654,26 @@ public class TestArbitraryDistributionSplitAssigner
             int partitionedSplitsPerPartition,
             boolean verifyMaxTaskSplitCount)
     {
-        long targetPartitionSizeInBytes = Long.MAX_VALUE;
+        long initTargetPartitionSizeInBytes = Long.MAX_VALUE;
+        long maxPartitionSizeInBytes = Long.MAX_VALUE;
         int maxTaskSplitCount = Integer.MAX_VALUE;
         // make sure both limits are tested
         if (verifyMaxTaskSplitCount) {
             maxTaskSplitCount = partitionedSplitsPerPartition;
         }
         else {
-            targetPartitionSizeInBytes = STANDARD_SPLIT_SIZE_IN_BYTES * partitionedSplitsPerPartition;
+            initTargetPartitionSizeInBytes = STANDARD_SPLIT_SIZE_IN_BYTES * partitionedSplitsPerPartition;
+            maxPartitionSizeInBytes = initTargetPartitionSizeInBytes;
         }
         return new ArbitraryDistributionSplitAssigner(
                 Optional.of(TEST_CATALOG_HANDLE),
                 partitionedSources,
                 replicatedSources,
-                targetPartitionSizeInBytes,
                 STANDARD_SPLIT_SIZE_IN_BYTES,
+                10,
+                2.0,
+                initTargetPartitionSizeInBytes,
+                maxPartitionSizeInBytes,
                 maxTaskSplitCount);
     }
 

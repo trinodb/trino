@@ -48,11 +48,16 @@ class ArbitraryDistributionSplitAssigner
     private final Set<PlanNodeId> partitionedSources;
     private final Set<PlanNodeId> replicatedSources;
     private final Set<PlanNodeId> allSources;
-    private final long targetPartitionSizeInBytes;
     private final long standardSplitSizeInBytes;
+    private final int adaptiveTaskSizingStepSize;
+    private final double adaptiveTaskSizingGrowthFactor;
+    private final long initTargetPartitionSizeInBytes;
+    private final long maxPartitionSizeInBytes;
     private final int maxTaskSplitCount;
 
     private int nextPartitionId;
+    private int adaptiveTaskSizingCounter;
+    private long targetPartitionSizeInBytes;
     private final List<PartitionAssignment> allAssignments = new ArrayList<>();
     private final Map<Optional<HostAddress>, PartitionAssignment> openAssignments = new HashMap<>();
 
@@ -65,8 +70,11 @@ class ArbitraryDistributionSplitAssigner
             Optional<CatalogHandle> catalogRequirement,
             Set<PlanNodeId> partitionedSources,
             Set<PlanNodeId> replicatedSources,
-            long targetPartitionSizeInBytes,
             long standardSplitSizeInBytes,
+            int adaptiveTaskSizingStepSize,
+            double adaptiveTaskSizingGrowthFactor,
+            long initTargetPartitionSizeInBytes,
+            long maxPartitionSizeInBytes,
             int maxTaskSplitCount)
     {
         this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
@@ -76,9 +84,14 @@ class ArbitraryDistributionSplitAssigner
                 .addAll(partitionedSources)
                 .addAll(replicatedSources)
                 .build();
-        this.targetPartitionSizeInBytes = targetPartitionSizeInBytes;
         this.standardSplitSizeInBytes = standardSplitSizeInBytes;
+        this.adaptiveTaskSizingStepSize = adaptiveTaskSizingStepSize;
+        this.adaptiveTaskSizingGrowthFactor = adaptiveTaskSizingGrowthFactor;
+        this.initTargetPartitionSizeInBytes = initTargetPartitionSizeInBytes;
+        this.maxPartitionSizeInBytes = maxPartitionSizeInBytes;
         this.maxTaskSplitCount = maxTaskSplitCount;
+
+        this.targetPartitionSizeInBytes = initTargetPartitionSizeInBytes;
     }
 
     @Override
@@ -196,6 +209,12 @@ class ArbitraryDistributionSplitAssigner
                 }
                 partitionAssignment = null;
                 openAssignments.remove(hostRequirement);
+
+                adaptiveTaskSizingCounter++;
+                if (adaptiveTaskSizingCounter >= adaptiveTaskSizingStepSize) {
+                    targetPartitionSizeInBytes = (long) Math.min(maxPartitionSizeInBytes, targetPartitionSizeInBytes * adaptiveTaskSizingGrowthFactor);
+                    adaptiveTaskSizingCounter = 0;
+                }
             }
             if (partitionAssignment == null) {
                 partitionAssignment = new PartitionAssignment(nextPartitionId++);

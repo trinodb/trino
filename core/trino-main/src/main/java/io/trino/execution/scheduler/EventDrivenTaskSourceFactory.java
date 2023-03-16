@@ -42,9 +42,13 @@ import java.util.function.LongConsumer;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionAdaptiveTaskSizingGrowthFactor;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionAdaptiveTaskSizingStepSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionNonWriterTaskMaxInputSize;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionNonWriterTaskInitTargetInputSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionStandardSplitSize;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionWriterTaskInitTargetInputSize;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -107,7 +111,7 @@ public class EventDrivenTaskSourceFactory
                 remoteSources.put(remoteSource.getId(), sourceFragment);
             }
         }
-        long targetPartitionSizeInBytes = getFaultTolerantExecutionTargetTaskInputSize(session).toBytes();
+
         long standardSplitSizeInBytes = getFaultTolerantExecutionStandardSplitSize(session).toBytes();
         int maxTaskSplitCount = getFaultTolerantExecutionMaxTaskSplitCount(session);
         return new EventDrivenTaskSource(
@@ -121,7 +125,6 @@ public class EventDrivenTaskSourceFactory
                         fragment,
                         outputDataSizeEstimates,
                         sourcePartitioningScheme,
-                        targetPartitionSizeInBytes,
                         standardSplitSizeInBytes,
                         maxTaskSplitCount),
                 executor,
@@ -136,7 +139,6 @@ public class EventDrivenTaskSourceFactory
             PlanFragment fragment,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            long targetPartitionSizeInBytes,
             long standardSplitSizeInBytes,
             int maxArbitraryDistributionTaskSplitCount)
     {
@@ -155,6 +157,13 @@ public class EventDrivenTaskSourceFactory
                 .map(PlanNode::getId)
                 .collect(toImmutableSet());
 
+        int adaptiveTaskSizingStepSize = getFaultTolerantExecutionAdaptiveTaskSizingStepSize(session);
+        double adaptiveTaskSizingGrowthFactor = getFaultTolerantExecutionAdaptiveTaskSizingGrowthFactor(session);
+        long nonWriterTaskInitTargetInputSizeInBytes = getFaultTolerantExecutionNonWriterTaskInitTargetInputSize(session).toBytes();
+        long nonWriterTaskMaxInputSizeInBytes = getFaultTolerantExecutionNonWriterTaskMaxInputSize(session).toBytes();
+        long writerTaskInitTargetInputSizeInBytes = getFaultTolerantExecutionWriterTaskInitTargetInputSize(session).toBytes();
+        long writerTaskMaxInputSizeInBytes = getFaultTolerantExecutionNonWriterTaskMaxInputSize(session).toBytes();
+
         boolean coordinatorOnly = partitioning.equals(COORDINATOR_DISTRIBUTION);
         if (partitioning.equals(SINGLE_DISTRIBUTION) || coordinatorOnly) {
             ImmutableSet<HostAddress> hostRequirement = ImmutableSet.of();
@@ -170,13 +179,28 @@ public class EventDrivenTaskSourceFactory
                             .addAll(replicatedSources)
                             .build());
         }
-        if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) || partitioning.equals(SOURCE_DISTRIBUTION)) {
+        if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SOURCE_DISTRIBUTION)) {
             return new ArbitraryDistributionSplitAssigner(
                     partitioning.getCatalogHandle(),
                     partitionedSources,
                     replicatedSources,
-                    targetPartitionSizeInBytes,
                     standardSplitSizeInBytes,
+                    adaptiveTaskSizingStepSize,
+                    adaptiveTaskSizingGrowthFactor,
+                    nonWriterTaskInitTargetInputSizeInBytes,
+                    nonWriterTaskMaxInputSizeInBytes,
+                    maxArbitraryDistributionTaskSplitCount);
+        }
+        if (partitioning.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
+            return new ArbitraryDistributionSplitAssigner(
+                    partitioning.getCatalogHandle(),
+                    partitionedSources,
+                    replicatedSources,
+                    standardSplitSizeInBytes,
+                    adaptiveTaskSizingStepSize,
+                    adaptiveTaskSizingGrowthFactor,
+                    writerTaskInitTargetInputSizeInBytes,
+                    writerTaskMaxInputSizeInBytes,
                     maxArbitraryDistributionTaskSplitCount);
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
@@ -189,7 +213,8 @@ public class EventDrivenTaskSourceFactory
                     sourcePartitioningScheme,
                     outputDataSizeEstimates,
                     fragment,
-                    getFaultTolerantExecutionTargetTaskInputSize(session).toBytes());
+                    // number of tasks are bounded for hash distribution so adaptive task sizing is automatic
+                    partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION) ? writerTaskInitTargetInputSizeInBytes : nonWriterTaskInitTargetInputSizeInBytes);
         }
 
         // other partitioning handles are not expected to be set as a fragment partitioning

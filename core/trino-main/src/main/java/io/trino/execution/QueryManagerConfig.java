@@ -101,7 +101,12 @@ public class QueryManagerConfig
     private DataSize remoteTaskRequestSizeHeadroom = DataSize.of(2, DataSize.Unit.MEGABYTE);
     private int remoteTaskGuaranteedSplitPerTask = 3;
 
-    private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
+    private int faultTolerantExecutionAdaptiveTaskSizingStepSize = 10;
+    private double faultTolerantExecutionAdaptiveTaskSizingGrowthFactor = 2.0;
+    private DataSize faultTolerantExecutionNonWriterTaskInitTargetInputSize = DataSize.of(512, MEGABYTE);
+    private DataSize faultTolerantExecutionNonWriterTaskMaxInputSize = DataSize.of(4, GIGABYTE);
+    private DataSize faultTolerantExecutionWriterTaskInitTargetInputSize = DataSize.of(4, GIGABYTE);
+    private DataSize faultTolerantExecutionWriterTaskMaxInputSize = DataSize.of(16, GIGABYTE);
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
@@ -625,19 +630,87 @@ public class QueryManagerConfig
         return this;
     }
 
-    @NotNull
-    public DataSize getFaultTolerantExecutionTargetTaskInputSize()
+    public int getFaultTolerantExecutionAdaptiveTaskSizingStepSize()
     {
-        return faultTolerantExecutionTargetTaskInputSize;
+        return faultTolerantExecutionAdaptiveTaskSizingStepSize;
     }
 
-    @Config("fault-tolerant-execution-target-task-input-size")
-    @ConfigDescription("Target size in bytes of all task inputs for a single fault tolerant task")
-    public QueryManagerConfig setFaultTolerantExecutionTargetTaskInputSize(DataSize faultTolerantExecutionTargetTaskInputSize)
+    @Config("fault-tolerant-execution-adaptive-task-sizing-step-size")
+    @ConfigDescription("The number of task assignments we pack in a stage before increasing task size")
+    public QueryManagerConfig setFaultTolerantExecutionAdaptiveTaskSizingStepSize(int faultTolerantExecutionAdaptiveTaskSizingStepSize)
     {
-        this.faultTolerantExecutionTargetTaskInputSize = faultTolerantExecutionTargetTaskInputSize;
+        this.faultTolerantExecutionAdaptiveTaskSizingStepSize = faultTolerantExecutionAdaptiveTaskSizingStepSize;
         return this;
     }
+
+    public double getFaultTolerantExecutionAdaptiveTaskSizingGrowthFactor()
+    {
+        return faultTolerantExecutionAdaptiveTaskSizingGrowthFactor;
+    }
+
+    @Config("fault-tolerant-execution-adaptive-task-sizing-growth-factor")
+    @ConfigDescription("Growth factor for adaptive task sizing for fault tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionAdaptiveTaskSizingGrowthFactor(double faultTolerantExecutionAdaptiveTaskSizingGrowthFactor)
+    {
+        this.faultTolerantExecutionAdaptiveTaskSizingGrowthFactor = faultTolerantExecutionAdaptiveTaskSizingGrowthFactor;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionNonWriterTaskInitTargetInputSize()
+    {
+        return faultTolerantExecutionNonWriterTaskInitTargetInputSize;
+    }
+
+    @Config("fault-tolerant-execution-non-writer-task-init-target-input-size")
+    @ConfigDescription("Initial target input size for non-writer fault tolerant tasks")
+    public QueryManagerConfig setFaultTolerantExecutionNonWriterTaskInitTargetInputSize(DataSize faultTolerantExecutionNonWriterTaskInitTargetInputSize)
+    {
+        this.faultTolerantExecutionNonWriterTaskInitTargetInputSize = faultTolerantExecutionNonWriterTaskInitTargetInputSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionNonWriterTaskMaxInputSize()
+    {
+        return faultTolerantExecutionNonWriterTaskMaxInputSize;
+    }
+
+    @Config("fault-tolerant-execution-non-writer-task-max-input-size")
+    @ConfigDescription("Maximum input size for non-writer fault tolerant tasks")
+    public QueryManagerConfig setFaultTolerantExecutionNonWriterTaskMaxInputSize(DataSize faultTolerantExecutionNonWriterTaskMaxInputSize)
+    {
+        this.faultTolerantExecutionNonWriterTaskMaxInputSize = faultTolerantExecutionNonWriterTaskMaxInputSize;
+        return this;
+    }
+
+    public DataSize getFaultTolerantExecutionWriterTaskInitTargetInputSize()
+    {
+        return faultTolerantExecutionWriterTaskInitTargetInputSize;
+    }
+
+    @Config("fault-tolerant-execution-writer-task-init-target-input-size")
+    @ConfigDescription("Initial target input size for writer fault tolerant tasks")
+    public QueryManagerConfig setFaultTolerantExecutionWriterTaskInitTargetInputSize(DataSize faultTolerantExecutionWriterTaskInitTargetInputSize)
+    {
+        this.faultTolerantExecutionWriterTaskInitTargetInputSize = faultTolerantExecutionWriterTaskInitTargetInputSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionWriterTaskMaxInputSize()
+    {
+        return faultTolerantExecutionWriterTaskMaxInputSize;
+    }
+
+    @Config("fault-tolerant-execution-writer-task-max-input-size")
+    @ConfigDescription("Maximum input size for writer fault tolerant tasks")
+    public QueryManagerConfig setFaultTolerantExecutionWriterTaskMaxInputSize(DataSize faultTolerantExecutionWriterTaskMaxInputSize)
+    {
+        this.faultTolerantExecutionWriterTaskMaxInputSize = faultTolerantExecutionWriterTaskMaxInputSize;
+        return this;
+    }
+
 
     @MinDataSize("1MB")
     @MaxDataSize("1GB")
