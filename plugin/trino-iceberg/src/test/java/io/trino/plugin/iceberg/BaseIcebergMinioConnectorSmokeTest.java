@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.minio.messages.Event;
@@ -34,7 +33,6 @@ import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
-import io.trino.tpch.TpchTable;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -50,7 +48,6 @@ import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThri
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,10 +101,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withSchemaName(schemaName)
-                                .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()
-                                        .addAll(REQUIRED_TPCH_TABLES)
-                                        .add(LINE_ITEM)
-                                        .build())
+                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
                                 .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/" + schemaName + "'"))
                                 .build())
                 .build();

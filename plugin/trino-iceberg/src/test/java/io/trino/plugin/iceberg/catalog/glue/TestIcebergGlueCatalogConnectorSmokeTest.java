@@ -23,7 +23,6 @@ import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.TrinoFileSystem;
@@ -41,7 +40,6 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestView;
-import io.trino.tpch.TpchTable;
 import org.apache.iceberg.FileFormat;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
@@ -54,7 +52,6 @@ import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,10 +96,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "iceberg.writer-sort-buffer-size", "1MB"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
-                                .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()
-                                        .addAll(REQUIRED_TPCH_TABLES)
-                                        .add(LINE_ITEM)
-                                        .build())
+                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
                                 .withSchemaName(schemaName)
                                 .build())
                 .build();
