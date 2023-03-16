@@ -103,6 +103,8 @@ import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
+import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
+import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
@@ -260,7 +262,7 @@ public class TestIcebergV2
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation", 25);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {2L})), ImmutableMap.of("regionkey", 2L));
         // the equality delete file is applied to 2 data files
-        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + FileContent.EQUALITY_DELETES.id(), "VALUES 2");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 2");
     }
 
     @Test
@@ -650,6 +652,31 @@ public class TestIcebergV2
                 .doesNotContain(initialActiveFiles.stream()
                         .filter(path -> !path.contains("regionkey=1"))
                         .toArray(String[]::new));
+    }
+
+    @Test
+    public void testOptimizingWholeTableRemovesDeleteFiles()
+            throws Exception
+    {
+        try (TestTable testTable = newTrinoTable("test_optimize_removes_obsolete_delete_files_", "AS SELECT * FROM tpch.tiny.nation")) {
+            assertUpdate("DELETE FROM " + testTable.getName() + " WHERE regionkey % 2 = 0", 15);
+            Table icebergTable = loadTable(testTable.getName());
+            writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND regionkey % 2 = 1");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 1");
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 1");
+
+            assertQuerySucceeds("ALTER TABLE " + testTable.getName() + " EXECUTE OPTIMIZE");
+
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + POSITION_DELETES.id(), "VALUES 0");
+            assertQuery("SELECT count(*) FROM \"" + testTable.getName() + "$files\" WHERE content = " + EQUALITY_DELETES.id(), "VALUES 0");
+
+            assertThat(query("SELECT * FROM " + testTable.getName()))
+                    .matches("SELECT * FROM nation WHERE regionkey != 1 AND regionkey % 2 = 1");
+        }
     }
 
     @Test
