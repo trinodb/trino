@@ -31,6 +31,7 @@ env:
   # the Docker daemon only downloads 3 layers concurrently which prevents the other pull from making any progress.
   # This value should be greater than the time taken for the longest image pull.
   TESTCONTAINERS_PULL_PAUSE_TIMEOUT: 600
+  # CI should never run "wrong" images (images with architecture different than host's), as they are slow to run
   TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK: false
   TEST_REPORT_RETENTION_DAYS: 5
   HEAP_DUMP_RETENTION_DAYS: 14
