@@ -19,14 +19,29 @@ import io.trino.filesystem.TrinoInputStream;
 
 import java.io.IOException;
 
-public class MemoryTrinoInputStream
+import static java.util.Objects.requireNonNull;
+
+class MemoryInputStream
         extends TrinoInputStream
 {
+    private final String location;
     private final SliceInput input;
+    private final int length;
+    private boolean closed;
 
-    public MemoryTrinoInputStream(Slice data)
+    public MemoryInputStream(String location, Slice data)
     {
-        input = data.getInput();
+        this.location = requireNonNull(location, "location is null");
+        this.input = requireNonNull(data, "data is null").getInput();
+        this.length = data.length();
+    }
+
+    @Override
+    public int available()
+            throws IOException
+    {
+        ensureOpen();
+        return input.available();
     }
 
     @Override
@@ -37,7 +52,15 @@ public class MemoryTrinoInputStream
 
     @Override
     public void seek(long position)
+            throws IOException
     {
+        ensureOpen();
+        if (position < 0) {
+            throw new IOException("Negative seek offset");
+        }
+        if (position > length) {
+            throw new IOException("Cannot seek to %s. File size is %s: %s".formatted(position, length, location));
+        }
         input.setPosition(position);
     }
 
@@ -45,18 +68,41 @@ public class MemoryTrinoInputStream
     public int read()
             throws IOException
     {
+        ensureOpen();
         return input.read();
     }
 
     @Override
     public int read(byte[] destination, int destinationIndex, int length)
+            throws IOException
     {
+        ensureOpen();
         return input.read(destination, destinationIndex, length);
     }
 
     @Override
     public long skip(long length)
+            throws IOException
     {
+        ensureOpen();
         return input.skip(length);
+    }
+
+    private void ensureOpen()
+            throws IOException
+    {
+        if (closed) {
+            throw new IOException("Output stream closed: " + location);
+        }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        if (!closed) {
+            closed = true;
+            input.close();
+        }
     }
 }
