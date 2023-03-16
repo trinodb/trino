@@ -13,11 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 import java.io.File;
@@ -30,7 +28,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,10 +53,7 @@ public class TestIcebergConnectorSmokeTest
         this.metastoreDir.deleteOnExit();
         this.metastore = createTestingFileHiveMetastore(metastoreDir);
         return IcebergQueryRunner.builder()
-                .setInitialTables(ImmutableList.<TpchTable<?>>builder()
-                        .addAll(REQUIRED_TPCH_TABLES)
-                        .add(LINE_ITEM)
-                        .build())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setMetastoreDirectory(metastoreDir)
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.register-table-procedure.enabled", "true",

@@ -472,10 +472,10 @@ public abstract class BaseIcebergConnectorSmokeTest
         try (TestTable table = new TestTable(
                 getQueryRunner()::execute,
                 "test_sorted_lineitem_table",
-                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM lineitem WITH NO DATA")) {
+                "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS TABLE tpch.tiny.lineitem WITH NO DATA")) {
             assertUpdate(
                     withSmallRowGroups,
-                    "INSERT INTO " + table.getName() + " SELECT * FROM lineitem",
+                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
                     "VALUES 60175");
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
                 assertTrue(isFileSorted((String) filePath, "comment"));
