@@ -100,12 +100,6 @@ public final class PartitionProjectionService
         return trinoTablePropertiesBuilder.buildOrThrow();
     }
 
-    public Map<String, Object> getPartitionProjectionTrinoColumnProperties(Table table, String columnName)
-    {
-        Map<String, String> metastoreTableProperties = table.getParameters();
-        return rewriteColumnProjectionProperties(metastoreTableProperties, columnName);
-    }
-
     public Map<String, String> getPartitionProjectionHiveTableProperties(ConnectorTableMetadata tableMetadata)
     {
         // If partition projection is globally disabled we don't allow defining its properties
@@ -356,14 +350,24 @@ public final class PartitionProjectionService
         return projectionFactory.create(columnName, columnType, columnProperties);
     }
 
-    private <I, V> void rewriteProperty(
+    private static <I, V> void rewriteProperty(
             Map<String, I> sourceProperties,
             ImmutableMap.Builder<String, V> targetPropertiesBuilder,
             String sourcePropertyKey,
             String targetPropertyKey,
             Function<I, V> valueMapper)
     {
-        Optional.ofNullable(sourceProperties.get(sourcePropertyKey))
+        rewriteProperty(sourceProperties::get, targetPropertiesBuilder, sourcePropertyKey, targetPropertyKey, valueMapper);
+    }
+
+    private static <I, V> void rewriteProperty(
+            Function<String, I> sourcePropertyProvider,
+            ImmutableMap.Builder<String, V> targetPropertiesBuilder,
+            String sourcePropertyKey,
+            String targetPropertyKey,
+            Function<I, V> valueMapper)
+    {
+        Optional.ofNullable(sourcePropertyProvider.apply(sourcePropertyKey))
                 .ifPresent(value -> targetPropertiesBuilder.put(targetPropertyKey, valueMapper.apply(value)));
     }
 
