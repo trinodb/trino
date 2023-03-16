@@ -192,10 +192,8 @@ public final class ProtocolHeaders
 
         if (alternateHeaderName.isPresent() && !alternateHeaderName.get().equalsIgnoreCase("Trino")) {
             String headerPrefix = "x-" + alternateHeaderName.get().toLowerCase(ENGLISH);
-            if (headerNames.stream()
-                    .anyMatch(header -> header.toLowerCase(ENGLISH).startsWith(headerPrefix))) {
-                if (headerNames.stream()
-                        .anyMatch(header -> header.toLowerCase(ENGLISH).startsWith("x-trino-"))) {
+            if (headerNames.stream().anyMatch(header -> header.toLowerCase(ENGLISH).startsWith(headerPrefix))) {
+                if (headerNames.stream().anyMatch(header -> header.toLowerCase(ENGLISH).startsWith("x-trino-"))) {
                     throw new ProtocolDetectionException("Both Trino and " + alternateHeaderName.get() + " headers detected");
                 }
                 return createProtocolHeaders(alternateHeaderName.get());
