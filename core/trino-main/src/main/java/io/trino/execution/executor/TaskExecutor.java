@@ -25,11 +25,15 @@ import io.airlift.stats.DistributionStat;
 import io.airlift.stats.TimeDistribution;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
+import io.trino.tracing.TrinoAttributes;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -68,6 +72,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.executor.MultilevelSplitQueue.computeLevel;
 import static io.trino.version.EmbedVersion.testingVersionEmbedder;
 import static java.lang.Math.min;
@@ -92,6 +97,7 @@ public class TaskExecutor
     private final int guaranteedNumberOfDriversPerTask;
     private final int maximumNumberOfDriversPerTask;
     private final VersionEmbedder versionEmbedder;
+    private final Tracer tracer;
 
     private final Ticker ticker;
 
@@ -163,7 +169,7 @@ public class TaskExecutor
     private volatile boolean closed;
 
     @Inject
-    public TaskExecutor(TaskManagerConfig config, VersionEmbedder versionEmbedder, MultilevelSplitQueue splitQueue)
+    public TaskExecutor(TaskManagerConfig config, VersionEmbedder versionEmbedder, Tracer tracer, MultilevelSplitQueue splitQueue)
     {
         this(
                 config.getMaxWorkerThreads(),
@@ -172,6 +178,7 @@ public class TaskExecutor
                 config.getMaxDriversPerTask(),
                 config.getInterruptStuckSplitTasksWarningThreshold(),
                 versionEmbedder,
+                tracer,
                 splitQueue,
                 Ticker.systemTicker());
     }
@@ -179,13 +186,13 @@ public class TaskExecutor
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new Duration(10, TimeUnit.MINUTES), testingVersionEmbedder(), new MultilevelSplitQueue(2), ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new Duration(10, TimeUnit.MINUTES), testingVersionEmbedder(), noopTracer(), new MultilevelSplitQueue(2), ticker);
     }
 
     @VisibleForTesting
     public TaskExecutor(int runnerThreads, int minDrivers, int guaranteedNumberOfDriversPerTask, int maximumNumberOfDriversPerTask, MultilevelSplitQueue splitQueue, Ticker ticker)
     {
-        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new Duration(10, TimeUnit.MINUTES), testingVersionEmbedder(), splitQueue, ticker);
+        this(runnerThreads, minDrivers, guaranteedNumberOfDriversPerTask, maximumNumberOfDriversPerTask, new Duration(10, TimeUnit.MINUTES), testingVersionEmbedder(), noopTracer(), splitQueue, ticker);
     }
 
     @VisibleForTesting
@@ -196,6 +203,7 @@ public class TaskExecutor
             int maximumNumberOfDriversPerTask,
             Duration stuckSplitsWarningThreshold,
             VersionEmbedder versionEmbedder,
+            Tracer tracer,
             MultilevelSplitQueue splitQueue,
             Ticker ticker)
     {
@@ -209,6 +217,7 @@ public class TaskExecutor
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
 
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.stuckSplitsWarningThreshold = requireNonNull(stuckSplitsWarningThreshold, "stuckSplitsWarningThreshold is null");
@@ -340,9 +349,24 @@ public class TaskExecutor
         List<ListenableFuture<Void>> finishedFutures = new ArrayList<>(taskSplits.size());
         synchronized (this) {
             for (SplitRunner taskSplit : taskSplits) {
+                TaskId taskId = taskHandle.getTaskId();
+                int splitId = taskHandle.getNextSplitId();
+
+                Span splitSpan = tracer.spanBuilder(intermediate ? "split (intermediate)" : "split (leaf)")
+                        .setParent(Context.current().with(taskSplit.getPipelineSpan()))
+                        .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
+                        .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                        .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
+                        .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.getStageId() + "-" + taskSplit.getPipelineId())
+                        .setAttribute(TrinoAttributes.SPLIT_ID, taskId + "-" + splitId)
+                        .startSpan();
+
                 PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(
                         taskHandle,
+                        splitId,
                         taskSplit,
+                        splitSpan,
+                        tracer,
                         ticker,
                         globalCpuTimeMicros,
                         globalScheduledTimeMicros,

@@ -20,6 +20,8 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.LocationFactory;
@@ -77,6 +79,7 @@ public class HttpRemoteTaskFactory
     private final ThreadPoolExecutorMBean executorMBean;
     private final ScheduledExecutorService updateScheduledExecutor;
     private final ScheduledExecutorService errorScheduledExecutor;
+    private final Tracer tracer;
     private final RemoteTaskStats stats;
     private final DynamicFilterService dynamicFilterService;
 
@@ -91,6 +94,7 @@ public class HttpRemoteTaskFactory
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             JsonCodec<FailTaskRequest> failTaskRequestCoded,
+            Tracer tracer,
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService)
     {
@@ -108,6 +112,7 @@ public class HttpRemoteTaskFactory
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
 
@@ -133,6 +138,7 @@ public class HttpRemoteTaskFactory
     @Override
     public RemoteTask createRemoteTask(
             Session session,
+            Span stageSpan,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,
@@ -143,7 +149,9 @@ public class HttpRemoteTaskFactory
             Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
-        return new HttpRemoteTask(session,
+        return new HttpRemoteTask(
+                session,
+                stageSpan,
                 taskId,
                 node.getNodeIdentifier(),
                 locationFactory.createTaskLocation(node, taskId),
@@ -165,6 +173,7 @@ public class HttpRemoteTaskFactory
                 taskUpdateRequestCodec,
                 failTaskRequestCoded,
                 partitionedSplitCountTracker,
+                tracer,
                 stats,
                 dynamicFilterService,
                 outboundDynamicFilterIds,

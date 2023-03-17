@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.ExecutionFailureInfo;
@@ -280,6 +281,12 @@ public class TestScaledWriterScheduler
 
         @Override
         public int getAttemptId()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Span getStageSpan()
         {
             throw new UnsupportedOperationException();
         }

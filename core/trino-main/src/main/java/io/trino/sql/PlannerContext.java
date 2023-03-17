@@ -13,6 +13,7 @@
  */
 package io.trino.sql;
 
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -39,19 +40,22 @@ public class PlannerContext
     private final BlockEncodingSerde blockEncodingSerde;
     private final TypeManager typeManager;
     private final FunctionManager functionManager;
+    private final Tracer tracer;
 
     @Inject
     public PlannerContext(Metadata metadata,
             TypeOperators typeOperators,
             BlockEncodingSerde blockEncodingSerde,
             TypeManager typeManager,
-            FunctionManager functionManager)
+            FunctionManager functionManager,
+            Tracer tracer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     public Metadata getMetadata()
@@ -77,5 +81,10 @@ public class PlannerContext
     public FunctionManager getFunctionManager()
     {
         return functionManager;
+    }
+
+    public Tracer getTracer()
+    {
+        return tracer;
     }
 }

@@ -23,6 +23,7 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.trino.execution.StateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.TaskId;
@@ -42,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -68,6 +70,7 @@ public class TaskInfoFetcher
 
     private final Executor executor;
     private final HttpClient httpClient;
+    private final Supplier<SpanBuilder> spanBuilderFactory;
     private final RequestErrorTracker errorTracker;
 
     private final boolean summarizeTaskInfo;
@@ -90,6 +93,7 @@ public class TaskInfoFetcher
             ContinuousTaskStatusFetcher taskStatusFetcher,
             TaskInfo initialTask,
             HttpClient httpClient,
+            Supplier<SpanBuilder> spanBuilderFactory,
             Duration updateInterval,
             JsonCodec<TaskInfo> taskInfoCodec,
             Duration maxErrorDuration,
@@ -118,6 +122,7 @@ public class TaskInfoFetcher
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.spanBuilderFactory = requireNonNull(spanBuilderFactory, "spanBuilderFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.estimatedMemory = requireNonNull(estimatedMemory, "estimatedMemory is null");
     }
@@ -224,6 +229,7 @@ public class TaskInfoFetcher
         Request request = prepareGet()
                 .setUri(uri)
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
+                .setSpanBuilder(spanBuilderFactory.get())
                 .build();
 
         errorTracker.startRequest();

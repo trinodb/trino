@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.spi.QueryId;
 
@@ -23,7 +24,7 @@ public class NoOpSessionSupplier
         implements SessionSupplier
 {
     @Override
-    public Session createSession(QueryId queryId, SessionContext context)
+    public Session createSession(QueryId queryId, Span querySpan, SessionContext context)
     {
         throw new UnsupportedOperationException();
     }

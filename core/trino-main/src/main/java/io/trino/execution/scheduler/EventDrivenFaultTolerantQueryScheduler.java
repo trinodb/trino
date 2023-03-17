@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
@@ -168,6 +169,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final NodeTaskMap nodeTaskMap;
     private final ExecutorService queryExecutor;
     private final ScheduledExecutorService scheduledExecutorService;
+    private final Tracer tracer;
     private final SplitSchedulerStats schedulerStats;
     private final PartitionMemoryEstimatorFactory memoryEstimatorFactory;
     private final NodePartitioningManager nodePartitioningManager;
@@ -195,6 +197,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             NodeTaskMap nodeTaskMap,
             ExecutorService queryExecutor,
             ScheduledExecutorService scheduledExecutorService,
+            Tracer tracer,
             SplitSchedulerStats schedulerStats,
             PartitionMemoryEstimatorFactory memoryEstimatorFactory,
             NodePartitioningManager nodePartitioningManager,
@@ -216,6 +219,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.scheduledExecutorService = requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.memoryEstimatorFactory = requireNonNull(memoryEstimatorFactory, "memoryEstimatorFactory is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "partitioningSchemeFactory is null");
@@ -279,7 +283,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                     summarizeTaskInfo,
                     nodeTaskMap,
                     queryExecutor,
-                    scheduledExecutorService, schedulerStats,
+                    scheduledExecutorService,
+                    tracer,
+                    schedulerStats,
                     memoryEstimatorFactory,
                     partitioningSchemeFactory,
                     exchangeManager,
@@ -458,6 +464,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final NodeTaskMap nodeTaskMap;
         private final ExecutorService queryExecutor;
         private final ScheduledExecutorService scheduledExecutorService;
+        private final Tracer tracer;
         private final SplitSchedulerStats schedulerStats;
         private final PartitionMemoryEstimatorFactory memoryEstimatorFactory;
         private final FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory;
@@ -501,6 +508,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 NodeTaskMap nodeTaskMap,
                 ExecutorService queryExecutor,
                 ScheduledExecutorService scheduledExecutorService,
+                Tracer tracer,
                 SplitSchedulerStats schedulerStats,
                 PartitionMemoryEstimatorFactory memoryEstimatorFactory,
                 FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory,
@@ -525,6 +533,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.scheduledExecutorService = requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
+            this.tracer = requireNonNull(tracer, "tracer is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.memoryEstimatorFactory = requireNonNull(memoryEstimatorFactory, "memoryEstimatorFactory is null");
             this.partitioningSchemeFactory = requireNonNull(partitioningSchemeFactory, "partitioningSchemeFactory is null");
@@ -782,6 +791,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         summarizeTaskInfo,
                         nodeTaskMap,
                         queryStateMachine.getStateMachineExecutor(),
+                        tracer,
                         schedulerStats);
                 closer.register(stage::abort);
                 stageRegistry.add(stage);
@@ -811,6 +821,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                 EventDrivenTaskSource taskSource = closer.register(taskSourceFactory.create(
                         session,
+                        stage.getStageSpan(),
                         fragment,
                         sourceExchanges.buildOrThrow(),
                         partitioningSchemeFactory.get(fragment.getPartitioning()),

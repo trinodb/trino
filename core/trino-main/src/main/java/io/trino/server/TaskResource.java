@@ -151,8 +151,10 @@ public class TaskResource
             return;
         }
 
-        TaskInfo taskInfo = taskManager.updateTask(session,
+        TaskInfo taskInfo = taskManager.updateTask(
+                session,
                 taskId,
+                taskUpdateRequest.getStageSpan(),
                 taskUpdateRequest.getFragment(),
                 taskUpdateRequest.getSplitAssignments(),
                 taskUpdateRequest.getOutputIds(),

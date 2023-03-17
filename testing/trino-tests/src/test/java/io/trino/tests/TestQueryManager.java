@@ -13,6 +13,7 @@
  */
 package io.trino.tests;
 
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.dispatcher.DispatchManager;
@@ -73,6 +74,7 @@ public class TestQueryManager
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
                 queryId,
+                Span.getInvalid(),
                 Slug.createNew(),
                 TestingSessionContext.fromSession(TEST_SESSION),
                 "SELECT * FROM lineitem")

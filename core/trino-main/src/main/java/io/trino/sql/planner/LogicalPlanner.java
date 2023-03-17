@@ -15,7 +15,11 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.MustBeClosed;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
@@ -55,6 +59,7 @@ import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
@@ -99,8 +104,12 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.TableExecute;
 import io.trino.sql.tree.Update;
+import io.trino.tracing.ScopedSpan;
+import io.trino.tracing.TrinoAttributes;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
+
+import javax.annotation.Nonnull;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
@@ -149,6 +158,7 @@ import static io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -230,7 +240,10 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
     {
-        PlanNode root = planStatement(analysis, analysis.getStatement());
+        PlanNode root;
+        try (var ignored = scopedSpan(plannerContext.getTracer(), "plan")) {
+            root = planStatement(analysis, analysis.getStatement());
+        }
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(
@@ -244,34 +257,25 @@ public class LogicalPlanner
                     false));
         }
 
-        planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+        try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-intermediate")) {
+            planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+        }
 
         TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
-            for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
-                if (root == null) {
-                    throw new NullPointerException(optimizer.getClass().getName() + " returned a null plan");
-                }
-
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
-                            root,
-                            symbolAllocator.getTypes(),
-                            metadata,
-                            plannerContext.getFunctionManager(),
-                            StatsAndCosts.empty(),
-                            session,
-                            0,
-                            false));
+            try (var ignored = scopedSpan(plannerContext.getTracer(), "optimizer")) {
+                for (PlanOptimizer optimizer : planOptimizers) {
+                    root = runOptimizer(root, tableStatsProvider, optimizer);
                 }
             }
         }
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
             // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            planSanityChecker.validateFinalPlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+            try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-final")) {
+                planSanityChecker.validateFinalPlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
+            }
         }
 
         TypeProvider types = symbolAllocator.getTypes();
@@ -280,9 +284,53 @@ public class LogicalPlanner
         if (collectPlanStatistics) {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
-            statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
+            try (var ignored = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
+                statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
+            }
         }
         return new Plan(root, types, statsAndCosts);
+    }
+
+    @Nonnull
+    private PlanNode runOptimizer(PlanNode root, TableStatsProvider tableStatsProvider, PlanOptimizer optimizer)
+    {
+        PlanNode result;
+        try (var ignored = optimizerSpan(optimizer)) {
+            result = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
+        }
+        if (result == null) {
+            throw new NullPointerException(optimizer.getClass().getName() + " returned a null plan");
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
+                    result,
+                    symbolAllocator.getTypes(),
+                    metadata,
+                    plannerContext.getFunctionManager(),
+                    StatsAndCosts.empty(),
+                    session,
+                    0,
+                    false));
+        }
+
+        return result;
+    }
+
+    @MustBeClosed
+    private ScopedSpan optimizerSpan(PlanOptimizer optimizer)
+    {
+        if (!Span.fromContext(Context.current()).isRecording()) {
+            return null;
+        }
+        SpanBuilder builder = plannerContext.getTracer().spanBuilder("optimize")
+                .setAttribute(TrinoAttributes.OPTIMIZER_NAME, optimizer.getClass().getSimpleName());
+        if (optimizer instanceof IterativeOptimizer iterative) {
+            builder.setAttribute(TrinoAttributes.OPTIMIZER_RULES, iterative.getRules().stream()
+                    .map(x -> x.getClass().getSimpleName())
+                    .toList());
+        }
+        return scopedSpan(builder.startSpan());
     }
 
     public PlanNode planStatement(Analysis analysis, Statement statement)

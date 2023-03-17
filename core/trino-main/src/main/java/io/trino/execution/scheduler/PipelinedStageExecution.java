@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Span;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
@@ -550,6 +551,12 @@ public class PipelinedStageExecution
     public int getAttemptId()
     {
         return attempt;
+    }
+
+    @Override
+    public Span getStageSpan()
+    {
+        return stage.getStageSpan();
     }
 
     @Override

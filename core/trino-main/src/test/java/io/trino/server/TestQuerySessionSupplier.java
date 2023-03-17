@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
@@ -79,7 +80,7 @@ public class TestQuerySessionSupplier
     {
         SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(TEST_HEADERS, Optional.empty(), Optional.of("testRemote"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
-        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context);
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -142,7 +143,7 @@ public class TestQuerySessionSupplier
                 .build());
         SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headers, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
-        assertThatThrownBy(() -> sessionSupplier.createSession(new QueryId("test_query_id"), context))
+        assertThatThrownBy(() -> sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Time zone not supported: unknown_timezone");
     }
@@ -237,7 +238,7 @@ public class TestQuerySessionSupplier
         MultivaluedMap<String, String> headerMap = new GuavaMultivaluedMap<>(headers);
         SessionContext context = SESSION_CONTEXT_FACTORY.createSessionContext(headerMap, Optional.empty(), Optional.of("testRemote"), Optional.empty());
         QuerySessionSupplier sessionSupplier = createSessionSupplier(config);
-        return sessionSupplier.createSession(new QueryId("test_query_id"), context);
+        return sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context);
     }
 
     private static QuerySessionSupplier createSessionSupplier(SqlEnvironmentConfig config)

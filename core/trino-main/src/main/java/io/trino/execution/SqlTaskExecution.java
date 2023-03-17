@@ -21,6 +21,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferState;
@@ -37,6 +40,7 @@ import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.tracing.TrinoAttributes;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -81,6 +85,7 @@ public class SqlTaskExecution
 {
     private final TaskId taskId;
     private final TaskStateMachine taskStateMachine;
+    private final Span taskSpan;
     private final TaskContext taskContext;
     private final OutputBuffer outputBuffer;
 
@@ -114,14 +119,17 @@ public class SqlTaskExecution
     public SqlTaskExecution(
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
+            Span taskSpan,
             OutputBuffer outputBuffer,
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
+            Tracer tracer,
             Executor notificationExecutor)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.taskId = taskStateMachine.getTaskId();
+        this.taskSpan = requireNonNull(taskSpan, "taskSpan is null");
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
 
@@ -141,10 +149,10 @@ public class SqlTaskExecution
             for (DriverFactory driverFactory : driverFactories) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
                 if (sourceId.isPresent() && partitionedSources.contains(sourceId.get())) {
-                    driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
+                    driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, tracer, true));
                 }
                 else {
-                    DriverSplitRunnerFactory runnerFactory = new DriverSplitRunnerFactory(driverFactory, false);
+                    DriverSplitRunnerFactory runnerFactory = new DriverSplitRunnerFactory(driverFactory, tracer, false);
                     sourceId.ifPresent(planNodeId -> driverRunnerFactoriesWithRemoteSource.put(planNodeId, runnerFactory));
                     driverRunnerFactoriesWithTaskLifeCycle.add(runnerFactory);
                 }
@@ -172,6 +180,14 @@ public class SqlTaskExecution
             else {
                 taskHandle = createTaskHandle(taskStateMachine, taskContext, outputBuffer, driverFactories, taskExecutor, driverAndTaskTerminationTracker);
             }
+
+            taskStateMachine.addStateChangeListener(state -> {
+                if (state.isDone()) {
+                    for (DriverSplitRunnerFactory factory : allDriverRunnerFactories) {
+                        factory.getPipelineSpan().end();
+                    }
+                }
+            });
         }
     }
 
@@ -590,6 +606,7 @@ public class SqlTaskExecution
     {
         private final DriverFactory driverFactory;
         private final PipelineContext pipelineContext;
+        private final Span pipelineSpan;
 
         // number of created DriverSplitRunners that haven't created underlying Driver
         private final AtomicInteger pendingCreations = new AtomicInteger();
@@ -601,10 +618,17 @@ public class SqlTaskExecution
         private final AtomicLong inFlightSplits = new AtomicLong();
         private final AtomicBoolean noMoreSplits = new AtomicBoolean();
 
-        private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned)
+        private DriverSplitRunnerFactory(DriverFactory driverFactory, Tracer tracer, boolean partitioned)
         {
             this.driverFactory = driverFactory;
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
+            this.pipelineSpan = tracer.spanBuilder("pipeline")
+                    .setParent(Context.current().with(taskSpan))
+                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
+                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                    .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
+                    .setAttribute(TrinoAttributes.PIPELINE_ID, taskId.getStageId() + "-" + pipelineContext.getPipelineId())
+                    .startSpan();
         }
 
         public DriverSplitRunner createPartitionedDriverRunner(ScheduledSplit partitionedSplit)
@@ -640,6 +664,7 @@ public class SqlTaskExecution
             Driver driver;
             try {
                 driver = driverFactory.createDriver(driverContext);
+                Span.fromContext(Context.current()).addEvent("driver-created");
             }
             catch (Throwable t) {
                 try {
@@ -761,6 +786,7 @@ public class SqlTaskExecution
             }
             if (isNoMoreDriverRunner() && pendingCreations.get() == 0) {
                 driverFactory.noMoreDrivers();
+                pipelineSpan.addEvent("driver-factory-closed");
             }
         }
 
@@ -777,6 +803,11 @@ public class SqlTaskExecution
         public void splitsAdded(int count, long weightSum)
         {
             pipelineContext.splitsAdded(count, weightSum);
+        }
+
+        public Span getPipelineSpan()
+        {
+            return pipelineSpan;
         }
     }
 
@@ -808,6 +839,18 @@ public class SqlTaskExecution
                 return null;
             }
             return driver.getDriverContext();
+        }
+
+        @Override
+        public int getPipelineId()
+        {
+            return driverContext.getPipelineContext().getPipelineId();
+        }
+
+        @Override
+        public Span getPipelineSpan()
+        {
+            return driverSplitRunnerFactory.getPipelineSpan();
         }
 
         @Override
