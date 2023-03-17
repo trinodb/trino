@@ -80,33 +80,38 @@ public final class DynamoDbQueryRunner
             boolean enableWrites)
             throws Exception
     {
-        // Create QueryRunner with writes enabled to create TPC-H tables
-        DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
-        extraProperties.forEach(builder::addExtraProperty);
-        try (DistributedQueryRunner queryRunner = builder.build()) {
-            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            queryRunner.installPlugin(new TestingDynamoDbPlugin(true));
-            queryRunner.createCatalog("dynamodb", "dynamodb", connectorProperties);
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession()), tables);
+        if (!tables.iterator().hasNext()) {
+            return createQueryRunner(extraProperties, connectorProperties, enableWrites);
         }
+        // Create QueryRunner with writes enabled to create TPC-H tables
+        DistributedQueryRunner queryRunner = createQueryRunner(extraProperties, connectorProperties, true);
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession()), tables);
+        if (enableWrites) {
+            return queryRunner;
+        }
+        else {
+            queryRunner.close();
+            // Create query runner to be returned with given enableWrites flag - False
+            return createQueryRunner(extraProperties, connectorProperties, false);
+        }
+    }
 
-        // Create query runner to be returned with given enableWrites flag
+    private static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            boolean enableWrites)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
-            builder = StarburstEngineQueryRunner.builder(createSession());
+            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-
             queryRunner.installPlugin(new TestingDynamoDbPlugin(enableWrites));
             queryRunner.createCatalog("dynamodb", "dynamodb", connectorProperties);
-
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
-
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 

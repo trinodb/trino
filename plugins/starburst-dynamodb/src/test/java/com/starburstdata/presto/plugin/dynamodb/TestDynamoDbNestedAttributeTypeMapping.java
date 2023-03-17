@@ -14,6 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -63,7 +64,9 @@ public class TestDynamoDbNestedAttributeTypeMapping
         dynamoDbClient = closeAfterClass(builder.build());
 
         return DynamoDbQueryRunner.builder(server.getEndpointUrl(), schemaDirectory)
-                .setTables(ImmutableList.of())
+                // copy smallest table to enforce DynamicCatalogManager load catalogs
+                .setTables(ImmutableList.of(TpchTable.REGION))
+                .enableWrites()
                 .build();
     }
 

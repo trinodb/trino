@@ -24,6 +24,7 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -76,7 +77,8 @@ public class TestDynamoDbTypeMapping
                 .setSchemaDirectory(server.getSchemaDirectory().getAbsolutePath());
 
         return DynamoDbQueryRunner.builder(server.getEndpointUrl(), server.getSchemaDirectory())
-                .setTables(ImmutableList.of())
+                // copy smallest table to enforce DynamicCatalogManager load catalogs
+                .setTables(ImmutableList.of(TpchTable.REGION))
                 .setFirstColumnAsPrimaryKeyEnabled(true)
                 .enableWrites()
                 .build();
