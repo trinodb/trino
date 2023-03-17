@@ -65,7 +65,7 @@ public class TestIcebergOrcConnectorTest
             Files.delete(orcFilePath.resolveSibling(format(".%s.crc", orcFilePath.getFileName())));
 
             assertThat(query("DESCRIBE " + table.getName()))
-                    .projected(1)
+                    .projected("Type")
                     .matches("VALUES varchar 'integer'");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 127, NULL");
         }
@@ -81,7 +81,7 @@ public class TestIcebergOrcConnectorTest
             Files.delete(orcFilePath.resolveSibling(format(".%s.crc", orcFilePath.getFileName())));
 
             assertThat(query("DESCRIBE " + table.getName()))
-                    .projected(1)
+                    .projected("Type")
                     .matches("VALUES varchar 'integer'");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 32767, NULL");
         }
