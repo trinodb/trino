@@ -499,6 +499,9 @@ public class HiveMetadata
         if (isIcebergTable(table)) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Iceberg table '%s'", tableName));
         }
+        if (isHudiTable(table)) {
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Hudi table '%s'", tableName));
+        }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
         if (getSourceTableNameFromSystemTable(systemTableProviders, tableName).isPresent()) {
