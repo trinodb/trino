@@ -327,7 +327,7 @@ public abstract class BaseHiveConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/10518) test this with a TestHiveConnectorTest version that creates ACID tables by default, or in some other way
         assertThatThrownBy(super::testUpdateRowConcurrently)
                 .hasMessage("Unexpected concurrent update failure")
-                .getCause()
+                .cause()
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
