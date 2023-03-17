@@ -26,7 +26,6 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.HiveConfig.HIVE_VIEWS_ENABLED;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
@@ -189,7 +188,7 @@ public class TestIcebergPlugin
         ConnectorFactory connectorFactory = getConnectorFactory();
         File tempFile = File.createTempFile("test-iceberg-plugin-access-control", ".json");
         tempFile.deleteOnExit();
-        Files.write(tempFile.toPath(), "{}".getBytes(UTF_8));
+        Files.writeString(tempFile.toPath(), "{}");
 
         connectorFactory.create(
                 "test",
