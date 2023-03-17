@@ -253,7 +253,7 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery(format("SELECT value FROM %s WHERE \"$partition_date\" = DATE '2159-12-31'", table.getName()), "VALUES 2");
 
             // Verify DESCRIBE result doesn't have hidden columns
-            assertThat(query("DESCRIBE " + table.getName())).projected(0).skippingTypesCheck().matches("VALUES 'value'");
+            assertThat(query("DESCRIBE " + table.getName())).projected("Column").skippingTypesCheck().matches("VALUES 'value'");
         }
     }
 
@@ -272,7 +272,7 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery(format("SELECT value FROM %s WHERE \"$partition_time\" = CAST('2159-12-31 23:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)", table.getName()), "VALUES 2");
 
             // Verify DESCRIBE result doesn't have hidden columns
-            assertThat(query("DESCRIBE " + table.getName())).projected(0).skippingTypesCheck().matches("VALUES 'value'");
+            assertThat(query("DESCRIBE " + table.getName())).projected("Column").skippingTypesCheck().matches("VALUES 'value'");
         }
     }
 
