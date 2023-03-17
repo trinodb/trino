@@ -337,7 +337,7 @@ public class PageDeserializer
                         blockSize,
                         sink.getSlice().byteArray(),
                         sink.getSlice().byteArrayOffset() + bytesPreserved,
-                        sink.getSlice().length());
+                        sink.getSlice().length() - bytesPreserved);
             }
             else {
                 System.arraycopy(
