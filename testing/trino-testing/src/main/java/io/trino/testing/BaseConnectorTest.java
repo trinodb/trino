@@ -887,12 +887,12 @@ public abstract class BaseConnectorTest
 
         // column listing
         assertThat(query("SHOW COLUMNS FROM " + testView))
-                .projected(0) // column types can very between connectors
+                .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'orderkey', 'orderstatus', 'half'");
 
         assertThat(query("DESCRIBE " + testView))
-                .projected(0) // column types can very between connectors
+                .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'orderkey', 'orderstatus', 'half'");
 
@@ -1065,12 +1065,12 @@ public abstract class BaseConnectorTest
 
         // column listing
         assertThat(query("SHOW COLUMNS FROM " + view.getObjectName()))
-                .projected(0) // column types can very between connectors
+                .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
         assertThat(query("DESCRIBE " + view.getObjectName()))
-                .projected(0) // column types can very between connectors
+                .projected("Column") // column types can very between connectors
                 .skippingTypesCheck()
                 .matches("VALUES 'nationkey', 'name', 'regionkey', 'comment'");
 
@@ -4426,7 +4426,7 @@ public abstract class BaseConnectorTest
                     .collect(toImmutableList());
 
             assertThat(query("DESCRIBE " + tableName))
-                    .projected(0)
+                    .projected("Column")
                     .skippingTypesCheck()
                     .matches(Stream.concat(Stream.of("col"), addedColumns.stream())
                             .map(value -> format("'%s'", value))
