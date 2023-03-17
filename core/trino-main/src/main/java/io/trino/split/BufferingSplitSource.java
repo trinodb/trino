@@ -15,6 +15,7 @@ package io.trino.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.opentelemetry.context.Context;
 import io.trino.metadata.Split;
 import io.trino.spi.connector.CatalogHandle;
 
@@ -72,6 +73,7 @@ public class BufferingSplitSource
 
     private static class GetNextBatch
     {
+        private final Context context = Context.current();
         private final SplitSource splitSource;
         private final int min;
         private final int max;
@@ -102,7 +104,10 @@ public class BufferingSplitSource
             if (splits.size() >= min) {
                 return immediateVoidFuture();
             }
-            ListenableFuture<SplitBatch> future = splitSource.getNextBatch(max - splits.size());
+            ListenableFuture<SplitBatch> future;
+            try (var ignored = context.makeCurrent()) {
+                future = splitSource.getNextBatch(max - splits.size());
+            }
             return Futures.transformAsync(future, splitBatch -> {
                 splits.addAll(splitBatch.getSplits());
                 if (splitBatch.isLastBatch()) {

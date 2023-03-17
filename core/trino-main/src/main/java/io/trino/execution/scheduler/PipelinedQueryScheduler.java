@@ -25,6 +25,8 @@ import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.BasicStageStats;
@@ -199,6 +201,7 @@ public class PipelinedQueryScheduler
             FailureDetector failureDetector,
             NodeTaskMap nodeTaskMap,
             ExecutionPolicy executionPolicy,
+            Tracer tracer,
             SplitSchedulerStats schedulerStats,
             DynamicFilterService dynamicFilterService,
             TableExecuteContextManager tableExecuteContextManager,
@@ -224,6 +227,7 @@ public class PipelinedQueryScheduler
                 metadata,
                 remoteTaskFactory,
                 nodeTaskMap,
+                tracer,
                 schedulerStats,
                 plan,
                 summarizeTaskInfo);
@@ -1025,10 +1029,11 @@ public class PipelinedQueryScheduler
                 TableExecuteContextManager tableExecuteContextManager)
         {
             Session session = queryStateMachine.getSession();
+            Span stageSpan = stageExecution.getStageSpan();
             PlanFragment fragment = stageExecution.getFragment();
             PartitioningHandle partitioningHandle = fragment.getPartitioning();
             Optional<Integer> partitionCount = fragment.getPartitionCount();
-            Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
+            Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, stageSpan, fragment);
             if (!splitSources.isEmpty()) {
                 queryStateMachine.addStateChangeListener(new StateChangeListener<>()
                 {

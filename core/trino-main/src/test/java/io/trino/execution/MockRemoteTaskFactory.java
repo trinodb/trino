@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -127,12 +128,24 @@ public class MockRemoteTaskFactory
         for (Split sourceSplit : splits) {
             initialSplits.put(sourceId, sourceSplit);
         }
-        return createRemoteTask(TEST_SESSION, taskId, newNode, testFragment, initialSplits.build(), PipelinedOutputBuffers.createInitial(BROADCAST), partitionedSplitCountTracker, ImmutableSet.of(), Optional.empty(), true);
+        return createRemoteTask(
+                TEST_SESSION,
+                Span.getInvalid(),
+                taskId,
+                newNode,
+                testFragment,
+                initialSplits.build(),
+                PipelinedOutputBuffers.createInitial(BROADCAST),
+                partitionedSplitCountTracker,
+                ImmutableSet.of(),
+                Optional.empty(),
+                true);
     }
 
     @Override
     public MockRemoteTask createRemoteTask(
             Session session,
+            Span stageSpan,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,

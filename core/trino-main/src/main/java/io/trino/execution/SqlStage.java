@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.OutputBuffers;
@@ -82,6 +84,7 @@ public final class SqlStage
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
             Executor stateMachineExecutor,
+            Tracer tracer,
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
@@ -92,11 +95,21 @@ public final class SqlStage
         requireNonNull(session, "session is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         requireNonNull(stateMachineExecutor, "stateMachineExecutor is null");
+        requireNonNull(tracer, "tracer is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
+
+        StageStateMachine stateMachine = new StageStateMachine(
+                stageId,
+                fragment,
+                tables,
+                stateMachineExecutor,
+                tracer,
+                session.getQuerySpan(),
+                schedulerStats);
 
         SqlStage sqlStage = new SqlStage(
                 session,
-                new StageStateMachine(stageId, fragment, tables, stateMachineExecutor, schedulerStats),
+                stateMachine,
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo);
@@ -134,6 +147,11 @@ public final class SqlStage
     public StageId getStageId()
     {
         return stateMachine.getStageId();
+    }
+
+    public Span getStageSpan()
+    {
+        return stateMachine.getStageSpan();
     }
 
     public StageState getState()
@@ -240,6 +258,7 @@ public final class SqlStage
 
         RemoteTask task = remoteTaskFactory.createRemoteTask(
                 session,
+                stateMachine.getStageSpan(),
                 taskId,
                 node,
                 stateMachine.getFragment().withBucketToPartition(bucketToPartition),

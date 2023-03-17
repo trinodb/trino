@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.buffer.OutputBuffers;
@@ -31,6 +32,7 @@ public interface RemoteTaskFactory
 {
     RemoteTask createRemoteTask(
             Session session,
+            Span stageSpan,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,

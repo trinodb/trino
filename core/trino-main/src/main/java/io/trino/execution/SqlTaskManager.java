@@ -26,6 +26,8 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.connector.CatalogProperties;
@@ -152,6 +154,7 @@ public class SqlTaskManager
             LocalSpillManager localSpillManager,
             NodeSpillConfig nodeSpillConfig,
             GcMonitor gcMonitor,
+            Tracer tracer,
             ExchangeManagerRegistry exchangeManagerRegistry)
     {
         this(versionEmbedder,
@@ -168,6 +171,7 @@ public class SqlTaskManager
                 localSpillManager,
                 nodeSpillConfig,
                 gcMonitor,
+                tracer,
                 exchangeManagerRegistry,
                 STUCK_SPLIT_STACK_TRACE_PREDICATE);
     }
@@ -188,6 +192,7 @@ public class SqlTaskManager
             LocalSpillManager localSpillManager,
             NodeSpillConfig nodeSpillConfig,
             GcMonitor gcMonitor,
+            Tracer tracer,
             ExchangeManagerRegistry exchangeManagerRegistry,
             Predicate<List<StackTraceElement>> stuckSplitStackTracePredicate)
     {
@@ -207,7 +212,7 @@ public class SqlTaskManager
         this.taskManagementExecutor = taskManagementExecutor.getExecutor();
         this.driverYieldExecutor = newScheduledThreadPool(config.getTaskYieldThreads(), threadsNamed("task-yield-%s"));
 
-        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, config);
+        SqlTaskExecutionFactory sqlTaskExecutionFactory = new SqlTaskExecutionFactory(taskNotificationExecutor, taskExecutor, planner, splitMonitor, tracer, config);
 
         DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
@@ -223,6 +228,7 @@ public class SqlTaskManager
                         locationFactory.createLocalTaskLocation(taskId),
                         nodeInfo.getNodeId(),
                         queryContexts.getUnchecked(taskId.getQueryId()),
+                        tracer,
                         sqlTaskExecutionFactory,
                         taskNotificationExecutor,
                         sqlTask -> finishedTaskStats.merge(sqlTask.getIoStats()),
@@ -460,13 +466,14 @@ public class SqlTaskManager
     public TaskInfo updateTask(
             Session session,
             TaskId taskId,
+            Span stageSpan,
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
             Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         try {
-            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, fragment, splitAssignments, outputBuffers, dynamicFilterDomains)).call();
+            return versionEmbedder.embedVersion(() -> doUpdateTask(session, taskId, stageSpan, fragment, splitAssignments, outputBuffers, dynamicFilterDomains)).call();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
@@ -478,6 +485,7 @@ public class SqlTaskManager
     private TaskInfo doUpdateTask(
             Session session,
             TaskId taskId,
+            Span stageSpan,
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
@@ -485,6 +493,7 @@ public class SqlTaskManager
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
+        requireNonNull(stageSpan, "stageSpan is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(splitAssignments, "splitAssignments is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
@@ -519,7 +528,7 @@ public class SqlTaskManager
                 });
 
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);
+        return sqlTask.updateTask(session, stageSpan, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);
     }
 
     /**
@@ -736,7 +745,7 @@ public class SqlTaskManager
      * The detection is invoked periodically with the frequency of {@link StuckSplitTasksInterrupter#stuckSplitsDetectionInterval}.
      * A thread gets interrupted once the split processing continues beyond {@link StuckSplitTasksInterrupter#interruptStuckSplitTasksTimeout} and
      * the split threaddump matches with {@link StuckSplitTasksInterrupter#stuckSplitStackTracePredicate}. <p>
-     *
+     * <p>
      * There is a potential race condition for this {@link StuckSplitTasksInterrupter} class. The problematic flow is that we may
      * kill a task that is long-running, but not really stuck on the code that matches {@link StuckSplitTasksInterrupter#stuckSplitStackTracePredicate} (e.g. JONI code).
      * Consider the following example:

@@ -15,6 +15,7 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.opentelemetry.api.trace.Span;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.dispatcher.DispatchManager;
@@ -138,6 +139,7 @@ public class TestMetadataManager
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
                 queryId,
+                Span.getInvalid(),
                 Slug.createNew(),
                 TestingSessionContext.fromSession(TEST_SESSION),
                 "SELECT * FROM lineitem")

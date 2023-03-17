@@ -30,6 +30,8 @@ import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
@@ -117,6 +119,9 @@ import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.airlift.tracing.SpanSerialization.SpanDeserializer;
+import static io.airlift.tracing.SpanSerialization.SpanSerializer;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED;
 import static io.trino.SystemSessionProperties.REMOTE_TASK_GUARANTEED_SPLITS_PER_REQUEST;
@@ -511,6 +516,7 @@ public class TestHttpRemoteTask
     {
         return httpRemoteTaskFactory.createRemoteTask(
                 session,
+                Span.getInvalid(),
                 new TaskId(new StageId("test", 1), 2, 0),
                 new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
@@ -555,6 +561,10 @@ public class TestHttpRemoteTask
                         binder.bind(TypeManager.class).toInstance(TESTING_TYPE_MANAGER);
                         binder.bind(BlockEncodingManager.class).in(SINGLETON);
                         binder.bind(BlockEncodingSerde.class).to(InternalBlockEncodingSerde.class).in(SINGLETON);
+
+                        binder.bind(OpenTelemetry.class).toInstance(OpenTelemetry.noop());
+                        jsonBinder(binder).addSerializerBinding(Span.class).to(SpanSerializer.class);
+                        jsonBinder(binder).addDeserializerBinding(Span.class).to(SpanDeserializer.class);
                     }
 
                     @Provides
@@ -579,6 +589,7 @@ public class TestHttpRemoteTask
                                 taskInfoCodec,
                                 taskUpdateRequestCodec,
                                 failTaskRequestCodec,
+                                noopTracer(),
                                 new RemoteTaskStats(),
                                 dynamicFilterService);
                     }
