@@ -14,7 +14,6 @@ import io.trino.plugin.sqlserver.BaseSqlServerConnectorSmokeTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 
-import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStarburstSqlServerParallelConnectorSmokeTest
@@ -25,12 +24,12 @@ public class TestStarburstSqlServerParallelConnectorSmokeTest
             throws Exception
     {
         TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer());
-        return createStarburstSqlServerQueryRunner(
-                sqlServer,
-                true,
-                ImmutableMap.of("sqlserver.parallel.connections-count", "4"),
-                REQUIRED_TPCH_TABLES,
-                true);
+        return StarburstSqlServerQueryRunner.builder(sqlServer)
+                .withEnterpriseFeatures()
+                .withConnectorProperties(ImmutableMap.of("sqlserver.parallel.connections-count", "4"))
+                .withPartitionedTables()
+                .withTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override

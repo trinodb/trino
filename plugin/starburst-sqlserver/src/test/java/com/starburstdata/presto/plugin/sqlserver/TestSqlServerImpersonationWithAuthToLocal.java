@@ -9,21 +9,17 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static com.google.common.io.Resources.getResource;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.ALICE_USER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.BOB_USER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.CHARLIE_USER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.UNKNOWN_USER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createSession;
-import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 
 public class TestSqlServerImpersonationWithAuthToLocal
         extends AbstractTestQueryFramework
@@ -35,14 +31,12 @@ public class TestSqlServerImpersonationWithAuthToLocal
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createStarburstSqlServerQueryRunner(
-                sqlServer,
-                session -> createSession(ALICE_USER + "/admin@company.com"),
-                true,
-                ImmutableMap.of(
-                        "sqlserver.impersonation.enabled", "true",
-                        "auth-to-local.config-file", getResource("auth-to-local.json").getPath()),
-                ImmutableList.of());
+
+        return StarburstSqlServerQueryRunner.builder(sqlServer)
+                .withEnterpriseFeatures()
+                .withSessionModifier(session -> createSession(ALICE_USER + "/admin@company.com"))
+                .withImpersonation("auth-to-local.json")
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.operator.OperatorStats;
@@ -25,11 +24,9 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
-import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.PARALLEL_CONNECTIONS_COUNT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -44,7 +41,9 @@ public class TestSqlServerParallelQueries
             throws Exception
     {
         this.sqlServer = closeAfterClass(new TestingSqlServer());
-        return createStarburstSqlServerQueryRunner(sqlServer, true, ImmutableMap.of(), emptyList());
+        return StarburstSqlServerQueryRunner.builder(sqlServer)
+                .withEnterpriseFeatures()
+                .build();
     }
 
     @Test(dataProvider = "partitionRangesDataProvider")

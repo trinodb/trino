@@ -9,8 +9,6 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.spi.security.Identity;
@@ -22,10 +20,8 @@ import org.testng.annotations.Test;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.ALICE_USER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.CATALOG;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.TEST_SCHEMA;
-import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerSessionProperties.OVERRIDE_CATALOG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.function.Function.identity;
 
 public class TestSqlServerCatalogOverrideDisabled
         extends AbstractTestQueryFramework
@@ -44,12 +40,9 @@ public class TestSqlServerCatalogOverrideDisabled
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createStarburstSqlServerQueryRunner(
-                sqlServer,
-                identity(),
-                true,
-                ImmutableMap.of(),
-                ImmutableList.of());
+        return StarburstSqlServerQueryRunner.builder(sqlServer)
+                .withEnterpriseFeatures()
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

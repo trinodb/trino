@@ -9,8 +9,6 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
@@ -22,7 +20,6 @@ import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryR
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.CHARLIE_USER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.UNKNOWN_USER;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createSession;
-import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 
 public class TestSqlServerImpersonation
         extends AbstractTestQueryFramework
@@ -34,12 +31,12 @@ public class TestSqlServerImpersonation
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createStarburstSqlServerQueryRunner(
-                sqlServer,
-                session -> createSession(ALICE_USER),
-                true,
-                ImmutableMap.of("sqlserver.impersonation.enabled", "true"),
-                ImmutableList.of());
+
+        return StarburstSqlServerQueryRunner.builder(sqlServer)
+                .withEnterpriseFeatures()
+                .withSessionModifier(session -> createSession(ALICE_USER))
+                .withImpersonation()
+                .build();
     }
 
     @AfterClass(alwaysRun = true)

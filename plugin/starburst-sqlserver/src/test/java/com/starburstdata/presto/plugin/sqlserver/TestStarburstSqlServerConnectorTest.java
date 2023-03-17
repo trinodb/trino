@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.testing.SessionMutator;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.TestSqlServerConnectorTest;
@@ -18,7 +17,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
-import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStarburstSqlServerConnectorTest
@@ -31,7 +29,9 @@ public class TestStarburstSqlServerConnectorTest
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createStarburstSqlServerQueryRunner(sqlServer, false, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return StarburstSqlServerQueryRunner.builder(sqlServer)
+                .withTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 
     @Override

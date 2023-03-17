@@ -9,12 +9,10 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorSmokeTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 
-import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static io.trino.plugin.sqlserver.TestingSqlServer.LATEST_VERSION;
 
 public class TestStarburstSqlServerLatestConnectorSmokeTest
@@ -25,6 +23,8 @@ public class TestStarburstSqlServerLatestConnectorSmokeTest
             throws Exception
     {
         TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer(LATEST_VERSION));
-        return createStarburstSqlServerQueryRunner(sqlServer, false, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return StarburstSqlServerQueryRunner.builder(sqlServer)
+                .withTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 }

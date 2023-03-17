@@ -23,12 +23,14 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import static com.google.common.io.Resources.getResource;
 import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -36,6 +38,8 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 
 public final class StarburstSqlServerQueryRunner
 {
@@ -49,64 +53,13 @@ public final class StarburstSqlServerQueryRunner
 
     private StarburstSqlServerQueryRunner() {}
 
-    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(TestingSqlServer testingSqlServer, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createStarburstSqlServerQueryRunner(testingSqlServer, false, ImmutableMap.of(), ImmutableList.copyOf(tables), false);
-    }
-
-    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
-            TestingSqlServer testingSqlServer,
-            boolean unlockEnterpriseFeatures,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createStarburstSqlServerQueryRunner(
-                testingSqlServer,
-                ImmutableMap.of(),
-                Function.identity(),
-                unlockEnterpriseFeatures,
-                connectorProperties,
-                tables,
-                false);
-    }
-
-    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
-            TestingSqlServer testingSqlServer,
-            boolean unlockEnterpriseFeatures,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables,
-            boolean shouldPartitionTables)
-            throws Exception
-    {
-        return createStarburstSqlServerQueryRunner(
-                testingSqlServer,
-                ImmutableMap.of(),
-                Function.identity(),
-                unlockEnterpriseFeatures,
-                connectorProperties,
-                tables,
-                shouldPartitionTables);
-    }
-
-    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
-            TestingSqlServer sqlServer,
-            Function<Session, Session> sessionModifier,
-            boolean unlockEnterpriseFeatures,
-            Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
-            throws Exception
-    {
-        return createStarburstSqlServerQueryRunner(sqlServer, ImmutableMap.of(), sessionModifier, unlockEnterpriseFeatures, connectorProperties, tables, false);
-    }
-
-    public static DistributedQueryRunner createStarburstSqlServerQueryRunner(
+    private static DistributedQueryRunner createStarburstSqlServerQueryRunner(
             TestingSqlServer sqlServer,
             Map<String, String> extraProperties,
             Function<Session, Session> sessionModifier,
             boolean unlockEnterpriseFeatures,
             Map<String, String> connectorProperties,
+            Map<String, String> coordinatorProperties,
             Iterable<TpchTable<?>> tables,
             boolean shouldPartitionTables)
             throws Exception
@@ -114,6 +67,7 @@ public final class StarburstSqlServerQueryRunner
         Session session = createSession(sqlServer.getUsername());
         DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(session);
         extraProperties.forEach(builder::addExtraProperty);
+        builder.setCoordinatorProperties(coordinatorProperties);
         DistributedQueryRunner queryRunner = builder.build();
         try {
             Session modifiedSession = sessionModifier.apply(session);
@@ -200,6 +154,119 @@ public final class StarburstSqlServerQueryRunner
                 .build();
     }
 
+    public static Builder builder(TestingSqlServer server)
+    {
+        return new Builder(server);
+    }
+
+    public static class Builder
+    {
+        private final TestingSqlServer server;
+        private boolean unlockEnterpriseFeatures;
+        private boolean shouldPartitionTables;
+        private Map<String, String> connectorProperties = emptyMap();
+        private Map<String, String> coordinatorProperties = emptyMap();
+        private Map<String, String> extraProperties = emptyMap();
+        private Function<Session, Session> sessionModifier = Function.identity();
+        private Iterable<TpchTable<?>> tables = ImmutableList.of();
+
+        private Builder(TestingSqlServer server)
+        {
+            this.server = server;
+        }
+
+        public Builder withPartitionedTables()
+        {
+            this.shouldPartitionTables = true;
+            return this;
+        }
+
+        public Builder withEnterpriseFeatures()
+        {
+            unlockEnterpriseFeatures = true;
+            return this;
+        }
+
+        public Builder withImpersonation()
+        {
+            return withConnectorProperties(ImmutableMap.of("sqlserver.impersonation.enabled", "true"));
+        }
+
+        public Builder withImpersonation(String authToLocal)
+        {
+            return withImpersonation()
+                    .withConnectorProperties(ImmutableMap.of("auth-to-local.config-file", getResource(authToLocal).getPath()));
+        }
+
+        public Builder withConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties = updateProperties(this.connectorProperties, connectorProperties);
+            return this;
+        }
+
+        public Builder withCoordinatorProperties(Map<String, String> coordinatorProperties)
+        {
+            this.coordinatorProperties = updateProperties(this.coordinatorProperties, coordinatorProperties);
+            return this;
+        }
+
+        public Builder withExtraProperties(Map<String, String> extraProperties)
+        {
+            this.extraProperties = updateProperties(this.extraProperties, extraProperties);
+            return this;
+        }
+
+        public Builder withSessionModifier(Function<Session, Session> sessionModifier)
+        {
+            this.sessionModifier = requireNonNull(sessionModifier, "sessionModifier is null");
+            return this;
+        }
+
+        public Builder withTables(Iterable<TpchTable<?>> tables)
+        {
+            this.tables = requireNonNull(tables, "tables is null");
+            return this;
+        }
+
+        public Builder withStarburstStorage(JdbcDatabaseContainer<?> starburstStorage)
+        {
+            return withCoordinatorProperties(ImmutableMap.of(
+                    "insights.jdbc.url", starburstStorage.getJdbcUrl(),
+                    "insights.jdbc.user", starburstStorage.getUsername(),
+                    "insights.jdbc.password", starburstStorage.getPassword()));
+        }
+
+        public Builder withManagedStatistics()
+        {
+            return withCoordinatorProperties(ImmutableMap.of("starburst.managed-statistics.enabled", "true"))
+                    .withConnectorProperties(ImmutableMap.of(
+                            "statistics.enabled", "false", // disable collecting native jdbc stats, because it's a non-deterministic process for SqlServer
+                            "internal-communication.shared-secret", "internal-shared-secret", // This is required for the internal communication in the managed statistics
+                            "managed-statistics.enabled", "true"));
+        }
+
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            return createStarburstSqlServerQueryRunner(server,
+                    extraProperties,
+                    sessionModifier,
+                    unlockEnterpriseFeatures,
+                    connectorProperties,
+                    coordinatorProperties,
+                    tables,
+                    shouldPartitionTables);
+        }
+    }
+
+    private static Map<String, String> updateProperties(Map<String, String> properties, Map<String, String> update)
+    {
+        return ImmutableMap.<String, String>builder()
+                .putAll(requireNonNull(properties, "properties is null"))
+                .putAll(requireNonNull(update, "update is null"))
+                .buildOrThrow();
+    }
+
     public static void main(String[] args)
             throws Exception
     {
@@ -207,14 +274,10 @@ public final class StarburstSqlServerQueryRunner
 
         TestingSqlServer testingSqlServer = new TestingSqlServer();
 
-        DistributedQueryRunner queryRunner = createStarburstSqlServerQueryRunner(
-                testingSqlServer,
-                ImmutableMap.of("http-server.http.port", "8080"),
-                Function.identity(),
-                false,
-                ImmutableMap.of(),
-                TpchTable.getTables(),
-                false);
+        DistributedQueryRunner queryRunner = builder(testingSqlServer)
+                .withExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .withTables(TpchTable.getTables())
+                .build();
 
         Logger log = Logger.get(StarburstSqlServerQueryRunner.class);
         log.info("======== SERVER STARTED ========");
