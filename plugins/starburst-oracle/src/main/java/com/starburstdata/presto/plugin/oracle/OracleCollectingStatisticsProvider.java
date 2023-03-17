@@ -14,6 +14,7 @@ import com.starburstdata.presto.plugin.jdbc.statistics.JdbcCollectingStatisticsP
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -43,7 +44,7 @@ public class OracleCollectingStatisticsProvider
     }
 
     @Override
-    protected boolean isTypeApplicable(JdbcColumnHandle column, CollectedStatisticsType collectedStatisticsType)
+    protected boolean isTypeApplicable(ConnectorSession session, JdbcColumnHandle column, CollectedStatisticsType collectedStatisticsType)
     {
         Type columnType = column.getColumnType();
         if (collectedStatisticsType == DISTINCT_VALUES) {
@@ -57,6 +58,6 @@ public class OracleCollectingStatisticsProvider
                 return false;
             }
         }
-        return super.isTypeApplicable(column, collectedStatisticsType);
+        return super.isTypeApplicable(session, column, collectedStatisticsType);
     }
 }
