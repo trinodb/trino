@@ -39,9 +39,6 @@ public class RewriteVarcharConstant
     @Override
     public Optional<String> rewrite(Constant constant, Captures captures, RewriteContext<String> context)
     {
-        if (constant.getValue() == null) {
-            return Optional.empty();
-        }
         Slice slice = (Slice) constant.getValue();
         if (slice == null) {
             return Optional.empty();
