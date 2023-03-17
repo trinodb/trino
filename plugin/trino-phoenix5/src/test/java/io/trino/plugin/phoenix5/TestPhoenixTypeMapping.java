@@ -777,7 +777,7 @@ public class TestPhoenixTypeMapping
     private void assertPhoenixQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()).execute(sql))
-                .getCause()
+                .cause()
                 .hasMessageContaining(expectedMessage);
     }
 }
