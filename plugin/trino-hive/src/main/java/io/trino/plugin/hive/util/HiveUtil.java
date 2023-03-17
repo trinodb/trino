@@ -1142,7 +1142,8 @@ public final class HiveUtil
     public static boolean isHudiTable(Table table)
     {
         requireNonNull(table, "table is null");
-        String inputFormat = table.getStorage().getStorageFormat().getInputFormat();
+        @Nullable
+        String inputFormat = table.getStorage().getStorageFormat().getInputFormatNullable();
 
         return HUDI_PARQUET_INPUT_FORMAT.equals(inputFormat) ||
                 HUDI_PARQUET_REALTIME_INPUT_FORMAT.equals(inputFormat) ||
