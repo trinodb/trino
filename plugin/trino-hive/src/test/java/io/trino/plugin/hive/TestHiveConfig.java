@@ -97,7 +97,7 @@ public class TestHiveConfig
                 .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
                 .setFileStatusCacheMaxSize(1000 * 1000)
                 .setFileStatusCacheTables("")
-                .setPerTransactionFileStatusCacheMaximumSize(1000 * 1000)
+                .setPerTransactionFileStatusCacheMaximumSize(10_000)
                 .setTranslateHiveViews(false)
                 .setLegacyHiveViewTranslation(false)
                 .setHiveViewsRunAsInvoker(false)

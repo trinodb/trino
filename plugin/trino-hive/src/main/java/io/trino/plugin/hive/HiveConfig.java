@@ -143,7 +143,7 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
-    private long perTransactionFileStatusCacheMaximumSize = 1000 * 1000;
+    private long perTransactionFileStatusCacheMaximumSize = 10_000;
 
     private boolean translateHiveViews;
     private boolean legacyHiveViewTranslation;
