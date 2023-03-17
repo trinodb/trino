@@ -111,20 +111,16 @@ Load Balancer (LB)
 
 .. _glossObjectStorage:
 
-Object Storage
-    `Object storage <https://wikipedia.org/wiki/Object_storage>`_ is a file
-    storage mechanism that stores data in a flat namespace, as opposed to
-    hierarchical filesystems. Files written in object storage are immutable,
-    meaning you cannot update a file but just overwrite or replace the entire
-    file. In the context of Trino, object storage commonly refers to `cloud
-    storage <https://wikipedia.org/wiki/Object_storage#Cloud_storage>`_
-    technologies such as `Amazon S3 <https://aws.amazon.com/s3>`_, `Google Cloud
-    Storage <https://cloud.google.com/storage>`_, and `Azure Blob Storage
-    <https://azure.microsoft.com/products/storage/blobs>`_. In addition to
-    cloud-hosted services, there are also local object storage options such as
-    `MinIO <https://min.io/>`_ and `Ceph <https://docs.ceph.com>`_ that are
-    compatible with S3. Object storage became a popular replacement to
-    :ref:`HDFS <glossHDFS>`.
+Object storage
+    `Object storage <https://en.wikipedia.org/wiki/Object_storage>`_ is a file
+    storage mechanism. Examples of compatible object stores include the
+    following:
+
+    * `Amazon S3 <https://aws.amazon.com/s3>`_
+    * `Google Cloud Storage <https://cloud.google.com/storage>`_
+    * `Azure Blob Storage <https://azure.microsoft.com/en-us/products/storage/blobs>`_
+    * `MinIO <https://min.io/>`_ and other S3-compatible stores
+    * :ref:`HDFS <glossHDFS>`
 
 .. _glossOpenSource:
 
