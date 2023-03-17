@@ -161,7 +161,7 @@ public class TestIgniteConnectorTest
         String tableWithQuote = "create_table_with_unsupported_quote_column";
         String tableDefinitionWithQuote = "(`a\"b` bigint primary key, c varchar)";
         assertThatThrownBy(() -> onRemoteDatabase().execute("CREATE TABLE " + tableWithQuote + tableDefinitionWithQuote))
-                .getRootCause()
+                .rootCause()
                 .hasMessageContaining("Failed to parse query");
 
         // Test the property column with comma
