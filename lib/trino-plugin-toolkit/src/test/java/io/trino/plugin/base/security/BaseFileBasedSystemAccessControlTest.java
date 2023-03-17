@@ -1011,7 +1011,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     public void testInvalidQuery()
     {
         assertThatThrownBy(() -> newFileBasedSystemAccessControl("query-invalid.json"))
-                .getRootCause().hasMessage("A valid query rule cannot combine an queryOwner condition with access mode 'execute'");
+                .rootCause().hasMessage("A valid query rule cannot combine an queryOwner condition with access mode 'execute'");
     }
 
     @Test
