@@ -33,7 +33,6 @@ import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -119,7 +118,6 @@ public class TestIcebergGlueCreateTableFailure
 
     @AfterClass(alwaysRun = true)
     public void cleanup()
-            throws IOException
     {
         try {
             if (glueHiveMetastore != null) {
