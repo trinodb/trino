@@ -231,7 +231,7 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(e)
                 .hasMessageStartingWith("Failed to add column: Failed to replace table due to concurrent updates")
-                .getRootCause()
+                .rootCause()
                 .hasMessageContaining("Cannot update Iceberg table: supplied previous location does not match current location");
     }
 

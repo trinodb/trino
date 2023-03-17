@@ -353,7 +353,7 @@ public class TestIcebergV2
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
                 .hasMessage("Failed to set new property values")
-                .getRootCause()
+                .rootCause()
                 .hasMessage("Cannot downgrade v2 table to v1");
     }
 
