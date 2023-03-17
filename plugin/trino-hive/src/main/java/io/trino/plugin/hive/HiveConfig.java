@@ -755,7 +755,7 @@ public class HiveConfig
         return this;
     }
 
-    @Min(1)
+    @Min(0)
     public long getPerTransactionFileStatusCacheMaximumSize()
     {
         return perTransactionFileStatusCacheMaximumSize;
