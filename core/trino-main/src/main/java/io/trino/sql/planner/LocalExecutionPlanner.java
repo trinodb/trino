@@ -689,7 +689,7 @@ public class LocalExecutionPlanner
             else {
                 operatorFactories = toOperatorFactories(operatorFactoriesWithTypes);
             }
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances));
+            addDriverFactory(inputDriver, outputDriver, operatorFactories, driverInstances);
         }
 
         private List<OperatorFactory> handleLateMaterialization(List<OperatorFactoryWithTypes> operatorFactories)

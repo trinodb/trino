@@ -25,6 +25,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.connector.CatalogProperties;
 import io.trino.connector.ConnectorServices;
@@ -69,6 +70,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.execution.TaskTestUtils.PLAN_FRAGMENT;
@@ -340,6 +342,7 @@ public class TestSqlTaskManager
                             .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1B")
                             .build(),
                     reduceLimitsId,
+                    Span.getInvalid(),
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
@@ -353,6 +356,7 @@ public class TestSqlTaskManager
                             .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "10B")
                             .build(),
                     increaseLimitsId,
+                    Span.getInvalid(),
                     Optional.of(PLAN_FRAGMENT),
                     ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                     PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
@@ -384,6 +388,7 @@ public class TestSqlTaskManager
                 localSpillManager,
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
+                noopTracer(),
                 new ExchangeManagerRegistry());
     }
 
@@ -408,6 +413,7 @@ public class TestSqlTaskManager
                 localSpillManager,
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
+                noopTracer(),
                 new ExchangeManagerRegistry(),
                 stuckSplitStackTracePredicate);
     }
@@ -416,6 +422,7 @@ public class TestSqlTaskManager
     {
         return sqlTaskManager.updateTask(TEST_SESSION,
                 taskId,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
@@ -428,6 +435,7 @@ public class TestSqlTaskManager
                 .addTaskContext(new TaskStateMachine(taskId, directExecutor()), testSessionBuilder().build(), () -> {}, false, false);
         return sqlTaskManager.updateTask(TEST_SESSION,
                 taskId,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 outputBuffers,
@@ -510,6 +518,18 @@ public class TestSqlTaskManager
                 throws ExecutionException, InterruptedException, TimeoutException
         {
             finishedFuture.get(10, SECONDS);
+        }
+
+        @Override
+        public int getPipelineId()
+        {
+            return 0;
+        }
+
+        @Override
+        public Span getPipelineSpan()
+        {
+            return Span.getInvalid();
         }
 
         @Override

@@ -16,6 +16,7 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
@@ -101,7 +102,7 @@ public class TestKuduIntegrationDynamicFilter
         Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
         assertTrue(tableHandle.isPresent());
         SplitSource splitSource = runner.getSplitManager()
-                .getSplits(session, tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
+                .getSplits(session, Span.getInvalid(), tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(splitSource.getNextBatch(1000).get().getSplits());

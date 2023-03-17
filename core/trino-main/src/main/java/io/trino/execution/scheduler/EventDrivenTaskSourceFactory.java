@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
@@ -106,6 +107,7 @@ public class EventDrivenTaskSourceFactory
 
     public EventDrivenTaskSource create(
             Session session,
+            Span stageSpan,
             PlanFragment fragment,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
@@ -125,7 +127,7 @@ public class EventDrivenTaskSourceFactory
                 tableExecuteContextManager,
                 sourceExchanges,
                 remoteSources.build(),
-                () -> splitSourceFactory.createSplitSources(session, fragment),
+                () -> splitSourceFactory.createSplitSources(session, stageSpan, fragment),
                 createSplitAssigner(
                         session,
                         fragment,

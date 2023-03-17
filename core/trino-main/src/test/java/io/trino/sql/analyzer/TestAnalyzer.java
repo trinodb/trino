@@ -7058,7 +7058,7 @@ public class TestAnalyzer
                 tablePropertyManager,
                 analyzePropertyManager,
                 new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")));
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite);
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, statementRewrite, plannerContext.getTracer());
         return analyzerFactory.createAnalyzer(
                 session,
                 emptyList(),

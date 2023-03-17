@@ -148,7 +148,8 @@ public class TestCreateMaterializedViewTask
                 new AllowAllAccessControl(),
                 queryRunner.getTablePropertyManager(),
                 queryRunner.getAnalyzePropertyManager()),
-                new StatementRewrite(ImmutableSet.of()));
+                new StatementRewrite(ImmutableSet.of()),
+                plannerContext.getTracer());
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl());
     }
 
@@ -276,7 +277,7 @@ public class TestCreateMaterializedViewTask
                 accessControl,
                 new TablePropertyManager(CatalogServiceProvider.fail()),
                 new AnalyzePropertyManager(CatalogServiceProvider.fail()));
-        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, new StatementRewrite(ImmutableSet.of()));
+        AnalyzerFactory analyzerFactory = new AnalyzerFactory(statementAnalyzerFactory, new StatementRewrite(ImmutableSet.of()), plannerContext.getTracer());
         assertThatThrownBy(() -> getFutureValue(new CreateMaterializedViewTask(plannerContext, accessControl, parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
                 .isInstanceOf(AccessDeniedException.class)

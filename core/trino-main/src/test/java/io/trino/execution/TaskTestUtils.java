@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
@@ -182,7 +183,7 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of());
+        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of());
     }
 
     public static SplitMonitor createTestSplitMonitor()

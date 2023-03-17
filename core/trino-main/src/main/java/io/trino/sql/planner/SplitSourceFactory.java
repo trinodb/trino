@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.Constraint;
@@ -100,13 +101,13 @@ public class SplitSourceFactory
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
-    public Map<PlanNodeId, SplitSource> createSplitSources(Session session, PlanFragment fragment)
+    public Map<PlanNodeId, SplitSource> createSplitSources(Session session, Span stageSpan, PlanFragment fragment)
     {
         ImmutableList.Builder<SplitSource> allSplitSources = ImmutableList.builder();
         try {
             // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
             return fragment.getRoot().accept(
-                    new Visitor(session, TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
+                    new Visitor(session, stageSpan, TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
                     null);
         }
         catch (Throwable t) {
@@ -129,15 +130,18 @@ public class SplitSourceFactory
             extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
+        private final Span stageSpan;
         private final TypeProvider typeProvider;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
         private Visitor(
                 Session session,
+                Span stageSpan,
                 TypeProvider typeProvider,
                 ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
+            this.stageSpan = stageSpan;
             this.typeProvider = typeProvider;
             this.splitSources = allSplitSources;
         }
@@ -179,6 +183,7 @@ public class SplitSourceFactory
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
+                    stageSpan,
                     node.getTable(),
                     dynamicFilter,
                     constraint);
@@ -311,7 +316,7 @@ public class SplitSourceFactory
         {
             if (node.getSource().isEmpty()) {
                 // this is a source node, so produce splits
-                SplitSource splitSource = splitManager.getSplits(session, node.getHandle());
+                SplitSource splitSource = splitManager.getSplits(session, stageSpan, node.getHandle());
                 splitSources.add(splitSource);
 
                 return ImmutableMap.of(node.getId(), splitSource);

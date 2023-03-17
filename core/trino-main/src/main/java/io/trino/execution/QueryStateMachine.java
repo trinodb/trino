@@ -24,6 +24,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.exchange.ExchangeInput;
@@ -50,6 +53,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.tracing.TrinoAttributes;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
@@ -81,6 +85,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -301,6 +306,10 @@ public class QueryStateMachine
             session = session.withExchangeEncryption(serializeAesEncryptionKey(createRandomAesEncryptionKey()));
         }
 
+        Span querySpan = session.getQuerySpan();
+
+        querySpan.setAttribute(TrinoAttributes.QUERY_TYPE, queryType.map(Enum::name).orElse("UNKNOWN"));
+
         QueryStateMachine queryStateMachine = new QueryStateMachine(
                 query,
                 preparedQuery,
@@ -315,11 +324,30 @@ public class QueryStateMachine
                 queryStatsCollector,
                 queryType,
                 version);
+
         queryStateMachine.addStateChangeListener(newState -> {
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
             if (newState.isDone()) {
                 queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
                 queryStateMachine.getOutputManager().setQueryCompleted();
+            }
+        });
+
+        queryStateMachine.addStateChangeListener(newState -> {
+            querySpan.addEvent("query_state", Attributes.of(
+                    TrinoAttributes.EVENT_STATE, newState.toString()));
+            if (newState.isDone()) {
+                queryStateMachine.getFailureInfo().ifPresentOrElse(
+                        failure -> {
+                            ErrorCode errorCode = requireNonNull(failure.getErrorCode());
+                            querySpan.setStatus(StatusCode.ERROR, nullToEmpty(failure.getMessage()))
+                                    .recordException(failure.toException())
+                                    .setAttribute(TrinoAttributes.ERROR_CODE, errorCode.getCode())
+                                    .setAttribute(TrinoAttributes.ERROR_NAME, errorCode.getName())
+                                    .setAttribute(TrinoAttributes.ERROR_TYPE, errorCode.getType().toString());
+                        },
+                        () -> querySpan.setStatus(StatusCode.OK));
+                querySpan.end();
             }
         });
 
