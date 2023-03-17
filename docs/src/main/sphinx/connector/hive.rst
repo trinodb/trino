@@ -1497,23 +1497,23 @@ The following file types and formats are supported for the Hive connector:
 * RCText (RCFile using ``ColumnarSerDe``)
 * RCBinary (RCFile using ``LazyBinaryColumnarSerDe``)
 * SequenceFile
-* JSON (using ``org.apache.hive.hcatalog.data.JsonSerDe``)
-* CSV (using ``org.apache.hadoop.hive.serde2.OpenCSVSerde``)
+* JSON
+* CSV
 * TextFile
 * Regex
 
-Trino has its own native readers and writers for each of these file formats that
-are enabled by default. Trino recommends that you use these native
-implementations in most cases. However, if you prefer to use the Hive
-ecosystem's legacy readers and writers, you can disable Trino's native
-implementations for some file formats.
+Trino has its own native readers and writers for each of these file formats.
+These native implementations are enabled by default, and Trino recommends that
+you use them in most cases. However, if you prefer to use the Hive ecosystem's
+legacy readers and writers, you can disable Trino's native readers and writers
+for some file formats.
 
 ORC file format
 ^^^^^^^^^^^^^^^
 
 The following properties are used to configure the read and write operations
 with ORC files performed by the Hive connector. For more information, see
-`Apache ORC <https://orc.apache.org/>_`.
+`Apache ORC <https://orc.apache.org/>`_.
 
 .. list-table:: ORC format configuration properties
     :widths: 30, 50, 20
@@ -1541,8 +1541,8 @@ Parquet file format
 ^^^^^^^^^^^^^^^^^^^
 
 The following properties are used to configure the read and write operations
-with Parquet files performed by the Hive connector. `Apache Parquet
-<https://parquet.apache.org/>_`.
+with Parquet files performed by the Hive connector. For more information, see
+`Apache Parquet <https://parquet.apache.org/>`_.
 
 .. list-table:: Parquet format configuration properties
     :widths: 30, 50, 20
@@ -1648,6 +1648,9 @@ with JSON files performed by the Hive connector.
       - Enables native writer of JSON files. The equivalent catalog
         session property is ``json_native_writer_enabled``.
       - ``true``
+    * - ``org.apache.hive.hcatalog.data.JsonSerDe``
+      - The Hive SerDe that serializes and deserializes JSON data.
+      -
 
 CSV file format
 ^^^^^^^^^^^^^^^
@@ -1670,6 +1673,10 @@ with ORC files performed by the Hive connector.
       - Enables native writer of CSV files. The equivalent catalog
         session property is ``csv_native_writer_enabled``.
       - ``true``
+    * - ``org.apache.hadoop.hive.serde2.OpenCSVSerde``
+      - The Hive SerDe that serializes and deserializes CSV data.
+        ``OpenCSVSerde`` treats all columns as strings.
+      -
 
 TextFile file format
 ^^^^^^^^^^^^^^^^^^^^
