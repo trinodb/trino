@@ -926,7 +926,7 @@ public abstract class BaseRaptorConnectorTest
     {
         assertThat(e)
                 .hasMessageContaining("Failed to perform metadata operation")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "(?s).*SQLIntegrityConstraintViolationException.*" +
                                 "|.*Unique index or primary key violation.*" +

@@ -170,7 +170,7 @@ public class TestIgniteTypeMapping
     private void assertIgniteQueryFailsWithColumnValueOutRange(@Language("SQL") String sql)
     {
         assertThatThrownBy(() -> igniteServer.execute(sql))
-                .getCause()
+                .cause()
                 .hasMessageContaining("Value conversion failed");
     }
 
