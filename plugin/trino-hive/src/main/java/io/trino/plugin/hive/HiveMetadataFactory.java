@@ -230,7 +230,13 @@ public class HiveMetadataFactory
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
                 memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize)); // per-transaction cache
 
-        DirectoryLister directoryLister = new TransactionScopeCachingDirectoryLister(this.directoryLister, perTransactionFileStatusCacheMaximumSize);
+        DirectoryLister directoryLister;
+        if (perTransactionFileStatusCacheMaximumSize > 0) {
+            directoryLister = new TransactionScopeCachingDirectoryLister(this.directoryLister, perTransactionFileStatusCacheMaximumSize);
+        }
+        else {
+            directoryLister = this.directoryLister;
+        }
 
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
