@@ -32,6 +32,7 @@ import java.util.function.Function;
 
 import static com.google.common.io.Resources.getResource;
 import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
+import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
 import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -134,7 +135,7 @@ public final class StarburstSqlServerQueryRunner
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
-                return List.of(getConnectorFactory(NOOP_LICENSE_MANAGER));
+                return List.of(withManagedStatistics(getConnectorFactory(NOOP_LICENSE_MANAGER)));
             }
         };
     }

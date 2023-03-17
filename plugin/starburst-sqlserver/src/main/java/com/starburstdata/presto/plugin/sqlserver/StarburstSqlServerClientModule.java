@@ -12,7 +12,9 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
+import com.starburstdata.managed.statistics.connector.ConnectorStatisticsProvider;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
+import com.starburstdata.presto.plugin.jdbc.statistics.JdbcManagedStatisticsModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
@@ -59,6 +61,8 @@ public class StarburstSqlServerClientModule
         install(new CatalogOverridingModule());
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
+        install(new JdbcManagedStatisticsModule());
+        newOptionalBinder(binder, ConnectorStatisticsProvider.class).setBinding().to(SqlServerCollectingStatisticsProvider.class).in(Scopes.SINGLETON);
 
         @SuppressWarnings("TrinoExperimentalSpi")
         Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;

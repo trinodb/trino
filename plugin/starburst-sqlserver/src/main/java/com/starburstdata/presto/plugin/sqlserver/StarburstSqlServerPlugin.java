@@ -17,6 +17,7 @@ import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
+import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
@@ -26,7 +27,7 @@ public class StarburstSqlServerPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectorFactory(new LicenseManagerProvider().get()));
+        return ImmutableList.of(withManagedStatistics(getConnectorFactory(new LicenseManagerProvider().get())));
     }
 
     @VisibleForTesting
