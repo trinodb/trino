@@ -57,6 +57,7 @@ import com.nimbusds.openid.connect.sdk.validators.IDTokenValidator;
 import com.nimbusds.openid.connect.sdk.validators.InvalidHashException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.server.LoadableComponent;
 import io.trino.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerConfig;
 
 import javax.inject.Inject;
@@ -82,7 +83,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class NimbusOAuth2Client
-        implements OAuth2Client
+        implements OAuth2Client, LoadableComponent
 {
     private static final Logger LOG = Logger.get(NimbusAirliftHttpClient.class);
 

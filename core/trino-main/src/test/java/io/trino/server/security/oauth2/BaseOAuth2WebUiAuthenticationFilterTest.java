@@ -106,7 +106,7 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                 .setAdditionalModule(new WebUiModule())
                 .setProperties(getOAuth2Config(idpUrl))
                 .build();
-        server.getInstance(Key.get(OAuth2Client.class)).load();
+        server.getInstance(Key.get(NimbusOAuth2Client.class)).load();
         server.waitForNodeRefresh(Duration.ofSeconds(10));
         serverUri = server.getHttpsBaseUrl();
         uiUri = serverUri.resolve("/ui/");

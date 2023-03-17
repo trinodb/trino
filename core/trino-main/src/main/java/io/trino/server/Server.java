@@ -59,7 +59,6 @@ import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
-import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManagerModule;
 import io.trino.version.EmbedVersion;
@@ -167,7 +166,8 @@ public class Server
             injector.getInstance(optionalKey(HeaderAuthenticatorManager.class))
                     .ifPresent(HeaderAuthenticatorManager::loadHeaderAuthenticator);
 
-            injector.getInstance(optionalKey(OAuth2Client.class)).ifPresent(OAuth2Client::load);
+            Set<LoadableComponent> loadableComponents = injector.getInstance(Key.get(new TypeLiteral<>() {}));
+            loadableComponents.forEach(LoadableComponent::load);
 
             injector.getInstance(Announcer.class).start();
 

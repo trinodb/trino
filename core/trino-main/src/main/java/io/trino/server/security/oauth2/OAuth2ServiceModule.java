@@ -20,10 +20,12 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.server.LoadableComponent;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 
 import java.time.Duration;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -44,10 +46,9 @@ public class OAuth2ServiceModule
         binder.bind(OAuth2Service.class).in(Scopes.SINGLETON);
         binder.bind(OAuth2TokenHandler.class).to(OAuth2TokenExchange.class).in(Scopes.SINGLETON);
         binder.bind(NimbusHttpClient.class).to(NimbusAirliftHttpClient.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, OAuth2Client.class)
-                .setDefault()
-                .to(NimbusOAuth2Client.class)
-                .in(Scopes.SINGLETON);
+        binder.bind(NimbusOAuth2Client.class).in(Scopes.SINGLETON);
+        binder.bind(OAuth2Client.class).to(Key.get(NimbusOAuth2Client.class));
+        newSetBinder(binder, LoadableComponent.class).addBinding().to(Key.get(NimbusOAuth2Client.class));
         install(conditionalModule(OAuth2Config.class, OAuth2Config::isEnableDiscovery, this::bindOidcDiscovery, this::bindStaticConfiguration));
         install(conditionalModule(OAuth2Config.class, OAuth2Config::isEnableRefreshTokens, this::enableRefreshTokens, this::disableRefreshTokens));
         httpClientBinder(binder)

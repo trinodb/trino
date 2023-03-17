@@ -1012,11 +1012,6 @@ public class TestResourceSecurity
             return new OAuth2Client()
             {
                 @Override
-                public void load()
-                {
-                }
-
-                @Override
                 public Request createAuthorizationRequest(String state, URI callbackUri)
                 {
                     return new Request(URI.create("http://example.com/authorize?" + state), Optional.of(UUID.randomUUID().toString()));

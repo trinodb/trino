@@ -124,11 +124,6 @@ public class TestJweTokenSerializer
                 .setSubject("user");
 
         @Override
-        public void load()
-        {
-        }
-
-        @Override
         public Request createAuthorizationRequest(String state, URI callbackUri)
         {
             throw new UnsupportedOperationException("operation is not yet supported");

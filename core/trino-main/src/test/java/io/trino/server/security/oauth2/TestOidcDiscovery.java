@@ -263,7 +263,7 @@ public class TestOidcDiscovery
         assertThat(authenticators.get(0)).isInstanceOf(OAuth2Authenticator.class);
         assertThat(server.getInstance(Key.get(WebUiAuthenticationFilter.class))).isInstanceOf(OAuth2WebUiAuthenticationFilter.class);
         // does not throw an exception
-        server.getInstance(Key.get(OAuth2Client.class)).load();
+        server.getInstance(Key.get(NimbusOAuth2Client.class)).load();
     }
 
     private static TestingTrinoServer createServer(Map<String, String> configuration)

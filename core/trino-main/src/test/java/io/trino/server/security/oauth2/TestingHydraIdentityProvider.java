@@ -363,7 +363,7 @@ public class TestingHydraIdentityProvider
                     .setAdditionalModule(new WebUiModule())
                     .setProperties(config.buildOrThrow())
                     .build()) {
-                server.getInstance(Key.get(OAuth2Client.class)).load();
+                server.getInstance(Key.get(NimbusOAuth2Client.class)).load();
                 Thread.sleep(Long.MAX_VALUE);
             }
         }
