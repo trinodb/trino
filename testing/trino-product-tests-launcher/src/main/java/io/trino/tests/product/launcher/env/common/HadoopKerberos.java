@@ -63,7 +63,6 @@ public class HadoopKerberos
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName(dockerImageName);
             portBinder.exposePort(container, 88);
-            container.withCopyFileToContainer(forHostPath(configDir.getPath("krb5.conf")), "/etc/krb5.conf");
         });
         builder.configureContainer(COORDINATOR, container -> {
             container.setDockerImageName(dockerImageName);
