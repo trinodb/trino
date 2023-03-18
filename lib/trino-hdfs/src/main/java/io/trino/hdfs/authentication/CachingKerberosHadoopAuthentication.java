@@ -30,21 +30,27 @@ public class CachingKerberosHadoopAuthentication
 {
     private final KerberosHadoopAuthentication delegate;
 
-    @GuardedBy("this")
-    private UserGroupInformation userGroupInformation;
+    private final UserGroupInformation userGroupInformation;
     @GuardedBy("this")
     private long nextRefreshTime;
 
     public CachingKerberosHadoopAuthentication(KerberosHadoopAuthentication delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.userGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
+        nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
     }
 
     @Override
     public synchronized UserGroupInformation getUserGroupInformation()
     {
-        if (nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null) {
-            userGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
+        if (nextRefreshTime < System.currentTimeMillis()) {
+            Subject existingSubject = getSubject(userGroupInformation);
+            UserGroupInformation newUserGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
+            Subject newSubject = getSubject(newUserGroupInformation);
+            existingSubject.getPrincipals().addAll(newSubject.getPrincipals());
+            existingSubject.getPrivateCredentials().addAll(newSubject.getPrivateCredentials());
+            existingSubject.getPublicCredentials().addAll(newSubject.getPublicCredentials());
             nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
         }
         return userGroupInformation;
