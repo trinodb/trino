@@ -70,6 +70,7 @@ public class HadoopKerberos
             container
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                     .withCopyFileToContainer(forHostPath(configDir.getPath("config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("krb5.conf")), "/etc/krb5.conf")
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("create_kerberos_credential_cache_files.sh")),
                             "/docker/presto-init.d/create_kerberos_credentials.sh");
