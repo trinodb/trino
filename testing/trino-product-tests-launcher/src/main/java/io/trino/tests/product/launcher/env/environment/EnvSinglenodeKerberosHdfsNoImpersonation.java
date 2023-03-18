@@ -24,6 +24,8 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
@@ -44,5 +46,12 @@ public final class EnvSinglenodeKerberosHdfsNoImpersonation
     {
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector("iceberg", forHostPath(configDir.getPath("iceberg.properties")));
+
+        builder.configureContainer(HADOOP, container -> {
+            container.withCopyFileToContainer(forHostPath(configDir.getPath("krb5.conf")), "/etc/krb5.conf");
+        });
+        builder.configureContainer(COORDINATOR, container -> {
+            container.withCopyFileToContainer(forHostPath(configDir.getPath("krb5.conf")), "/etc/krb5.conf");
+        });
     }
 }
