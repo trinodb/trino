@@ -63,6 +63,7 @@ public class HadoopKerberos
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName(dockerImageName);
             portBinder.exposePort(container, 88);
+            container.withCopyFileToContainer(forHostPath(configDir.getPath("krb5.conf")), "/etc/krb5.conf");
         });
         builder.configureContainer(COORDINATOR, container -> {
             container.setDockerImageName(dockerImageName);
@@ -72,7 +73,8 @@ public class HadoopKerberos
                     .withCopyFileToContainer(forHostPath(configDir.getPath("config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
                     .withCopyFileToContainer(
                             forHostPath(configDir.getPath("create_kerberos_credential_cache_files.sh")),
-                            "/docker/presto-init.d/create_kerberos_credentials.sh");
+                            "/docker/presto-init.d/create_kerberos_credentials.sh")
+                    .withCopyFileToContainer(forHostPath(configDir.getPath("krb5.conf")), "/etc/krb5.conf");
         });
         builder.configureContainer(TESTS, container -> {
             container.setDockerImageName(dockerImageName);
