@@ -743,6 +743,20 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testNativeQueryHelperFunction()
+    {
+        String tableName = "test_query_helper_function" + randomNameSuffix();
+        MongoCollection<Document> collection = client.getDatabase("tpch").getCollection(tableName);
+        collection.insertOne(new Document(ImmutableMap.of("id", 1, "timestamp", LocalDateTime.of(2023, 3, 20, 1, 2, 3))));
+        collection.insertOne(new Document(ImmutableMap.of("id", 2, "timestamp", LocalDateTime.of(2024, 3, 20, 1, 2, 3))));
+
+        assertQuery(
+                "SELECT id FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ timestamp: ISODate(\"2023-03-20T01:02:03.000Z\") }'))",
+                "VALUES 1");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testNativeQueryFilterAndWhere()
     {
         assertThat(query("SELECT * FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'nation', filter => '{ regionkey: 0 }')) WHERE name = 'ALGERIA'"))
