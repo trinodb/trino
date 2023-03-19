@@ -14,7 +14,7 @@ Requirements
 
 To connect to Pinot, you need:
 
-* Pinot 0.10.0 or higher.
+* Pinot 0.11.0 or higher.
 * Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 

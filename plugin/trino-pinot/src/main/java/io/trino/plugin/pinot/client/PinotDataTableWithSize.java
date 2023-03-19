@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.pinot.client;
 
-import org.apache.pinot.common.utils.DataTable;
+import org.apache.pinot.common.datatable.DataTable;
 
 public class PinotDataTableWithSize
 {

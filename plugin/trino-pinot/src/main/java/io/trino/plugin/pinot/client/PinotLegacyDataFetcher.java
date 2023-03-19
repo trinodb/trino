@@ -21,15 +21,17 @@ import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotSessionProperties;
 import io.trino.plugin.pinot.PinotSplit;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.utils.DataSchema;
-import org.apache.pinot.common.utils.DataTable;
 import org.apache.pinot.core.transport.AsyncQueryResponse;
 import org.apache.pinot.core.transport.QueryRouter;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.core.transport.ServerResponse;
 import org.apache.pinot.core.transport.ServerRoutingInstance;
+import org.apache.pinot.core.transport.server.routing.stats.ServerRoutingStatsManager;
+import org.apache.pinot.spi.env.PinotConfiguration;
 import org.apache.pinot.spi.metrics.PinotMetricUtils;
 import org.apache.pinot.spi.metrics.PinotMetricsRegistry;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
@@ -189,7 +191,7 @@ public class PinotLegacyDataFetcher
             PinotMetricsRegistry registry = PinotMetricUtils.getPinotMetricsRegistry();
             this.brokerMetrics = new BrokerMetrics(registry);
             brokerMetrics.initializeGlobalMeters();
-            queryRouter = new QueryRouter(trinoHostId, brokerMetrics);
+            queryRouter = new QueryRouter(trinoHostId, brokerMetrics, new ServerRoutingStatsManager(new PinotConfiguration()));
         }
 
         private static String getDefaultTrinoId()
