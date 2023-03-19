@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.operator.aggregation.state.InitialBooleanValue;
 import io.trino.spi.function.AccumulatorState;
 
 public interface LongLongState
@@ -23,17 +22,7 @@ public interface LongLongState
 
     void setFirst(long first);
 
-    @InitialBooleanValue(true)
-    boolean isFirstNull();
-
-    void setFirstNull(boolean firstNull);
-
     long getSecond();
 
     void setSecond(long second);
-
-    @InitialBooleanValue(true)
-    boolean isSecondNull();
-
-    void setSecondNull(boolean secondNull);
 }
