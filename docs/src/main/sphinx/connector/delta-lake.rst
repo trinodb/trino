@@ -918,6 +918,13 @@ To collect statistics for a table, execute the following statement::
 
   ANALYZE table_schema.table_name;
 
+To recalculate from scratch the statistics for the table use additional parameter ``mode``:
+
+  ANALYZE table_schema.table_name WITH(mode = 'full_refresh');
+
+There are two modes available ``full_refresh`` and ``incremental``.
+The procedure use ``incremental`` by default.
+
 To gain the most benefit from cost-based optimizations, run periodic ``ANALYZE``
 statements on every large table that is frequently queried.
 
