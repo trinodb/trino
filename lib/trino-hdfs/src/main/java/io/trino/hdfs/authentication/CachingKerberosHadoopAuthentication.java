@@ -19,6 +19,8 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
+import java.util.Set;
+
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
 import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
@@ -48,10 +50,20 @@ public class CachingKerberosHadoopAuthentication
             Subject existingSubject = getSubject(userGroupInformation);
             UserGroupInformation newUserGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
             Subject newSubject = getSubject(newUserGroupInformation);
+
             existingSubject.getPrincipals().addAll(newSubject.getPrincipals());
-            existingSubject.getPrivateCredentials().addAll(newSubject.getPrivateCredentials());
-            existingSubject.getPublicCredentials().addAll(newSubject.getPublicCredentials());
-            nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
+            Set<Object> privateCredentials = existingSubject.getPrivateCredentials();
+            synchronized (privateCredentials) {
+                privateCredentials.clear();
+                privateCredentials.addAll(newSubject.getPrivateCredentials());
+            }
+
+            Set<Object> publicCredentials = existingSubject.getPublicCredentials();
+            synchronized (publicCredentials) {
+                publicCredentials.clear();
+                publicCredentials.addAll(newSubject.getPublicCredentials());
+            }
+            nextRefreshTime = calculateNextRefreshTime(newUserGroupInformation);
         }
         return userGroupInformation;
     }
