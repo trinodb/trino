@@ -84,6 +84,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -474,7 +475,7 @@ public class MongoSession
     {
         // Use $and operator because Document.putAll method overwrites existing entries where the key already exists
         ImmutableList.Builder<Document> filter = ImmutableList.builder();
-        table.getFilter().ifPresent(filter::add);
+        table.getFilter().ifPresent(json -> filter.add(parseFilter(json)));
         filter.add(buildQuery(table.getConstraint()));
         return andPredicate(filter.build());
     }
