@@ -1465,6 +1465,10 @@ connector.
       - The target number of buffered splits for each table scan in a query,
         before the scheduler tries to pause.
       - ``1000``
+    * - ``hive.max-outstanding-splits-size``
+      - The maximum size allowed for buffered splits for each table scan
+        in a query, before the query fails.
+      - ``256 MB``
     * - ``hive.max-splits-per-second``
       - The maximum number of splits generated per second per table scan. This
         can be used to reduce the load on the storage system. By default, there
