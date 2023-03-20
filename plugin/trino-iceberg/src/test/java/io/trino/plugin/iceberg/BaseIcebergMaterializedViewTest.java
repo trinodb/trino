@@ -71,9 +71,8 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testShowTables()
     {
-        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_show_tables_test AS SELECT * FROM base_table1");
-        SchemaTableName storageTableName = getStorageTable("iceberg", schema, "materialized_view_show_tables_test");
+        SchemaTableName storageTableName = getStorageTable("materialized_view_show_tables_test");
 
         Set<String> expectedTables = ImmutableSet.of("base_table1", "base_table2", "materialized_view_show_tables_test", storageTableName.getTableName());
         Set<String> actualTables = computeActual("SHOW TABLES").getOnlyColumnAsSet().stream()
@@ -259,9 +258,8 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testRefreshAllowedWithRestrictedStorageTable()
     {
-        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable("iceberg", schema, "materialized_view_refresh");
+        SchemaTableName storageTable = getStorageTable("materialized_view_refresh");
 
         assertAccessAllowed(
                 "REFRESH MATERIALIZED VIEW materialized_view_refresh",
@@ -562,7 +560,7 @@ public abstract class BaseIcebergMaterializedViewTest
                 "CREATE MATERIALIZED VIEW " + viewName + " " +
                         "WITH (storage_schema = '" + storageSchemaName + "') AS " +
                         "SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable(catalogName, schemaName, viewName);
+        SchemaTableName storageTable = getStorageTable(viewName);
         assertThat(storageTable.getSchemaName()).isEqualTo(storageSchemaName);
 
         assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
@@ -594,13 +592,18 @@ public abstract class BaseIcebergMaterializedViewTest
                 .hasMessageContaining(format("'iceberg.%s.%s' does not exist", schemaName, viewName));
     }
 
-    private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
+    private SchemaTableName getStorageTable(String materializedViewName)
+    {
+        return getStorageTable(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), materializedViewName);
+    }
+
+    private SchemaTableName getStorageTable(String catalogName, String schemaName, String materializedViewName)
     {
         TransactionManager transactionManager = getQueryRunner().getTransactionManager();
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
         Optional<MaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
-                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
+                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, materializedViewName));
         assertThat(materializedView).isPresent();
         return materializedView.get().getStorageTable().get().getSchemaTableName();
     }
