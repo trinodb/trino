@@ -39,7 +39,7 @@ import io.trino.sql.tree.QualifiedName;
 import java.util.List;
 import java.util.Optional;
 
-import static com.clearspring.analytics.util.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.Patterns.Limit.requiresPreSortedInputs;
