@@ -529,7 +529,7 @@ public class BackgroundHiveSplitLoader
             }
 
             JobConf jobConf = toJobConf(configuration);
-            FileInputFormat.setInputPaths(jobConf, path);
+            hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> FileInputFormat.setInputPaths(jobConf, path));
             // Pass SerDes and Table parameters into input format configuration
             fromProperties(schema).forEach(jobConf::set);
             InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> inputFormat.getSplits(jobConf, 0));
