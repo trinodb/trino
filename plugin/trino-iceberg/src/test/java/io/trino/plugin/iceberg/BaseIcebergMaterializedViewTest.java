@@ -66,6 +66,8 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
         assertQuery("SELECT count(*) FROM base_table2", "VALUES 3");
+
+        assertUpdate("CREATE SCHEMA " + storageSchemaName);
     }
 
     @Test
@@ -552,10 +554,8 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testStorageSchemaProperty()
     {
-        String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "storage_schema_property_test";
-        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + catalogName + "." + storageSchemaName);
         assertUpdate(
                 "CREATE MATERIALIZED VIEW " + viewName + " " +
                         "WITH (storage_schema = '" + storageSchemaName + "') AS " +
