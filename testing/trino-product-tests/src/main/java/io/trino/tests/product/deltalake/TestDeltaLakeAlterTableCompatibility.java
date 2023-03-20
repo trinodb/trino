@@ -13,6 +13,8 @@
  */
 package io.trino.tests.product.deltalake;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
@@ -368,6 +370,50 @@ public class TestDeltaLakeAlterTableCompatibility
             onDelta().executeQuery("INSERT INTO default." + tableName + " (a, c) VALUES (1, 3)");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .containsOnly(row(1, 2, 3));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testIdentityColumn()
+    {
+        // Databricks 7.3 & 9.1 and OSS Delta Lake don't support identity columns https://github.com/delta-io/delta/issues/1100
+        String tableName = "test_identity_column_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format(
+                        """
+                        CREATE TABLE default.%s (a INT, b BIGINT GENERATED ALWAYS AS IDENTITY)
+                        USING DELTA LOCATION 's3://%s/%s'
+                        """,
+                tableName,
+                bucketName,
+                tableDirectory));
+        try {
+            String failureMessage = ".* Table .* requires Delta Lake writer version 6 which is not supported";
+            assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".b IS 'test column comment'"))
+                    .hasMessageMatching(failureMessage);
+            assertQueryFailure(() -> onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'"))
+                    .hasMessageMatching(failureMessage);
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT"))
+                    .hasMessageMatching(failureMessage);
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + "(a) VALUES (0)"))
+                    .hasMessageMatching(failureMessage);
+            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName))
+                    .hasMessageMatching(failureMessage);
+            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " + "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = 1"))
+                    .hasMessageMatching(failureMessage);
+
+            Assertions.assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
+                    .contains("b BIGINT GENERATED ALWAYS AS IDENTITY");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " (a) VALUES (0)");
+
+            List<QueryAssert.Row> expected = ImmutableList.of(row(0, 1));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(expected);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(expected);
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
