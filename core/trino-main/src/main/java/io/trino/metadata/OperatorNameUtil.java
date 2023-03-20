@@ -13,11 +13,12 @@
  */
 package io.trino.metadata;
 
-import com.clearspring.analytics.util.Preconditions;
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.spi.function.OperatorType;
 
 import java.util.Locale;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public final class OperatorNameUtil
 {
@@ -38,7 +39,7 @@ public final class OperatorNameUtil
     @VisibleForTesting
     public static OperatorType unmangleOperator(String mangledName)
     {
-        Preconditions.checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "not a mangled operator name: %s", mangledName);
+        checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "not a mangled operator name: %s", mangledName);
         return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()).toUpperCase(Locale.ENGLISH));
     }
 }
