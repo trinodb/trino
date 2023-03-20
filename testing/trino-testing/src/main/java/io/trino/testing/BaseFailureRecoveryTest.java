@@ -437,7 +437,7 @@ public abstract class BaseFailureRecoveryTest
                 String temporaryTableName = (String) temporaryTableRow.getField(0);
                 try {
                     assertThatThrownBy(() -> getQueryRunner().execute("SELECT 1 FROM %s WHERE 1 = 0".formatted(temporaryTableName)))
-                            .hasMessageContaining("%s does not exist", temporaryTableName);
+                            .hasMessageContaining("Table '%s' does not exist", temporaryTableName);
                 }
                 catch (AssertionError e) {
                     remainingTemporaryTables.computeIfAbsent(queryId, ignored -> new HashSet<>()).add(temporaryTableName);
