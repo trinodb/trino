@@ -452,12 +452,13 @@ public class DeltaLakeMetadata
         String location = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
         Map<String, String> columnComments = getColumnComments(tableHandle.getMetadataEntry());
         Map<String, Boolean> columnsNullability = getColumnsNullability(tableHandle.getMetadataEntry());
+        Map<String, String> columnGenerations = getGeneratedColumnExpressions(tableHandle.getMetadataEntry());
         List<String> constraints = ImmutableList.<String>builder()
                 .addAll(getCheckConstraints(tableHandle.getMetadataEntry()).values())
                 .addAll(getColumnInvariants(tableHandle.getMetadataEntry()).values()) // The internal logic for column invariants in Delta Lake is same as check constraints
                 .build();
         List<ColumnMetadata> columns = getColumns(tableHandle.getMetadataEntry()).stream()
-                .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
+                .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true), columnGenerations.get(column.getName())))
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.<String, Object>builder()
@@ -507,7 +508,8 @@ public class DeltaLakeMetadata
         return getColumnMetadata(
                 column,
                 getColumnComments(table.getMetadataEntry()).get(column.getName()),
-                getColumnsNullability(table.getMetadataEntry()).getOrDefault(column.getName(), true));
+                getColumnsNullability(table.getMetadataEntry()).getOrDefault(column.getName(), true),
+                getGeneratedColumnExpressions(table.getMetadataEntry()).get(column.getName()));
     }
 
     /**
@@ -566,8 +568,9 @@ public class DeltaLakeMetadata
                         return metastore.getMetadata(metastore.getSnapshot(table, session), session).stream().map(metadata -> {
                             Map<String, String> columnComments = getColumnComments(metadata);
                             Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
+                            Map<String, String> columnGenerations = getGeneratedColumnExpressions(metadata);
                             List<ColumnMetadata> columnMetadata = getColumns(metadata).stream()
-                                    .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true)))
+                                    .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true), columnGenerations.get(column.getName())))
                                     .collect(toImmutableList());
                             return TableColumnsMetadata.forTable(table, columnMetadata);
                         });
@@ -2567,7 +2570,7 @@ public class DeltaLakeMetadata
         }
     }
 
-    private static ColumnMetadata getColumnMetadata(DeltaLakeColumnHandle column, @Nullable String comment, boolean nullability)
+    private static ColumnMetadata getColumnMetadata(DeltaLakeColumnHandle column, @Nullable String comment, boolean nullability, @Nullable String generation)
     {
         return ColumnMetadata.builder()
                 .setName(column.getName())
@@ -2575,6 +2578,7 @@ public class DeltaLakeMetadata
                 .setHidden(column.getColumnType() == SYNTHESIZED)
                 .setComment(Optional.ofNullable(comment))
                 .setNullable(nullability)
+                .setExtraInfo(generation == null ? Optional.empty() : Optional.of("generated: " + generation))
                 .build();
     }
 
