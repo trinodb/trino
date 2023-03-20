@@ -368,6 +368,13 @@ public class TestDeltaLakeAlterTableCompatibility
             onDelta().executeQuery("INSERT INTO default." + tableName + " (a, c) VALUES (1, 3)");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .containsOnly(row(1, 2, 3));
+
+            assertThat(onTrino().executeQuery("SELECT column_name, extra_info FROM delta.information_schema.columns WHERE table_schema = 'default' AND table_name = '" + tableName + "'"))
+                    .containsOnly(row("a", null), row("b", "generated: a * 2"), row("c", null));
+            assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName).project(1, 3))
+                    .containsOnly(row("a", ""), row("b", "generated: a * 2"), row("c", ""));
+            assertThat(onTrino().executeQuery("SHOW COLUMNS FROM delta.default." + tableName).project(1, 3))
+                    .containsOnly(row("a", ""), row("b", "generated: a * 2"), row("c", ""));
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
