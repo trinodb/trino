@@ -25,6 +25,7 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.assertj.core.api.Condition;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -590,6 +591,122 @@ public abstract class BaseIcebergMaterializedViewTest
                 .hasMessageContaining("non_existent not found");
         assertThatThrownBy(() -> query("DESCRIBE " + viewName))
                 .hasMessageContaining(format("'iceberg.%s.%s' does not exist", schemaName, viewName));
+    }
+
+    @Test(dataProvider = "testBucketPartitioningDataProvider")
+    public void testBucketPartitioning(String dataType, String exampleValue)
+    {
+        // validate the example value type
+        assertThat(query("SELECT " + exampleValue))
+                .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_bucket_partitioning WITH (partitioning=ARRAY['bucket(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+                .formatted(dataType, exampleValue));
+        try {
+            SchemaTableName storageTable = getStorageTable("test_bucket_partitioning");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
+                    .contains("partitioning = ARRAY['bucket(col, 4)']");
+
+            assertThat(query("SELECT * FROM test_bucket_partitioning WHERE col = " + exampleValue))
+                    .matches("SELECT " + exampleValue);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW test_bucket_partitioning");
+        }
+    }
+
+    @DataProvider
+    public Object[][] testBucketPartitioningDataProvider()
+    {
+        // Iceberg supports bucket partitioning on int, long, decimal, date, time, timestamp, timestamptz, string, uuid, fixed, binary
+        return new Object[][] {
+                {"integer", "20050909"},
+                {"bigint", "200509091331001234"},
+                {"decimal(8,5)", "DECIMAL '876.54321'"},
+                {"decimal(28,21)", "DECIMAL '1234567.890123456789012345678'"},
+                {"date", "DATE '2005-09-09'"},
+                {"time(6)", "TIME '13:31:00.123456'"},
+                {"timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+                {"varchar", "VARCHAR 'Greetings from Warsaw!'"},
+                {"uuid", "UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'"},
+                {"varbinary", "X'66696E6465706920726F636B7321'"},
+        };
+    }
+
+    @Test(dataProvider = "testTruncatePartitioningDataProvider")
+    public void testTruncatePartitioning(String dataType, String exampleValue)
+    {
+        // validate the example value type
+        assertThat(query("SELECT " + exampleValue))
+                .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_truncate_partitioning WITH (partitioning=ARRAY['truncate(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+                .formatted(dataType, exampleValue));
+        try {
+            SchemaTableName storageTable = getStorageTable("test_truncate_partitioning");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
+                    .contains("partitioning = ARRAY['truncate(col, 4)']");
+
+            assertThat(query("SELECT * FROM test_truncate_partitioning WHERE col = " + exampleValue))
+                    .matches("SELECT " + exampleValue);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW test_truncate_partitioning");
+        }
+    }
+
+    @DataProvider
+    public Object[][] testTruncatePartitioningDataProvider()
+    {
+        // Iceberg supports truncate partitioning on int, long, decimal, string
+        return new Object[][] {
+                {"integer", "20050909"},
+                {"bigint", "200509091331001234"},
+                {"decimal(8,5)", "DECIMAL '876.54321'"},
+                {"decimal(28,21)", "DECIMAL '1234567.890123456789012345678'"},
+                {"varchar", "VARCHAR 'Greetings from Warsaw!'"},
+        };
+    }
+
+    @Test(dataProvider = "testTemporalPartitioningDataProvider")
+    public void testTemporalPartitioning(String partitioning, String dataType, String exampleValue)
+    {
+        // validate the example value type
+        assertThat(query("SELECT " + exampleValue))
+                .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_temporal_partitioning WITH (partitioning=ARRAY['%s(col)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+                .formatted(partitioning, dataType, exampleValue));
+        try {
+            SchemaTableName storageTable = getStorageTable("test_temporal_partitioning");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
+                    .contains("partitioning = ARRAY['%s(col)']".formatted(partitioning));
+
+            assertThat(query("SELECT * FROM test_temporal_partitioning WHERE col = " + exampleValue))
+                    .matches("SELECT " + exampleValue);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW test_temporal_partitioning");
+        }
+    }
+
+    @DataProvider
+    public Object[][] testTemporalPartitioningDataProvider()
+    {
+        return new Object[][] {
+                {"year", "date", "DATE '2005-09-09'"},
+                {"year", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"year", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+                {"month", "date", "DATE '2005-09-09'"},
+                {"month", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"month", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+                {"day", "date", "DATE '2005-09-09'"},
+                {"day", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"day", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+                {"hour", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"hour", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+        };
     }
 
     private SchemaTableName getStorageTable(String materializedViewName)
