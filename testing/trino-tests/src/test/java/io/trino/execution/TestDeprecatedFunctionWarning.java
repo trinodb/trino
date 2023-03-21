@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.client.Warning;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.aggregation.state.LongAndDoubleState;
@@ -33,6 +32,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowFunctionSignature;
 import io.trino.spi.type.StandardTypes;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -43,8 +43,8 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.execution.TestQueryRunnerUtil.createQueryRunner;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
 
 public class TestDeprecatedFunctionWarning
@@ -58,7 +58,7 @@ public class TestDeprecatedFunctionWarning
     public void setUp()
             throws Exception
     {
-        queryRunner = createQueryRunner(ImmutableMap.of());
+        queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build()).build();
         ImmutableList.of(
                 TestScalaFunction.class,
                 TestDeprecatedParametericScalaFunction.class,
