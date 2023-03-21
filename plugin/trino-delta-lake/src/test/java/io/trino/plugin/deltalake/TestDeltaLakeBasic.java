@@ -140,21 +140,20 @@ public class TestDeltaLakeBasic
         assertQueryFails("ANALYZE " + tableName, "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("ALTER TABLE " + tableName + " EXECUTE vacuum", "Metadata not found in transaction log for tpch.bad_person");
-        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name");
-        assertQuerySucceeds("ALTER TABLE bad_person_some_new_name RENAME TO " + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN foo int", "Metadata not found in transaction log for tpch.bad_person");
         // TODO (https://github.com/trinodb/trino/issues/16248) ADD field
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo", "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo.bar", "Metadata not found in transaction log for tpch.bad_person");
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true", "Protocol entry not found in transaction log for table tpch.bad_person");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true", "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("INSERT INTO " + tableName + " VALUES (NULL)", "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("UPDATE " + tableName + " SET foo = 'bar'", "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("DELETE FROM " + tableName, "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("TRUNCATE TABLE " + tableName, "This connector does not support truncating tables");
-        assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", "Protocol entry not found in transaction log for table tpch.bad_person");
+        assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", "Metadata not found in transaction log for tpch.bad_person");
         assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", "Metadata not found in transaction log for tpch.bad_person");
-        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')", "\\QFailure when vacuuming tpch.bad_person with retention 7d: java.lang.NullPointerException: Cannot invoke \"java.util.List.stream()\" because \"recentVersions\" is null");
+        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')", "Metadata not found in transaction log for tpch.bad_person");
         assertQuerySucceeds("CALL system.drop_extended_stats(CURRENT_SCHEMA, '" + tableName + "')");
 
         // Avoid failing metadata queries

@@ -68,7 +68,7 @@ public class TestDeltaLakeSplitManager
             "schema",
             "table",
             "location",
-            Optional.of(metadataEntry),
+            metadataEntry,
             TupleDomain.all(),
             TupleDomain.all(),
             Optional.empty(),
@@ -273,7 +273,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
+        public MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
         {
             throw new UnsupportedOperationException("Unimplemented");
         }

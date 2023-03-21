@@ -49,7 +49,7 @@ public interface DeltaLakeMetastore
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
 
-    Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session);
+    MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session);
 
     ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot table);
 

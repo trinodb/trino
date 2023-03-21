@@ -35,6 +35,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -55,6 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -162,8 +164,9 @@ public class VacuumProcedure
 
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
         SchemaTableName tableName = new SchemaTableName(schema, table);
-        DeltaLakeTableHandle handle = metadata.getTableHandle(session, tableName);
-        checkProcedureArgument(handle != null, "Table '%s' does not exist", tableName);
+        ConnectorTableHandle connectorTableHandle = metadata.getTableHandle(session, tableName);
+        checkProcedureArgument(connectorTableHandle != null, "Table '%s' does not exist", tableName);
+        DeltaLakeTableHandle handle = checkValidTableHandle(connectorTableHandle);
 
         accessControl.checkCanInsertIntoTable(null, tableName);
         accessControl.checkCanDeleteFromTable(null, tableName);
