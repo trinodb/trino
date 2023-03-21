@@ -196,7 +196,7 @@ public class DeltaLakeTableHandle
     @JsonProperty
     public MetadataEntry getMetadataEntry()
     {
-        return metadataEntry.orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableName));
+        return metadataEntry.orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + getSchemaTableName()));
     }
 
     @JsonProperty

@@ -336,7 +336,7 @@ public class TestDeltaLakeMetadata
         assertThatThrownBy(() -> deltaLakeMetadataFactory.create(SESSION.getIdentity())
                 .getInsertLayout(SESSION, missingTableHandle))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Metadata not found in transaction log for " + schemaTableName.getTableName());
+                .hasMessage("Metadata not found in transaction log for " + schemaTableName);
     }
 
     @DataProvider
