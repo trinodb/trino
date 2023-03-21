@@ -31,9 +31,9 @@ public class TestDeltaLakeTableName
     public void testFrom()
     {
         assertFrom("abc", "abc", DATA);
-        assertFrom("abc$data", "abc", DATA);
         assertFrom("abc$history", "abc", DeltaLakeTableType.HISTORY);
 
+        assertInvalid("abc$data", "Invalid Delta Lake table name (unknown type 'data'): abc$data");
         assertInvalid("abc@123", "Invalid Delta Lake table name: abc@123");
         assertInvalid("abc@xyz", "Invalid Delta Lake table name: abc@xyz");
         assertInvalid("abc$what", "Invalid Delta Lake table name (unknown type 'what'): abc$what");
@@ -45,8 +45,8 @@ public class TestDeltaLakeTableName
     public void testIsDataTable()
     {
         assertTrue(DeltaLakeTableName.isDataTable("abc"));
-        assertTrue(DeltaLakeTableName.isDataTable("abc$data"));
 
+        assertFalse(DeltaLakeTableName.isDataTable("abc$data")); // it's invalid
         assertFalse(DeltaLakeTableName.isDataTable("abc$history"));
         assertFalse(DeltaLakeTableName.isDataTable("abc$invalid"));
     }
@@ -64,7 +64,7 @@ public class TestDeltaLakeTableName
     public void testTableTypeFrom()
     {
         assertEquals(DeltaLakeTableName.tableTypeFrom("abc"), Optional.of(DATA));
-        assertEquals(DeltaLakeTableName.tableTypeFrom("abc$data"), Optional.of(DATA));
+        assertEquals(DeltaLakeTableName.tableTypeFrom("abc$data"), Optional.empty()); // it's invalid
         assertEquals(DeltaLakeTableName.tableTypeFrom("abc$history"), Optional.of(HISTORY));
 
         assertEquals(DeltaLakeTableName.tableTypeFrom("abc$invalid"), Optional.empty());

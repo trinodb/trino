@@ -71,12 +71,21 @@ public class IcebergTableName
         String table = match.group("table");
         String typeString = match.group("type");
 
-        TableType type = DATA;
-        if (typeString != null) {
+        TableType type;
+        if (typeString == null) {
+            type = DATA;
+        }
+        else {
+            type = null;
             try {
-                type = TableType.valueOf(typeString.toUpperCase(ENGLISH));
+                TableType parsedType = TableType.valueOf(typeString.toUpperCase(ENGLISH));
+                if (parsedType != DATA) {
+                    type = parsedType;
+                }
             }
-            catch (IllegalArgumentException e) {
+            catch (IllegalArgumentException ignored) {
+            }
+            if (type == null) {
                 throw new TrinoException(NOT_SUPPORTED, format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));
             }
         }
@@ -105,7 +114,12 @@ public class IcebergTableName
             return Optional.of(DATA);
         }
         try {
-            return Optional.of(TableType.valueOf(typeString.toUpperCase(ENGLISH)));
+            TableType parsedType = TableType.valueOf(typeString.toUpperCase(ENGLISH));
+            if (parsedType == DATA) {
+                // $data cannot be encoded in table name
+                return Optional.empty();
+            }
+            return Optional.of(parsedType);
         }
         catch (IllegalArgumentException e) {
             return Optional.empty();
@@ -119,17 +133,6 @@ public class IcebergTableName
             throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
         }
         String typeString = match.group("type");
-        if (typeString == null) {
-            return true;
-        }
-        else {
-            try {
-                TableType type = TableType.valueOf(typeString.toUpperCase(ENGLISH));
-                return type == DATA;
-            }
-            catch (IllegalArgumentException e) {
-                return false;
-            }
-        }
+        return typeString == null;
     }
 }

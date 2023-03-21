@@ -232,6 +232,20 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Override
+    public void testNoDataSystemTable()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/6515): Big Query throws an error when trying to read "some_table$data".
+        assertThatThrownBy(super::testNoDataSystemTable)
+                .hasMessageFindingMatch("\\Q" +
+                        "Expecting message:\n" +
+                        "  \"Cannot read partition information from a table that is not partitioned: \\E\\S+\\Q:tpch.nation$data\"\n" +
+                        "to match regex:\n" +
+                        "  \"line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist\"\n" +
+                        "but did not.");
+        throw new SkipException("TODO");
+    }
+
+    @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
         return nullToEmpty(exception.getMessage()).matches(".*(Fields must contain only letters, numbers, and underscores, start with a letter or underscore, and be at most 300 characters long).*");

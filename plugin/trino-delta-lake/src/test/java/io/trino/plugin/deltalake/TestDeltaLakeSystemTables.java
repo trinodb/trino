@@ -36,21 +36,6 @@ public class TestDeltaLakeSystemTables
     }
 
     @Test
-    public void testDataTable()
-    {
-        try {
-            assertUpdate("CREATE TABLE test_data_table (_bigint BIGINT)");
-            assertUpdate("INSERT INTO test_data_table VALUES 1, 2, 3", 3);
-
-            assertQuery("SELECT * FROM test_data_table", "VALUES 1, 2, 3");
-            assertQuery("SELECT * FROM \"test_data_table$data\"", "VALUES 1, 2, 3");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS test_data_table");
-        }
-    }
-
-    @Test
     public void testHistoryTable()
     {
         try {
