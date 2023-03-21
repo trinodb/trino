@@ -13,23 +13,19 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.TestingSessionContext;
 
-import java.util.Map;
 import java.util.Set;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TestQueryRunnerUtil
@@ -68,30 +64,5 @@ public final class TestQueryRunnerUtil
             MILLISECONDS.sleep(100);
         }
         while (!expectedQueryStates.contains(dispatchManager.getQueryInfo(queryId).getState()));
-    }
-
-    public static DistributedQueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createQueryRunner(ImmutableMap.of());
-    }
-
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
-                .setExtraProperties(extraProperties)
-                .setNodeCount(2)
-                .build();
-
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
-        }
     }
 }
