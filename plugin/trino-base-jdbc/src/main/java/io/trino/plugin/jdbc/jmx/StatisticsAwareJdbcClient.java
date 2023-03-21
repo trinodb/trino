@@ -320,10 +320,10 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
-        return stats.getGetPreparedStatement().wrap(() -> delegate().getPreparedStatement(connection, sql));
+        return stats.getGetPreparedStatement().wrap(() -> delegate().getPreparedStatement(connection, sql, columnCount));
     }
 
     @Override

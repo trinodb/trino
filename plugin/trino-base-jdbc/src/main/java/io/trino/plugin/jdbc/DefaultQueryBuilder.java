@@ -171,12 +171,13 @@ public class DefaultQueryBuilder
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
-            PreparedQuery preparedQuery)
+            PreparedQuery preparedQuery,
+            Optional<Integer> columnCount)
             throws SQLException
     {
         String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
         log.debug("Preparing query: %s", modifiedQuery);
-        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery);
+        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery, columnCount);
 
         List<QueryParameter> parameters = preparedQuery.getParameters();
         for (int i = 0; i < parameters.size(); i++) {
