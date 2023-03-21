@@ -156,10 +156,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         transactionLogAccess.invalidateCaches(tableLocation);
         try {
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(table.getSchemaTableName(), tableLocation, session);
-            Optional<MetadataEntry> maybeMetadata = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
-            if (maybeMetadata.isEmpty()) {
-                throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Provided location did not contain a valid Delta Lake table: " + tableLocation);
-            }
+            transactionLogAccess.getMetadataEntry(tableSnapshot, session); // verify metadata exists
         }
         catch (IOException | RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
@@ -191,7 +188,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
+    public MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         return transactionLogAccess.getMetadataEntry(tableSnapshot, session);
     }
@@ -249,8 +246,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
         double numRecords = 0L;
 
-        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(tableSnapshot, session)
-                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableHandle.getSchemaTableName()));
+        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
         List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
                 .map(columnMeta -> new DeltaLakeColumnHandle(

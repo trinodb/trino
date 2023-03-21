@@ -137,7 +137,7 @@ public class TestTransactionLogAccess
                 "schema",
                 tableName,
                 "location",
-                Optional.empty(), // ignored
+                new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
                 TupleDomain.none(),
                 TupleDomain.none(),
                 Optional.empty(),
@@ -157,7 +157,7 @@ public class TestTransactionLogAccess
     {
         setupTransactionLogAccess("person");
 
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION).get();
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
 
         assertEquals(metadataEntry.getCreatedTime(), 1579190100722L);
         assertEquals(metadataEntry.getId(), "b6aeffad-da73-4dde-b68e-937e468b1fdf");
@@ -176,7 +176,7 @@ public class TestTransactionLogAccess
             throws Exception
     {
         setupTransactionLogAccess("uppercase_columns");
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION).get();
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("ALA");
         assertThat(metadataEntry.getCanonicalPartitionColumns()).containsOnly("ala");
         assertEquals(tableSnapshot.getCachedMetadata(), Optional.of(metadataEntry));
@@ -343,7 +343,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccess(tableName);
 
         transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
-        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION).get();
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
 
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("age");
 
@@ -599,7 +599,7 @@ public class TestTransactionLogAccess
         }
 
         assertEquals(expectedDataFiles.size(), dataFilesWithFixedVersion.size());
-        List<ColumnMetadata> columns = extractColumnMetadata(transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION).get(), TESTING_TYPE_MANAGER);
+        List<ColumnMetadata> columns = extractColumnMetadata(transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION), TESTING_TYPE_MANAGER);
         for (int i = 0; i < expectedDataFiles.size(); i++) {
             AddFileEntry expected = expectedDataFiles.get(i);
             AddFileEntry actual = dataFilesWithFixedVersion.get(i);
