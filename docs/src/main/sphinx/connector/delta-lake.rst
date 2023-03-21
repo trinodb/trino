@@ -676,20 +676,7 @@ These metadata tables contain information about the internal structure
 of the Delta Lake table. You can query each metadata table by appending the
 metadata table name to the table name::
 
-   SELECT * FROM "test_table$data"
-
-``$data`` table
-^^^^^^^^^^^^^^^
-
-The ``$data`` table is an alias for the Delta Lake table itself.
-
-The statement::
-
-    SELECT * FROM "test_table$data"
-
-is equivalent to::
-
-    SELECT * FROM test_table
+   SELECT * FROM "test_table$history"
 
 ``$history`` table
 ^^^^^^^^^^^^^^^^^^
