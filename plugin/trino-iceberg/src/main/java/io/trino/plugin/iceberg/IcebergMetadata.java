@@ -393,7 +393,7 @@ public class IcebergMetadata
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
                 name.getTableName(),
-                name.getTableType(),
+                DATA,
                 tableSnapshotId,
                 SchemaParser.toJson(tableSchema),
                 table.sortOrder().fields().stream()
@@ -478,7 +478,7 @@ public class IcebergMetadata
         }
         IcebergTableName icebergTableName = new IcebergTableName(name, tableType.get());
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableNameWithType());
-        return switch (icebergTableName.getTableType()) {
+        return switch (tableType.get()) {
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
