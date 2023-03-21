@@ -140,19 +140,19 @@ public class DeltaLakeTableHandle
     public DeltaLakeTableHandle withProjectedColumns(Set<ColumnHandle> projectedColumns)
     {
         return new DeltaLakeTableHandle(
-                getSchemaName(),
-                getTableName(),
-                getLocation(),
-                Optional.of(getMetadataEntry()),
-                getEnforcedPartitionConstraint(),
-                getNonPartitionConstraint(),
-                getWriteType(),
+                schemaName,
+                tableName,
+                location,
+                metadataEntry,
+                enforcedPartitionConstraint,
+                nonPartitionConstraint,
+                writeType,
                 Optional.of(projectedColumns),
-                getUpdatedColumns(),
-                getUpdateRowIdColumns(),
-                getAnalyzeHandle(),
-                getReadVersion(),
-                isRetriesEnabled());
+                updatedColumns,
+                updateRowIdColumns,
+                analyzeHandle,
+                readVersion,
+                retriesEnabled);
     }
 
     public DeltaLakeTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
