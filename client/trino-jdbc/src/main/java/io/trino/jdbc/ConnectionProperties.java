@@ -88,6 +88,8 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> TRACE_TOKEN = new TraceToken();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
     public static final ConnectionProperty<String> SOURCE = new Source();
+    public static final ConnectionProperty<Class<? extends DnsResolver>> DNS_RESOLVER = new Resolver();
+    public static final ConnectionProperty<String> DNS_RESOLVER_CONTEXT = new ResolverContext();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -128,6 +130,8 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
             .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
+            .add(DNS_RESOLVER)
+            .add(DNS_RESOLVER_CONTEXT)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -610,6 +614,34 @@ final class ConnectionProperties
         public Source()
         {
             super("source", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class Resolver
+            extends AbstractConnectionProperty<Class<? extends DnsResolver>>
+    {
+        public Resolver()
+        {
+            super("dnsResolver", NOT_REQUIRED, ALLOWED, Resolver::findByName);
+        }
+
+        public static Class<? extends DnsResolver> findByName(String name)
+        {
+            try {
+                return Class.forName(name).asSubclass(DnsResolver.class);
+            }
+            catch (ClassNotFoundException e) {
+                throw new RuntimeException("DNS resolver class not found: " + name, e);
+            }
+        }
+    }
+
+    private static class ResolverContext
+            extends AbstractConnectionProperty<String>
+    {
+        public ResolverContext()
+        {
+            super("dnsResolverContext", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
