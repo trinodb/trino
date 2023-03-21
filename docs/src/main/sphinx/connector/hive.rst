@@ -356,6 +356,11 @@ Specific properties can be used to further configure the
     * - ``hive.metastore-cache-ttl``
       - Duration of how long cached metastore data is considered valid.
       - ``0s``
+    * - ``hive.metastore-stats-cache-ttl``
+      - Duration of how long cached metastore statistics are considered valid.
+        If ``hive.metastore-cache-ttl`` is larger then it takes precedence
+        over ``hive.metastore-stats-cache-ttl``.
+      - ``5m``
     * - ``hive.metastore-cache-maximum-size``
       - Maximum number of metastore data objects in the Hive metastore cache.
       - ``10000``
