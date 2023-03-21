@@ -103,7 +103,7 @@ public final class TypeInfoUtils
 
         private static boolean isTypeChar(char c)
         {
-            return isLetterOrDigit(c) || c == '_' || c == '.' || c == ' ' || c == '$';
+            return isLetterOrDigit(c) || c == '-' || c == '_' || c == '.' || c == ' ' || c == '$';
         }
 
         private static List<Token> tokenize(String typeInfoString)

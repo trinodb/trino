@@ -163,6 +163,17 @@ public class TestTypeInfoUtils
                                 getListTypeInfo(getPrimitiveTypeInfo("string")))));
     }
 
+    @Test
+    public void testStructWithDashChar()
+    {
+        // Test for https://issues.apache.org/jira/browse/HIVE-13748
+        assertThat(getTypeInfoFromTypeString("struct<x-a:int,y-b:array<string>>"))
+                .isEqualTo(getStructTypeInfo(
+                        List.of("x-a", "y-b"),
+                        List.of(getPrimitiveTypeInfo("int"),
+                                getListTypeInfo(getPrimitiveTypeInfo("string")))));
+    }
+
     private static ObjectAssert<TypeInfo> assertTypeInfo(String typeString)
     {
         assertThat(getHiveTypeInfo(typeString))
