@@ -142,14 +142,12 @@ public class TestRedshiftConnectorTest
     public void testReadFromLateBindingView(String redshiftType, String trinoType)
     {
         try (TestView view = new TestView(onRemoteDatabase(), TEST_SCHEMA + ".late_schema_binding", "SELECT CAST(NULL AS %s) AS value WITH NO SCHEMA BINDING".formatted(redshiftType))) {
-            assertThat(query("SELECT value, true FROM %s WHERE value IS NULL".formatted(view.getName())))
-                    .projected(1)
+            assertThat(query("SELECT true FROM %s WHERE value IS NULL".formatted(view.getName())))
                     .containsAll("VALUES (true)");
 
             assertThat(query("SHOW COLUMNS FROM %s LIKE 'value'".formatted(view.getName())))
-                    .projected(1)
                     .skippingTypesCheck()
-                    .containsAll("VALUES ('%s')".formatted(trinoType));
+                    .containsAll("VALUES ('value', '%s', '', '')".formatted(trinoType));
         }
     }
 
@@ -165,9 +163,8 @@ public class TestRedshiftConnectorTest
                     .matches("VALUES null");
 
             assertThat(query("SHOW COLUMNS FROM %s LIKE 'value'".formatted(view.getName())))
-                    .projected(1)
                     .skippingTypesCheck()
-                    .matches("VALUES '%s'".formatted(trinoType));
+                    .matches("VALUES ('value', '%s', '', '')".formatted(trinoType));
         }
     }
 
