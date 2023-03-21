@@ -71,12 +71,21 @@ public class DeltaLakeTableName
         String table = match.group("table");
         String typeString = match.group("type");
 
-        DeltaLakeTableType type = DeltaLakeTableType.DATA;
-        if (typeString != null) {
+        DeltaLakeTableType type;
+        if (typeString == null) {
+            type = DATA;
+        }
+        else {
+            type = null;
             try {
-                type = DeltaLakeTableType.valueOf(typeString.toUpperCase(Locale.ENGLISH));
+                DeltaLakeTableType parsedType = DeltaLakeTableType.valueOf(typeString.toUpperCase(Locale.ENGLISH));
+                if (parsedType != DATA) {
+                    type = parsedType;
+                }
             }
-            catch (IllegalArgumentException e) {
+            catch (IllegalArgumentException ignored) {
+            }
+            if (type == null) {
                 throw new TrinoException(NOT_SUPPORTED, format("Invalid Delta Lake table name (unknown type '%s'): %s", typeString, name));
             }
         }
@@ -105,7 +114,12 @@ public class DeltaLakeTableName
             return Optional.of(DATA);
         }
         try {
-            return Optional.of(DeltaLakeTableType.valueOf(typeString.toUpperCase(Locale.ENGLISH)));
+            DeltaLakeTableType parsedType = DeltaLakeTableType.valueOf(typeString.toUpperCase(Locale.ENGLISH));
+            if (parsedType == DATA) {
+                // $data cannot be encoded in table name
+                return Optional.empty();
+            }
+            return Optional.of(parsedType);
         }
         catch (IllegalArgumentException e) {
             return Optional.empty();
@@ -119,15 +133,6 @@ public class DeltaLakeTableName
             throw new TrinoException(NOT_SUPPORTED, "Invalid Delta Lake table name: " + name);
         }
         String typeString = match.group("type");
-        if (typeString == null) {
-            return true;
-        }
-        try {
-            DeltaLakeTableType type = DeltaLakeTableType.valueOf(typeString.toUpperCase(Locale.ENGLISH));
-            return type == DATA;
-        }
-        catch (IllegalArgumentException e) {
-            return false;
-        }
+        return typeString == null;
     }
 }

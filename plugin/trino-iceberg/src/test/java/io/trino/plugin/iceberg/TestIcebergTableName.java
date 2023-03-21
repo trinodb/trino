@@ -29,10 +29,10 @@ public class TestIcebergTableName
     public void testFrom()
     {
         assertFrom("abc", "abc", TableType.DATA);
-        assertFrom("abc$data", "abc", TableType.DATA);
         assertFrom("abc$history", "abc", TableType.HISTORY);
         assertFrom("abc$snapshots", "abc", TableType.SNAPSHOTS);
 
+        assertInvalid("abc$data", "Invalid Iceberg table name (unknown type 'data'): abc$data");
         assertInvalid("abc@123", "Invalid Iceberg table name: abc@123");
         assertInvalid("abc@xyz", "Invalid Iceberg table name: abc@xyz");
         assertInvalid("abc$what", "Invalid Iceberg table name (unknown type 'what'): abc$what");
@@ -48,8 +48,8 @@ public class TestIcebergTableName
     public void testIsDataTable()
     {
         assertTrue(IcebergTableName.isDataTable("abc"));
-        assertTrue(IcebergTableName.isDataTable("abc$data"));
 
+        assertFalse(IcebergTableName.isDataTable("abc$data")); // it's invalid
         assertFalse(IcebergTableName.isDataTable("abc$history"));
         assertFalse(IcebergTableName.isDataTable("abc$invalid"));
     }
@@ -67,7 +67,7 @@ public class TestIcebergTableName
     public void testTableTypeFrom()
     {
         assertEquals(IcebergTableName.tableTypeFrom("abc"), Optional.of(TableType.DATA));
-        assertEquals(IcebergTableName.tableTypeFrom("abc$data"), Optional.of(TableType.DATA));
+        assertEquals(IcebergTableName.tableTypeFrom("abc$data"), Optional.empty()); // it's invalid
         assertEquals(IcebergTableName.tableTypeFrom("abc$history"), Optional.of(TableType.HISTORY));
 
         assertEquals(IcebergTableName.tableTypeFrom("abc$invalid"), Optional.empty());
