@@ -140,6 +140,14 @@ public class TestJdbcConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @Override
+    public void testReadMetadataWithRelationsConcurrentModifications()
+    {
+        // Under concurrently, H2 sometimes returns null table name in DatabaseMetaData.getTables's ResultSet
+        // See https://github.com/trinodb/trino/issues/16658 for more information
+        throw new SkipException("Skipped due to H2 problems");
+    }
+
     @Test
     public void testUnknownTypeAsIgnored()
     {
