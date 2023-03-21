@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -2458,7 +2459,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableName deltaLakeTableName = new DeltaLakeTableName(name, tableType.get());
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), deltaLakeTableName.getTableNameWithType());
         return switch (deltaLakeTableName.getTableType()) {
-            case DATA -> Optional.empty(); // Handled above
+            case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new DeltaLakeHistoryTable(
                     systemTableName,
                     getCommitInfoEntries(tableHandle.getSchemaTableName(), session),
