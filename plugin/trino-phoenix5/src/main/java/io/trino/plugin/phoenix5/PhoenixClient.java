@@ -239,12 +239,6 @@ public class PhoenixClient
     }
 
     @Override
-    public void execute(ConnectorSession session, String statement)
-    {
-        super.execute(session, statement);
-    }
-
-    @Override
     public Collection<String> listSchemas(Connection connection)
     {
         try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
