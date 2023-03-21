@@ -128,7 +128,7 @@ public class VacuumProcedure
         }
         catch (Exception e) {
             // This is not categorized as TrinoException. All possible external failures should be handled explicitly.
-            throw new RuntimeException(format("Failure when vacuuming %s.%s with retention %s", schema, table, retention), e);
+            throw new RuntimeException(format("Failure when vacuuming %s.%s with retention %s: %s", schema, table, retention, e), e);
         }
     }
 
