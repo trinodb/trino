@@ -23,9 +23,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.QueryRunnerUtil.createQuery;
+import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.execution.TestQueryRunnerUtil.createQuery;
-import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
