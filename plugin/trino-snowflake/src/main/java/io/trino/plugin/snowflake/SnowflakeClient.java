@@ -200,7 +200,6 @@ public class SnowflakeClient
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         int jdbcType = typeHandle.getJdbcType();
-        System.out.println("Column mapping for type " + typeHandle);
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
             return mapping;
@@ -266,7 +265,6 @@ public class SnowflakeClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        System.out.println("WRITE MAPPING CALLED FOR " + type);
         if (type == BOOLEAN) {
             return WriteMapping.booleanMapping("BOOLEAN", booleanWriteFunction());
         }
@@ -307,7 +305,6 @@ public class SnowflakeClient
             return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
         }
         if (type instanceof TimestampType timestampType) {
-            System.out.println("PRECISION " + timestampType.getPrecision());
             if (timestampType.getPrecision() == 0) {
                 return WriteMapping.longMapping(
                         "NUMBER(38,0)",
@@ -339,21 +336,12 @@ public class SnowflakeClient
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         try {
-            System.out.println("CREATE T" + tableMetadata.getProperties());
             createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
             boolean exists = DUPLICATE_TABLE_SQLSTATE.equals(e.getSQLState());
             throw new TrinoException(exists ? ALREADY_EXISTS : JDBC_ERROR, e);
         }
-    }
-
-    @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        System.out.println(tableMetadata.getClass());
-        System.out.println("BEGIN C" + tableMetadata.getProperties());
-        return super.beginCreateTable(session, tableMetadata);
     }
 
     @Override
@@ -366,13 +354,6 @@ public class SnowflakeClient
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
         return super.beginInsertTable(session, tableHandle, columns);
-    }
-
-    @Override
-    protected String postProcessInsertTableNameClause(ConnectorSession session, String tableName)
-    {
-        System.out.println("INSERTION POST " + tableName);
-        return super.postProcessInsertTableNameClause(session, tableName);
     }
 
     @Override
@@ -501,10 +482,6 @@ public class SnowflakeClient
     @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        // TODO support complex ConnectorExpressions
-        //return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
-        System.out.println("AGGGGG FUNCTION " + aggregate);
-        //return super.implementAggregation(session, aggregate, assignments);
         return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
@@ -584,7 +561,7 @@ public class SnowflakeClient
             return readTableStatistics(session, handle);
         }
         catch (SQLException | RuntimeException e) {
-            System.out.println("ERROR when fetching table stats " + e);
+            LOG.error("ERROR when fetching table stats ", e);
             return TableStatistics.empty();
         }
     }
@@ -614,7 +591,6 @@ public class SnowflakeClient
 
             for (JdbcColumnHandle column : this.getColumns(session, table)) {
                 ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
-                System.out.println(result);
                 if (result == null) {
                     continue;
                 }
@@ -642,7 +618,6 @@ public class SnowflakeClient
             }
 
             TableStatistics statistics = tableStatistics.build();
-            System.out.println("TAB Stats " + statistics);
             return statistics;
         }
     }
@@ -767,7 +742,6 @@ public class SnowflakeClient
                 if (tables > 1) {
                     LOG.error(new RuntimeException("Table stats fetching more than one table " + tables));
                 }
-                System.out.println("RECORD COUNT FOR " + tableName + " " + recordCount);
                 return recordCount;
             }
             catch (Exception e) {
@@ -800,10 +774,6 @@ public class SnowflakeClient
                     else {
                         columnLength = resultSet.getInt("NUMERIC_PRECISION");
                     }
-                    System.out.println("STATS FOR " + tableName);
-                    System.out.println("STATS FOR  COLUMN " + columnName);
-                    System.out.println("STATS FOR  IS_NULLABLE " + isNullable);
-                    System.out.println("STATS FOR  CHARACTER_MAXIMUM_LENGTH " + columnLength);
                     Optional<Float> distinctValue = Optional.empty();
                     Optional<Float> nullFaction = Optional.empty();
                     if (!isNullable.equalsIgnoreCase("YES")) {
