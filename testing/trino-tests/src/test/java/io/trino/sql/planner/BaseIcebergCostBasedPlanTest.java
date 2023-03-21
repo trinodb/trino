@@ -94,6 +94,11 @@ public abstract class BaseIcebergCostBasedPlanTest
         super(schemaName, Optional.of(fileFormatName), partitioned);
     }
 
+    protected BaseIcebergCostBasedPlanTest(String schemaName, String fileFormatName, boolean partitioned, boolean smallFiles)
+    {
+        super(schemaName, Optional.of(fileFormatName), partitioned, smallFiles);
+    }
+
     @Override
     protected ConnectorFactory createConnectorFactory()
     {
