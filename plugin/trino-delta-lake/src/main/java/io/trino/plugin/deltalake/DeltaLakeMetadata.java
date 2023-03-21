@@ -2455,8 +2455,7 @@ public class DeltaLakeMetadata
         if (tableType.isEmpty()) {
             return Optional.empty();
         }
-        DeltaLakeTableName deltaLakeTableName = new DeltaLakeTableName(name, tableType.get());
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), deltaLakeTableName.getTableNameWithType());
+        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameWithType(name, tableType.get()));
         return switch (tableType.get()) {
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new DeltaLakeHistoryTable(

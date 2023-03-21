@@ -74,10 +74,10 @@ public class TestIcebergTableName
     }
 
     @Test
-    public void testGetTableNameWithType()
+    public void testTableNameWithType()
     {
-        assertEquals(new IcebergTableName("abc", TableType.DATA).getTableNameWithType(), "abc$data");
-        assertEquals(new IcebergTableName("abc", TableType.HISTORY).getTableNameWithType(), "abc$history");
+        assertEquals(IcebergTableName.tableNameWithType("abc", TableType.DATA), "abc$data");
+        assertEquals(IcebergTableName.tableNameWithType("abc", TableType.HISTORY), "abc$history");
     }
 
     private static void assertInvalid(String inputName, String message)

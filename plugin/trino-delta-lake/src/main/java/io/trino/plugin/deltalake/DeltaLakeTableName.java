@@ -34,7 +34,7 @@ public class DeltaLakeTableName
     private final String tableName;
     private final DeltaLakeTableType tableType;
 
-    public DeltaLakeTableName(String tableName, DeltaLakeTableType tableType)
+    private DeltaLakeTableName(String tableName, DeltaLakeTableType tableType)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
@@ -52,6 +52,12 @@ public class DeltaLakeTableName
 
     public String getTableNameWithType()
     {
+        return tableNameWithType(tableName, tableType);
+    }
+
+    public static String tableNameWithType(String tableName, DeltaLakeTableType tableType)
+    {
+        requireNonNull(tableName, "tableName is null");
         return tableName + "$" + tableType.name().toLowerCase(Locale.ENGLISH);
     }
 

@@ -475,8 +475,7 @@ public class IcebergMetadata
         if (tableType.isEmpty()) {
             return Optional.empty();
         }
-        IcebergTableName icebergTableName = new IcebergTableName(name, tableType.get());
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableNameWithType());
+        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), IcebergTableName.tableNameWithType(name, tableType.get()));
         return switch (tableType.get()) {
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(systemTableName, table));
