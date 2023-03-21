@@ -71,10 +71,10 @@ public class TestDeltaLakeTableName
     }
 
     @Test
-    public void testGetTableNameWithType()
+    public void testTableNameWithType()
     {
-        assertEquals(new DeltaLakeTableName("abc", DATA).getTableNameWithType(), "abc$data");
-        assertEquals(new DeltaLakeTableName("abc", HISTORY).getTableNameWithType(), "abc$history");
+        assertEquals(DeltaLakeTableName.tableNameWithType("abc", DATA), "abc$data");
+        assertEquals(DeltaLakeTableName.tableNameWithType("abc", HISTORY), "abc$history");
     }
 
     private static void assertInvalid(String inputName, String message)

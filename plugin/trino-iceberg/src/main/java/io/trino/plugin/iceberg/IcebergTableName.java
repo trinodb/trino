@@ -34,7 +34,7 @@ public class IcebergTableName
     private final String tableName;
     private final TableType tableType;
 
-    public IcebergTableName(String tableName, TableType tableType)
+    private IcebergTableName(String tableName, TableType tableType)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
@@ -52,6 +52,12 @@ public class IcebergTableName
 
     public String getTableNameWithType()
     {
+        return tableNameWithType(tableName, tableType);
+    }
+
+    public static String tableNameWithType(String tableName, TableType tableType)
+    {
+        requireNonNull(tableName, "tableName is null");
         return tableName + "$" + tableType.name().toLowerCase(ENGLISH);
     }
 
