@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -127,7 +128,7 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return delegate().convertPredicate(session, expression, assignments);
     }
@@ -158,7 +159,7 @@ public abstract class ForwardingJdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions)
+            Map<String, ParameterizedExpression> columnExpressions)
     {
         return delegate().prepareQuery(session, table, groupingSets, columns, columnExpressions);
     }

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -599,7 +600,7 @@ public class TestDefaultJdbcQueryBuilder
                 TEST_TABLE,
                 Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
                 projectedColumns,
-                Map.of("s", "sum(\"col_0\")"),
+                Map.of("s", new ParameterizedExpression("sum(\"col_0\")", List.of())),
                 TupleDomain.all(),
                 Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {
@@ -642,7 +643,7 @@ public class TestDefaultJdbcQueryBuilder
                 TEST_TABLE,
                 Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
                 projectedColumns,
-                Map.of("s", "sum(\"col_0\")"),
+                Map.of("s", new ParameterizedExpression("sum(\"col_0\")", List.of())),
                 tupleDomain,
                 Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery)) {

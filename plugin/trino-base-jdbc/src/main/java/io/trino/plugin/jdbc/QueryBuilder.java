@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinType;
@@ -34,9 +35,9 @@ public interface QueryBuilder
             JdbcRelationHandle baseRelation,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions,
+            Map<String, ParameterizedExpression> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate);
+            Optional<ParameterizedExpression> additionalPredicate);
 
     PreparedQuery prepareJoinQuery(
             JdbcClient client,
@@ -55,7 +56,7 @@ public interface QueryBuilder
             Connection connection,
             JdbcNamedRelationHandle baseRelation,
             TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate);
+            Optional<ParameterizedExpression> additionalPredicate);
 
     PreparedStatement prepareStatement(
             JdbcClient client,

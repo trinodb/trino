@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -440,7 +441,7 @@ public abstract class BaseJdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions)
+            Map<String, ParameterizedExpression> columnExpressions)
     {
         verify(table.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(table));
         try (Connection connection = connectionFactory.openConnection(session)) {
@@ -465,7 +466,7 @@ public abstract class BaseJdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions,
+            Map<String, ParameterizedExpression> columnExpressions,
             Optional<JdbcSplit> split)
     {
         return applyQueryTransformations(table, queryBuilder.prepareSelectQuery(
@@ -480,15 +481,18 @@ public abstract class BaseJdbcClient
                 getAdditionalPredicate(table.getConstraintExpressions(), split.flatMap(JdbcSplit::getAdditionalPredicate))));
     }
 
-    protected static Optional<String> getAdditionalPredicate(List<String> constraintExpressions, Optional<String> splitPredicate)
+    protected static Optional<ParameterizedExpression> getAdditionalPredicate(List<ParameterizedExpression> constraintExpressions, Optional<String> splitPredicate)
     {
         if (constraintExpressions.isEmpty() && splitPredicate.isEmpty()) {
             return Optional.empty();
         }
 
-        return Optional.of(
-                Stream.concat(constraintExpressions.stream(), splitPredicate.stream())
-                        .collect(joining(") AND (", "(", ")")));
+        return Optional.of(new ParameterizedExpression(
+                Stream.concat(constraintExpressions.stream().map(ParameterizedExpression::expression), splitPredicate.stream())
+                        .collect(joining(") AND (", "(", ")")),
+                constraintExpressions.stream()
+                        .flatMap(expressionRewrite -> expressionRewrite.parameters().stream())
+                        .collect(toImmutableList())));
     }
 
     @Override

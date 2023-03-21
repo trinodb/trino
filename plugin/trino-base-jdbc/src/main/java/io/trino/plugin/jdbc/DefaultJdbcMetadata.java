@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -157,7 +158,7 @@ public class DefaultJdbcMetadata
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
-        List<String> newConstraintExpressions;
+        List<ParameterizedExpression> newConstraintExpressions;
         TupleDomain<ColumnHandle> remainingFilter;
         Optional<ConnectorExpression> remainingExpression;
         if (newDomain.isNone()) {
@@ -190,10 +191,10 @@ public class DefaultJdbcMetadata
             remainingFilter = TupleDomain.withColumnDomains(unsupported);
 
             if (isComplexExpressionPushdown(session)) {
-                List<String> newExpressions = new ArrayList<>();
+                List<ParameterizedExpression> newExpressions = new ArrayList<>();
                 List<ConnectorExpression> remainingExpressions = new ArrayList<>();
                 for (ConnectorExpression expression : extractConjuncts(constraint.getExpression())) {
-                    Optional<String> converted = jdbcClient.convertPredicate(session, expression, constraint.getAssignments());
+                    Optional<ParameterizedExpression> converted = jdbcClient.convertPredicate(session, expression, constraint.getAssignments());
                     if (converted.isPresent()) {
                         newExpressions.add(converted.get());
                     }
@@ -201,7 +202,7 @@ public class DefaultJdbcMetadata
                         remainingExpressions.add(expression);
                     }
                 }
-                newConstraintExpressions = ImmutableSet.<String>builder()
+                newConstraintExpressions = ImmutableSet.<ParameterizedExpression>builder()
                         .addAll(handle.getConstraintExpressions())
                         .addAll(newExpressions)
                         .build().asList();
@@ -337,7 +338,7 @@ public class DefaultJdbcMetadata
         ImmutableList.Builder<JdbcColumnHandle> newColumns = ImmutableList.builder();
         ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
         ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
-        ImmutableMap.Builder<String, String> expressions = ImmutableMap.builder();
+        ImmutableMap.Builder<String, ParameterizedExpression> expressions = ImmutableMap.builder();
 
         List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
                 .map(groupingSet -> groupingSet.stream()
@@ -374,7 +375,7 @@ public class DefaultJdbcMetadata
             newColumns.add(newColumn);
             projections.add(new Variable(newColumn.getColumnName(), aggregate.getOutputType()));
             resultAssignments.add(new Assignment(newColumn.getColumnName(), newColumn, aggregate.getOutputType()));
-            expressions.put(columnName, expression.get().getExpression());
+            expressions.put(columnName, new ParameterizedExpression(expression.get().getExpression(), expression.get().getParameters()));
         }
 
         List<JdbcColumnHandle> newColumnsList = newColumns.build();
