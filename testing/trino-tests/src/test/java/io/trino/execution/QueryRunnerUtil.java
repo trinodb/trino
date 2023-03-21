@@ -28,9 +28,9 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.execution.QueryState.RUNNING;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public final class TestQueryRunnerUtil
+public final class QueryRunnerUtil
 {
-    private TestQueryRunnerUtil() {}
+    private QueryRunnerUtil() {}
 
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
