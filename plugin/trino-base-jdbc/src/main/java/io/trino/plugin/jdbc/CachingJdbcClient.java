@@ -381,10 +381,10 @@ public class CachingJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
-        return delegate.getPreparedStatement(connection, sql);
+        return delegate.getPreparedStatement(connection, sql, columnCount);
     }
 
     @Override

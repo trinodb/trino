@@ -439,7 +439,7 @@ public class SqlServerClient
         }
         PreparedQuery preparedQuery = new PreparedQuery(format("SELECT * FROM %s", quoted(tableHandle.asPlainTable().getRemoteTableName())), ImmutableList.of());
 
-        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
             ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
             for (int column = 1; column <= metadata.getColumnCount(); column++) {

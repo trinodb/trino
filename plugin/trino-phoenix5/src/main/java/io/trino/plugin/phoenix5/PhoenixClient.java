@@ -302,7 +302,7 @@ public class PhoenixClient
                 columns,
                 ImmutableMap.of(),
                 split);
-        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.of(columns.size()));
     }
 
     @Override

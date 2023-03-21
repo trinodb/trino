@@ -20,9 +20,24 @@ import javax.validation.constraints.NotNull;
 
 public class PostgreSqlConfig
 {
+    private boolean disableAutomaticFetchSize;
     private ArrayMapping arrayMapping = ArrayMapping.DISABLED;
     private boolean includeSystemTables;
     private boolean enableStringPushdownWithCollate;
+
+    @Deprecated
+    public boolean isDisableAutomaticFetchSize()
+    {
+        return disableAutomaticFetchSize;
+    }
+
+    @Deprecated // TODO temporary kill-switch, to be removed
+    @Config("postgresql.disable-automatic-fetch-size")
+    public PostgreSqlConfig setDisableAutomaticFetchSize(boolean disableAutomaticFetchSize)
+    {
+        this.disableAutomaticFetchSize = disableAutomaticFetchSize;
+        return this;
+    }
 
     public enum ArrayMapping
     {
