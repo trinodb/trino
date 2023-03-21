@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
@@ -33,7 +35,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 class RewriteLogicalExpression
-        implements ConnectorExpressionRule<Call, String>
+        implements ConnectorExpressionRule<Call, ParameterizedExpression>
 {
     private final Pattern<Call> pattern;
     private final String operator;
@@ -53,21 +55,25 @@ class RewriteLogicalExpression
     }
 
     @Override
-    public Optional<String> rewrite(Call call, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(Call call, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         List<ConnectorExpression> arguments = call.getArguments();
         verify(!arguments.isEmpty(), "no arguments");
         List<String> terms = new ArrayList<>(arguments.size());
+        ImmutableList.Builder<QueryParameter> parameters = ImmutableList.builder();
         for (ConnectorExpression argument : arguments) {
             verify(argument.getType() == BOOLEAN, "Unexpected type of argument: %s", argument.getType());
-            Optional<String> rewritten = context.defaultRewrite(argument);
+            Optional<ParameterizedExpression> rewritten = context.defaultRewrite(argument);
             if (rewritten.isEmpty()) {
                 return Optional.empty();
             }
-            terms.add(rewritten.get());
+            terms.add(rewritten.get().expression());
+            parameters.addAll(rewritten.get().parameters());
         }
 
-        return Optional.of(terms.stream()
-                .collect(Collectors.joining(") " + operator + " (", "(", ")")));
+        return Optional.of(new ParameterizedExpression(
+                terms.stream()
+                        .collect(Collectors.joining(") " + operator + " (", "(", ")")),
+                parameters.build()));
     }
 }

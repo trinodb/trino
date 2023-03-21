@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -40,7 +41,7 @@ public final class JdbcTableHandle
 
     private final TupleDomain<ColumnHandle> constraint;
     // Additional to constraint
-    private final List<String> constraintExpressions;
+    private final List<ParameterizedExpression> constraintExpressions;
 
     // semantically sort order is applied after constraint
     private final Optional<List<JdbcSortItem>> sortOrder;
@@ -78,7 +79,7 @@ public final class JdbcTableHandle
     public JdbcTableHandle(
             @JsonProperty("relationHandle") JdbcRelationHandle relationHandle,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("constraintExpressions") List<String> constraintExpressions,
+            @JsonProperty("constraintExpressions") List<ParameterizedExpression> constraintExpressions,
             @JsonProperty("sortOrder") Optional<List<JdbcSortItem>> sortOrder,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
@@ -138,7 +139,7 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
-    public List<String> getConstraintExpressions()
+    public List<ParameterizedExpression> getConstraintExpressions()
     {
         return constraintExpressions;
     }
