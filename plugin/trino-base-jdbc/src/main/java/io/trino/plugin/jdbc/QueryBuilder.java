@@ -62,6 +62,7 @@ public interface QueryBuilder
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
-            PreparedQuery preparedQuery)
+            PreparedQuery preparedQuery,
+            Optional<Integer> columnCount)
             throws SQLException;
 }
