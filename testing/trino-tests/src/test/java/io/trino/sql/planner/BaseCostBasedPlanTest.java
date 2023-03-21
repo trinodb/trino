@@ -88,12 +88,19 @@ public abstract class BaseCostBasedPlanTest
     private final String schemaName;
     private final Optional<String> fileFormatName;
     private final boolean partitioned;
+    protected boolean smallFiles;
 
     public BaseCostBasedPlanTest(String schemaName, Optional<String> fileFormatName, boolean partitioned)
+    {
+        this(schemaName, fileFormatName, partitioned, false);
+    }
+
+    public BaseCostBasedPlanTest(String schemaName, Optional<String> fileFormatName, boolean partitioned, boolean smallFiles)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.fileFormatName = requireNonNull(fileFormatName, "fileFormatName is null");
         this.partitioned = partitioned;
+        this.smallFiles = smallFiles;
     }
 
     @Override
@@ -141,7 +148,7 @@ public abstract class BaseCostBasedPlanTest
         Path queryPath = Paths.get(queryResourcePath);
         String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
         Path directory = queryPath.getParent();
-        directory = directory.resolve(connectorName);
+        directory = directory.resolve(connectorName + (smallFiles ? "_small_files" : ""));
         if (fileFormatName.isPresent()) {
             directory = directory.resolve(fileFormatName.get());
         }

@@ -1,0 +1,87 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "ae93c6b5-d917-4680-adb7-906b0dbf3819",
+  "location" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/household_demographics",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1678866162846,
+  "last-column-id" : 5,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "hd_demo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "hd_income_band_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "hd_buy_potential",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "hd_dep_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 5,
+      "name" : "hd_vehicle_count",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 4875603543705301354,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 4875603543705301354,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 4875603543705301354,
+    "timestamp-ms" : 1678866162846,
+    "summary" : {
+      "operation" : "append",
+      "trino_query_id" : "20230315_074241_00051_9f4mz",
+      "added-data-files" : "1",
+      "added-records" : "7200",
+      "added-files-size" : "9415",
+      "changed-partition-count" : "1",
+      "total-records" : "7200",
+      "total-files-size" : "9415",
+      "total-data-files" : "1",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/household_demographics/metadata/snap-4875603543705301354-1-3f673543-f484-41ca-b5ea-77d5dc1a95cf.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1678866162846,
+    "snapshot-id" : 4875603543705301354
+  } ],
+  "metadata-log" : [ ]
+}
