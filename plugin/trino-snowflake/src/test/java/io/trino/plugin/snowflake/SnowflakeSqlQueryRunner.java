@@ -108,13 +108,8 @@ public final class SnowflakeSqlQueryRunner
             queryRunner = builder.build();
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-
-            // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", JDBC_URL);
-            //
-            //?db=DATAPIPES&warehouse=JATIN_WAREHOUSE
-
             connectorProperties.putIfAbsent("connection-user", USER);
             connectorProperties.putIfAbsent("connection-password", PASSWORD);
             connectorProperties.putIfAbsent("snowflake.catalog", catalog.orElse("public"));
