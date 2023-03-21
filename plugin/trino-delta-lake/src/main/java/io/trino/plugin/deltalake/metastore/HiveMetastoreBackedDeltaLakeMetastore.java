@@ -250,7 +250,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         double numRecords = 0L;
 
         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(tableSnapshot, session)
-                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableHandle.getTableName()));
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableHandle.getSchemaTableName()));
         List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
                 .map(columnMeta -> new DeltaLakeColumnHandle(
