@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.plugin.base.RecordParameter;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
 import io.trino.spi.TrinoException;
@@ -658,9 +659,8 @@ public class CachingJdbcClient
         cache.invalidateAll(cacheKeys);
     }
 
-    private record ColumnsCacheKey(IdentityCacheKey identity, Map<String, Object> sessionProperties, SchemaTableName table)
+    private record ColumnsCacheKey(@RecordParameter IdentityCacheKey identity, @RecordParameter Map<String, Object> sessionProperties, @RecordParameter SchemaTableName table)
     {
-        @SuppressWarnings("UnusedVariable") // TODO: Remove once https://github.com/google/error-prone/issues/2713 is fixed
         private ColumnsCacheKey
         {
             requireNonNull(identity, "identity is null");
