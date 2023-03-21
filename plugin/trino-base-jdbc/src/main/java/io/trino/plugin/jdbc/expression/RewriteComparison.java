@@ -13,10 +13,12 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
@@ -50,7 +52,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class RewriteComparison
-        implements ConnectorExpressionRule<Call, String>
+        implements ConnectorExpressionRule<Call, ParameterizedExpression>
 {
     private static final Capture<ConnectorExpression> LEFT = newCapture();
     private static final Capture<ConnectorExpression> RIGHT = newCapture();
@@ -117,18 +119,23 @@ public class RewriteComparison
     }
 
     @Override
-    public Optional<String> rewrite(Call call, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(Call call, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
-        Optional<String> left = context.defaultRewrite(captures.get(LEFT));
+        Optional<ParameterizedExpression> left = context.defaultRewrite(captures.get(LEFT));
         if (left.isEmpty()) {
             return Optional.empty();
         }
-        Optional<String> right = context.defaultRewrite(captures.get(RIGHT));
+        Optional<ParameterizedExpression> right = context.defaultRewrite(captures.get(RIGHT));
         if (right.isEmpty()) {
             return Optional.empty();
         }
         verify(call.getFunctionName().getCatalogSchema().isEmpty()); // filtered out by the pattern
         ComparisonOperator operator = ComparisonOperator.forFunctionName(call.getFunctionName());
-        return Optional.of(format("(%s) %s (%s)", left.get(), operator.getOperator(), right.get()));
+        return Optional.of(new ParameterizedExpression(
+                format("(%s) %s (%s)", left.get().expression(), operator.getOperator(), right.get().expression()),
+                ImmutableList.<QueryParameter>builder()
+                        .addAll(left.get().parameters())
+                        .addAll(right.get().parameters())
+                        .build()));
     }
 }

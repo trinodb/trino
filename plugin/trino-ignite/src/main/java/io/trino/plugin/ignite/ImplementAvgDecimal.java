@@ -19,6 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DecimalType;
@@ -38,7 +39,7 @@ import static java.lang.String.format;
  * Implements {@code avg(decimal(p, s)}
  */
 public class ImplementAvgDecimal
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -54,7 +55,7 @@ public class ImplementAvgDecimal
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
@@ -63,7 +64,10 @@ public class ImplementAvgDecimal
         verify(aggregateFunction.getOutputType().equals(type));
 
         // wait https://issues.apache.org/jira/browse/IGNITE-14948 to be solved.
+        ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("CAST(sum(%s) / count(%1$s) AS decimal(%s, %s))", context.rewriteExpression(argument).orElseThrow(), type.getPrecision() + 1, type.getScale()), columnHandle.getJdbcTypeHandle()));
+                format("CAST(sum(%s) / count(%1$s) AS decimal(%s, %s))", rewrittenArgument.expression(), type.getPrecision() + 1, type.getScale()),
+                rewrittenArgument.parameters(),
+                columnHandle.getJdbcTypeHandle()));
     }
 }
