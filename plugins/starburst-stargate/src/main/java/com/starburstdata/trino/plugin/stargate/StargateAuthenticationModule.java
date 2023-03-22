@@ -17,6 +17,7 @@ import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import com.starburstdata.presto.plugin.jdbc.auth.SingletonIdentityCacheMappingModule;
 import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocalModule;
+import com.starburstdata.presto.plugin.toolkit.security.multiple.tokens.TokenPassThroughConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.jdbc.TrinoDriver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -36,7 +37,9 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.starburstdata.presto.plugin.toolkit.guice.Modules.enumConditionalModule;
+import static com.starburstdata.presto.plugin.toolkit.guice.Modules.option;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.KERBEROS;
+import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.OAUTH2_PASSTHROUGH;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD;
 import static com.starburstdata.trino.plugin.stargate.StargateAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -51,9 +54,10 @@ public class StargateAuthenticationModule
         install(enumConditionalModule(
                 StargateConfig.class,
                 StargateConfig::getAuthenticationType,
-                PASSWORD_PASS_THROUGH, new StargatePasswordPassThroughModule(),
-                PASSWORD, conditionalModule(StargateConfig.class, StargateConfig::isImpersonationEnabled, new PasswordWithImpersonationModule(), new PasswordModule()),
-                KERBEROS, conditionalModule(StargateConfig.class, StargateConfig::isImpersonationEnabled, new KerberosWithImpersonationModule(), new KerberosModule())));
+                option(PASSWORD_PASS_THROUGH, new StargatePasswordPassThroughModule()),
+                option(PASSWORD, conditionalModule(StargateConfig.class, StargateConfig::isImpersonationEnabled, new PasswordWithImpersonationModule(), new PasswordModule())),
+                option(KERBEROS, conditionalModule(StargateConfig.class, StargateConfig::isImpersonationEnabled, new KerberosWithImpersonationModule(), new KerberosModule())),
+                option(OAUTH2_PASSTHROUGH, new StargateOAuth2PassThroughModule())));
     }
 
     private static class StargatePasswordPassThroughModule
@@ -248,6 +252,38 @@ public class StargateAuthenticationModule
                     new StargateImpersonatingCredentialPropertiesProvider(
                             new StaticCredentialProvider(Optional.of(kerberosConfig.getClientPrincipal()), Optional.empty()),
                             authToLocal));
+        }
+    }
+
+    private static class StargateOAuth2PassThroughModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            install(new AuthenticationBasedIdentityCacheMappingModule());
+            configBinder(binder).bindConfig(TokenPassThroughConfig.class, "stargate");
+        }
+
+        @Provides
+        @Singleton
+        @TransportConnectionFactory
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig baseJdbcConfig,
+                StargateConfig connectorConfig,
+                StargateSslConfig sslConfig,
+                TokenPassThroughConfig tokenPassThroughConfig)
+        {
+            Properties properties = new Properties();
+            if (connectorConfig.isSslEnabled()) {
+                setSslProperties(properties, sslConfig);
+            }
+
+            return new DriverConnectionFactory(
+                    new TrinoDriver(),
+                    baseJdbcConfig.getConnectionUrl(),
+                    properties,
+                    new StargateOAuth2TokenPassthroughProvider(tokenPassThroughConfig));
         }
     }
 

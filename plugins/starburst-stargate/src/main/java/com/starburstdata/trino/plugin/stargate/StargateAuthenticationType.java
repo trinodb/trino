@@ -14,4 +14,5 @@ public enum StargateAuthenticationType
     PASSWORD,
     PASSWORD_PASS_THROUGH,
     KERBEROS,
+    OAUTH2_PASSTHROUGH,
 }
