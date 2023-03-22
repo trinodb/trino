@@ -66,8 +66,13 @@ public class TDigestHistogram
     public TDigestHistogram mergeWith(TDigestHistogram other)
     {
         TDigest result = getDigest();
-        result.mergeWith(other.getDigest());
+        other.mergeTo(result);
         return new TDigestHistogram(result);
+    }
+
+    private synchronized void mergeTo(TDigest digest)
+    {
+        digest.mergeWith(this.digest);
     }
 
     @Override
