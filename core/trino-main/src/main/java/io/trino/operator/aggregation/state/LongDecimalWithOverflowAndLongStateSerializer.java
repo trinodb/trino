@@ -34,8 +34,8 @@ public class LongDecimalWithOverflowAndLongStateSerializer
     @Override
     public void serialize(LongDecimalWithOverflowAndLongState state, BlockBuilder out)
     {
-        if (state.isNotNull()) {
-            long count = state.getLong();
+        long count = state.getLong();
+        if (count > 0) {
             long overflow = state.getOverflow();
             long[] decimal = state.getDecimalArray();
             int offset = state.getDecimalArrayOffset();
@@ -97,7 +97,6 @@ public class LongDecimalWithOverflowAndLongStateSerializer
             decimal[offset] = high;
             state.setOverflow(overflow);
             state.setLong(count);
-            state.setNotNull();
         }
     }
 }
