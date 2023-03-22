@@ -6596,6 +6596,34 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES (CAST('[\"AFRICA\",0]' AS varchar(100))), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\",3]'), ('[\"MIDDLE EAST\",4]')");
     }
 
+    @Test
+    public void testColumnNames()
+    {
+        MaterializedResult showFunctionsResult = computeActual("SHOW FUNCTIONS");
+        assertEquals(showFunctionsResult.getColumnNames(), ImmutableList.of("Function", "Return Type", "Argument Types", "Function Type", "Deterministic", "Description"));
+
+        MaterializedResult showCatalogsResult = computeActual("SHOW CATALOGS");
+        assertEquals(showCatalogsResult.getColumnNames(), ImmutableList.of("Catalog"));
+
+        MaterializedResult selectAllResult = computeActual("SELECT * FROM nation");
+        assertEquals(selectAllResult.getColumnNames(), ImmutableList.of("nationkey", "name", "regionkey", "comment"));
+
+        MaterializedResult selectResult = computeActual("SELECT nationkey, regionkey FROM nation");
+        assertEquals(selectResult.getColumnNames(), ImmutableList.of("nationkey", "regionkey"));
+
+        MaterializedResult selectJsonArrayResult = computeActual("SELECT json_array(name, regionkey) from nation");
+        assertEquals(selectJsonArrayResult.getColumnNames(), ImmutableList.of("_col0"));
+
+        MaterializedResult selectJsonArrayAsResult = computeActual("SELECT json_array(name, regionkey) result from nation");
+        assertEquals(selectJsonArrayAsResult.getColumnNames(), ImmutableList.of("result"));
+
+        MaterializedResult showColumnResult = computeActual("SHOW COLUMNS FROM nation");
+        assertEquals(showColumnResult.getColumnNames(), ImmutableList.of("Column", "Type", "Extra", "Comment"));
+
+        MaterializedResult showCreateTableResult = computeActual("SHOW CREATE TABLE nation");
+        assertEquals(showCreateTableResult.getColumnNames(), ImmutableList.of("Create Table"));
+    }
+
     private static ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);
