@@ -346,7 +346,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult actual = computeActual("SELECT orderkey__c FROM orders__c LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
     }
 
@@ -356,7 +356,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult actual = computeActual("SELECT custkey__c, SUM(CAST(totalprice__c * 100 AS BIGINT)) FROM orders__c GROUP BY custkey__c LIMIT 10");
         MaterializedResult all = computeExpected("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM orders GROUP BY custkey", actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
     }
 
@@ -366,7 +366,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult actual = computeActual("SELECT orderkey__c FROM (SELECT orderkey__c FROM orders__c LIMIT 100) T LIMIT 10");
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", actual.getTypes());
 
-        assertThat(actual.getMaterializedRows().size()).isEqualTo(10);
+        assertThat(actual.getMaterializedRows()).hasSize(10);
         assertContains(all, actual);
     }
 
@@ -630,7 +630,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult all = computeExpected("SELECT orderkey FROM orders", fullSample.getTypes());
 
         assertContains(all, fullSample);
-        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptySample.getMaterializedRows()).isEmpty();
     }
 
     @Test
@@ -2279,7 +2279,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult all = computeActual("SELECT orderkey__c FROM orders__c");
 
         assertContains(all, fullSample);
-        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptySample.getMaterializedRows()).isEmpty();
         assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
     }
 
@@ -2290,7 +2290,7 @@ public class TestSalesforceConnectorTest
         MaterializedResult halfSample = computeActual("SELECT DISTINCT orderkey__c, orderdate__c FROM orders__c TABLESAMPLE SYSTEM (50) WHERE orderkey__c BETWEEN 0 AND 9999999999");
         MaterializedResult all = computeActual("SELECT orderkey__c, orderdate__c FROM orders__c");
 
-        assertThat(emptySample.getMaterializedRows().size()).isEqualTo(0);
+        assertThat(emptySample.getMaterializedRows()).isEmpty();
         // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
         // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
         assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
