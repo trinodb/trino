@@ -804,35 +804,38 @@ public class HiveMetadata
         throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
     }
 
-    @SuppressWarnings("TryWithIdenticalCatches")
     @Override
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
-        return listTables(session, prefix).stream().flatMap(tableName -> {
-            try {
-                if (redirectTable(session, tableName).isPresent()) {
-                    return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
-                }
-                return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
-            }
-            catch (HiveViewNotSupportedException e) {
-                // view is not supported
-                return Stream.empty();
-            }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
-                return Stream.empty();
-            }
-            catch (TrinoException e) {
-                // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
-                if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
-                    throw e;
-                }
-                return Stream.empty();
-            }
-        })
+        return listTables(session, prefix).stream()
+                .flatMap(tableName -> streamTableColumns(session, tableName))
                 .iterator();
+    }
+
+    private Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTableName tableName)
+    {
+        try {
+            if (redirectTable(session, tableName).isPresent()) {
+                return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
+            }
+            return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
+        }
+        catch (HiveViewNotSupportedException e) {
+            // view is not supported
+            return Stream.empty();
+        }
+        catch (TableNotFoundException e) {
+            // table disappeared during listing operation
+            return Stream.empty();
+        }
+        catch (TrinoException e) {
+            // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
+            if (e.getErrorCode().getType() == ErrorType.EXTERNAL) {
+                return Stream.empty();
+            }
+            throw e;
+        }
     }
 
     @Override
