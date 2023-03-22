@@ -982,9 +982,9 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("DROP TABLE %s", trinoTableName(tableSameLocation1)));
 
         assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM %s", trinoTableName(tableSameLocation2))))
-                .hasMessageMatching(".*Failed to open input stream for file.*");
+                .hasMessageMatching(".*Metadata not found in metadata location for table default." + tableSameLocation2);
 
-        // Can't clean up tableSameLocation2 as all data and metadata has been removed
+        onTrino().executeQuery(format("DROP TABLE %s", trinoTableName(tableSameLocation2)));
     }
 
     @Test(groups = {ICEBERG, ICEBERG_JDBC, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormatsWithSpecVersion")

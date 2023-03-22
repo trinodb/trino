@@ -198,6 +198,7 @@ import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
@@ -348,7 +349,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public IcebergTableHandle getTableHandle(
+    public ConnectorTableHandle getTableHandle(
             ConnectorSession session,
             SchemaTableName tableName,
             Optional<ConnectorTableVersion> startVersion,
@@ -369,6 +370,12 @@ public class IcebergMetadata
         }
         catch (TableNotFoundException e) {
             return null;
+        }
+        catch (TrinoException e) {
+            if (e.getErrorCode().equals(ICEBERG_MISSING_METADATA.toErrorCode())) {
+                return new CorruptedIcebergTableHandle(tableName, e);
+            }
+            throw e;
         }
 
         Optional<Long> tableSnapshotId;
@@ -568,7 +575,7 @@ public class IcebergMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        IcebergTableHandle tableHandle = (IcebergTableHandle) table;
+        IcebergTableHandle tableHandle = checkValidTableHandle(table);
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
         List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
@@ -583,7 +590,7 @@ public class IcebergMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        IcebergTableHandle table = checkValidTableHandle(tableHandle);
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (IcebergColumnHandle columnHandle : getColumns(SchemaParser.fromJson(table.getTableSchemaJson()), typeManager)) {
             columnHandles.put(columnHandle.getName(), columnHandle);
@@ -683,7 +690,8 @@ public class IcebergMetadata
     @Override
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
-        catalog.updateTableComment(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), comment);
+        IcebergTableHandle handle = checkValidTableHandle(tableHandle);
+        catalog.updateTableComment(session, handle.getSchemaTableName(), comment);
     }
 
     @Override
@@ -1486,19 +1494,25 @@ public class IcebergMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        catalog.dropTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        if (tableHandle instanceof CorruptedIcebergTableHandle corruptedTableHandle) {
+            catalog.dropCorruptedTable(session, corruptedTableHandle.schemaTableName());
+        }
+        else {
+            catalog.dropTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        }
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
-        catalog.renameTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName(), newTable);
+        IcebergTableHandle handle = checkValidTableHandle(tableHandle);
+        catalog.renameTable(session, handle.getSchemaTableName(), newTable);
     }
 
     @Override
     public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties)
     {
-        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        IcebergTableHandle table = checkValidTableHandle(tableHandle);
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         Set<String> unsupportedProperties = difference(properties.keySet(), UPDATABLE_TABLE_PROPERTIES);
@@ -1778,12 +1792,12 @@ public class IcebergMetadata
             return TableStatisticsMetadata.empty();
         }
 
-        IcebergTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
+        ConnectorTableHandle tableHandle = getTableHandle(session, tableMetadata.getTable(), Optional.empty(), Optional.empty());
         if (tableHandle == null) {
             // Assume new table (CTAS), collect all stats possible
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
         }
-        TableStatistics tableStatistics = getTableStatistics(session, tableHandle);
+        TableStatistics tableStatistics = getTableStatistics(session, checkValidTableHandle(tableHandle));
         if (tableStatistics.getRowCount().getValue() == 0.0) {
             // Table has no data (empty, or wiped out). Collect all stats possible
             return getStatisticsCollectionMetadata(tableMetadata, Optional.empty(), availableColumnNames -> {});
@@ -1798,13 +1812,13 @@ public class IcebergMetadata
     @Override
     public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
     {
+        IcebergTableHandle handle = checkValidTableHandle(tableHandle);
         if (!isExtendedStatisticsEnabled(session)) {
             throw new TrinoException(NOT_SUPPORTED, "Analyze is not enabled. You can enable analyze using %s config or %s catalog session property".formatted(
                     IcebergConfig.EXTENDED_STATISTICS_CONFIG,
                     IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED));
         }
 
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         checkArgument(handle.getTableType() == DATA, "Cannot analyze non-DATA table: %s", handle.getTableType());
 
         if (handle.getSnapshotId().isEmpty()) {
@@ -2683,10 +2697,10 @@ public class IcebergMetadata
             String schema = strings.get(0);
             String name = strings.get(1);
             SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-            IcebergTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
+            ConnectorTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
 
-            if (tableHandle == null) {
-                // Base table is gone
+            if (tableHandle == null || tableHandle instanceof CorruptedIcebergTableHandle) {
+                // Base table is gone or table is corrupted
                 return new MaterializedViewFreshness(STALE, Optional.empty());
             }
             Optional<Long> snapshotAtRefresh;
@@ -2696,7 +2710,7 @@ public class IcebergMetadata
             else {
                 snapshotAtRefresh = Optional.of(Long.parseLong(value));
             }
-            TableChangeInfo tableChangeInfo = getTableChangeInfo(session, tableHandle, snapshotAtRefresh);
+            TableChangeInfo tableChangeInfo = getTableChangeInfo(session, (IcebergTableHandle) tableHandle, snapshotAtRefresh);
             if (tableChangeInfo instanceof NoTableChange) {
                 // Fresh
             }
@@ -2805,6 +2819,15 @@ public class IcebergMetadata
     {
         verify(transaction == null, "transaction already set");
         transaction = icebergTable.newTransaction();
+    }
+
+    private static IcebergTableHandle checkValidTableHandle(ConnectorTableHandle tableHandle)
+    {
+        requireNonNull(tableHandle, "tableHandle is null");
+        if (tableHandle instanceof CorruptedIcebergTableHandle corruptedTableHandle) {
+            throw corruptedTableHandle.createException();
+        }
+        return ((IcebergTableHandle) tableHandle);
     }
 
     private sealed interface TableChangeInfo

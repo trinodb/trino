@@ -69,7 +69,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         warehouseLocation = Files.newTemporaryFolder();
         closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
 
-        backend = backendCatalog(warehouseLocation);
+        backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
         DelegatingRestSessionCatalog delegatingCatalog = DelegatingRestSessionCatalog.builder()
                 .delegate(backend)
@@ -78,7 +78,6 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         TestingHttpServer testServer = delegatingCatalog.testServer();
         testServer.start();
         closeAfterClass(testServer::stop);
-        closeAfterClass((JdbcCatalog) backend);
 
         return IcebergQueryRunner.builder()
                 .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
@@ -97,7 +96,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     @AfterClass(alwaysRun = true)
     public void teardown()
     {
-        backend = null;
+        backend = null; // closed by closeAfterClass
     }
 
     @Override
@@ -221,6 +220,41 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testRepeatUnregisterTable)
                 .hasMessageContaining("unregisterTable is not supported for Iceberg REST catalogs");
+    }
+
+    @Override
+    public void testDropTableWithMissingMetadataFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
+                .hasMessageMatching("Failed to load table: (.*)");
+    }
+
+    @Override
+    public void testDropTableWithMissingSnapshotFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
+                .hasMessageMatching("Server error: NotFoundException: Failed to open input stream for file: (.*)");
+    }
+
+    @Override
+    public void testDropTableWithMissingManifestListFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
+                .hasMessageContaining("Table location should not exist expected [false] but found [true]");
+    }
+
+    @Override
+    public void testDropTableWithMissingDataFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingDataFile)
+                .hasMessageContaining("Table location should not exist expected [false] but found [true]");
+    }
+
+    @Override
+    public void testDropTableWithNonExistentTableLocation()
+    {
+        assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
+                .hasMessageMatching("Failed to load table: (.*)");
     }
 
     @Override

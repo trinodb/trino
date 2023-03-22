@@ -229,6 +229,14 @@ public class TrinoRestCatalog
     }
 
     @Override
+    public void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        // Since it is currently not possible to obtain the table location, even if we drop the table from the metastore,
+        // it is still impossible to delete the table location.
+        throw new TrinoException(NOT_SUPPORTED, "Cannot drop corrupted table %s from Iceberg REST catalog".formatted(schemaTableName));
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
         try {
