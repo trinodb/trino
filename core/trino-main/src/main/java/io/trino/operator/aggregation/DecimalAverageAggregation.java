@@ -61,8 +61,6 @@ public final class DecimalAverageAggregation
     {
         state.addLong(1); // row counter
 
-        state.setNotNull();
-
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
@@ -88,8 +86,6 @@ public final class DecimalAverageAggregation
             @BlockIndex int position)
     {
         state.addLong(1); // row counter
-
-        state.setNotNull();
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
@@ -119,7 +115,7 @@ public final class DecimalAverageAggregation
         long[] otherDecimal = otherState.getDecimalArray();
         int otherOffset = otherState.getDecimalArrayOffset();
 
-        if (state.isNotNull()) {
+        if (state.getLong() > 0) {
             long overflow = addWithOverflow(
                     decimal[offset],
                     decimal[offset + 1],
@@ -130,7 +126,6 @@ public final class DecimalAverageAggregation
             state.addOverflow(overflow + otherState.getOverflow());
         }
         else {
-            state.setNotNull();
             decimal[offset] = otherDecimal[otherOffset];
             decimal[offset + 1] = otherDecimal[otherOffset + 1];
             state.setOverflow(otherState.getOverflow());
