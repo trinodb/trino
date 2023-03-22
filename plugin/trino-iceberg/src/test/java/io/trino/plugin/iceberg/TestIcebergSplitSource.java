@@ -130,7 +130,6 @@ public class TestIcebergSplitSource
                 nationTable.location(),
                 nationTable.properties(),
                 NO_RETRIES,
-                ImmutableList.of(),
                 false,
                 Optional.empty());
 
