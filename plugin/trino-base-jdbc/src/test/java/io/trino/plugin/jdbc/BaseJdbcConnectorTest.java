@@ -93,6 +93,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_W
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN;
@@ -1545,6 +1546,10 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithComplexPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        if (hasBehavior(SUPPORTS_MERGE)) {
+            super.testDeleteWithComplexPredicate();
+            return;
+        }
         assertThatThrownBy(super::testDeleteWithComplexPredicate)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
@@ -1553,6 +1558,10 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithSubquery()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        if (hasBehavior(SUPPORTS_MERGE)) {
+            super.testDeleteWithSubquery();
+            return;
+        }
         assertThatThrownBy(super::testDeleteWithSubquery)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
@@ -1561,6 +1570,10 @@ public abstract class BaseJdbcConnectorTest
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        if (hasBehavior(SUPPORTS_MERGE)) {
+            super.testExplainAnalyzeWithDeleteWithSubquery();
+            return;
+        }
         assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
@@ -1569,6 +1582,10 @@ public abstract class BaseJdbcConnectorTest
     public void testDeleteWithSemiJoin()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        if (hasBehavior(SUPPORTS_MERGE)) {
+            super.testDeleteWithSemiJoin();
+            return;
+        }
         assertThatThrownBy(super::testDeleteWithSemiJoin)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
