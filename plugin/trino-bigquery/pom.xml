@@ -459,7 +459,7 @@
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
                                 <include>**/TestBigQueryWithDifferentProjectIdConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryMetadataCaching.java</include>
-                                <include>**/TestBigQueryTypeMapping.java</include>
+                                <include>**/TestBigQueryAvroTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
                                 <include>**/TestBigQuery*FailureRecoveryTest.java</include>
