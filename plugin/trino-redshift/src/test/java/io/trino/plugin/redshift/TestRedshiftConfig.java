@@ -28,7 +28,6 @@ public class TestRedshiftConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(RedshiftConfig.class)
-                .setDisableAutomaticFetchSize(false)
                 .setLegacyTypeMapping(false));
     }
 
@@ -36,12 +35,10 @@ public class TestRedshiftConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("redshift.disable-automatic-fetch-size", "true")
                 .put("redshift.use-legacy-type-mapping", "true")
                 .buildOrThrow();
 
         RedshiftConfig expected = new RedshiftConfig()
-                .setDisableAutomaticFetchSize(true)
                 .setLegacyTypeMapping(true);
 
         assertFullMapping(properties, expected);

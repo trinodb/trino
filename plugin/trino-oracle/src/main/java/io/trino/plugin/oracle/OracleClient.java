@@ -196,7 +196,6 @@ public class OracleClient
             .put(TIMESTAMP_TZ_MILLIS, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimeZoneWriteFunction()))
             .buildOrThrow();
 
-    private final boolean disableAutomaticFetchSize;
     private final boolean synonymsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
@@ -212,7 +211,6 @@ public class OracleClient
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
 
-        this.disableAutomaticFetchSize = oracleConfig.isDisableAutomaticFetchSize();
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
@@ -262,12 +260,9 @@ public class OracleClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        if (disableAutomaticFetchSize) {
-            statement.setFetchSize(1000);
-        }
         // This is a heuristic, not exact science. A better formula can perhaps be found with measurements.
         // Column count is not known for non-SELECT queries. Not setting fetch size for these.
-        else if (columnCount.isPresent()) {
+        if (columnCount.isPresent()) {
             statement.setFetchSize(max(100_000 / columnCount.get(), 1_000));
         }
         return statement;
