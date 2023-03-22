@@ -23,6 +23,11 @@ import java.util.List;
 
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
+/**
+ * Suite that verifies that the cluster starts with as many connectors
+ * enabled as possible. The catalogs do not have to have valid configuration,
+ * so it might not be possible to execute queries using them.
+ */
 public class SuiteAllConnectorsSmoke
         extends Suite
 {
