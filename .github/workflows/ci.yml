@@ -57,6 +57,7 @@ jobs:
       matrix:
         java-version:
           - 17
+          - 20
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v3
@@ -511,6 +512,7 @@ jobs:
             - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: core/trino-main }
             - { modules: core/trino-main, jdk: 19 }
+            - { modules: core/trino-main, jdk: 20 }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
