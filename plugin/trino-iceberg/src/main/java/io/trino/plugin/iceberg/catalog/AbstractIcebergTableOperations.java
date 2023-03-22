@@ -18,6 +18,7 @@ import dev.failsafe.RetryPolicy;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.iceberg.TableMetadata;
@@ -44,6 +45,7 @@ import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.util.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.getLocationProvider;
@@ -227,13 +229,22 @@ public abstract class AbstractIcebergTableOperations
             return;
         }
 
-        TableMetadata newMetadata = Failsafe.with(RetryPolicy.builder()
-                        .withMaxRetries(20)
-                        .withBackoff(100, 5000, MILLIS, 4.0)
-                        .withMaxDuration(Duration.ofMinutes(10))
-                        .abortOn(AbstractIcebergTableOperations::isNotFoundException)
-                        .build())
-                .get(() -> TableMetadataParser.read(fileIo, io().newInputFile(newLocation)));
+        TableMetadata newMetadata;
+        try {
+            newMetadata = Failsafe.with(RetryPolicy.builder()
+                            .withMaxRetries(20)
+                            .withBackoff(100, 5000, MILLIS, 4.0)
+                            .withMaxDuration(Duration.ofMinutes(10))
+                            .abortOn(AbstractIcebergTableOperations::isNotFoundException)
+                            .build())
+                    .get(() -> TableMetadataParser.read(fileIo, io().newInputFile(newLocation)));
+        }
+        catch (Throwable failure) {
+            if (isNotFoundException(failure)) {
+                throw new TrinoException(ICEBERG_MISSING_METADATA, "Metadata not found in metadata location for table " + getSchemaTableName(), failure);
+            }
+            throw failure;
+        }
 
         String newUUID = newMetadata.uuid();
         if (currentMetadata != null) {
