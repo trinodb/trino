@@ -97,6 +97,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.encodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.fromConnectorMaterializedViewDefinition;
@@ -364,8 +365,27 @@ public class TrinoGlueCatalog
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
-        dropTableData(table.io(), table.operations().current());
+        try {
+            dropTableData(table.io(), table.operations().current());
+        }
+        catch (RuntimeException e) {
+            // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
+            // So log the exception and continue with deleting the table location
+            LOG.warn(e, "Failed to delete table data referenced by metadata");
+        }
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+    }
+
+    @Override
+    public void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        com.amazonaws.services.glue.model.Table table = dropTableFromMetastore(session, schemaTableName);
+        String metadataLocation = table.getParameters().get(METADATA_LOCATION_PROP);
+        if (metadataLocation == null) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Table %s is missing [%s] property", schemaTableName, METADATA_LOCATION_PROP));
+        }
+        String tableLocation = metadataLocation.replaceFirst("/metadata/[^/]*$", "");
+        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
     }
 
     @Override
@@ -400,6 +420,11 @@ public class TrinoGlueCatalog
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        dropTableFromMetastore(session, schemaTableName);
+    }
+
+    private com.amazonaws.services.glue.model.Table dropTableFromMetastore(ConnectorSession session, SchemaTableName schemaTableName)
+    {
         com.amazonaws.services.glue.model.Table table = getTable(session, schemaTableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         if (!isIcebergTable(firstNonNull(table.getParameters(), ImmutableMap.of()))) {
@@ -412,6 +437,7 @@ public class TrinoGlueCatalog
         catch (AmazonServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
+        return table;
     }
 
     @Override
