@@ -124,8 +124,7 @@ class Query
     @GuardedBy("this")
     private long lastToken = -1;
 
-    @GuardedBy("this")
-    private boolean resultsConsumed;
+    private volatile boolean resultsConsumed;
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -348,10 +347,15 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
-    public synchronized void markResultsConsumedIfReady()
+    public void markResultsConsumedIfReady()
     {
-        if (!resultsConsumed && exchangeDataSource.isFinished()) {
-            queryManager.resultsConsumed(queryId);
+        if (resultsConsumed) {
+            return;
+        }
+        synchronized (this) {
+            if (!resultsConsumed && exchangeDataSource.isFinished()) {
+                queryManager.resultsConsumed(queryId);
+            }
         }
     }
 
@@ -586,13 +590,18 @@ class Query
         return resultBuilder.build();
     }
 
-    private synchronized void closeExchangeIfNecessary(QueryInfo queryInfo)
+    private void closeExchangeIfNecessary(QueryInfo queryInfo)
     {
+        if (queryInfo.getState() != FAILED && queryInfo.getOutputStage().isPresent()) {
+            return;
+        }
         // Close the exchange client if the query has failed, or if the query
         // does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
-        if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
-            exchangeDataSource.close();
+        synchronized (this) {
+            if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
+                exchangeDataSource.close();
+            }
         }
     }
 
