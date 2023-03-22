@@ -40,6 +40,7 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DataProviders;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
@@ -144,6 +145,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
@@ -6706,6 +6708,60 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testCorruptedTableLocation()
+            throws Exception
+    {
+        String tableName = "test_corrupted_table_location_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, country VARCHAR, independence ROW(month VARCHAR, year INT))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'INDIA', ROW ('Aug', 1947)), (2, 'POLAND', ROW ('Nov', 1918)), (3, 'USA', ROW ('Jul', 1776))", 3);
+
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
+        String tableLocation = getTableLocation(tableName);
+
+        // break the table by deleting all its files including metadata files
+        trinoFileSystem.deleteDirectory(tableLocation);
+        assertFalse(trinoFileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+
+        // Assert queries fail cleanly
+        assertQueryFailsIncorrectly("TABLE " + tableName, "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("SELECT * FROM " + tableName + " WHERE false", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("SELECT 1 FROM " + tableName + " WHERE false", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("SHOW CREATE TABLE " + tableName, "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("CREATE TABLE a_new_table (LIKE " + tableName + " EXCLUDING PROPERTIES)", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("DESCRIBE " + tableName, "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("SHOW COLUMNS FROM " + tableName, "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("SHOW STATS FOR " + tableName, "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("ANALYZE " + tableName, "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("ALTER TABLE " + tableName + " EXECUTE optimize", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("ALTER TABLE " + tableName + " EXECUTE vacuum", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("ALTER TABLE " + tableName + " ADD COLUMN foo int", "Failed to open input stream for file: .*");
+        // TODO (https://github.com/trinodb/trino/issues/16248) ADD field
+        assertQueryFailsIncorrectly("ALTER TABLE " + tableName + " DROP COLUMN country", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("ALTER TABLE " + tableName + " DROP COLUMN independence.month", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("ALTER TABLE " + tableName + " SET PROPERTIES format = 'PARQUET'", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("INSERT INTO " + tableName + " VALUES (NULL, NULL, ROW(NULL, NULL))", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("UPDATE " + tableName + " SET country = 'AUSTRIA'", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("DELETE FROM " + tableName, "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("TRUNCATE TABLE " + tableName, "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("COMMENT ON TABLE " + tableName + " IS NULL", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("COMMENT ON COLUMN " + tableName + ".foo IS NULL", "Failed to open input stream for file: .*");
+        assertQueryFailsIncorrectly("CALL iceberg.system.rollback_to_snapshot(CURRENT_SCHEMA, '" + tableName + "', 8954597067493422955)", "Failed to open input stream for file: .*");
+
+        // Avoid failing metadata queries
+        assertQuery("SHOW TABLES LIKE 'test_corrupted_table_location_%' ESCAPE '\\'", "VALUES '" + tableName + "'");
+        assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM information_schema.columns " +
+                "WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_corrupted_table_location_%' ESCAPE '\\'");
+        assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM system.jdbc.columns " +
+                "WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA AND table_name LIKE 'test_corrupted_table_location_%' ESCAPE '\\'");
+
+        assertQueryFailsIncorrectly("DROP TABLE " + tableName, "Failed to open input stream for file: .*");
+        assertThatThrownBy(() -> getQueryRunner().tableExists(getSession(), tableName))
+                .hasMessageContaining("Failed to open input stream for file:");
+    }
+
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
@@ -6861,5 +6917,21 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
                 .isEqualTo(queryId.toString());
+    }
+
+    private void assertQueryFailsIncorrectly(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        verify(queryRunner instanceof DistributedQueryRunner, "queryRunner is not a DistributedQueryRunner");
+        Session session = getSession();
+
+        try {
+            MaterializedResultWithQueryId resultWithQueryId = ((DistributedQueryRunner) queryRunner).executeWithQueryId(session, sql);
+            fail(format("Expected query to fail: %s [QueryId: %s]", sql, resultWithQueryId.getQueryId()));
+        }
+        catch (RuntimeException exception) {
+            exception.addSuppressed(new Exception("Query: " + sql));
+            assertThat(exception).hasMessageMatching(expectedMessageRegExp);
+        }
     }
 }
