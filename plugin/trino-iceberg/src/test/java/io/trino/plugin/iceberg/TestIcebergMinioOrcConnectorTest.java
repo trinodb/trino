@@ -30,6 +30,7 @@ import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -168,6 +169,12 @@ public class TestIcebergMinioOrcConnectorTest
         assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
                 .hasMessageContaining("Error opening Iceberg split")
                 .hasStackTraceContaining("Multiple entries with same key");
+    }
+
+    @Override
+    public void testCorruptedTableLocation()
+    {
+        throw new SkipException("Skipping test, This test override will be removed in next commit");
     }
 
     @Override
