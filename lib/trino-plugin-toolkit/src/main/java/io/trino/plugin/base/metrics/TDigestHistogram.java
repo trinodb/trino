@@ -24,6 +24,7 @@ import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 
 import static com.google.common.base.MoreObjects.ToStringHelper;
@@ -67,6 +68,20 @@ public class TDigestHistogram
     {
         TDigest result = getDigest();
         other.mergeTo(result);
+        return new TDigestHistogram(result);
+    }
+
+    @Override
+    public TDigestHistogram mergeWith(List<TDigestHistogram> others)
+    {
+        if (others.isEmpty()) {
+            return this;
+        }
+
+        TDigest result = getDigest();
+        for (TDigestHistogram other : others) {
+            other.mergeTo(result);
+        }
         return new TDigestHistogram(result);
     }
 
