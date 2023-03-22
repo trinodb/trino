@@ -16,7 +16,6 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
-import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -238,7 +237,7 @@ public class TestDecimalAverageAggregation
         }
     }
 
-    private Int128 getDecimal(LongDecimalWithOverflowState state)
+    private Int128 getDecimal(LongDecimalWithOverflowAndLongState state)
     {
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();

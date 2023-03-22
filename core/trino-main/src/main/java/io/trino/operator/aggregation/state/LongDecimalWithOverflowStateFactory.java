@@ -44,13 +44,13 @@ public class LongDecimalWithOverflowStateFactory
             implements LongDecimalWithOverflowState
     {
         private static final int INSTANCE_SIZE = instanceSize(GroupedLongDecimalWithOverflowState.class);
-        protected final BooleanBigArray isNotNull = new BooleanBigArray();
+        private final BooleanBigArray isNotNull = new BooleanBigArray();
         /**
          * Stores 128-bit decimals as pairs of longs
          */
-        protected final LongBigArray unscaledDecimals = new LongBigArray();
+        private final LongBigArray unscaledDecimals = new LongBigArray();
         @Nullable
-        protected LongBigArray overflows; // lazily initialized on the first overflow
+        private LongBigArray overflows; // lazily initialized on the first overflow
 
         @Override
         public void ensureCapacity(long size)
@@ -134,11 +134,11 @@ public class LongDecimalWithOverflowStateFactory
             implements LongDecimalWithOverflowState
     {
         private static final int INSTANCE_SIZE = instanceSize(SingleLongDecimalWithOverflowState.class);
-        protected static final int SIZE = (int) sizeOf(new long[2]);
+        private static final int SIZE = (int) sizeOf(new long[2]);
 
-        protected final long[] unscaledDecimal = new long[2];
-        protected boolean isNotNull;
-        protected long overflow;
+        private final long[] unscaledDecimal = new long[2];
+        private boolean isNotNull;
+        private long overflow;
 
         public SingleLongDecimalWithOverflowState() {}
 
