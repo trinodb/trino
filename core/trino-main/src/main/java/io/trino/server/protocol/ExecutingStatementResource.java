@@ -118,14 +118,14 @@ public class ExecutingStatementResource
         queryPurger.scheduleWithFixedDelay(
                 () -> {
                     try {
-                        for (Entry<QueryId, Query> entry : queries.entrySet()) {
+                        for (QueryId queryId : queries.keySet()) {
                             // forget about this query if the query manager is no longer tracking it
                             try {
-                                queryManager.getQueryState(entry.getKey());
+                                queryManager.getQueryState(queryId);
                             }
                             catch (NoSuchElementException e) {
                                 // query is no longer registered
-                                Query query = queries.remove(entry.getKey());
+                                Query query = queries.remove(queryId);
                                 if (query != null) {
                                     query.dispose();
                                 }
