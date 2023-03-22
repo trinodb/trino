@@ -269,7 +269,6 @@ public class PostgreSqlClient
         return FULL_PUSHDOWN.apply(session, simplifiedDomain);
     };
 
-    private final boolean disableAutomaticFetchSize;
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
@@ -290,7 +289,6 @@ public class PostgreSqlClient
             RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
-        this.disableAutomaticFetchSize = postgreSqlConfig.isDisableAutomaticFetchSize();
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
@@ -408,12 +406,9 @@ public class PostgreSqlClient
         // fetch-size is ignored when connection is in auto-commit
         connection.setAutoCommit(false);
         PreparedStatement statement = connection.prepareStatement(sql);
-        if (disableAutomaticFetchSize) {
-            statement.setFetchSize(1000);
-        }
         // This is a heuristic, not exact science. A better formula can perhaps be found with measurements.
         // Column count is not known for non-SELECT queries. Not setting fetch size for these.
-        else if (columnCount.isPresent()) {
+        if (columnCount.isPresent()) {
             statement.setFetchSize(max(100_000 / columnCount.get(), 1_000));
         }
         return statement;
