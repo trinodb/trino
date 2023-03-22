@@ -925,7 +925,7 @@ jobs:
               suite: suite-hms-only
             # this suite is not meant to be run with different configs
             - config: default
-              suite: suite-all
+              suite: suite-all-connectors-smoke
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-delta-lake-oss

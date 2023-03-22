@@ -23,7 +23,7 @@ import java.util.List;
 
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
-public class SuiteAll
+public class SuiteAllConnectorsSmoke
         extends Suite
 {
     @Override
