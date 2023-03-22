@@ -122,7 +122,7 @@ public class TestOracleParallelCaseInsensitiveMapping
                         AutoCloseable ignore3 = withPartitionedTable(schemaName + ".some_table_name", "c varchar(5)", "c", 3)) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("casesensitivename");
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
-                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
+                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Error listing tables for catalog oracle: Failed to find remote schema name: Ambiguous name: casesensitivename");
                     assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
                 }
             }
