@@ -103,6 +103,7 @@ public class DefaultJdbcMetadata
 {
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
+    private static final String MERGE_ROW_ID = "$merge_row_id";
 
     private final JdbcClient jdbcClient;
     private final boolean precalculateStatisticsForPushdown;
@@ -275,7 +276,8 @@ public class DefaultJdbcMetadata
 
             Set<JdbcColumnHandle> newPhysicalColumns = newColumns.stream()
                     // It may happen fresh table handle comes with a columns prepared already.
-                    // In such case it may happen that applyProjection may want to add UPDATE_ROW_ID id, which is created later during the planning.
+                    // In such case it may happen that applyProjection may want to add merge/delete row id, which is created later during the planning.
+                    .filter(column -> !column.getColumnName().equals(MERGE_ROW_ID))
                     .filter(column -> !column.getColumnName().equals(DELETE_ROW_ID))
                     .collect(toImmutableSet());
             verify(tableColumnSet.containsAll(newPhysicalColumns), "applyProjection called with columns %s and some are not available in existing query: %s", newPhysicalColumns, tableColumnSet);
@@ -827,7 +829,7 @@ public class DefaultJdbcMetadata
     {
         // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
         return new JdbcColumnHandle(
-                "$merge_row_id",
+                MERGE_ROW_ID,
                 new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 BIGINT);
     }
