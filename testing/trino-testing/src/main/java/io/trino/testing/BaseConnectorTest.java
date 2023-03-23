@@ -4357,7 +4357,9 @@ public abstract class BaseConnectorTest
                     .collect(toImmutableList());
 
             if (values.isEmpty()) {
+                // We expect that at least one INSERT succeed. More importantly though, we expect that the table state matches succeeding queries.
                 assertQueryReturnsEmptyResult("TABLE " + tableName);
+                fail("Expected at least one INSERT to succeed");
             }
             else {
                 // Cast to integer because some connectors (e.g. Oracle) map integer to different types that skippingTypesCheck can't resolve the mismatch.
