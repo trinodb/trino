@@ -36,7 +36,7 @@ public class TestStargateAutomaticJoinPushdown
     private DistributedQueryRunner remoteStarburst;
     private Session remoteSession;
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void cleanup()
     {
         remoteStarburst = null;
