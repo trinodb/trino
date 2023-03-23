@@ -57,6 +57,7 @@ import org.testng.annotations.Test;
 import javax.crypto.spec.SecretKeySpec;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -79,6 +80,8 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.NO_SUCH_BUCKET_ERROR_CODE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.NO_SUCH_KEY_ERROR_CODE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACL_TYPE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CREDENTIALS_PROVIDER;
@@ -364,38 +367,48 @@ public class TestTrinoS3FileSystem
         }
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     @Test
     public void testReadNotFound()
             throws Exception
     {
-        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
-            MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectHttpErrorCode(HTTP_NOT_FOUND);
-            fs.initialize(new URI("s3n://test-bucket/"), newEmptyConfiguration());
-            fs.setS3Client(s3);
-            try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
-                assertThatThrownBy(() -> inputStream.read())
-                        .isInstanceOf(IOException.class)
-                        .hasMessageContaining("Failing getObject call with " + HTTP_NOT_FOUND);
-            }
-        }
+        testReadObject(IOException.class, HTTP_NOT_FOUND, null);
     }
 
-    @SuppressWarnings("ResultOfMethodCallIgnored")
+    @Test
+    public void testNoSuchKeyFound()
+            throws Exception
+    {
+        testReadObject(FileNotFoundException.class, HTTP_NOT_FOUND, NO_SUCH_KEY_ERROR_CODE);
+    }
+
+    @Test
+    public void testNoSuchBucketFound()
+            throws Exception
+    {
+        testReadObject(FileNotFoundException.class, HTTP_NOT_FOUND, NO_SUCH_BUCKET_ERROR_CODE);
+    }
+
     @Test
     public void testReadForbidden()
             throws Exception
     {
+        testReadObject(IOException.class, HTTP_FORBIDDEN, null);
+    }
+
+    @SuppressWarnings("ResultOfMethodCallIgnored")
+    private static void testReadObject(Class<?> exceptionClass, int httpErrorCode, String s3ErrorCode)
+            throws Exception
+    {
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
-            s3.setGetObjectHttpErrorCode(HTTP_FORBIDDEN);
+            s3.setGetObjectHttpErrorCode(httpErrorCode);
+            s3.setGetObjectS3ErrorCode(s3ErrorCode);
             fs.initialize(new URI("s3n://test-bucket/"), newEmptyConfiguration());
             fs.setS3Client(s3);
             try (FSDataInputStream inputStream = fs.open(new Path("s3n://test-bucket/test"))) {
                 assertThatThrownBy(inputStream::read)
-                        .isInstanceOf(IOException.class)
-                        .hasMessageContaining("Failing getObject call with " + HTTP_FORBIDDEN);
+                        .isInstanceOf(exceptionClass)
+                        .hasMessageContaining("Failing getObject call with status code:" + httpErrorCode + "; error code:" + s3ErrorCode);
             }
         }
     }
