@@ -38,7 +38,7 @@ public class Suite2
                         .withGroups("configured_features", "hdfs_no_impersonation")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsNoImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation")
+                        .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation", "hive_kerberos")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveNoImpersonationWithCredentialCache.class)
                         .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation")
@@ -47,7 +47,7 @@ public class Suite2
                         .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation", "authorization", "hive_file_header")
+                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation", "authorization", "hive_file_header", "hive_kerberos")
                         .build());
     }
 }
