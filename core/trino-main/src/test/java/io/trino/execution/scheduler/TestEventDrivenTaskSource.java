@@ -103,7 +103,7 @@ public class TestEventDrivenTaskSource
     @BeforeClass
     public void setUp()
     {
-        executor = listeningDecorator(newScheduledThreadPool(10, daemonThreadsNamed("dispatcher-query-%s")));
+        executor = listeningDecorator(newScheduledThreadPool(10, daemonThreadsNamed(getClass().getName())));
     }
 
     @AfterClass(alwaysRun = true)
