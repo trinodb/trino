@@ -46,6 +46,7 @@ public class MockAmazonS3
         extends AbstractAmazonS3
 {
     private int getObjectHttpCode = HTTP_OK;
+    private String getObjectS3ErrorCode;
     private int getObjectMetadataHttpCode = HTTP_OK;
     private GetObjectMetadataRequest getObjectMetadataRequest;
     private CannedAccessControlList acl;
@@ -56,6 +57,11 @@ public class MockAmazonS3
     public void setGetObjectHttpErrorCode(int getObjectHttpErrorCode)
     {
         this.getObjectHttpCode = getObjectHttpErrorCode;
+    }
+
+    public void setGetObjectS3ErrorCode(String getObjectS3ErrorCode)
+    {
+        this.getObjectS3ErrorCode = getObjectS3ErrorCode;
     }
 
     public void setGetObjectMetadataHttpCode(int getObjectMetadataHttpCode)
@@ -104,8 +110,9 @@ public class MockAmazonS3
     public S3Object getObject(GetObjectRequest getObjectRequest)
     {
         if (getObjectHttpCode != HTTP_OK) {
-            AmazonS3Exception exception = new AmazonS3Exception("Failing getObject call with " + getObjectHttpCode);
+            AmazonS3Exception exception = new AmazonS3Exception("Failing getObject call with status code:" + getObjectHttpCode + "; error code:" + getObjectS3ErrorCode);
             exception.setStatusCode(getObjectHttpCode);
+            exception.setErrorCode(getObjectS3ErrorCode);
             throw exception;
         }
         return null;
