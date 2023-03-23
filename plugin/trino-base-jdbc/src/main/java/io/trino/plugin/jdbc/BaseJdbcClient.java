@@ -342,7 +342,8 @@ public abstract class BaseJdbcClient
     {
         int value = resultSet.getInt(columnLabel);
         if (resultSet.wasNull()) {
-            return Optional.empty();
+            // When the size is not obtained, the default setting is 65536, instead of throwing an exception to cause the query terminal, AnalyticDB for MySQL gets the size as empty
+            return Optional.of(65536);
         }
         return Optional.of(value);
     }

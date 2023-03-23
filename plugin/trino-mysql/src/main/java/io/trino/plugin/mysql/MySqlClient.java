@@ -1004,13 +1004,20 @@ public class MySqlClient
             }
 
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
-            return handle.createQuery("" +
-                            "SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS " +
-                            "WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name")
-                    .bind("schema", remoteTableName.getCatalogName().orElse(null))
-                    .bind("table_name", remoteTableName.getTableName())
-                    .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
-                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            try {
+                return handle.createQuery("" +
+                                "SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS " +
+                                "WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name")
+                        .bind("schema", remoteTableName.getCatalogName().orElse(null))
+                        .bind("table_name", remoteTableName.getTableName())
+                        .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            }
+            catch (Exception e) {
+                log.debug("INFORMATION_SCHEMA.COLUMN_STATISTICS table is not available: %s", e);
+                // When some service provider databases modified based on MySQL do not keep these tables, the corresponding data cannot be obtained, such as AnalyticDB for MySQL.
+                return ImmutableMap.of();
+            }
         }
     }
 
