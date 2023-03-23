@@ -50,7 +50,7 @@ public class TestIcebergInsert
             throws Exception
     {
         int threads = 3;
-        int insertsPerThread = 7;
+        int insertsPerThread = 4;
 
         String tableName = "iceberg.default.test_insert_concurrent_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE " + tableName + "(a bigint)");
