@@ -329,21 +329,9 @@ public class ParquetPageSourceFactory
         return message;
     }
 
-    public static Optional<org.apache.parquet.schema.Type> getParquetType(GroupType groupType, boolean useParquetColumnNames, HiveColumnHandle column)
-    {
-        if (useParquetColumnNames) {
-            return Optional.ofNullable(getParquetTypeByName(column.getBaseColumnName(), groupType));
-        }
-        if (column.getBaseHiveColumnIndex() < groupType.getFieldCount()) {
-            return Optional.of(groupType.getType(column.getBaseHiveColumnIndex()));
-        }
-
-        return Optional.empty();
-    }
-
     public static Optional<org.apache.parquet.schema.Type> getColumnType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
     {
-        Optional<org.apache.parquet.schema.Type> columnType = getParquetType(messageType, useParquetColumnNames, column);
+        Optional<org.apache.parquet.schema.Type> columnType = getBaseColumnParquetType(column, messageType, useParquetColumnNames);
         if (columnType.isEmpty() || column.getHiveColumnProjectionInfo().isEmpty()) {
             return columnType;
         }
@@ -453,31 +441,19 @@ public class ParquetPageSourceFactory
                 descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
             }
             else {
-                org.apache.parquet.schema.Type parquetField = getParquetType(columnHandle, fileSchema, false);
-                if (parquetField == null || !parquetField.isPrimitive()) {
+                Optional<org.apache.parquet.schema.Type> parquetField = getBaseColumnParquetType(columnHandle, fileSchema, false);
+                if (parquetField.isEmpty() || !parquetField.get().isPrimitive()) {
                     // Parquet file has fewer column than partition
                     // Or the field is a complex type
                     continue;
                 }
-                descriptor = descriptorsByPath.get(ImmutableList.of(parquetField.getName()));
+                descriptor = descriptorsByPath.get(ImmutableList.of(parquetField.get().getName()));
             }
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());
             }
         }
         return TupleDomain.withColumnDomains(predicate.buildOrThrow());
-    }
-
-    public static org.apache.parquet.schema.Type getParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
-    {
-        if (useParquetColumnNames) {
-            return getParquetTypeByName(column.getBaseColumnName(), messageType);
-        }
-
-        if (column.getBaseHiveColumnIndex() < messageType.getFieldCount()) {
-            return messageType.getType(column.getBaseHiveColumnIndex());
-        }
-        return null;
     }
 
     public interface ParquetReaderProvider
@@ -503,8 +479,8 @@ public class ParquetPageSourceFactory
                 continue;
             }
             checkArgument(column.getColumnType() == REGULAR, "column type must be REGULAR: %s", column);
-            org.apache.parquet.schema.Type parquetType = getParquetType(column, fileSchema, useColumnNames);
-            if (parquetType == null) {
+            Optional<org.apache.parquet.schema.Type> parquetType = getBaseColumnParquetType(column, fileSchema, useColumnNames);
+            if (parquetType.isEmpty()) {
                 pageSourceBuilder.addNullColumn(column.getBaseType());
                 continue;
             }
@@ -520,5 +496,17 @@ public class ParquetPageSourceFactory
         }
 
         return pageSourceBuilder.build(parquetReaderProvider.createParquetReader(parquetColumnFieldsBuilder.build()));
+    }
+
+    private static Optional<org.apache.parquet.schema.Type> getBaseColumnParquetType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
+    {
+        if (useParquetColumnNames) {
+            return Optional.ofNullable(getParquetTypeByName(column.getBaseColumnName(), messageType));
+        }
+        if (column.getBaseHiveColumnIndex() < messageType.getFieldCount()) {
+            return Optional.of(messageType.getType(column.getBaseHiveColumnIndex()));
+        }
+
+        return Optional.empty();
     }
 }
