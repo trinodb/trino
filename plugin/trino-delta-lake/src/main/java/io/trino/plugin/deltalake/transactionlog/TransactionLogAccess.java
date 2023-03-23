@@ -47,6 +47,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
@@ -76,7 +77,6 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.isFileNotFoundException;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -422,11 +422,11 @@ public class TransactionLogAccess
                     break;
                 }
             }
+            catch (FileNotFoundException e) {
+                // no longer exists, break iteration
+                return null;
+            }
             catch (IOException e) {
-                if (isFileNotFoundException(e)) {
-                    // no longer exists, break iteration
-                    return null;
-                }
                 throw new UncheckedIOException(e);
             }
             result.add(version);

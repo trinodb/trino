@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -216,11 +217,8 @@ public class S3NativeTransactionLogSynchronizer
             LOG.warn(e, "Could not parse lock file: %s; contents=%s", path, content);
             return Optional.empty();
         }
-        catch (IOException e) {
-            if (e.getMessage().contains("The specified key does not exist.")) {
-                return Optional.empty();
-            }
-            throw e;
+        catch (FileNotFoundException e) {
+            return Optional.empty();
         }
     }
 
