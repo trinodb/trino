@@ -30,6 +30,7 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -61,7 +62,9 @@ import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hudi.HudiSessionProperties.getColumnsToHide;
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.trino.plugin.hudi.HudiUtil.getHoodieInstantTime;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.connector.PointerType.TARGET_ID;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
@@ -99,6 +102,16 @@ public class HudiMetadata
     @Override
     public HudiTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
+        return getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+    }
+
+    @Override
+    public HudiTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion)
+    {
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return null;
         }
@@ -109,11 +122,21 @@ public class HudiMetadata
         if (!isHudiTable(session, table.get())) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
         }
+        if (endVersion.isPresent() && endVersion.get().getPointerType() == TARGET_ID) {
+            startVersion = endVersion;
+        }
+        List<HiveColumnHandle> dataColumns = hiveColumnHandles(table.get(), typeManager, NANOSECONDS).stream()
+                .collect(toImmutableList());
+
         return new HudiTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.get().getStorage().getLocation(),
                 HoodieTableType.COPY_ON_WRITE,
+                ImmutableList.of(),
+                dataColumns,
+                getHoodieInstantTime(startVersion),
+                getHoodieInstantTime(endVersion),
                 TupleDomain.all(),
                 TupleDomain.all());
     }

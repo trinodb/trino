@@ -39,6 +39,7 @@ import java.util.Set;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Minio.MINIO_CONTAINER_NAME;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
@@ -81,12 +82,20 @@ public class EnvSinglenodeHudi
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
+        String dockerImageName = "ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion;
         // Using hdp3.1 so we are using Hive metastore with version close to versions of hive-*.jars Spark uses
-        builder.configureContainer(HADOOP, container -> container.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion));
+        builder.configureContainer(HADOOP, container -> {
+            container.setDockerImageName(dockerImageName);
+            container.withCopyFileToContainer(
+                    forHostPath(configDir.getPath("apply-hive-config-for-hudi.sh")),
+                    CONTAINER_HADOOP_INIT_D + "/apply-hive-config-for-hudi.sh");
+        });
+
         builder.addConnector(
                 "hive",
                 forHostPath(configDir.getPath("hive.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/hive.properties");
+
         builder.addConnector(
                 "hudi",
                 forHostPath(configDir.getPath("hudi.properties")),

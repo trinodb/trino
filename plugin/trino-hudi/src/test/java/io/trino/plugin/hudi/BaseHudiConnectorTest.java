@@ -102,4 +102,14 @@ public abstract class BaseHudiConnectorTest
         columns.add(TpchHudiTablesInitializer.FIELD_UUID);
         return String.join(",", columns);
     }
+
+    @Override
+    protected void verifyVersionedQueryFailurePermissible(Exception e)
+    {
+        assertThat(e)
+                .hasMessageMatching("Version pointer type is not supported: .*|" +
+                        "Unsupported type for temporal table version: .*|" +
+                        "Unsupported type for table version: .*|" +
+                        "No version history table tpch.nation at or before .*");
+    }
 }

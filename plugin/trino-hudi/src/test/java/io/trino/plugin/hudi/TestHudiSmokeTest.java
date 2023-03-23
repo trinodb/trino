@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.file.Files;
@@ -163,6 +165,31 @@ public class TestHudiSmokeTest
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 2", "VALUES 'dt=2021-12-09/hh=11'");
 
         assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".* Column '\\$partition' cannot be resolved");
+    }
+
+    @Test(dataProvider = "timeTravelQueryDataProvider")
+    public void testTimeTravelQuery(@Language("SQL") String sql, String expected)
+    {
+        assertQuery(sql, expected);
+    }
+
+    @DataProvider(name = "timeTravelQueryDataProvider")
+    public Object[][] timeTravelQueryDataProvider()
+    {
+        return new Object[][] {
+                {"SELECT count(_hoodie_commit_time) FROM STOCK_TICKS_COW FOR TIMESTAMP AS OF TIMESTAMP '2021-12-16 07:14:53.74700 Z'", "VALUES 99"},
+                {"SELECT count(1) FROM STOCK_TICKS_COW FOR TIMESTAMP AS OF TIMESTAMP '2021-12-16 07:14:53.74700 Z'", "VALUES 99"},
+                {"SELECT count(*) FROM STOCK_TICKS_COW FOR TIMESTAMP AS OF TIMESTAMP '2021-12-16 07:14:53.74700 Z'", "VALUES 99"},
+                {"SELECT count(_hoodie_commit_time) FROM STOCK_TICKS_COW FOR VERSION AS OF 20211216071453747", "VALUES 99"},
+                {"SELECT count(1) FROM STOCK_TICKS_COW FOR VERSION AS OF 20211216071453747", "VALUES 99"},
+                {"SELECT count(*) FROM STOCK_TICKS_COW FOR VERSION AS OF 20211216071453747", "VALUES 99"},
+                {"SELECT count(_hoodie_commit_time) FROM STOCK_TICKS_COW FOR VERSION AS OF 20211216009999999", "VALUES 0"},
+                {"SELECT count(1) FROM STOCK_TICKS_COW FOR VERSION AS OF 20211216009999999", "VALUES 0"},
+                {"SELECT count(*) FROM STOCK_TICKS_COW FOR VERSION AS OF 20211216009999999", "VALUES 0"},
+                {"SELECT count(_hoodie_commit_time) FROM STOCK_TICKS_COW FOR TIMESTAMP AS OF TIMESTAMP '2021-12-15 16:00:00.000000000 Z'", "VALUES 0"},
+                {"SELECT count(1) FROM STOCK_TICKS_COW FOR TIMESTAMP AS OF TIMESTAMP '2021-12-15 16:00:00.000000000 Z'", "VALUES 0"},
+                {"SELECT count(*) FROM STOCK_TICKS_COW FOR TIMESTAMP AS OF TIMESTAMP '2021-12-15 16:00:00.000000000 Z'", "VALUES 0"},
+        };
     }
 
     private static Path toPath(String path)

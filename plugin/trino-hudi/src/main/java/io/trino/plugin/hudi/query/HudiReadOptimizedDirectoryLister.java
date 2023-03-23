@@ -31,6 +31,7 @@ import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
+import org.apache.hudi.common.util.Option;
 
 import java.util.Collections;
 import java.util.List;
@@ -101,6 +102,15 @@ public class HudiReadOptimizedDirectoryLister
     @Override
     public List<FileStatus> listStatus(HudiPartitionInfo partitionInfo)
     {
+        if (tableHandle.getEndVersion().isPresent()) {
+            return fileSystemView.getAllFileGroups(partitionInfo.getRelativePartitionPath())
+                    .map(fileGroup -> fileGroup.getLatestFileSliceBeforeOrOn(tableHandle.getEndVersion().get()))
+                    .filter(Option::isPresent)
+                    .map(fileSliceOption -> fileSliceOption.get().getBaseFile())
+                    .filter(Option::isPresent)
+                    .map(baseFileOption -> getFileStatus(baseFileOption.get()))
+                    .collect(toImmutableList());
+        }
         return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
                 .map(baseFile -> getFileStatus(baseFile))
                 .collect(toImmutableList());

@@ -20,7 +20,11 @@ import io.trino.tempto.assertions.QueryAssert;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
+import java.text.SimpleDateFormat;
+import java.time.ZoneOffset;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -38,6 +42,7 @@ public class TestHudiSparkCompatibility
 {
     private static final String COW_TABLE_TYPE = "cow";
     private static final String MOR_TABLE_TYPE = "mor";
+    private static final String DEFAULT_INSTANT_TIME_FORMAT = "yyyyMMddHHmmssSSS";
 
     private String bucketName;
 
@@ -317,6 +322,48 @@ public class TestHudiSparkCompatibility
         }
         finally {
             onHudi().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
+    public void testTimeTravelQuery()
+    {
+        String tableName = "test_hudi_cow_select_session_props" + randomNameSuffix();
+        SimpleDateFormat formatter = new SimpleDateFormat(DEFAULT_INSTANT_TIME_FORMAT);
+        formatter.setTimeZone(TimeZone.getTimeZone(ZoneOffset.UTC));
+        String before = formatter.format(new Date());
+        onHudi().executeQuery("SET hoodie.schema.on.read.enable=true");
+        createNonPartitionedTable(tableName, COW_TABLE_TYPE);
+        String after = formatter.format(new Date());
+
+        try {
+            assertThat(onTrino().executeQuery("SELECT id, name FROM hudi.default." + tableName + " FOR VERSION AS OF " + before)).hasNoRows();
+            assertThat(onTrino().executeQuery("SELECT id, name FROM hudi.default." + tableName + " FOR VERSION AS OF " + after))
+                    .containsOnly(ImmutableList.of(
+                            row(1, "a1"),
+                            row(2, "a2")));
+
+            onHudi().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMNS (new_col string)");
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'a3', 20, 1000, 'a3_commit')");
+            String afterAddColumn = formatter.format(new Date());
+            assertThat(onTrino().executeQuery("SELECT id, name, new_col FROM hudi.default." + tableName + " FOR VERSION AS OF " + afterAddColumn))
+                    .containsOnly(ImmutableList.of(
+                            row(1, "a1", null),
+                            row(2, "a2", null),
+                            row(3, "a3", "a3_commit")));
+
+            onHudi().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMNS (new_col)");
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (4, 'a4', 20, 1000)");
+            String afterDropColumn = formatter.format(new Date());
+            assertThat(onTrino().executeQuery("SELECT id, name FROM hudi.default." + tableName + " FOR VERSION AS OF " + afterDropColumn))
+                    .containsOnly(ImmutableList.of(
+                            row(1, "a1"),
+                            row(2, "a2"),
+                            row(3, "a3"),
+                            row(4, "a4")));
+        }
+        finally {
+            onHudi().executeQuery("DROP TABLE default." + tableName);
         }
     }
 
