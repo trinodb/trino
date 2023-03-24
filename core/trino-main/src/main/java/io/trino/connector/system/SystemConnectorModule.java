@@ -32,11 +32,10 @@ import io.trino.connector.system.jdbc.TableTypeJdbcTable;
 import io.trino.connector.system.jdbc.TypesJdbcTable;
 import io.trino.connector.system.jdbc.UdtJdbcTable;
 import io.trino.operator.table.ExcludeColumns;
+import io.trino.operator.table.Sequence;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
-
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class SystemConnectorModule
         implements Module
@@ -79,7 +78,9 @@ public class SystemConnectorModule
 
         binder.bind(GlobalSystemConnector.class).in(Scopes.SINGLETON);
 
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(ExcludeColumns.class).in(Scopes.SINGLETON);
+        Multibinder<ConnectorTableFunction> tableFunctions = Multibinder.newSetBinder(binder, ConnectorTableFunction.class);
+        tableFunctions.addBinding().toProvider(ExcludeColumns.class).in(Scopes.SINGLETON);
+        tableFunctions.addBinding().toProvider(Sequence.class).in(Scopes.SINGLETON);
     }
 
     @ProvidesIntoSet
