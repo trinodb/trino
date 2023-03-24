@@ -207,13 +207,13 @@ public class PipelinedStageExecution
     }
 
     @Override
-    public synchronized void beginScheduling()
+    public void beginScheduling()
     {
         stateMachine.transitionToScheduling();
     }
 
     @Override
-    public synchronized void transitionToSchedulingSplits()
+    public void transitionToSchedulingSplits()
     {
         stateMachine.transitionToSchedulingSplits();
     }
