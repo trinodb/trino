@@ -217,6 +217,7 @@ public abstract class BaseHiveConnectorTest
                         "hive.minimum-assigned-split-weight", "0.5"))
                 .addExtraProperty("legacy.allow-set-view-authorization", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .setTpchBucketedCatalogEnabled(true)
                 .build();
 
         // extra catalog with NANOSECOND timestamp precision
