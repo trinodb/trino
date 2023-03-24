@@ -19,6 +19,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
 
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -42,6 +44,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "experimental.max-queued-big-queries",
         "query-manager.initialization-required-workers",
         "query-manager.initialization-timeout",
+        " fault-tolerant-execution-target-task-split-count",
         "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
@@ -95,13 +98,13 @@ public class QueryManagerConfig
     private int maxTasksWaitingForNodePerStage = 5;
 
     private boolean enabledAdaptiveTaskRequestSize = true;
-    private DataSize maxRemoteTaskRequestSize = DataSize.of(8, DataSize.Unit.MEGABYTE);
-    private DataSize remoteTaskRequestSizeHeadroom = DataSize.of(2, DataSize.Unit.MEGABYTE);
+    private DataSize maxRemoteTaskRequestSize = DataSize.of(8, MEGABYTE);
+    private DataSize remoteTaskRequestSizeHeadroom = DataSize.of(2, MEGABYTE);
     private int remoteTaskGuaranteedSplitPerTask = 3;
 
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
+    private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
 
-    private int faultTolerantExecutionTargetTaskSplitCount = 64;
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionPartitionCount = 50;
@@ -652,17 +655,17 @@ public class QueryManagerConfig
         return this;
     }
 
-    @Min(1)
-    public int getFaultTolerantExecutionTargetTaskSplitCount()
+    @MinDataSize("1MB")
+    public DataSize getFaultTolerantExecutionStandardSplitSize()
     {
-        return faultTolerantExecutionTargetTaskSplitCount;
+        return faultTolerantExecutionStandardSplitSize;
     }
 
-    @Config("fault-tolerant-execution-target-task-split-count")
-    @ConfigDescription("Target number of splits for a single fault tolerant task (split weight aware)")
-    public QueryManagerConfig setFaultTolerantExecutionTargetTaskSplitCount(int faultTolerantExecutionTargetTaskSplitCount)
+    @Config("fault-tolerant-execution-standard-split-size")
+    @ConfigDescription("Standard split size for a single fault tolerant task (split weight aware)")
+    public QueryManagerConfig setFaultTolerantExecutionStandardSplitSize(DataSize faultTolerantExecutionStandardSplitSize)
     {
-        this.faultTolerantExecutionTargetTaskSplitCount = faultTolerantExecutionTargetTaskSplitCount;
+        this.faultTolerantExecutionStandardSplitSize = faultTolerantExecutionStandardSplitSize;
         return this;
     }
 
