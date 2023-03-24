@@ -775,7 +775,7 @@ public class IcebergMetadata
                 .distinct()
                 .collect(toImmutableList());
         List<String> partitioningColumnNames = partitioningColumns.stream()
-                .map(IcebergColumnHandle::getName)
+                .map(column -> column.getName().toLowerCase(ENGLISH))
                 .collect(toImmutableList());
 
         if (!forceRepartitioning && partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
