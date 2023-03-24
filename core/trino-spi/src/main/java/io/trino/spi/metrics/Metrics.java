@@ -93,12 +93,6 @@ public class Metrics
         {
         }
 
-        public Accumulator add(List<Metrics> metricsList)
-        {
-            metricsList.forEach(this::add);
-            return this;
-        }
-
         public Accumulator add(Metrics metrics)
         {
             metrics.getMetrics().forEach((key, value) ->
