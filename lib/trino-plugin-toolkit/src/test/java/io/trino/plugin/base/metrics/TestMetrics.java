@@ -116,6 +116,10 @@ public class TestMetrics
     {
         Metrics metrics = new Metrics(ImmutableMap.of("a", new LongCount(0)));
         assertThat(accumulator().add(metrics).get()).isEqualTo(metrics);
+
+        Metrics metrics1 = new Metrics(ImmutableMap.of("a", new LongCount(1)));
+        Metrics metrics2 = new Metrics(ImmutableMap.of("a", new LongCount(2)));
+        assertThat(accumulator().add(metrics1).add(metrics2).get()).isEqualTo(new Metrics(ImmutableMap.of("a", new LongCount(3))));
     }
 
     private static Metrics merge(Metrics... metrics)
