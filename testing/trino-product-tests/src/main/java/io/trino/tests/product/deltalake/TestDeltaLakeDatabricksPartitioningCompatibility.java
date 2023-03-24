@@ -385,4 +385,38 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
             dropDeltaTableWithRetry("default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testPartitionedByNonLowercaseColumn()
+    {
+        String tableName = "test_dl_partitioned_by_non_lowercase_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("CREATE TABLE default.%s " +
+                        "USING DELTA " +
+                        "PARTITIONED BY (`PART`) LOCATION 's3://%s/%s' AS " +
+                        "SELECT 1 AS data, 2 AS `PART`",
+                tableName,
+                bucketName,
+                tableDirectory));
+        try {
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2));
+
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 4)");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2), row(3, 4));
+
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE data = 3");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2));
+
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET part = 20");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 20));
+
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).hasNoRows();
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
 }
