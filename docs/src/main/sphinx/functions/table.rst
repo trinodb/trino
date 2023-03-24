@@ -43,6 +43,31 @@ Built-in table functions
     The argument ``input`` is a table or a query.
     The argument ``columns`` is a descriptor without types.
 
+.. function:: sequence(start => bigint, stop => bigint, step => bigint) -> table(sequential_number bigint)
+    :noindex:
+
+    Returns a single column ``sequential_number`` containing a sequence of
+    bigint::
+
+        SELECT *
+        FROM TABLE(sequence(
+                        start => 1000000,
+                        stop => -2000000,
+                        step => -3))
+
+    ``start`` is the first element in te sequence. The default value is ``0``.
+
+    ``stop`` is the end of the range, inclusive. The last element in the
+    sequence is equal to ``stop``, or it is the last value within range,
+    reachable by steps.
+
+    ``step`` is the difference between subsequent values. The default value is
+    ``1``.
+
+.. note::
+
+    The result of the ``sequence`` table function might not be ordered.
+
 Table function invocation
 -------------------------
 
