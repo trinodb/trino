@@ -29,7 +29,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("retry-max-delay", "100ms")
                 .put("fault-tolerant-execution-partition-count", "5")
                 .put("fault-tolerant-execution-target-task-input-size", "10MB")
-                .put("fault-tolerant-execution-target-task-split-count", "4")
+                .put("fault-tolerant-execution-standard-split-size", "2.5MB")
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
                 .put("fault-tolerant-execution-task-memory", "1GB")
