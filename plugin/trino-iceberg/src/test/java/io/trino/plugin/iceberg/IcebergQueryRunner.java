@@ -230,7 +230,7 @@ public final class IcebergQueryRunner
                             "hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
                             "hive.s3.aws-access-key", MINIO_ACCESS_KEY,
                             "hive.s3.aws-secret-key", MINIO_SECRET_KEY,
-                            "hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint(),
+                            "hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress(),
                             "hive.s3.path-style-access", "true",
                             "hive.s3.streaming.part-size", "5MB"))
                     .setSchemaInitializer(
