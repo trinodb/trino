@@ -15,6 +15,8 @@ package io.trino.spi.ptf;
 
 import io.trino.spi.Experimental;
 
+import static io.trino.spi.ptf.Preconditions.checkArgument;
+
 @Experimental(eta = "2022-10-31")
 public class DescriptorArgumentSpecification
         extends ArgumentSpecification
@@ -22,6 +24,9 @@ public class DescriptorArgumentSpecification
     private DescriptorArgumentSpecification(String name, boolean required, Descriptor defaultValue)
     {
         super(name, required, defaultValue);
+        checkArgument(
+                defaultValue == null || defaultValue.getFields().stream().allMatch(field -> field.getName().isPresent()),
+                "All fields of a descriptor argument must have names");
     }
 
     public static Builder builder()
