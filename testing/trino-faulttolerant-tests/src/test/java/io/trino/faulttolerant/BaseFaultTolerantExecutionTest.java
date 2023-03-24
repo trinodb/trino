@@ -114,6 +114,8 @@ public abstract class BaseFaultTolerantExecutionTest
                 .setSystemProperty("fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_max", "1PB")
                 .setSystemProperty("fault_tolerant_execution_arbitrary_distribution_write_task_target_size_min", "1PB")
                 .setSystemProperty("fault_tolerant_execution_arbitrary_distribution_write_task_target_size_max", "1PB")
+                .setSystemProperty("fault_tolerant_execution_hash_distribution_compute_task_target_size", "1PB")
+                .setSystemProperty("fault_tolerant_execution_hash_distribution_write_task_target_size", "1PB")
                 .build();
     }
 

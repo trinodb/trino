@@ -71,7 +71,8 @@ class HashDistributionSplitAssigner
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
             PlanFragment fragment,
-            long targetPartitionSizeInBytes)
+            long targetPartitionSizeInBytes,
+            int targetMaxTaskCount)
     {
         if (fragment.getPartitioning().equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
             verify(
@@ -89,6 +90,7 @@ class HashDistributionSplitAssigner
                         partitionedSources,
                         outputDataSizeEstimates,
                         targetPartitionSizeInBytes,
+                        targetMaxTaskCount,
                         sourceId -> fragment.getPartitioning().equals(SCALED_WRITER_HASH_DISTRIBUTION),
                         // never merge partitions for table write to avoid running into the maximum writers limit per task
                         !isWriteFragment(fragment)));
@@ -205,6 +207,7 @@ class HashDistributionSplitAssigner
             Set<PlanNodeId> partitionedSources,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
             long targetPartitionSizeInBytes,
+            int targetMaxTaskCount,
             Predicate<PlanNodeId> canSplit,
             boolean canMerge)
     {
@@ -223,6 +226,20 @@ class HashDistributionSplitAssigner
                 .map(Map.Entry::getValue)
                 .collect(toImmutableList());
         OutputDataSizeEstimate mergedEstimate = OutputDataSizeEstimate.merge(partitionedSourcesEstimates);
+
+        // adjust targetPartitionSizeInBytes based on total input bytes
+        if (targetMaxTaskCount != Integer.MAX_VALUE) {
+            long totalBytes = 0;
+            for (int partitionId = 0; partitionId < partitionCount; partitionId++) {
+                totalBytes += mergedEstimate.getPartitionSizeInBytes(partitionId);
+            }
+            if (totalBytes / targetPartitionSizeInBytes > targetMaxTaskCount) {
+                // targetMaxTaskCount is only used to adjust targetPartitionSizeInBytes to avoid excessive number
+                // of tasks; actual number of tasks depend on the data size distribution and may exceed its value
+                targetPartitionSizeInBytes = (totalBytes + targetMaxTaskCount - 1) / targetMaxTaskCount;
+            }
+        }
+
         ImmutableMap.Builder<Integer, TaskPartition> result = ImmutableMap.builder();
         PriorityQueue<PartitionAssignment> assignments = new PriorityQueue<>();
         for (int partitionId = 0; partitionId < partitionCount; partitionId++) {
