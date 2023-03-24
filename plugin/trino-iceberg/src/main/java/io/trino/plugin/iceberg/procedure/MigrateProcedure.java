@@ -192,8 +192,8 @@ public class MigrateProcedure
         if (parseBoolean(transactionalProperty)) {
             throw new TrinoException(NOT_SUPPORTED, "Migrating transactional tables is unsupported");
         }
-        if (!"MANAGED_TABLE".equalsIgnoreCase(hiveTable.getTableType())) {
-            throw new TrinoException(NOT_SUPPORTED, "The procedure supports migrating only managed tables: " + hiveTable.getTableType());
+        if (!"MANAGED_TABLE".equalsIgnoreCase(hiveTable.getTableType()) && !"EXTERNAL_TABLE".equalsIgnoreCase(hiveTable.getTableType())) {
+            throw new TrinoException(NOT_SUPPORTED, "The procedure doesn't support migrating %s table type".formatted(hiveTable.getTableType()));
         }
         if (isDeltaLakeTable(hiveTable)) {
             throw new TrinoException(NOT_SUPPORTED, "The procedure doesn't support migrating Delta Lake tables");

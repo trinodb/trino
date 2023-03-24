@@ -17,12 +17,16 @@ import io.trino.tempto.ProductTest;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
+import java.util.function.Consumer;
+
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.hive.util.TableLocationUtils.getTableLocation;
+import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -120,6 +124,46 @@ public class TestIcebergProcedureCalls
                 .containsOnly(row(1, "a", "test"));
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testTrinoMigrateExternalTable()
+    {
+        migrateExternalTable(tableName -> onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')"));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testSparkMigrateExternalTable()
+    {
+        migrateExternalTable(tableName -> onSpark().executeQuery("CALL iceberg_test.system.migrate('default." + tableName + "')"));
+    }
+
+    private void migrateExternalTable(Consumer<String> migrateTable)
+    {
+        String managedTableName = "test_migrate_managed_" + randomNameSuffix();
+        String externalTableName = "test_migrate_external_" + randomNameSuffix();
+        String icebergTableName = "iceberg.default." + externalTableName;
+        String sparkTableName = "iceberg_test.default." + externalTableName;
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS hive.default." + managedTableName);
+        onTrino().executeQuery("CREATE TABLE hive.default." + managedTableName + " AS SELECT 1 x");
+        String tableLocation = getTableLocation("hive.default." + managedTableName);
+        onTrino().executeQuery("CREATE TABLE hive.default." + externalTableName + "(x integer) WITH (external_location = '" + tableLocation + "')");
+
+        // Migrate an external table
+        migrateTable.accept(externalTableName);
+
+        assertThat(onTrino().executeQuery("SELECT * FROM " + icebergTableName)).containsOnly(row(1));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(row(1));
+
+        // The migrated table behaves like managed tables because Iceberg doesn't have an external table concept
+        onTrino().executeQuery("DROP TABLE " + icebergTableName);
+
+        assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default." + managedTableName))
+                .hasMessageContaining("Partition location does not exist");
+        assertThat(onHive().executeQuery("SELECT * FROM default." + managedTableName)).hasNoRows();
+
+        onTrino().executeQuery("DROP TABLE hive.default." + managedTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
