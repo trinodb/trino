@@ -107,6 +107,7 @@ public final class HiveQueryRunner
         private Module module = EMPTY_MODULE;
         private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
+        private boolean tpchBucketedCatalogEnabled;
         private String security = SQL_STANDARD;
         private boolean createTpchSchemas = true;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
@@ -183,6 +184,12 @@ public final class HiveQueryRunner
             return self();
         }
 
+        public SELF setTpchBucketedCatalogEnabled(boolean tpchBucketedCatalogEnabled)
+        {
+            this.tpchBucketedCatalogEnabled = tpchBucketedCatalogEnabled;
+            return self();
+        }
+
         public SELF setSecurity(String security)
         {
             this.security = requireNonNull(security, "security is null");
@@ -242,17 +249,19 @@ public final class HiveQueryRunner
                 hiveProperties.put("hive.security", security);
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
-                Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
-                        .putAll(hiveProperties)
-                        .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
-                        .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
-                        .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
-                        .buildOrThrow();
-                hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
-                hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
+                if (tpchBucketedCatalogEnabled) {
+                    Map<String, String> hiveBucketedProperties = ImmutableMap.<String, String>builder()
+                            .putAll(hiveProperties)
+                            .put("hive.max-initial-split-size", "10kB") // so that each bucket has multiple splits
+                            .put("hive.max-split-size", "10kB") // so that each bucket has multiple splits
+                            .put("hive.storage-format", "TEXTFILE") // so that there's no minimum split size for the file
+                            .buildOrThrow();
+                    hiveBucketedProperties = new HashMap<>(hiveBucketedProperties);
+                    hiveBucketedProperties.put("hive.compression-codec", "NONE"); // so that the file is splittable
+                    queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
+                }
 
                 queryRunner.createCatalog(HIVE_CATALOG, "hive", hiveProperties);
-                queryRunner.createCatalog(HIVE_BUCKETED_CATALOG, "hive", hiveBucketedProperties);
 
                 if (createTpchSchemas) {
                     populateData(queryRunner, metastore);
@@ -274,7 +283,7 @@ public final class HiveQueryRunner
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
             }
 
-            if (metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
+            if (tpchBucketedCatalogEnabled && metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
                 Session session = initialTablesSessionMutator.apply(createBucketedSession(Optional.empty()));
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables, tpchColumnNaming);
@@ -302,9 +311,7 @@ public final class HiveQueryRunner
     {
         return testSessionBuilder()
                 .setIdentity(Identity.forUser("hive")
-                        .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(
-                                        HIVE_CATALOG, selectedRole,
-                                        HIVE_BUCKETED_CATALOG, selectedRole))
+                        .withConnectorRoles(role.map(selectedRole -> ImmutableMap.of(HIVE_CATALOG, selectedRole))
                                 .orElse(ImmutableMap.of()))
                         .build())
                 .setCatalog(HIVE_CATALOG)
