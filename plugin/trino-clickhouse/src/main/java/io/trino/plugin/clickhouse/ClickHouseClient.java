@@ -460,7 +460,12 @@ public class ClickHouseClient
     @Override
     public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+        String sql = format(
+                "ALTER TABLE %s MODIFY COLUMN %s %s",
+                quoted(handle.asPlainTable().getRemoteTableName()),
+                quoted(column.getColumnName()),
+                toWriteMapping(session, type).getDataType());
+        execute(session, sql);
     }
 
     private static String clickhouseVarcharLiteral(String value)
