@@ -6501,33 +6501,6 @@ public abstract class BaseIcebergConnectorTest
         assertThat(e).hasMessageMatching("Schema name must be shorter than or equal to '128' characters but got '129'");
     }
 
-    @Override
-    public void testRenameTableToLongTableName()
-    {
-        // Override because the max name length is different from CREATE TABLE case
-        String sourceTableName = "test_rename_source_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-
-        String baseTableName = "test_rename_target_" + randomNameSuffix();
-
-        String validTargetTableName = baseTableName + "z".repeat(maxTableRenameLength() - baseTableName.length());
-        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
-        assertTrue(getQueryRunner().tableExists(getSession(), validTargetTableName));
-        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
-        assertUpdate("DROP TABLE " + validTargetTableName);
-
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-        String invalidTargetTableName = validTargetTableName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
-                .satisfies(this::verifyTableNameLengthFailurePermissible);
-        assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
-    }
-
-    protected int maxTableRenameLength()
-    {
-        return 255;
-    }
-
     @Test
     public void testSnapshotSummariesHaveTrinoQueryIdFormatV1()
     {
@@ -6607,6 +6580,13 @@ public abstract class BaseIcebergConnectorTest
         // The connector appends uuids to the end of all table names
         // 33 is the length of random suffix. e.g. {table name}-142763c594d54e4b9329a98f90528caf
         return OptionalInt.of(255 - 33);
+    }
+
+    @Override
+    protected OptionalInt maxTableRenameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(255);
     }
 
     @Test

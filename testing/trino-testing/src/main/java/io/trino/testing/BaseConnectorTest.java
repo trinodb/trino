@@ -2983,7 +2983,7 @@ public abstract class BaseConnectorTest
 
         String baseTableName = "test_rename_target_" + randomNameSuffix();
 
-        int maxLength = maxTableNameLength()
+        int maxLength = maxTableRenameLength()
                 // Assume 2^16 is enough for most use cases. Add a bit more to ensure 2^16 isn't actual limit.
                 .orElse(65536 + 5);
 
@@ -2993,7 +2993,7 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
         assertUpdate("DROP TABLE " + validTargetTableName);
 
-        if (maxTableNameLength().isEmpty()) {
+        if (maxTableRenameLength().isEmpty()) {
             return;
         }
 
@@ -3008,6 +3008,11 @@ public abstract class BaseConnectorTest
     protected OptionalInt maxTableNameLength()
     {
         return OptionalInt.empty();
+    }
+
+    protected OptionalInt maxTableRenameLength()
+    {
+        return maxTableNameLength();
     }
 
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
