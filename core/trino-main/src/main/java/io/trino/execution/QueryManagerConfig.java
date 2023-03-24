@@ -112,7 +112,10 @@ public class QueryManagerConfig
     private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin = DataSize.of(4, GIGABYTE);
     private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax = DataSize.of(50, GIGABYTE);
 
-    private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
+    private DataSize faultTolerantExecutionHashDistributionComputeTaskTargetSize = DataSize.of(512, MEGABYTE);
+    private DataSize faultTolerantExecutionHashDistributionWriteTaskTargetSize = DataSize.of(4, GIGABYTE);
+    private int faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount = 2000;
+
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
@@ -759,16 +762,44 @@ public class QueryManagerConfig
     }
 
     @NotNull
-    public DataSize getFaultTolerantExecutionTargetTaskInputSize()
+    public DataSize getFaultTolerantExecutionHashDistributionComputeTaskTargetSize()
     {
-        return faultTolerantExecutionTargetTaskInputSize;
+        return faultTolerantExecutionHashDistributionComputeTaskTargetSize;
     }
 
-    @Config("fault-tolerant-execution-target-task-input-size")
-    @ConfigDescription("Target size in bytes of all task inputs for a single fault tolerant task")
-    public QueryManagerConfig setFaultTolerantExecutionTargetTaskInputSize(DataSize faultTolerantExecutionTargetTaskInputSize)
+    @Config("fault-tolerant-execution-hash-distribution-compute-task-target-size")
+    @ConfigDescription("Target input size for non-writer tasks of hash distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionComputeTaskTargetSize(DataSize faultTolerantExecutionHashDistributionComputeTaskTargetSize)
     {
-        this.faultTolerantExecutionTargetTaskInputSize = faultTolerantExecutionTargetTaskInputSize;
+        this.faultTolerantExecutionHashDistributionComputeTaskTargetSize = faultTolerantExecutionHashDistributionComputeTaskTargetSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionHashDistributionWriteTaskTargetSize()
+    {
+        return faultTolerantExecutionHashDistributionWriteTaskTargetSize;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-write-task-target-size")
+    @ConfigDescription("Target input size of writer tasks of hash distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionWriteTaskTargetSize(DataSize faultTolerantExecutionHashDistributionWriteTaskTargetSize)
+    {
+        this.faultTolerantExecutionHashDistributionWriteTaskTargetSize = faultTolerantExecutionHashDistributionWriteTaskTargetSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount()
+    {
+        return faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-write-task-target-max-count")
+    @ConfigDescription("Soft upper bound on number of writer tasks in a stage of hash distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(int faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount)
+    {
+        this.faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount = faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount;
         return this;
     }
 

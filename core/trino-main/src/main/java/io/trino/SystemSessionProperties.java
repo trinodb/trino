@@ -163,7 +163,6 @@ public final class SystemSessionProperties
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
     public static final String LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD = "legacy_materialized_view_grace_period";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
-    public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_growth_period";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_FACTOR = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN = "fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_min";
@@ -172,6 +171,9 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_GROWTH_FACTOR = "fault_tolerant_execution_arbitrary_distribution_write_task_target_size_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN = "fault_tolerant_execution_arbitrary_distribution_write_task_target_size_min";
     public static final String FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX = "fault_tolerant_execution_arbitrary_distribution_write_task_target_size_max";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE = "fault_tolerant_execution_hash_distribution_compute_task_target_size";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE = "fault_tolerant_execution_hash_distribution_write_task_target_size";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT = "fault_tolerant_execution_hash_distribution_write_task_target_max_count";
     public static final String FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE = "fault_tolerant_execution_standard_split_size";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY = "fault_tolerant_execution_coordinator_task_memory";
@@ -823,11 +825,6 @@ public final class SystemSessionProperties
                         featuresConfig.isHideInaccessibleColumns(),
                         value -> validateHideInaccessibleColumns(value, featuresConfig.isHideInaccessibleColumns()),
                         false),
-                dataSizeProperty(
-                        FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE,
-                        "Target size in bytes of all task inputs for a single fault tolerant task",
-                        queryManagerConfig.getFaultTolerantExecutionTargetTaskInputSize(),
-                        false),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD,
                         "The number of tasks we create for given non-writer stage of arbitrary distribution before we increase task size",
@@ -867,6 +864,21 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX,
                         "Max target input size for writer tasks of arbitrary distribution of fault-tolerant execution",
                         queryManagerConfig.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE,
+                        "Target input size for non-writer tasks of hash distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE,
+                        "Target input size of writer tasks of hash distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(),
+                        true),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT,
+                        "Soft upper bound on number of writer tasks in a stage of hash distribution of fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(),
                         true),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE,
@@ -1596,11 +1608,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(HIDE_INACCESSIBLE_COLUMNS, Boolean.class);
     }
 
-    public static DataSize getFaultTolerantExecutionTargetTaskInputSize(Session session)
-    {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, DataSize.class);
-    }
-
     public static int getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_GROWTH_PERIOD, Integer.class);
@@ -1639,6 +1646,21 @@ public final class SystemSessionProperties
     public static DataSize getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE, DataSize.class);
+    }
+
+    public static int getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT, Integer.class);
     }
 
     public static DataSize getFaultTolerantExecutionStandardSplitSize(Session session)

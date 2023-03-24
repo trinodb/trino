@@ -32,6 +32,8 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max", "10MB")
                 .put("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min", "10MB")
                 .put("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-max", "20MB")
+                .put("fault-tolerant-execution-hash-distribution-compute-task-target-size", "5MB")
+                .put("fault-tolerant-execution-hash-distribution-write-task-target-size", "10MB")
                 .put("fault-tolerant-execution-standard-split-size", "2.5MB")
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
