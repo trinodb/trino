@@ -282,7 +282,7 @@ public class TestIcebergMigrateProcedure
 
         assertQueryFails(
                 "CALL iceberg.system.migrate('tpch', '" + viewName + "')",
-                "The procedure supports migrating only managed tables: .*");
+                "The procedure doesn't support migrating VIRTUAL_VIEW table type");
 
         assertQuery("SELECT * FROM " + trinoViewInHive, "VALUES 1");
         assertQuery("SELECT * FROM " + trinoViewInIceberg, "VALUES 1");
