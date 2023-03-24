@@ -1134,6 +1134,34 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC})
+    public void testPartitionedByNonLowercaseColumn()
+    {
+        String baseTableName = "test_partitioned_by_non_lowercase_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + " USING ICEBERG PARTITIONED BY (`PART`) TBLPROPERTIES ('format-version'='2') AS SELECT 1 AS data, 2 AS `PART`");
+        try {
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).contains(row(1, 2));
+
+            onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (3, 4)");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).contains(row(1, 2), row(3, 4));
+
+            onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE data = 3");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).contains(row(1, 2));
+
+            onTrino().executeQuery("UPDATE " + trinoTableName + " SET part = 20");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).contains(row(1, 20));
+
+            onTrino().executeQuery("MERGE INTO " + trinoTableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE");
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).hasNoRows();
+        }
+        finally {
+            onSpark().executeQuery("DROP TABLE " + sparkTableName);
+        }
+    }
+
     @Test(groups = {ICEBERG, ICEBERG_JDBC, PROFILE_SPECIFIC_TESTS})
     public void testPartitioningWithMixedCaseColumnUnsupportedInTrino()
     {
