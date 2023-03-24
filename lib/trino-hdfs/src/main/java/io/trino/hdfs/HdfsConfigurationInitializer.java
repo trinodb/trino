@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hdfs.ConfigurationUtils.DFS_HADOOP_USER_NAME;
 import static io.trino.hdfs.ConfigurationUtils.copy;
 import static io.trino.hdfs.ConfigurationUtils.readConfiguration;
 import static java.lang.Math.toIntExact;
@@ -60,6 +61,7 @@ public class HdfsConfigurationInitializer
     private final Set<ConfigurationInitializer> configurationInitializers;
     private final boolean wireEncryptionEnabled;
     private final Integer dfsReplication;
+    private final String hadoopUsername;
 
     @VisibleForTesting
     public HdfsConfigurationInitializer(HdfsConfig hdfsConfig)
@@ -83,6 +85,7 @@ public class HdfsConfigurationInitializer
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
         this.wireEncryptionEnabled = config.isWireEncryptionEnabled();
         this.dfsReplication = config.getDfsReplication();
+        this.hadoopUsername = config.getHadoopUsername();
 
         this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
     }
@@ -123,6 +126,10 @@ public class HdfsConfigurationInitializer
 
         if (dfsReplication != null) {
             config.setInt(DFS_REPLICATION_KEY, dfsReplication);
+        }
+
+        if (hadoopUsername != null) {
+            config.setStrings(DFS_HADOOP_USER_NAME, hadoopUsername);
         }
 
         configurationInitializers.forEach(configurationInitializer -> configurationInitializer.initializeConfiguration(config));

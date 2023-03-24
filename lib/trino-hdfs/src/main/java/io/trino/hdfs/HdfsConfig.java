@@ -56,6 +56,7 @@ public class HdfsConfig
     private boolean wireEncryptionEnabled;
     private int fileSystemMaxCacheSize = 1000;
     private Integer dfsReplication;
+    private String hadoopUsername;
 
     @NotNull
     public List<@FileExists File> getResourceConfigFiles()
@@ -255,6 +256,19 @@ public class HdfsConfig
     public HdfsConfig setDfsReplication(Integer dfsReplication)
     {
         this.dfsReplication = dfsReplication;
+        return this;
+    }
+
+    public String getHadoopUsername()
+    {
+        return hadoopUsername;
+    }
+
+    @Config("hive.hadoop.username")
+    @ConfigDescription("The username Trino uses to access the hdfs storage")
+    public HdfsConfig setHadoopUsername(String hadoopUsername)
+    {
+        this.hadoopUsername = hadoopUsername;
         return this;
     }
 }

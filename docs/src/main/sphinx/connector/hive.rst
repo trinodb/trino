@@ -125,6 +125,18 @@ Whenever you change the user Trino is using to access HDFS, remove
 ``/tmp/presto-*`` on HDFS, as the new user may not have access to
 the existing temporary directories.
 
+If you have multiple hive catalogs (or Iceberg) and want to specify
+their respective HDFS usernames when the authentication method is SIMPLE,
+you can use ``hive.hadoop.username`` in the Hive (or Iceberg)
+catalog properties file, such as:
+
+.. code-block:: properties
+
+    # HMS username
+    hive.metastore.username=hms_user
+    # HDFS username
+    hive.hadoop.username=hdfs_user
+
 .. _hive_configuration_properties:
 
 Hive general configuration properties
@@ -398,6 +410,8 @@ properties:
        ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
    * - ``hive.metastore.username``
      - The username Trino uses to access the Hive metastore.
+   * - ``hive.hadoop.username``
+     - The username Trino uses to access the hdfs storage.
    * - ``hive.metastore.authentication.type``
      - Hive metastore authentication type. Possible values are ``NONE`` or
        ``KERBEROS``. Default is ``NONE``.

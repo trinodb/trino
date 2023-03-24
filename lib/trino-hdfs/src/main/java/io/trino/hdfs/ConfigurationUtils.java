@@ -29,6 +29,8 @@ public final class ConfigurationUtils
 {
     private static final Configuration INITIAL_CONFIGURATION;
 
+    public static final String DFS_HADOOP_USER_NAME = "hadoop.user.name";
+
     static {
         Configuration.addDefaultResource("hdfs-default.xml");
         Configuration.addDefaultResource("hdfs-site.xml");

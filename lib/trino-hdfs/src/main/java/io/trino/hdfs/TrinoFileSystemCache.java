@@ -49,6 +49,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.trino.hdfs.ConfigurationUtils.DFS_HADOOP_USER_NAME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -109,6 +110,9 @@ public class TrinoFileSystemCache
     private FileSystem getInternal(URI uri, Configuration conf, long unique)
             throws IOException
     {
+        if (AuthenticationMethod.SIMPLE.equals(UserGroupInformation.getCurrentUser().getAuthenticationMethod()) && conf.get(DFS_HADOOP_USER_NAME) != null) {
+            UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser(conf.get(DFS_HADOOP_USER_NAME)));
+        }
         UserGroupInformation userGroupInformation = UserGroupInformation.getCurrentUser();
         FileSystemKey key = createFileSystemKey(uri, userGroupInformation, unique);
         Set<?> privateCredentials = getPrivateCredentials(userGroupInformation);
