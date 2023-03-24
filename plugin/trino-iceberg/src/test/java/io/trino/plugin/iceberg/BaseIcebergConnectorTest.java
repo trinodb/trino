@@ -19,6 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -51,16 +55,17 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.hadoop.fs.FileSystem;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -73,6 +78,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -93,6 +99,7 @@ import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -123,11 +130,12 @@ import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toUnmodifiableList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -143,6 +151,9 @@ public abstract class BaseIcebergConnectorTest
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     protected final IcebergFileFormat format;
+
+    protected TrinoFileSystemFactory fileSystemFactory;
+    protected TimeUnit storageTimePrecision;
 
     protected BaseIcebergConnectorTest(IcebergFileFormat format)
     {
@@ -166,6 +177,27 @@ public abstract class BaseIcebergConnectorTest
                         .put("iceberg.writer-sort-buffer-size", "1MB")
                         .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES);
+    }
+
+    @BeforeClass
+    public void initFileSystemFactory()
+    {
+        this.fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+    }
+
+    @BeforeClass
+    public void initStorageTimePrecision()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "inspect_storage_precision", "(i int)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3)", 1);
+
+            long countWithSecondFraction = (Long) computeScalar("SELECT count(*) FILTER (WHERE \"$file_modified_time\" != date_trunc('second', \"$file_modified_time\")) FROM " + table.getName());
+            // In the unlikely case where all files just happen to end up having no second fraction while storage actually supports millisecond precision,
+            // we will run the test with reduced precision.
+            storageTimePrecision = countWithSecondFraction == 0 ? SECONDS : MILLISECONDS;
+        }
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -282,7 +314,6 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testShowCreateTable()
     {
-        File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .matches("\\QCREATE TABLE iceberg.tpch.orders (\n" +
                         "   orderkey bigint,\n" +
@@ -298,7 +329,7 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '" + tempDir + "/iceberg_data/tpch/orders-\\E.*\\Q'\n" +
+                        "   location = '\\E.*/iceberg_data/tpch/orders-.*\\Q'\n" +
                         ")\\E");
     }
 
@@ -4117,7 +4148,7 @@ public abstract class BaseIcebergConnectorTest
             Long fileSizeInBytes = (Long) row.getField(2);
 
             totalRecordCount += recordCount;
-            assertThat(fileSizeInBytes).isEqualTo(Files.size(Paths.get(path)));
+            assertThat(fileSizeInBytes).isEqualTo(fileSize(path));
         }
         // Verify sum(record_count) to make sure we have all the files.
         assertThat(totalRecordCount).isEqualTo(2);
@@ -4139,7 +4170,7 @@ public abstract class BaseIcebergConnectorTest
         // Read manifest file
         Schema schema;
         GenericData.Record entry = null;
-        try (DataFileReader<GenericData.Record> dataFileReader = new DataFileReader<>(new File(manifestFile), new GenericDatumReader<>())) {
+        try (DataFileReader<GenericData.Record> dataFileReader = readManifestFile(manifestFile)) {
             schema = dataFileReader.getSchema();
             int recordCount = 0;
             while (dataFileReader.hasNext()) {
@@ -4177,6 +4208,16 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("SELECT * FROM test_iceberg_file_size", ".*Error opening Iceberg split.*\\QIncorrect file size (%d) for file (end of stream not reached)\\E.*".formatted(alteredValue));
 
         dropTable("test_iceberg_file_size");
+    }
+
+    protected DataFileReader<GenericData.Record> readManifestFile(String location)
+            throws IOException
+    {
+        Path tempFile = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve(randomUUID() + "-manifest-copy");
+        try (InputStream inputStream = fileSystemFactory.create(SESSION).newInputFile(location).newStream()) {
+            Files.copy(inputStream, tempFile);
+        }
+        return new DataFileReader<>(tempFile.toFile(), new GenericDatumReader<>());
     }
 
     @Test
@@ -5268,17 +5309,10 @@ public abstract class BaseIcebergConnectorTest
         throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 
-    private List<String> getAllDataFilesFromTableDirectory(String tableName)
+    protected List<String> getAllDataFilesFromTableDirectory(String tableName)
             throws IOException
     {
-        Path tableDataDir = getIcebergTableDataPath(getTableLocation(tableName));
-        try (Stream<Path> walk = Files.walk(tableDataDir)) {
-            return walk
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !path.getFileName().toString().matches("\\..*\\.crc"))
-                    .map(Path::toString)
-                    .collect(toImmutableList());
-        }
+        return listFiles(getIcebergTableDataPath(getTableLocation(tableName)));
     }
 
     @Test
@@ -5452,6 +5486,9 @@ public abstract class BaseIcebergConnectorTest
             throws Exception
     {
         ZonedDateTime beforeTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+        if (storageTimePrecision.toMillis(1) > 1) {
+            storageTimePrecision.sleep(1);
+        }
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_file_modified_time_", "(col) AS VALUES (1)")) {
             // Describe output should not have the $file_modified_time hidden column
             assertThat(query("DESCRIBE " + table.getName()))
@@ -5462,7 +5499,7 @@ public abstract class BaseIcebergConnectorTest
             ZonedDateTime afterTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
             assertThat(fileModifiedTime).isBetween(beforeTime, afterTime);
 
-            Thread.sleep(1);
+            storageTimePrecision.sleep(1);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
             ZonedDateTime anotherFileModifiedTime = (ZonedDateTime) computeScalar("SELECT max(\"$file_modified_time\") FROM " + table.getName());
             assertNotEquals(fileModifiedTime, anotherFileModifiedTime);
@@ -5494,21 +5531,25 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (id integer)");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
-        Thread.sleep(1);
+        storageTimePrecision.sleep(1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2)", 1);
-        Thread.sleep(1);
+        storageTimePrecision.sleep(1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (3)", 1);
-        Thread.sleep(1);
+        storageTimePrecision.sleep(1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (4)", 1);
 
         ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
         ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
         ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
         ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+        // Sanity check
+        assertThat(List.of(firstFileModifiedTime, secondFileModifiedTime, thirdFileModifiedTime, fourthFileModifiedTime))
+                .doesNotHaveDuplicates();
 
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles).hasSize(4);
 
+        storageTimePrecision.sleep(1);
         assertQuerySucceeds("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
@@ -5526,10 +5567,11 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     public void testDeleteWithFileModifiedTimeColumn()
+            throws Exception
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_file_modified_time_", "(key int)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1)", 1);
-            sleepUninterruptibly(1, MILLISECONDS);
+            storageTimePrecision.sleep(1);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
 
             ZonedDateTime oldModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + table.getName() + " WHERE key = 1");
@@ -5653,15 +5695,17 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2), ('three', 3)", 2);
         assertUpdate("DELETE FROM " + tableName + " WHERE key = 'two'", 1);
         String location = getTableLocation(tableName);
-        Path orphanFile = Files.createFile(Path.of(getIcebergTableDataPath(location).toString(), "invalidData." + format));
+        String orphanFile = getIcebergTableDataPath(location) + "/invalidData." + format;
+        createFile(orphanFile);
         List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(initialDataFiles).contains(orphanFile);
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
         assertQuery("SELECT * FROM " + tableName, "VALUES ('one', 1), ('three', 3)");
 
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
         assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
-        assertThat(updatedDataFiles).doesNotContain(orphanFile.toString());
+        assertThat(updatedDataFiles).doesNotContain(orphanFile);
     }
 
     @Test
@@ -5674,14 +5718,16 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
         String tableLocation = getTableLocation(tableName);
-        Path orphanFile = Files.createFile(Path.of(getIcebergTableDataPath(tableLocation) + "/key=one/", "invalidData." + format));
+        String orphanFile = getIcebergTableDataPath(tableLocation) + "/key=one/invalidData." + format;
+        createFile(orphanFile);
         List<String> initialDataFiles = getAllDataFilesFromTableDirectory(tableName);
+        assertThat(initialDataFiles).contains(orphanFile);
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
 
         List<String> updatedDataFiles = getAllDataFilesFromTableDirectory(tableName);
         assertThat(updatedDataFiles.size()).isLessThan(initialDataFiles.size());
-        assertThat(updatedDataFiles).doesNotContain(orphanFile.toString());
+        assertThat(updatedDataFiles).doesNotContain(orphanFile);
     }
 
     @Test
@@ -5694,14 +5740,16 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES ('two', 2)", 1);
         String tableLocation = getTableLocation(tableName);
-        Path orphanMetadataFile = Files.createFile(Path.of(getIcebergTableMetadataPath(tableLocation).toString(), "invalidData." + format));
+        String orphanMetadataFile = getIcebergTableMetadataPath(tableLocation) + "/invalidData." + format;
+        createFile(orphanMetadataFile);
         List<String> initialMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
+        assertThat(initialMetadataFiles).contains(orphanMetadataFile);
 
         assertQuerySucceeds(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
 
         List<String> updatedMetadataFiles = getAllMetadataFilesFromTableDirectory(tableLocation);
         assertThat(updatedMetadataFiles.size()).isLessThan(initialMetadataFiles.size());
-        assertThat(updatedMetadataFiles).doesNotContain(orphanMetadataFile.toString());
+        assertThat(updatedMetadataFiles).doesNotContain(orphanMetadataFile);
     }
 
     @Test
@@ -6707,19 +6755,37 @@ public abstract class BaseIcebergConnectorTest
     private List<String> getAllMetadataFilesFromTableDirectory(String tableLocation)
             throws IOException
     {
-        return listAllTableFilesInDirectory(getIcebergTableMetadataPath(tableLocation));
+        return listFiles(getIcebergTableMetadataPath(tableLocation));
     }
 
-    private List<String> listAllTableFilesInDirectory(Path tableDataPath)
+    protected List<String> listFiles(String directory)
             throws IOException
     {
-        try (Stream<Path> walk = Files.walk(tableDataPath)) {
-            return walk
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !path.getFileName().toString().matches("\\..*\\.crc"))
-                    .map(Path::toString)
-                    .collect(toImmutableList());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+        ImmutableList.Builder<String> files = ImmutableList.builder();
+        FileIterator listing = fileSystem.listFiles(directory);
+        while (listing.hasNext()) {
+            String location = listing.next().location();
+            if (location.matches(".*/\\..*\\.crc")) {
+                continue;
+            }
+            files.add(location);
         }
+        return files.build();
+    }
+
+    protected long fileSize(String location)
+            throws IOException
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+        return fileSystem.newInputFile(location).length();
+    }
+
+    protected void createFile(String location)
+            throws IOException
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
+        fileSystem.newOutputFile(location).create().close();
     }
 
     private List<Long> getSnapshotIds(String tableName)
@@ -6727,7 +6793,7 @@ public abstract class BaseIcebergConnectorTest
         return getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\"", tableName))
                 .getOnlyColumn()
                 .map(Long.class::cast)
-                .collect(toUnmodifiableList());
+                .collect(toImmutableList());
     }
 
     private List<Long> getTableHistory(String tableName)
@@ -6743,14 +6809,14 @@ public abstract class BaseIcebergConnectorTest
         return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
     }
 
-    private Path getIcebergTableDataPath(String tableLocation)
+    private String getIcebergTableDataPath(String tableLocation)
     {
-        return Path.of(tableLocation, "data");
+        return tableLocation + "/data";
     }
 
-    private Path getIcebergTableMetadataPath(String tableLocation)
+    private String getIcebergTableMetadataPath(String tableLocation)
     {
-        return Path.of(tableLocation, "metadata");
+        return tableLocation + "/metadata";
     }
 
     private long getCommittedAtInEpochMilliseconds(String tableName, long snapshotId)
