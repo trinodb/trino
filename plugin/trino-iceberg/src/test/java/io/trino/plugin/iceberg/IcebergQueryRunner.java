@@ -172,6 +172,7 @@ public final class IcebergQueryRunner
             TestingHttpServer testServer = delegatingCatalog.testServer();
             testServer.start();
 
+            @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
@@ -196,6 +197,7 @@ public final class IcebergQueryRunner
         {
             // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
             // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+            @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", "glue"))
@@ -219,6 +221,7 @@ public final class IcebergQueryRunner
             HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
             hiveMinioDataLake.start();
 
+            @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setCoordinatorProperties(Map.of(
                             "http-server.http.port", "8080"))
@@ -238,7 +241,6 @@ public final class IcebergQueryRunner
                                     .build())
                     .build();
 
-            Thread.sleep(10);
             Logger log = Logger.get(IcebergMinioHiveMetastoreQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
@@ -255,10 +257,12 @@ public final class IcebergQueryRunner
             Logging.initialize();
 
             String bucketName = "test-bucket";
+            @SuppressWarnings("resource")
             Minio minio = Minio.builder().build();
             minio.start();
             minio.createBucket(bucketName);
 
+            @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setCoordinatorProperties(Map.of(
                             "http-server.http.port", "8080"))
@@ -277,7 +281,6 @@ public final class IcebergQueryRunner
                                     .build())
                     .build();
 
-            Thread.sleep(10);
             Logger log = Logger.get(IcebergMinioQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
@@ -317,6 +320,7 @@ public final class IcebergQueryRunner
                     .build();
             hiveHadoop.start();
 
+            @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setCoordinatorProperties(Map.of(
                             "http-server.http.port", "8080"))
@@ -333,7 +337,6 @@ public final class IcebergQueryRunner
                                     .build())
                     .build();
 
-            Thread.sleep(10);
             Logger log = Logger.get(IcebergAzureQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
@@ -352,6 +355,7 @@ public final class IcebergQueryRunner
 
             TestingIcebergJdbcServer server = new TestingIcebergJdbcServer();
 
+            @SuppressWarnings("resource")
             DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .setIcebergProperties(ImmutableMap.<String, String>builder()
@@ -380,18 +384,11 @@ public final class IcebergQueryRunner
                 throws Exception
         {
             Logger log = Logger.get(DefaultIcebergQueryRunnerMain.class);
-            DistributedQueryRunner queryRunner = null;
-            try {
-                queryRunner = IcebergQueryRunner.builder()
-                        .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                        .setInitialTables(TpchTable.getTables())
-                        .build();
-            }
-            catch (Throwable t) {
-                log.error(t);
-                System.exit(1);
-            }
-            Thread.sleep(10);
+            @SuppressWarnings("resource")
+            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .setInitialTables(TpchTable.getTables())
+                    .build();
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
