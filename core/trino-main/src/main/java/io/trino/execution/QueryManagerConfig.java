@@ -102,9 +102,18 @@ public class QueryManagerConfig
     private DataSize remoteTaskRequestSizeHeadroom = DataSize.of(2, MEGABYTE);
     private int remoteTaskGuaranteedSplitPerTask = 3;
 
+    private int faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod = 64;
+    private double faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor = 1.2;
+    private DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin = DataSize.of(512, MEGABYTE);
+    private DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax = DataSize.of(50, GIGABYTE);
+
+    private int faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod = 64;
+    private double faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor = 1.2;
+    private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin = DataSize.of(4, GIGABYTE);
+    private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax = DataSize.of(50, GIGABYTE);
+
     private DataSize faultTolerantExecutionTargetTaskInputSize = DataSize.of(4, GIGABYTE);
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
-
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
     private int faultTolerantExecutionPartitionCount = 50;
@@ -638,6 +647,114 @@ public class QueryManagerConfig
     public QueryManagerConfig setRemoteTaskGuaranteedSplitPerTask(int remoteTaskGuaranteedSplitPerTask)
     {
         this.remoteTaskGuaranteedSplitPerTask = remoteTaskGuaranteedSplitPerTask;
+        return this;
+    }
+
+    public int getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod()
+    {
+        return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-period")
+    @ConfigDescription("The number of tasks we create for given non-writer stage of arbitrary distribution before we increase task size")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(int faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod)
+    {
+        this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod;
+        return this;
+    }
+
+    public double getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor()
+    {
+        return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-factor")
+    @ConfigDescription("Growth factor for adaptive sizing of non-writer tasks of arbitrary distribution for fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor(double faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor)
+    {
+        this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin()
+    {
+        return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min")
+    @ConfigDescription("Initial/min target input size for non-writer tasks of arbitrary distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin)
+    {
+        this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax()
+    {
+        return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max")
+    @ConfigDescription("Max target input size for non-writer task of arbitrary distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax(DataSize faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax)
+    {
+        this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax;
+        return this;
+    }
+
+    public int getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod()
+    {
+        return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-period")
+    @ConfigDescription("The number of tasks we create for given writer stage of arbitrary distribution before we increase task size")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod(int faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod)
+    {
+        this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod;
+        return this;
+    }
+
+    public double getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor()
+    {
+        return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-factor")
+    @ConfigDescription("Growth factor for adaptive sizing of writer tasks of arbitrary distribution for fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor(double faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor)
+    {
+        this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin()
+    {
+        return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min")
+    @ConfigDescription("Initial/min target input size for writer tasks of arbitrary distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin(DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin)
+    {
+        this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax()
+    {
+        return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax;
+    }
+
+    @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-max")
+    @ConfigDescription("Max target input size for writer tasks of arbitrary distribution of fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax)
+    {
+        this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax;
         return this;
     }
 
