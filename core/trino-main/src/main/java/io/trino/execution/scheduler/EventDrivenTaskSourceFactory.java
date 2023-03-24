@@ -51,9 +51,11 @@ import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitrar
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionComputeTaskTargetSize;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTaskTargetSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionStandardSplitSize;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -219,8 +221,7 @@ public class EventDrivenTaskSourceFactory
                     maxArbitraryDistributionTaskSplitCount);
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
-                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) ||
-                partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
             return HashDistributionSplitAssigner.create(
                     partitioning.getCatalogHandle(),
                     partitionedSources,
@@ -228,7 +229,19 @@ public class EventDrivenTaskSourceFactory
                     sourcePartitioningScheme,
                     outputDataSizeEstimates,
                     fragment,
-                    getFaultTolerantExecutionTargetTaskInputSize(session).toBytes());
+                    getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(session).toBytes(),
+                    Integer.MAX_VALUE); // compute tasks are bounded by the number of partitions anyways
+        }
+        if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+            return HashDistributionSplitAssigner.create(
+                    partitioning.getCatalogHandle(),
+                    partitionedSources,
+                    replicatedSources,
+                    sourcePartitioningScheme,
+                    outputDataSizeEstimates,
+                    fragment,
+                    getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(session).toBytes(),
+                    getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(session));
         }
 
         // other partitioning handles are not expected to be set as a fragment partitioning
