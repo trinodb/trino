@@ -77,7 +77,7 @@ public class EnvironmentDescribe
     }
 
     @Override
-    public Integer call() throws Exception
+    public Integer call()
     {
         return runCommand(
                 ImmutableList.<Module>builder()
