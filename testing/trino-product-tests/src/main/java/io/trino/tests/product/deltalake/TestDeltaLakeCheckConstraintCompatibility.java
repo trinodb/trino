@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -37,7 +38,7 @@ public class TestDeltaLakeCheckConstraintCompatibility
 {
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS}, dataProvider = "checkConstraints")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testCheckConstraintCompatibility(String columnDefinition, String checkConstraint, String validInput, Object insertedValue, String invalidInput)
+    public void testCheckConstraintCompatibility(String columnDefinition, String checkConstraint, String validInput, Row insertedValue, String invalidInput)
     {
         String tableName = "test_check_constraint_" + randomNameSuffix();
 
@@ -50,17 +51,17 @@ public class TestDeltaLakeCheckConstraintCompatibility
         try {
             onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (" + validInput + ")");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .containsOnly(row(insertedValue));
+                    .containsOnly(insertedValue);
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (" + validInput + ")");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .containsOnly(row(insertedValue), row(insertedValue));
+                    .containsOnly(insertedValue, insertedValue);
 
             assertThatThrownBy(() -> onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (" + invalidInput + ")"))
                     .hasMessageMatching("(?s).* CHECK constraint .* violated by row with values.*");
             assertThatThrownBy(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (" + invalidInput + ")"))
                     .hasMessageContaining("Check constraint violation");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .containsOnly(row(insertedValue), row(insertedValue));
+                    .containsOnly(insertedValue, insertedValue);
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -73,19 +74,19 @@ public class TestDeltaLakeCheckConstraintCompatibility
         return new Object[][] {
                 // columnDefinition, checkConstraint, validInput, insertedValue, invalidInput
                 // Operand
-                {"a INT", "a = 1", "1", 1, "2"},
-                {"a INT", "a > 1", "2", 2, "1"},
-                {"a INT", "a >= 1", "1", 1, "0"},
-                {"a INT", "a < 1", "0", 0, "1"},
-                {"a INT", "a <= 1", "1", 1, "2"},
-                {"a INT", "a <> 1", "2", 2, "1"},
-                {"a INT", "a != 1", "2", 2, "1"},
+                {"a INT", "a = 1", "1", row(1), "2"},
+                {"a INT", "a > 1", "2", row(2), "1"},
+                {"a INT", "a >= 1", "1", row(1), "0"},
+                {"a INT", "a < 1", "0", row(0), "1"},
+                {"a INT", "a <= 1", "1", row(1), "2"},
+                {"a INT", "a <> 1", "2", row(2), "1"},
+                {"a INT", "a != 1", "2", row(2), "1"},
                 // Supported types
-                {"a INT", "a < 100", "1", 1, "100"},
-                {"a STRING", "a = 'valid'", "'valid'", "valid", "'invalid'"},
-                {"a STRING", "a = \"double-quote\"", "'double-quote'", "double-quote", "'invalid'"},
+                {"a INT", "a < 100", "1", row(1), "100"},
+                {"a STRING", "a = 'valid'", "'valid'", row("valid"), "'invalid'"},
+                {"a STRING", "a = \"double-quote\"", "'double-quote'", row("double-quote"), "'invalid'"},
                 // Identifier
-                {"`a.dot` INT", "`a.dot` = 1", "1", 1, "2"},
+                {"`a.dot` INT", "`a.dot` = 1", "1", row(1), "2"},
         };
     }
 
