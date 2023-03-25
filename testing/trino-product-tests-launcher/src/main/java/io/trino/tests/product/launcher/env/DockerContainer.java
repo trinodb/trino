@@ -47,7 +47,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -116,12 +115,6 @@ public class DockerContainer
     public String getLogicalName()
     {
         return logicalName;
-    }
-
-    public DockerContainer withEnvironmentListener(Optional<EnvironmentListener> listener)
-    {
-        listener.ifPresent(listeners::add);
-        return this;
     }
 
     public DockerContainer addContainerListener(ContainerListener listener)
