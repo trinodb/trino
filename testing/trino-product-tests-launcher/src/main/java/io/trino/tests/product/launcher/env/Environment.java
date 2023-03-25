@@ -574,26 +574,21 @@ public final class Environment
             requireNonNull(listener, "listener is null");
 
             switch (outputMode) {
-                case DISCARD:
+                case DISCARD -> {
                     log.warn("Containers logs are not printed to stdout");
-                    setContainerOutputConsumer(Environment.Builder::discardContainerLogs);
-                    break;
-
-                case PRINT:
-                    setContainerOutputConsumer(Environment.Builder::printContainerLogs);
-                    break;
-
-                case PRINT_WRITE:
+                    setContainerOutputConsumer(Builder::discardContainerLogs);
+                }
+                case PRINT -> setContainerOutputConsumer(Builder::printContainerLogs);
+                case PRINT_WRITE -> {
                     verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
-
                     setContainerOutputConsumer(container -> combineConsumers(
                             writeContainerLogs(container, logsBaseDir.get()),
                             printContainerLogs(container)));
-                    break;
-
-                case WRITE:
+                }
+                case WRITE -> {
                     verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
                     setContainerOutputConsumer(container -> writeContainerLogs(container, logsBaseDir.get()));
+                }
             }
 
             containers.forEach((name, container) -> {
