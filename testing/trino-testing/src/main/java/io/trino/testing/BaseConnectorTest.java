@@ -52,22 +52,8 @@ import org.testng.annotations.Test;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalInt;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletionService;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -90,55 +76,16 @@ import static io.trino.SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PE
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.server.testing.TestingSystemSessionProperties.TESTING_SESSION_TIME;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
-import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
-import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
-import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
+import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.*;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.*;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW_GRACE_PERIOD;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
+import static io.trino.testing.TestingConnectorBehavior.*;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TestUtil.verifyResultOrFailure;
@@ -150,20 +97,13 @@ import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.*;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.ZONED_DATE_TIME;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.*;
 
 /**
  * Generic test for connectors.
@@ -2625,23 +2565,25 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testSetColumnType()
-    {
-        if (!hasBehavior(SUPPORTS_SET_COLUMN_TYPE)) {
-            assertQueryFails("ALTER TABLE nation ALTER COLUMN nationkey SET DATA TYPE bigint", "This connector does not support setting column types");
-            return;
-        }
-
+    public void testSetColumnType() {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", "AS SELECT CAST(123 AS integer) AS col")) {
-            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
+        String tableName = "test_set_column_type";
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double NOT NULL, c varchar(50)) WITH (order_by=ARRAY['b'], engine = 'MergeTree')");
 
-            assertEquals(getColumnType(table.getName(), "col"), "bigint");
-            assertThat(query("SELECT * FROM " + table.getName()))
-                    .skippingTypesCheck()
-                    .matches("VALUES bigint '123'");
-        }
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN a SET DATA TYPE varchar(50)");
+
+        assertEquals(getColumnType(tableName, "a"), "varchar");
+        assertThat((String) computeScalar("show create table " + tableName)).contains("CREATE TABLE clickhouse.tpch.test_set_column_type (\n" +
+                "   a varchar NOT NULL,\n" +
+                "   b double NOT NULL,\n" +
+                "   c varchar\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   engine = 'MERGETREE',\n" +
+                "   order_by = ARRAY['b'],\n" +
+                "   primary_key = ARRAY['b']\n" +
+                ")");
     }
 
     @Test(dataProvider = "setColumnTypesDataProvider")
