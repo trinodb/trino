@@ -99,6 +99,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
+import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
@@ -118,10 +119,17 @@ public abstract class AbstractMockMetadata
         return new AbstractMockMetadata() {};
     }
 
+    private Set<ConnectorCapabilities> connectorCapabilities = ImmutableSet.of();
+
     @Override
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
     {
-        throw new UnsupportedOperationException();
+        return connectorCapabilities;
+    }
+
+    public void setConnectorCapabilities(ConnectorCapabilities... connectorCapabilities)
+    {
+        this.connectorCapabilities = immutableEnumSet(ImmutableList.copyOf(connectorCapabilities));
     }
 
     @Override
