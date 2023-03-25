@@ -40,6 +40,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -206,6 +207,18 @@ public class QueryInfo
     public boolean isScheduled()
     {
         return queryStats.isScheduled();
+    }
+
+    @JsonProperty
+    public OptionalDouble getProgressPercentage()
+    {
+        return queryStats.getProgressPercentage();
+    }
+
+    @JsonProperty
+    public OptionalDouble getRunningPercentage()
+    {
+        return queryStats.getRunningPercentage();
     }
 
     @JsonProperty

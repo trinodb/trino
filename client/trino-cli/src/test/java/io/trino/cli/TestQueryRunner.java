@@ -33,6 +33,7 @@ import java.io.PrintStream;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -125,7 +126,11 @@ public class TestQueryRunner
                 null,
                 ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
                 ImmutableList.of(ImmutableList.of(123)),
-                StatementStats.builder().setState("FINISHED").build(),
+                StatementStats.builder()
+                        .setState("FINISHED")
+                        .setProgressPercentage(OptionalDouble.empty())
+                        .setRunningPercentage(OptionalDouble.empty())
+                        .build(),
                 //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),

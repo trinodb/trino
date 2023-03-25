@@ -60,12 +60,14 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -101,6 +103,7 @@ import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static io.trino.util.Ciphers.serializeAesEncryptionKey;
 import static io.trino.util.Failures.toFailure;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -446,7 +449,8 @@ public class QueryStateMachine
 
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),
-                stageStats.getProgressPercentage());
+                stageStats.getProgressPercentage(),
+                stageStats.getRunningPercentage());
 
         return new BasicQueryInfo(
                 queryId,
@@ -665,9 +669,52 @@ public class QueryStateMachine
             failedOutputPositions += outputStageStats.getFailedOutputPositions();
         }
 
-        boolean isScheduled = rootStage.isPresent() && allStages.stream()
-                .map(StageInfo::getState)
-                .allMatch(state -> state == StageState.RUNNING || state == StageState.PENDING || state.isDone());
+        boolean scheduled;
+        OptionalDouble progressPercentage;
+        OptionalDouble runningPercentage;
+        if (getRetryPolicy(session).equals(TASK)) {
+            // Unlike pipelined execution, fault tolerant execution doesn't execute stages all at
+            // once and some stages will be in PLANNED state in the middle of execution.
+            scheduled = rootStage.isPresent() && allStages.stream()
+                    .map(StageInfo::getState)
+                    .anyMatch(StageState::isScheduled);
+            if (!scheduled || totalDrivers == 0) {
+                progressPercentage = OptionalDouble.empty();
+                runningPercentage = OptionalDouble.empty();
+            }
+            else {
+                double completedPercentageSum = 0.0;
+                double runningPercentageSum = 0.0;
+                int totalStages = 0;
+                Queue<StageInfo> queue = new ArrayDeque<>();
+                queue.add(rootStage.get());
+                while (!queue.isEmpty()) {
+                    StageInfo stage = queue.poll();
+                    StageStats stageStats = stage.getStageStats();
+                    totalStages++;
+                    if (stage.getState().isScheduled()) {
+                        completedPercentageSum += 100.0 * stageStats.getCompletedDrivers() / stageStats.getTotalDrivers();
+                        runningPercentageSum += 100.0 * stageStats.getRunningDrivers() / stageStats.getTotalDrivers();
+                    }
+                    queue.addAll(stage.getSubStages());
+                }
+                progressPercentage = OptionalDouble.of(min(100, completedPercentageSum / totalStages));
+                runningPercentage = OptionalDouble.of(min(100, runningPercentageSum / totalStages));
+            }
+        }
+        else {
+            scheduled = rootStage.isPresent() && allStages.stream()
+                    .map(StageInfo::getState)
+                    .allMatch(StageState::isScheduled);
+            if (!scheduled || totalDrivers == 0) {
+                progressPercentage = OptionalDouble.empty();
+                runningPercentage = OptionalDouble.empty();
+            }
+            else {
+                progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
+                runningPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
+            }
+        }
 
         return new QueryStats(
                 queryStateTimer.getCreateTime(),
@@ -707,7 +754,9 @@ public class QueryStateMachine
                 succinctBytes(getPeakTaskRevocableMemory()),
                 succinctBytes(getPeakTaskTotalMemory()),
 
-                isScheduled,
+                scheduled,
+                progressPercentage,
+                runningPercentage,
 
                 new Duration(totalScheduledTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(failedScheduledTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
@@ -1290,6 +1339,8 @@ public class QueryStateMachine
                 queryStats.getPeakTaskRevocableMemory(),
                 queryStats.getPeakTaskTotalMemory(),
                 queryStats.isScheduled(),
+                queryStats.getProgressPercentage(),
+                queryStats.getRunningPercentage(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.getFailedScheduledTime(),
                 queryStats.getTotalCpuTime(),

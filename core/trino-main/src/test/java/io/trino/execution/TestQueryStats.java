@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
@@ -213,6 +214,8 @@ public class TestQueryStats
             DataSize.ofBytes(27),
 
             true,
+            OptionalDouble.of(8.88),
+            OptionalDouble.of(0),
             new Duration(28, NANOSECONDS),
             new Duration(29, NANOSECONDS),
             new Duration(30, NANOSECONDS),

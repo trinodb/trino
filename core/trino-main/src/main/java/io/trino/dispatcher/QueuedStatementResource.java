@@ -64,6 +64,7 @@ import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -282,6 +283,8 @@ public class QueuedStatementResource
                 StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)
+                        .setProgressPercentage(OptionalDouble.empty())
+                        .setRunningPercentage(OptionalDouble.empty())
                         .setElapsedTimeMillis(elapsedTime.toMillis())
                         .setQueuedTimeMillis(queuedTime.toMillis())
                         .build(),
