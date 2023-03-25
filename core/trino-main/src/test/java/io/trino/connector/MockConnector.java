@@ -563,7 +563,8 @@ public class MockConnector
                     getColumns.apply(table.getTableName()),
                     ImmutableMap.of(),
                     getComment.apply(table.getTableName()),
-                    checkConstraints.apply(table.getTableName()));
+                    checkConstraints.apply(table.getTableName()),
+                    ImmutableList.of());
         }
 
         @Override
