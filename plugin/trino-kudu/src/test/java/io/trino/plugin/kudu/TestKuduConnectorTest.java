@@ -69,6 +69,7 @@ public class TestKuduConnectorTest
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_PRIMARY_KEY_CONSTRAINT,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,

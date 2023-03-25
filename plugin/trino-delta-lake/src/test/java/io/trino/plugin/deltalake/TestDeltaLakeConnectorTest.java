@@ -178,6 +178,7 @@ public class TestDeltaLakeConnectorTest
                  SUPPORTS_DROP_FIELD,
                  SUPPORTS_LIMIT_PUSHDOWN,
                  SUPPORTS_PREDICATE_PUSHDOWN,
+                 SUPPORTS_PRIMARY_KEY_CONSTRAINT,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_COLUMN_TYPE,
