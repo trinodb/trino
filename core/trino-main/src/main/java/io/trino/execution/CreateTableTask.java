@@ -46,9 +46,11 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.PrimaryKeyDefinition;
 import io.trino.sql.tree.TableElement;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -74,6 +76,7 @@ import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_PRIMARY_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -81,6 +84,7 @@ import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.spi.connector.ConnectorCapabilities.PRIMARY_KEY_CONSTRAINT;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeDefaultColumnValue;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeDescriptorTranslator.toTypeDescriptor;
@@ -166,6 +170,7 @@ public class CreateTableTask
                 parameterLookup,
                 true);
 
+        List<String> primaryKeys = ImmutableList.of();
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
@@ -215,6 +220,29 @@ public class CreateTableTask
                         .setComment(column.getComment())
                         .setProperties(columnProperties)
                         .build());
+            }
+            else if (element instanceof PrimaryKeyDefinition primaryKey) {
+                if (!plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(PRIMARY_KEY_CONSTRAINT)) {
+                    throw semanticException(NOT_SUPPORTED, primaryKey, "This connector does not support creating tables with a primary key constraint");
+                }
+
+                List<Identifier> key = primaryKey.getPrimaryKeys();
+                if (key.isEmpty()) {
+                    throw semanticException(INVALID_PRIMARY_KEY, primaryKey, "PRIMARY KEY must contain at least one column");
+                }
+                Set<String> uniqueKeyColumns = new HashSet<>();
+                for (Identifier keyColumn : key) {
+                    if (!uniqueKeyColumns.add(keyColumn.getValue().toLowerCase(ENGLISH))) {
+                        throw semanticException(INVALID_PRIMARY_KEY, primaryKey, "Column '%s' specified more than once in PRIMARY KEY", keyColumn.getValue());
+                    }
+                }
+                if (!primaryKeys.isEmpty()) {
+                    throw semanticException(INVALID_PRIMARY_KEY, primaryKey, "Multiple PRIMARY KEY constraints specified");
+                }
+
+                primaryKeys = key.stream()
+                        .map(identifier -> identifier.getValue().toLowerCase(ENGLISH))
+                        .collect(toImmutableList());
             }
             else if (element instanceof LikeClause likeClause) {
                 QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
@@ -302,8 +330,21 @@ public class CreateTableTask
                 .collect(toImmutableMap(Function.identity(), properties::get));
         accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, explicitlySetProperties);
 
+        for (String primaryKey : primaryKeys) {
+            ColumnMetadata column = columns.get(primaryKey);
+            if (column == null) {
+                throw semanticException(INVALID_PRIMARY_KEY, statement, "PRIMARY KEY column '%s' does not exist in table definition", primaryKey);
+            }
+            if (!column.getType().isComparable()) {
+                throw semanticException(INVALID_PRIMARY_KEY, statement, "PRIMARY KEY column '%s' is of type %s, which is not comparable", primaryKey, column.getType().getDisplayName());
+            }
+            if (column.isNullable()) {
+                throw semanticException(INVALID_PRIMARY_KEY, statement, "PRIMARY KEY column '%s' must be declared NOT NULL", primaryKey);
+            }
+        }
+
         Map<String, Object> finalProperties = combineProperties(specifiedPropertyKeys, properties, inheritedProperties);
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment(), ImmutableList.of(), primaryKeys);
         try {
             plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, toConnectorSaveMode(statement.getSaveMode()));
         }

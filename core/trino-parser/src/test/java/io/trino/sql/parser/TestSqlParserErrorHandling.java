@@ -113,10 +113,10 @@ public class TestSqlParserErrorHandling
                         "line 1:18: mismatched input '<EOF>'. Expecting: '(', '.', 'AS', 'COMMENT', 'WITH'"),
                 Arguments.of(
                         "CREATE TABLE foo () AS (VALUES 1)",
-                        "line 1:19: mismatched input ')'. Expecting: 'LIKE', <identifier>"),
+                        "line 1:19: mismatched input ')'. Expecting: 'LIKE', 'PRIMARY', <identifier>"),
                 Arguments.of(
                         "CREATE TABLE foo (*) AS (VALUES 1)",
-                        "line 1:19: mismatched input '*'. Expecting: 'LIKE', <identifier>"),
+                        "line 1:19: mismatched input '*'. Expecting: 'LIKE', 'PRIMARY', <identifier>"),
                 Arguments.of(
                         "SELECT grouping(a+2) FROM (VALUES (1)) AS t (a) GROUP BY a+2",
                         "line 1:18: mismatched input '+'. Expecting: ')', ',', '.'"),
