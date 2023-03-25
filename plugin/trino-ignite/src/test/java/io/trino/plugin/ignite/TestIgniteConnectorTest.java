@@ -64,7 +64,6 @@ public class TestIgniteConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
             case SUPPORTS_TRUNCATE:
                 return false;
 

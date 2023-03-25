@@ -171,6 +171,7 @@ Ignite.  In addition to the :ref:`globally available
 statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
+* :doc:`/sql/delete`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
