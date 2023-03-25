@@ -97,7 +97,7 @@ public final class Environment
     private final String name;
     private final int startupRetries;
     private final Map<String, DockerContainer> containers;
-    private final Optional<EnvironmentListener> listener;
+    private final EnvironmentListener listener;
     private final boolean attached;
     private final Map<String, List<String>> configuredFeatures;
 
@@ -105,7 +105,7 @@ public final class Environment
             String name,
             int startupRetries,
             Map<String, DockerContainer> containers,
-            Optional<EnvironmentListener> listener,
+            EnvironmentListener listener,
             boolean attached,
             Map<String, List<String>> configuredFeatures)
     {
@@ -169,7 +169,7 @@ public final class Environment
             // After deepStart all containers should be running and healthy
             checkState(allContainersHealthy(containers), "Not all containers are running or healthy");
 
-            this.listener.ifPresent(listener -> listener.environmentStarted(this));
+            listener.environmentStarted(this);
             return this;
         }
         catch (InterruptedException e) {
@@ -184,7 +184,7 @@ public final class Environment
     public void stop()
     {
         checkState(!attached, "Cannot stop environment that is attached");
-        this.listener.ifPresent(listener -> listener.environmentStopping(this));
+        listener.environmentStopping(this);
 
         // Allow containers to take up to 5 minutes to stop
         Timeout<Object> timeout = Timeout.builder(ofMinutes(5))
@@ -204,7 +204,7 @@ public final class Environment
                 .filter(DockerContainer::isRunning)
                 .forEach(container -> executor.run(container::tryStop));
 
-        this.listener.ifPresent(listener -> listener.environmentStopped(this));
+        listener.environmentStopped(this);
         pruneEnvironment();
     }
 
@@ -566,16 +566,13 @@ public final class Environment
 
         public Environment build()
         {
-            return build(Optional.empty());
+            return build(EnvironmentListener.NOOP);
         }
 
         public Environment build(EnvironmentListener listener)
         {
-            return build(Optional.of(listener));
-        }
+            requireNonNull(listener, "listener is null");
 
-        private Environment build(Optional<EnvironmentListener> listener)
-        {
             switch (outputMode) {
                 case DISCARD:
                     log.warn("Containers logs are not printed to stdout");
@@ -601,7 +598,7 @@ public final class Environment
 
             containers.forEach((name, container) -> {
                 container
-                        .withEnvironmentListener(listener)
+                        .addContainerListener(listener)
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
                             HostConfig hostConfig = createContainerCmd.getHostConfig();
@@ -643,7 +640,6 @@ public final class Environment
         {
             try {
                 // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
-                //noinspection resource
                 PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
                 return new PrintingLogConsumer(out, format("%-20s| ", container.getLogicalName()));
             }
