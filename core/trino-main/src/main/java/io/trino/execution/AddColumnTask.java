@@ -56,6 +56,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.spi.connector.ConnectorCapabilities.PRIMARY_KEY_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -149,10 +150,15 @@ public class AddColumnTask
                     bindParameters(statement, parameters),
                     true);
 
+            if (element.isPrimaryKey() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(PRIMARY_KEY_COLUMN_CONSTRAINT)) {
+                throw semanticException(NOT_SUPPORTED, element, "This connector does not support adding columns with a primary key constraint");
+            }
+
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
                     .setType(getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type))
                     .setNullable(element.isNullable())
+                    .setPrimaryKey(element.isPrimaryKey())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)
                     .build();

@@ -3055,12 +3055,14 @@ class AstBuilder
         }
 
         boolean nullable = context.NOT() == null;
+        boolean primaryKey = context.PRIMARY() != null;
 
         return new ColumnDefinition(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (DataType) visit(context.type()),
                 nullable,
+                primaryKey,
                 properties,
                 comment);
     }
