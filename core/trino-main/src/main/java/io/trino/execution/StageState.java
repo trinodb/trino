@@ -80,4 +80,12 @@ public enum StageState
     {
         return failureState;
     }
+
+    /**
+     * Is this a scheduled state
+     */
+    public boolean isScheduled()
+    {
+        return this.equals(StageState.RUNNING) || this.equals(StageState.PENDING) || this.isDone();
+    }
 }

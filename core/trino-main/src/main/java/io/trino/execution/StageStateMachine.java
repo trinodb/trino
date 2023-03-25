@@ -323,6 +323,10 @@ public class StageStateMachine
         if (isScheduled && totalDrivers != 0) {
             progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
         }
+        OptionalDouble runningPercentage = OptionalDouble.empty();
+        if (isScheduled && totalDrivers != 0) {
+            runningPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
+        }
 
         return new BasicStageStats(
                 isScheduled,
@@ -357,7 +361,8 @@ public class StageStateMachine
                 fullyBlocked,
                 blockedReasons,
 
-                progressPercentage);
+                progressPercentage,
+                runningPercentage);
     }
 
     public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier)

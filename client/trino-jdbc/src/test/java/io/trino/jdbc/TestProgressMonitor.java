@@ -34,6 +34,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -91,7 +92,7 @@ public class TestProgressMonitor
                 nextUriId == null ? null : server.url(format("/v1/statement/%s/%s", queryId, nextUriId)).uri(),
                 responseColumns,
                 data,
-                new StatementStats(state, state.equals("QUEUED"), true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
+                new StatementStats(state, state.equals("QUEUED"), true, OptionalDouble.of(0), OptionalDouble.of(0), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
                 null,
                 ImmutableList.of(),
                 null,
