@@ -128,9 +128,21 @@ public class TestSparkExpressions
     }
 
     @Test
+    public void testArithmeticBinary()
+    {
+        assertExpressionTranslates("a = b % 1", "(\"a\" = (\"b\" % 1))");
+        assertExpressionTranslates("a = b * 1", "(\"a\" = (\"b\" * 1))");
+        assertExpressionTranslates("a = b + 1", "(\"a\" = (\"b\" + 1))");
+        assertExpressionTranslates("a = b - 1", "(\"a\" = (\"b\" - 1))");
+        assertExpressionTranslates("a = b / 1", "(\"a\" = (\"b\" / 1))");
+        assertExpressionTranslates("a = b & 1", "(\"a\" = (bitwise_and(\"b\", 1)))");
+        assertExpressionTranslates("a = b ^ 1", "(\"a\" = (bitwise_xor(\"b\", 1)))");
+    }
+
+    @Test
     public void testInvalidNotBoolean()
     {
-        assertParseFailure("a + a");
+        assertParseFailure("'Spark' || 'SQL'");
     }
 
     // TODO: Support following expressions
@@ -152,13 +164,6 @@ public class TestSparkExpressions
     {
         assertParseFailure("a <=> 1");
         assertParseFailure("a == 1");
-        assertParseFailure("a = b % 1");
-        assertParseFailure("a = b & 1");
-        assertParseFailure("a = b * 1");
-        assertParseFailure("a = b + 1");
-        assertParseFailure("a = b - 1");
-        assertParseFailure("a = b / 1");
-        assertParseFailure("a = b ^ 1");
         assertParseFailure("a = b::INTEGER");
         assertParseFailure("a = json_column:root");
         assertParseFailure("a BETWEEN 1 AND 10");

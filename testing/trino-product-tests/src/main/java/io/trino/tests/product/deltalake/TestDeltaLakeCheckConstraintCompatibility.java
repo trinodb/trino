@@ -81,6 +81,14 @@ public class TestDeltaLakeCheckConstraintCompatibility
                 {"a INT", "a <= 1", "1", row(1), "2"},
                 {"a INT", "a <> 1", "2", row(2), "1"},
                 {"a INT", "a != 1", "2", row(2), "1"},
+                // Arithmetic binary
+                {"a INT, b INT", "a = b + 1", "2, 1", row(2, 1), "2, 2"},
+                {"a INT, b INT", "a = b - 1", "1, 2", row(1, 2), "1, 3"},
+                {"a INT, b INT", "a = b * 2", "4, 2", row(4, 2), "4, 3"},
+                {"a INT, b INT", "a = b / 2", "2, 4", row(2, 4), "2, 6"},
+                {"a INT, b INT", "a = b % 2", "1, 5", row(1, 5), "1, 6"},
+                {"a INT, b INT", "a = b & 5", "1, 3", row(1, 3), "1, 4"},
+                {"a INT, b INT", "a = b ^ 5", "6, 3", row(6, 3), "6, 4"},
                 // Supported types
                 {"a INT", "a < 100", "1", row(1), "100"},
                 {"a STRING", "a = 'valid'", "'valid'", row("valid"), "'invalid'"},

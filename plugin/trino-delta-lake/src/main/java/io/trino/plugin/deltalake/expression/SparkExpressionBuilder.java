@@ -47,6 +47,37 @@ public class SparkExpressionBuilder
     }
 
     @Override
+    public Object visitArithmeticBinary(SparkExpressionBaseParser.ArithmeticBinaryContext context)
+    {
+        return new ArithmeticBinaryExpression(
+                getArithmeticBinaryOperator(context.operator),
+                (SparkExpression) visit(context.left),
+                (SparkExpression) visit(context.right));
+    }
+
+    private static ArithmeticBinaryExpression.Operator getArithmeticBinaryOperator(Token operator)
+    {
+        switch (operator.getType()) {
+            case SparkExpressionBaseParser.PLUS:
+                return ArithmeticBinaryExpression.Operator.ADD;
+            case SparkExpressionBaseParser.MINUS:
+                return ArithmeticBinaryExpression.Operator.SUBTRACT;
+            case SparkExpressionBaseParser.ASTERISK:
+                return ArithmeticBinaryExpression.Operator.MULTIPLY;
+            case SparkExpressionBaseParser.SLASH:
+                return ArithmeticBinaryExpression.Operator.DIVIDE;
+            case SparkExpressionBaseParser.PERCENT:
+                return ArithmeticBinaryExpression.Operator.MODULUS;
+            case SparkExpressionBaseParser.AMPERSAND:
+                return ArithmeticBinaryExpression.Operator.BITWISE_AND;
+            case SparkExpressionBaseParser.CIRCUMFLEX:
+                return ArithmeticBinaryExpression.Operator.BITWISE_XOR;
+        }
+
+        throw new UnsupportedOperationException("Unsupported operator: " + operator.getText());
+    }
+
+    @Override
     public Object visitComparison(SparkExpressionBaseParser.ComparisonContext context)
     {
         return new ComparisonExpression(

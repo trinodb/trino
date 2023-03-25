@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.deltalake.expression;
 
+import static io.trino.plugin.deltalake.expression.ArithmeticBinaryExpression.Operator.BITWISE_AND;
+import static io.trino.plugin.deltalake.expression.ArithmeticBinaryExpression.Operator.BITWISE_XOR;
+
 public final class SparkExpressionConverter
 {
     private SparkExpressionConverter() {}
@@ -34,6 +37,18 @@ public final class SparkExpressionConverter
         @Override
         protected String visitComparisonExpression(ComparisonExpression node, Void context)
         {
+            return "(%s %s %s)".formatted(process(node.getLeft(), context), node.getOperator().getValue(), process(node.getRight(), context));
+        }
+
+        @Override
+        protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        {
+            if (node.getOperator() == BITWISE_AND) {
+                return "(bitwise_and(%s, %s))".formatted(process(node.getLeft(), context), process(node.getRight(), context));
+            }
+            if (node.getOperator() == BITWISE_XOR) {
+                return "(bitwise_xor(%s, %s))".formatted(process(node.getLeft(), context), process(node.getRight(), context));
+            }
             return "(%s %s %s)".formatted(process(node.getLeft(), context), node.getOperator().getValue(), process(node.getRight(), context));
         }
 
