@@ -62,6 +62,7 @@ public class BasicStageStats
             false,
             ImmutableSet.of(),
 
+            OptionalDouble.empty(),
             OptionalDouble.empty());
 
     private final boolean isScheduled;
@@ -88,6 +89,7 @@ public class BasicStageStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
     private final OptionalDouble progressPercentage;
+    private final OptionalDouble runningPercentage;
 
     public BasicStageStats(
             boolean isScheduled,
@@ -122,7 +124,8 @@ public class BasicStageStats
             boolean fullyBlocked,
             Set<BlockedReason> blockedReasons,
 
-            OptionalDouble progressPercentage)
+            OptionalDouble progressPercentage,
+            OptionalDouble runningPercentage)
     {
         this.isScheduled = isScheduled;
         this.failedTasks = failedTasks;
@@ -148,6 +151,7 @@ public class BasicStageStats
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
+        this.runningPercentage = requireNonNull(runningPercentage, "runningPerentage is null");
     }
 
     public boolean isScheduled()
@@ -270,6 +274,11 @@ public class BasicStageStats
         return progressPercentage;
     }
 
+    public OptionalDouble getRunningPercentage()
+    {
+        return runningPercentage;
+    }
+
     public static BasicStageStats aggregateBasicStageStats(Iterable<BasicStageStats> stages)
     {
         int failedTasks = 0;
@@ -342,6 +351,10 @@ public class BasicStageStats
         if (isScheduled && totalDrivers != 0) {
             progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
         }
+        OptionalDouble runningPercentage = OptionalDouble.empty();
+        if (isScheduled && totalDrivers != 0) {
+            runningPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
+        }
 
         return new BasicStageStats(
                 isScheduled,
@@ -376,6 +389,7 @@ public class BasicStageStats
                 fullyBlocked,
                 blockedReasons,
 
-                progressPercentage);
+                progressPercentage,
+                runningPercentage);
     }
 }

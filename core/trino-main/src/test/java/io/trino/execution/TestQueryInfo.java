@@ -50,6 +50,8 @@ public class TestQueryInfo
         // Note: SessionRepresentation.equals?
         assertEquals(actual.getState(), expected.getState());
         assertEquals(actual.isScheduled(), expected.isScheduled());
+        assertEquals(actual.getProgressPercentage(), expected.getProgressPercentage());
+        assertEquals(actual.getRunningPercentage(), expected.getRunningPercentage());
 
         assertEquals(actual.getSelf(), expected.getSelf());
         assertEquals(actual.getFieldNames(), expected.getFieldNames());
