@@ -45,7 +45,7 @@ import static java.util.Objects.requireNonNull;
  *    - Exchange (optional)
  *      - MergeWriter
  *        - Exchange
- *          - Project
+ *          - Project (optional)
  *            - empty Values
  * </pre>
  * into
@@ -61,10 +61,20 @@ public final class RemoveEmptyMergeWriterRuleSet
     {
         return ImmutableSet.of(
                 removeEmptyMergeWriterRule(),
-                removeEmptyMergeWriterWithExchangeRule());
+                removeEmptyMergeWriterWithProjectRule(),
+                removeEmptyMergeWriterWithExchangeRule(),
+                removeEmptyMergeWriterWithProjectAndExchangeRule());
     }
 
     static Rule<TableFinishNode> removeEmptyMergeWriterRule()
+    {
+        return new RemoveEmptyMergeWriter(tableFinish()
+                .with(source().matching(mergeWriter()
+                        .with(source().matching(exchange()
+                                .with(source().matching(emptyValues())))))));
+    }
+
+    static Rule<TableFinishNode> removeEmptyMergeWriterWithProjectRule()
     {
         return new RemoveEmptyMergeWriter(tableFinish()
                 .with(source().matching(mergeWriter()
@@ -74,6 +84,15 @@ public final class RemoveEmptyMergeWriterRuleSet
     }
 
     static Rule<TableFinishNode> removeEmptyMergeWriterWithExchangeRule()
+    {
+        return new RemoveEmptyMergeWriter(tableFinish()
+                .with(source().matching(exchange()
+                        .with(source().matching(mergeWriter()
+                                .with(source().matching(exchange()
+                                        .with(source().matching(emptyValues())))))))));
+    }
+
+    static Rule<TableFinishNode> removeEmptyMergeWriterWithProjectAndExchangeRule()
     {
         return new RemoveEmptyMergeWriter(tableFinish()
                 .with(source().matching(exchange()
