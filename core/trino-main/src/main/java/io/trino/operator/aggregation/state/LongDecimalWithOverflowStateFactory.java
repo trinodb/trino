@@ -39,7 +39,7 @@ public class LongDecimalWithOverflowStateFactory
         return new GroupedLongDecimalWithOverflowState();
     }
 
-    public static class GroupedLongDecimalWithOverflowState
+    private static final class GroupedLongDecimalWithOverflowState
             extends AbstractGroupedAccumulatorState
             implements LongDecimalWithOverflowState
     {
@@ -130,7 +130,7 @@ public class LongDecimalWithOverflowStateFactory
         }
     }
 
-    public static class SingleLongDecimalWithOverflowState
+    private static final class SingleLongDecimalWithOverflowState
             implements LongDecimalWithOverflowState
     {
         private static final int INSTANCE_SIZE = instanceSize(SingleLongDecimalWithOverflowState.class);
