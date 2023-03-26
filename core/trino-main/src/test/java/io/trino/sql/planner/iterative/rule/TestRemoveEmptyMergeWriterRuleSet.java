@@ -24,6 +24,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -52,13 +53,15 @@ public class TestRemoveEmptyMergeWriterRuleSet
     public static Object[][] testRemoveEmptyMergeRewriteParams()
     {
         return new Object[][] {
-                {RemoveEmptyMergeWriterRuleSet.removeEmptyMergeWriterRule(), false},
-                {RemoveEmptyMergeWriterRuleSet.removeEmptyMergeWriterWithExchangeRule(), true}
+                {RemoveEmptyMergeWriterRuleSet.removeEmptyMergeWriterRule(), false, false},
+                {RemoveEmptyMergeWriterRuleSet.removeEmptyMergeWriterWithProjectRule(), true, false},
+                {RemoveEmptyMergeWriterRuleSet.removeEmptyMergeWriterWithExchangeRule(), false, true},
+                {RemoveEmptyMergeWriterRuleSet.removeEmptyMergeWriterWithProjectAndExchangeRule(), true, true}
         };
     }
 
     @Test(dataProvider = "testRemoveEmptyMergeRewriteParams")
-    public void testRemoveEmptyMergeRewriteFires(Rule<TableFinishNode> rule, boolean withExchange)
+    public void testRemoveEmptyMergeRewriteFires(Rule<TableFinishNode> rule, boolean withProject, boolean withExchange)
     {
         tester().assertThat(rule)
                 .on(p -> {
@@ -66,17 +69,11 @@ public class TestRemoveEmptyMergeWriterRuleSet
                     Symbol rowId = p.symbol("row_id");
                     Symbol rowCount = p.symbol("row_count");
 
+                    PlanNode values = p.values(mergeRow, rowId, rowCount);
                     PlanNode merge = p.merge(
                             schemaTableName,
                             p.exchange(e -> e
-                                    .addSource(
-                                            p.project(
-                                                    Assignments.builder()
-                                                            .putIdentity(mergeRow)
-                                                            .putIdentity(rowId)
-                                                            .putIdentity(rowCount)
-                                                            .build(),
-                                                    p.values(mergeRow, rowId, rowCount)))
+                                    .addSource(withProject ? withProject(p, values) : values)
                                     .addInputsSet(mergeRow, rowId, rowCount)
                                     .partitioningScheme(
                                             new PartitioningScheme(
@@ -91,6 +88,13 @@ public class TestRemoveEmptyMergeWriterRuleSet
                             rowCount);
                 })
                 .matches(values("A"));
+    }
+
+    private ProjectNode withProject(PlanBuilder planBuilder, PlanNode values)
+    {
+        Assignments.Builder assignments = Assignments.builder();
+        values.getOutputSymbols().forEach(assignments::putIdentity);
+        return planBuilder.project(assignments.build(), values);
     }
 
     private ExchangeNode withExchange(PlanBuilder planBuilder, PlanNode source, Symbol symbol)
