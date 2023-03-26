@@ -16,6 +16,8 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
+        <awsjavasdk.version>2.17.151</awsjavasdk.version>
+
         <!--
           Project's default for air.test.parallel is 'methods'. By design, 'instances' runs all the methods in the same instance in the same thread,
           but two methods on two different instances will be running in different threads.
@@ -209,6 +211,11 @@
 
         <dependency>
             <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-aws</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
         </dependency>
 
@@ -305,6 +312,27 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache-client</artifactId>
+            <version>${awsjavasdk.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${awsjavasdk.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <version>${awsjavasdk.version}</version>
             <scope>runtime</scope>
         </dependency>
 
