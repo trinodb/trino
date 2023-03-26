@@ -549,7 +549,6 @@ public class PlanOptimizers
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject(),
                                 new RemoveAggregationInSemiJoin(),
-                                new MergeProjectWithValues(metadata),
                                 new ReplaceJoinOverConstantWithProject(metadata))),
                 new CheckSubqueryNodesAreRewritten(),
                 simplifyOptimizer, // Should run after MergeProjectWithValues
@@ -880,7 +879,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 // Run these after table scan is removed by AddExchanges
-                                .addAll(RemoveEmptyMergeWriterRuleSet.rules())
+                                .addAll(RemoveEmptyMergeWriterRuleSet.rules())  // !
                                 .add(new RemoveEmptyTableExecute())
                                 .build()));
 
@@ -894,6 +893,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
+                        .add(new MergeProjectWithValues(metadata))
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext, typeAnalyzer))
                         .build()));
