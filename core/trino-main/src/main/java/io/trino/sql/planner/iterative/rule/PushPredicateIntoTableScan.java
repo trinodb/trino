@@ -238,9 +238,7 @@ public class PushPredicateIntoTableScan
         }
 
         if (newDomain.isNone()) {
-            // TODO: DomainTranslator.fromPredicate can infer that the expression is "false" in some cases (TupleDomain.none()).
-            // This should move to another rule that simplifies the filter using that logic and then rely on RemoveTrivialFilters
-            // to turn the subtree into a Values node
+            // This is just for extra safety, SimplifyFalseConditions is responsible for eliminating such filters
             return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
