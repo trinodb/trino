@@ -20,9 +20,9 @@ import io.trino.spi.function.AccumulatorStateMetadata;
 public interface LongDecimalWithOverflowState
         extends AccumulatorState
 {
-    boolean isNotNull();
+    boolean isNull();
 
-    void setNotNull();
+    void setNull();
 
     long[] getDecimalArray();
 

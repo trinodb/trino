@@ -42,13 +42,18 @@ public final class DecimalSumAggregation
     @LiteralParameters({"p", "s"})
     public static void inputShortDecimal(
             @AggregationState LongDecimalWithOverflowState state,
-            @SqlType("decimal(p,s)") long rightLow)
+            @NullablePosition @BlockPosition @SqlType(value = "decimal(p, s)", nativeContainerType = long.class) Block block,
+            @BlockIndex int position)
     {
-        state.setNotNull();
+        if (block.isNull(position)) {
+            state.setNull();
+            return;
+        }
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
+        long rightLow = block.getLong(position, 0);
         long rightHigh = rightLow >> 63;
 
         long overflow = addWithOverflow(
@@ -65,10 +70,13 @@ public final class DecimalSumAggregation
     @LiteralParameters({"p", "s"})
     public static void inputLongDecimal(
             @AggregationState LongDecimalWithOverflowState state,
-            @BlockPosition @SqlType(value = "decimal(p,s)", nativeContainerType = Int128.class) Block block,
+            @NullablePosition @BlockPosition @SqlType(value = "decimal(p,s)", nativeContainerType = Int128.class) Block block,
             @BlockIndex int position)
     {
-        state.setNotNull();
+        if (block.isNull(position)) {
+            state.setNull();
+            return;
+        }
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
@@ -96,7 +104,17 @@ public final class DecimalSumAggregation
         long[] otherDecimal = otherState.getDecimalArray();
         int otherOffset = otherState.getDecimalArrayOffset();
 
-        if (state.isNotNull()) {
+        if (state.isNull()) {
+            if (otherState.isNull()) {
+                return;
+            }
+            decimal[offset] = otherDecimal[otherOffset];
+            decimal[offset + 1] = otherDecimal[otherOffset + 1];
+            state.setOverflow(otherState.getOverflow());
+            return;
+        }
+
+        if (!otherState.isNull()) {
             long overflow = addWithOverflow(
                     decimal[offset],
                     decimal[offset + 1],
@@ -106,35 +124,29 @@ public final class DecimalSumAggregation
                     offset);
             state.addOverflow(Math.addExact(overflow, otherState.getOverflow()));
         }
-        else {
-            state.setNotNull();
-            decimal[offset] = otherDecimal[otherOffset];
-            decimal[offset + 1] = otherDecimal[otherOffset + 1];
-            state.setOverflow(otherState.getOverflow());
-        }
     }
 
     @OutputFunction("decimal(38,s)")
     public static void outputLongDecimal(@AggregationState LongDecimalWithOverflowState state, BlockBuilder out)
     {
-        if (state.isNotNull()) {
-            if (state.getOverflow() != 0) {
-                throw new ArithmeticException("Decimal overflow");
-            }
-
-            long[] decimal = state.getDecimalArray();
-            int offset = state.getDecimalArrayOffset();
-
-            long rawHigh = decimal[offset];
-            long rawLow = decimal[offset + 1];
-
-            Decimals.throwIfOverflows(rawHigh, rawLow);
-            out.writeLong(rawHigh);
-            out.writeLong(rawLow);
-            out.closeEntry();
-        }
-        else {
+        if (state.isNull()) {
             out.appendNull();
+            return;
         }
+
+        if (state.getOverflow() != 0) {
+            throw new ArithmeticException("Decimal overflow");
+        }
+
+        long[] decimal = state.getDecimalArray();
+        int offset = state.getDecimalArrayOffset();
+
+        long rawHigh = decimal[offset];
+        long rawLow = decimal[offset + 1];
+
+        Decimals.throwIfOverflows(rawHigh, rawLow);
+        out.writeLong(rawHigh);
+        out.writeLong(rawLow);
+        out.closeEntry();
     }
 }

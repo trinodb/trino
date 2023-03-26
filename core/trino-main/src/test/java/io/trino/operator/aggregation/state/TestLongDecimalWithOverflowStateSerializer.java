@@ -34,11 +34,10 @@ public class TestLongDecimalWithOverflowStateSerializer
         state.getDecimalArray()[0] = high;
         state.getDecimalArray()[1] = low;
         state.setOverflow(overflow);
-        state.setNotNull();
 
         LongDecimalWithOverflowState outState = roundTrip(state, expectedLength);
 
-        assertTrue(outState.isNotNull());
+        assertFalse(outState.isNull());
         assertEquals(outState.getDecimalArray()[0], high);
         assertEquals(outState.getDecimalArray()[1], low);
         assertEquals(outState.getOverflow(), overflow);
@@ -49,10 +48,11 @@ public class TestLongDecimalWithOverflowStateSerializer
     {
         // state is created null
         LongDecimalWithOverflowState state = STATE_FACTORY.createSingleState();
+        state.setNull();
 
         LongDecimalWithOverflowState outState = roundTrip(state, 0);
 
-        assertFalse(outState.isNotNull());
+        assertTrue(outState.isNull());
     }
 
     private LongDecimalWithOverflowState roundTrip(LongDecimalWithOverflowState state, int expectedLength)

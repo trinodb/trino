@@ -46,34 +46,45 @@ public class LongDecimalWithOverflowStateFactory
             implements LongDecimalWithOverflowState
     {
         private static final int INSTANCE_SIZE = instanceSize(GroupedLongDecimalWithOverflowState.class);
-        private final BooleanBigArray isNotNull = new BooleanBigArray();
+
         /**
          * Stores 128-bit decimals as pairs of longs
          */
         private final LongBigArray unscaledDecimals = new LongBigArray();
         @Nullable
         private LongBigArray overflows; // lazily initialized on the first overflow
+        @Nullable
+        private BooleanBigArray isNull; // lazily initialized on the first null
 
         @Override
         public void ensureCapacity(long size)
         {
-            isNotNull.ensureCapacity(size);
             unscaledDecimals.ensureCapacity(size * 2);
             if (overflows != null) {
                 overflows.ensureCapacity(size);
             }
+            if (isNull != null) {
+                isNull.ensureCapacity(size);
+            }
         }
 
         @Override
-        public boolean isNotNull()
+        public boolean isNull()
         {
-            return isNotNull.get(getGroupId());
+            if (isNull == null) {
+                return false;
+            }
+            return isNull.get(getGroupId());
         }
 
         @Override
-        public void setNotNull()
+        public void setNull()
         {
-            isNotNull.set(getGroupId(), true);
+            if (isNull == null) {
+                isNull = new BooleanBigArray();
+                isNull.ensureCapacity(unscaledDecimals.getCapacity() / 2);
+            }
+            isNull.set(getGroupId(), true);
         }
 
         @Override
@@ -107,7 +118,7 @@ public class LongDecimalWithOverflowStateFactory
             long groupId = getGroupId();
             if (overflows == null) {
                 overflows = new LongBigArray();
-                overflows.ensureCapacity(isNotNull.getCapacity());
+                overflows.ensureCapacity(unscaledDecimals.getCapacity() / 2);
             }
             overflows.set(groupId, overflow);
         }
@@ -119,7 +130,7 @@ public class LongDecimalWithOverflowStateFactory
                 long groupId = getGroupId();
                 if (overflows == null) {
                     overflows = new LongBigArray();
-                    overflows.ensureCapacity(isNotNull.getCapacity());
+                    overflows.ensureCapacity(unscaledDecimals.getCapacity() / 2);
                 }
                 overflows.add(groupId, overflow);
             }
@@ -128,7 +139,7 @@ public class LongDecimalWithOverflowStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + isNotNull.sizeOf() + unscaledDecimals.sizeOf() + (overflows == null ? 0 : overflows.sizeOf());
+            return INSTANCE_SIZE + (isNull == null ? 0 : isNull.sizeOf()) + unscaledDecimals.sizeOf() + (overflows == null ? 0 : overflows.sizeOf());
         }
     }
 
@@ -139,29 +150,29 @@ public class LongDecimalWithOverflowStateFactory
         private static final int SIZE = (int) sizeOf(new long[2]) + SIZE_OF_BYTE + SIZE_OF_LONG;
 
         private final long[] unscaledDecimal = new long[2];
-        private boolean isNotNull;
+        private boolean isNull = false;
         private long overflow;
 
         public SingleLongDecimalWithOverflowState() {}
 
         // for copying
-        private SingleLongDecimalWithOverflowState(long[] unscaledDecimal, boolean isNotNull, long overflow)
+        private SingleLongDecimalWithOverflowState(long[] unscaledDecimal, boolean isNull, long overflow)
         {
             arraycopy(unscaledDecimal, 0, this.unscaledDecimal, 0, 2);
-            this.isNotNull = isNotNull;
+            this.isNull = isNull;
             this.overflow = overflow;
         }
 
         @Override
-        public boolean isNotNull()
+        public boolean isNull()
         {
-            return isNotNull;
+            return isNull;
         }
 
         @Override
-        public void setNotNull()
+        public void setNull()
         {
-            isNotNull = true;
+            isNull = true;
         }
 
         @Override
@@ -203,7 +214,7 @@ public class LongDecimalWithOverflowStateFactory
         @Override
         public AccumulatorState copy()
         {
-            return new SingleLongDecimalWithOverflowState(unscaledDecimal, isNotNull, overflow);
+            return new SingleLongDecimalWithOverflowState(unscaledDecimal, isNull, overflow);
         }
     }
 }
