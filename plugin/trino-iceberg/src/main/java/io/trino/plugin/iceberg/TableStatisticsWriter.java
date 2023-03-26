@@ -50,8 +50,6 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,11 +59,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.iceberg.TableStatisticsReader.APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY;
-import static io.trino.plugin.iceberg.TableStatisticsReader.walkStatisticsFiles;
+import static io.trino.plugin.iceberg.TableStatisticsReader.getLatestStatisticsFile;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.INCREMENTAL_UPDATE;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPLACE;
 import static java.lang.String.format;
@@ -137,9 +134,7 @@ public class TableStatisticsWriter
             try (PuffinWriter writer = Puffin.write(outputFile)
                     .createdBy("Trino version " + trinoVersion)
                     .build()) {
-                table.statisticsFiles().stream()
-                        .filter(statisticsFile -> statisticsFile.snapshotId() == snapshotId)
-                        .collect(toOptional())
+                getLatestStatisticsFile(table, snapshotId)
                         .ifPresent(previousStatisticsFile -> copyRetainedStatistics(fileIO, previousStatisticsFile, validFieldIds, ndvSketches.keySet(), writer));
 
                 ndvSketches.entrySet().stream()
@@ -198,18 +193,16 @@ public class TableStatisticsWriter
         return switch (updateMode) {
             case REPLACE -> collectedStatistics;
             case INCREMENTAL_UPDATE -> {
-                Map<Integer, CompactSketch> collectedNdvSketches = collectedStatistics.ndvSketches();
+                Optional<StatisticsFile> latestStatisticsFile = getLatestStatisticsFile(table, snapshotId);
                 ImmutableMap.Builder<Integer, CompactSketch> ndvSketches = ImmutableMap.builder();
-
-                Set<Integer> pendingPreviousNdvSketches = new HashSet<>(collectedNdvSketches.keySet());
-                Iterator<StatisticsFile> statisticsFiles = walkStatisticsFiles(table, snapshotId);
-                while (!pendingPreviousNdvSketches.isEmpty() && statisticsFiles.hasNext()) {
-                    StatisticsFile statisticsFile = statisticsFiles.next();
-
+                if (latestStatisticsFile.isPresent()) {
+                    Map<Integer, CompactSketch> collectedNdvSketches = collectedStatistics.ndvSketches();
+                    Set<Integer> columnsWithRecentlyComputedStats = collectedNdvSketches.keySet();
+                    StatisticsFile statisticsFile = latestStatisticsFile.get();
                     boolean hasUsefulData = statisticsFile.blobMetadata().stream()
                             .filter(blobMetadata -> blobMetadata.type().equals(StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1))
                             .filter(blobMetadata -> blobMetadata.fields().size() == 1)
-                            .anyMatch(blobMetadata -> pendingPreviousNdvSketches.contains(getOnlyElement(blobMetadata.fields())));
+                            .anyMatch(blobMetadata -> columnsWithRecentlyComputedStats.contains(getOnlyElement(blobMetadata.fields())));
 
                     if (hasUsefulData) {
                         try (PuffinReader reader = Puffin.read(fileIO.newInputFile(statisticsFile.path()))
@@ -219,11 +212,10 @@ public class TableStatisticsWriter
                             List<BlobMetadata> toRead = reader.fileMetadata().blobs().stream()
                                     .filter(blobMetadata -> blobMetadata.type().equals(APACHE_DATASKETCHES_THETA_V1))
                                     .filter(blobMetadata -> blobMetadata.inputFields().size() == 1)
-                                    .filter(blobMetadata -> pendingPreviousNdvSketches.contains(getOnlyElement(blobMetadata.inputFields())))
+                                    .filter(blobMetadata -> columnsWithRecentlyComputedStats.contains(getOnlyElement(blobMetadata.inputFields())))
                                     .collect(toImmutableList());
                             for (Pair<BlobMetadata, ByteBuffer> read : reader.readAll(toRead)) {
                                 Integer fieldId = getOnlyElement(read.first().inputFields());
-                                checkState(pendingPreviousNdvSketches.remove(fieldId), "Unwanted read of stats for field %s", fieldId);
                                 Memory memory = Memory.wrap(ByteBuffers.getBytes(read.second())); // Memory.wrap(ByteBuffer) results in a different deserialized state
                                 CompactSketch previousSketch = CompactSketch.wrap(memory);
                                 CompactSketch newSketch = requireNonNull(collectedNdvSketches.get(fieldId), "ndvSketches.get(fieldId) is null");
@@ -235,7 +227,6 @@ public class TableStatisticsWriter
                         }
                     }
                 }
-
                 yield new CollectedStatistics(ndvSketches.buildOrThrow());
             }
         };
