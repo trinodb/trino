@@ -186,6 +186,7 @@ import io.trino.sql.planner.iterative.rule.RemoveEmptyGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyMergeWriterRuleSet;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
+import io.trino.sql.planner.iterative.rule.RemoveFalseFiltersAfterDomainTranslator;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDateTrunc;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -372,6 +373,7 @@ public class PlanOptimizers
                 .addAll(new RemoveRedundantDateTrunc(plannerContext, typeAnalyzer).rules())
                 .addAll(new ArraySortAfterArrayDistinct(plannerContext).rules())
                 .add(new RemoveTrivialFilters())
+                .add(new RemoveFalseFiltersAfterDomainTranslator(plannerContext))
                 .build();
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
                 plannerContext,
@@ -434,6 +436,7 @@ public class PlanOptimizers
                                         new MergeLimitOverProjectWithSort(),
                                         new MergeLimitWithTopN(),
                                         new RemoveTrivialFilters(),
+                                        new RemoveFalseFiltersAfterDomainTranslator(plannerContext),
                                         new RemoveRedundantLimit(),
                                         new RemoveRedundantOffset(),
                                         new RemoveRedundantSort(),
