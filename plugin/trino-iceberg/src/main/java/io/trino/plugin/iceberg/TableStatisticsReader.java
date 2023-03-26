@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -45,12 +44,12 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -59,6 +58,7 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
@@ -232,10 +232,7 @@ public final class TableStatisticsReader
         ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
         Set<Integer> remainingColumnIds = new HashSet<>(columnIds);
 
-        Iterator<StatisticsFile> statisticsFiles = walkStatisticsFiles(icebergTable, snapshotId);
-        while (!remainingColumnIds.isEmpty() && statisticsFiles.hasNext()) {
-            StatisticsFile statisticsFile = statisticsFiles.next();
-
+        getLatestStatisticsFile(icebergTable, snapshotId).ifPresent(statisticsFile -> {
             Map<Integer, BlobMetadata> thetaBlobsByFieldId = statisticsFile.blobMetadata().stream()
                     .filter(blobMetadata -> blobMetadata.type().equals(StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1))
                     .filter(blobMetadata -> blobMetadata.fields().size() == 1)
@@ -256,7 +253,7 @@ public final class TableStatisticsReader
                     ndvByColumnId.put(fieldId, parseLong(ndv));
                 }
             }
-        }
+        });
 
         // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
         Iterator<Entry<String, String>> properties = icebergTable.properties().entrySet().iterator();
@@ -280,44 +277,29 @@ public final class TableStatisticsReader
     }
 
     /**
-     * Iterates over existing statistics files present for parent snapshot chain,  starting at {@code startingSnapshotId} (inclusive).
+     * Returns most recent statistics file for the given {@code snapshotId}
      */
-    public static Iterator<StatisticsFile> walkStatisticsFiles(Table icebergTable, long startingSnapshotId)
+    public static Optional<StatisticsFile> getLatestStatisticsFile(Table icebergTable, long snapshotId)
     {
-        return new AbstractIterator<>()
-        {
-            private final Map<Long, StatisticsFile> statsFileBySnapshot = icebergTable.statisticsFiles().stream()
-                    .collect(toMap(
-                            StatisticsFile::snapshotId,
-                            identity(),
-                            (file1, file2) -> {
-                                throw new TrinoException(
-                                        ICEBERG_INVALID_METADATA,
-                                        "Table '%s' has duplicate statistics files '%s' and '%s' for snapshot ID %s"
-                                                .formatted(icebergTable, file1.path(), file2.path(), file1.snapshotId()));
-                            },
-                            HashMap::new));
+        if (icebergTable.statisticsFiles().isEmpty()) {
+            return Optional.empty();
+        }
 
-            private final Iterator<Long> snapshots = walkSnapshots(icebergTable, startingSnapshotId);
+        Map<Long, StatisticsFile> statsFileBySnapshot = icebergTable.statisticsFiles().stream()
+                .collect(toMap(
+                        StatisticsFile::snapshotId,
+                        identity(),
+                        (file1, file2) -> {
+                            throw new TrinoException(
+                                    ICEBERG_INVALID_METADATA,
+                                    "Table '%s' has duplicate statistics files '%s' and '%s' for snapshot ID %s"
+                                            .formatted(icebergTable, file1.path(), file2.path(), file1.snapshotId()));
+                        }));
 
-            @Override
-            protected StatisticsFile computeNext()
-            {
-                if (statsFileBySnapshot.isEmpty()) {
-                    // Already found all statistics files
-                    return endOfData();
-                }
-
-                while (snapshots.hasNext()) {
-                    long snapshotId = snapshots.next();
-                    StatisticsFile statisticsFile = statsFileBySnapshot.remove(snapshotId);
-                    if (statisticsFile != null) {
-                        return statisticsFile;
-                    }
-                }
-                return endOfData();
-            }
-        };
+        return stream(walkSnapshots(icebergTable, snapshotId))
+                .map(statsFileBySnapshot::get)
+                .filter(Objects::nonNull)
+                .findFirst();
     }
 
     /**
