@@ -33,6 +33,7 @@ import io.trino.parquet.reader.TrinoColumnIndexStore;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveType;
@@ -337,19 +338,14 @@ public class ParquetPageSourceFactory
             return baseColumnType;
         }
         GroupType baseType = baseColumnType.get().asGroupType();
-        ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
-        org.apache.parquet.schema.Type parentType = baseType;
+        Optional<List<org.apache.parquet.schema.Type>> subFieldTypesOptional = dereferenceSubFieldTypes(baseType, column.getHiveColumnProjectionInfo().get());
 
-        for (String name : column.getHiveColumnProjectionInfo().get().getDereferenceNames()) {
-            org.apache.parquet.schema.Type childType = getParquetTypeByName(name, parentType.asGroupType());
-            if (childType == null) {
-                return Optional.empty();
-            }
-            typeBuilder.add(childType);
-            parentType = childType;
+        // if there is a mismatch between parquet schema and the hive schema and the column cannot be dereferenced
+        if (subFieldTypesOptional.isEmpty()) {
+            return Optional.empty();
         }
 
-        List<org.apache.parquet.schema.Type> subfieldTypes = typeBuilder.build();
+        List<org.apache.parquet.schema.Type> subfieldTypes = subFieldTypesOptional.get();
         org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
         for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
             GroupType groupType = subfieldTypes.get(i).asGroupType();
@@ -485,5 +481,33 @@ public class ParquetPageSourceFactory
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Dereferencing base parquet type based on projection info's dereference names.
+     * For example, when dereferencing baseType(level1Field0, level1Field1, Level1Field2(Level2Field0, Level2Field1))
+     * with a projection info's dereferenceNames list as (basetype, Level1Field2, Level2Field1).
+     * It would return a list of parquet types in the order of (level1Field2, Level2Field1)
+     *
+     * @return child fields on each level of dereferencing. Return Optional.empty when failed to do the lookup.
+     */
+    private static Optional<List<org.apache.parquet.schema.Type>> dereferenceSubFieldTypes(GroupType baseType, HiveColumnProjectionInfo projectionInfo)
+    {
+        checkArgument(baseType != null, "base type cannot be null when dereferencing");
+        checkArgument(projectionInfo != null, "hive column projection info cannot be null when doing dereferencing");
+
+        ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
+        org.apache.parquet.schema.Type parentType = baseType;
+
+        for (String name : projectionInfo.getDereferenceNames()) {
+            org.apache.parquet.schema.Type childType = getParquetTypeByName(name, parentType.asGroupType());
+            if (childType == null) {
+                return Optional.empty();
+            }
+            typeBuilder.add(childType);
+            parentType = childType;
+        }
+
+        return Optional.of(typeBuilder.build());
     }
 }
