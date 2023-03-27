@@ -39,6 +39,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreStats;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -246,6 +247,27 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getTableNamesStats().getRequestCount(), 3);
         assertEquals(metastore.getTableNamesStats().getHitRate(), 1.0 / 3);
+    }
+
+    @Test
+    public void testBatchGetAllTable()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(new SchemaTableName(TEST_DATABASE, TEST_TABLE))));
+        assertEquals(mockClient.getAccessCount(), 1);
+        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(new SchemaTableName(TEST_DATABASE, TEST_TABLE))));
+        assertEquals(mockClient.getAccessCount(), 1);
+        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 2);
+        assertEquals(metastore.getAllTableNamesStats().getRequestCount(), 2);
+        assertEquals(metastore.getAllTableNamesStats().getHitRate(), .5);
+
+        metastore.flushCache();
+
+        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(new SchemaTableName(TEST_DATABASE, TEST_TABLE))));
+        assertEquals(mockClient.getAccessCount(), 3);
+        assertEquals(metastore.getAllTableNamesStats().getRequestCount(), 3);
+        assertEquals(metastore.getAllTableNamesStats().getHitRate(), 1. / 3);
     }
 
     @Test

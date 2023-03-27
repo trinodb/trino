@@ -244,6 +244,15 @@ public class SemiTransactionalHiveMetastore
         return delegate.getAllTables(databaseName);
     }
 
+    public synchronized Optional<List<SchemaTableName>> getAllTables()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getAllTables();
+    }
+
     public synchronized Optional<Table> getTable(String databaseName, String tableName)
     {
         checkReadable();
@@ -416,6 +425,15 @@ public class SemiTransactionalHiveMetastore
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
         return delegate.getAllViews(databaseName);
+    }
+
+    public synchronized Optional<List<SchemaTableName>> getAllViews()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getAllViews();
     }
 
     public synchronized void createDatabase(ConnectorSession session, Database database)

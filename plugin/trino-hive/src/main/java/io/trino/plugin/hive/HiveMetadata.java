@@ -766,6 +766,17 @@ public class HiveMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
+        if (optionalSchemaName.isEmpty()) {
+            Optional<List<SchemaTableName>> allTables = metastore.getAllTables();
+            if (allTables.isPresent()) {
+                return ImmutableList.<SchemaTableName>builder()
+                        .addAll(allTables.orElseThrow().stream()
+                                .filter(table -> !isHiveSystemSchema(table.getSchemaName()))
+                                .collect(toImmutableList()))
+                        .addAll(listMaterializedViews(session, optionalSchemaName))
+                        .build();
+            }
+        }
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (String tableName : metastore.getAllTables(schemaName)) {
@@ -2652,6 +2663,14 @@ public class HiveMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> optionalSchemaName)
     {
+        if (optionalSchemaName.isEmpty()) {
+            Optional<List<SchemaTableName>> allViews = metastore.getAllViews();
+            if (allViews.isPresent()) {
+                return allViews.orElseThrow().stream()
+                        .filter(view -> !isHiveSystemSchema(view.getSchemaName()))
+                        .collect(toImmutableList());
+            }
+        }
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (String tableName : metastore.getAllViews(schemaName)) {

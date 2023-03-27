@@ -127,6 +127,18 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return delegate.getAllTables();
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return delegate.getAllViews();
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
         delegate.createDatabase(database);

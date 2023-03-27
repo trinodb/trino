@@ -47,6 +47,7 @@ import org.apache.thrift.TException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -180,6 +181,12 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         throw new UnsupportedOperationException();
@@ -197,6 +204,17 @@ public class MockThriftMetastoreClient
             throw new NoSuchObjectException();
         }
         return new Database(TEST_DATABASE, null, null, null);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+            throws TException
+    {
+        accessCount.incrementAndGet();
+        if (throwException) {
+            throw new RuntimeException();
+        }
+        return Optional.of(ImmutableList.of(new SchemaTableName(TEST_DATABASE, TEST_TABLE)));
     }
 
     @Override

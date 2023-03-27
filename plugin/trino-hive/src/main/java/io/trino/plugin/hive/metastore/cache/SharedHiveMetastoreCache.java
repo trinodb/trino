@@ -256,6 +256,13 @@ public class SharedHiveMetastoreCache
 
         @Managed
         @Nested
+        public AggregateCacheStatsMBean getAllTableNamesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllTableNamesCache);
+        }
+
+        @Managed
+        @Nested
         public AggregateCacheStatsMBean getTableWithParameterStats()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablesWithParameterCache);
@@ -280,6 +287,13 @@ public class SharedHiveMetastoreCache
         public AggregateCacheStatsMBean getViewNamesStats()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getViewNamesCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getAllViewNamesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllViewNamesCache);
         }
 
         @Managed

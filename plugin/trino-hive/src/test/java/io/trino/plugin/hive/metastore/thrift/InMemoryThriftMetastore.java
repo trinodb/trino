@@ -327,6 +327,20 @@ public class InMemoryThriftMetastore
     }
 
     @Override
+    public synchronized Optional<List<SchemaTableName>> getAllTables()
+    {
+        return Optional.of(this.relations.keySet().stream()
+                .collect(toImmutableList()));
+    }
+
+    @Override
+    public synchronized Optional<List<SchemaTableName>> getAllViews()
+    {
+        return Optional.of(this.views.keySet().stream()
+                .collect(toImmutableList()));
+    }
+
+    @Override
     public synchronized Optional<Database> getDatabase(String databaseName)
     {
         return Optional.ofNullable(databases.get(databaseName));

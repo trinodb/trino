@@ -864,6 +864,53 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        try {
+            return retry()
+                    .stopOn(UnknownDBException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getAllTables", stats.getGetAllTables().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return client.getAllTables();
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        // Without translateHiveViews, Hive views are represented as tables in Trino,
+        // and they should not be returned from ThriftHiveMetastore.getAllViews() call
+        if (translateHiveViews) {
+            try {
+                return retry()
+                        .stopOn(UnknownDBException.class)
+                        .stopOnIllegalExceptions()
+                        .run("getAllViews", stats.getGetAllViews().wrap(() -> {
+                            try (ThriftMetastoreClient client = createMetastoreClient()) {
+                                return client.getAllViews();
+                            }
+                        }));
+            }
+            catch (TException e) {
+                throw new TrinoException(HIVE_METASTORE_ERROR, e);
+            }
+            catch (Exception e) {
+                throw propagate(e);
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
         try {
