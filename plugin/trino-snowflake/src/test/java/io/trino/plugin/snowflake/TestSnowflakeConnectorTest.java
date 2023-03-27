@@ -30,10 +30,10 @@ import static io.trino.plugin.snowflake.SnowflakeQueryRunner.createSnowflakeQuer
 import static io.trino.plugin.snowflake.TestingSnowflakeServer.TEST_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public class TestSnowflakeConnectorTest
         extends BaseJdbcConnectorTest
@@ -147,7 +147,7 @@ public class TestSnowflakeConnectorTest
     @Test
     public void testViews()
     {
-        String tableName = "test_view_" + randomTableSuffix();
+        String tableName = "test_view_" + randomNameSuffix();
         onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch." + tableName + " AS SELECT * FROM tpch.orders");
         assertQuery("SELECT orderkey FROM " + tableName, "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch." + tableName);
