@@ -103,6 +103,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -864,6 +865,49 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public Map<String, List<String>> getAllTables()
+    {
+        try {
+            return retry()
+                    .stopOn(UnknownDBException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getAllTables", stats.getGetAllTables().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return client.getAllTables();
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public Map<String, List<String>> getAllViews()
+    {
+        try {
+            return retry()
+                    .stopOn(UnknownDBException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getAllViews", stats.getGetAllViews().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            checkState(translateHiveViews, "getAllViews can only be run when translating Hive views is enabled");
+                            return client.getAllViews();
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
         try {
@@ -1491,6 +1535,14 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    @Override
+    public boolean supportBatchGetViews()
+    {
+        // When this is disabled, views are tables with a specific flag,
+        // and there is no way to fetch its names all at once
+        return translateHiveViews;
     }
 
     @Override

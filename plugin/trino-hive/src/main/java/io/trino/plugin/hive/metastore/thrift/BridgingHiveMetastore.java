@@ -49,7 +49,9 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
@@ -69,6 +71,8 @@ public class BridgingHiveMetastore
         implements HiveMetastore
 {
     private final ThriftMetastore delegate;
+
+    private BatchListingOperationsSupport batchListingOperationsSupport = BatchListingOperationsSupport.UNKNOWN;
 
     public BridgingHiveMetastore(ThriftMetastore delegate)
     {
@@ -152,6 +156,52 @@ public class BridgingHiveMetastore
     public List<String> getAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
+    }
+
+    @Override
+    public Map<String, List<String>> getAllTables()
+    {
+        checkState(supportBatchListingOperations(), "Batch listing operations not supported");
+        return delegate.getAllTables();
+    }
+
+    @Override
+    public Map<String, List<String>> getAllViews()
+    {
+        checkState(supportBatchListingOperations(), "Batch listing operations not supported");
+        return delegate.getAllViews();
+    }
+
+    @Override
+    public boolean supportBatchListingOperations()
+    {
+        return switch (batchListingOperationsSupport) {
+            case UNKNOWN -> {
+                if (!delegate.supportBatchGetViews()) {
+                    batchListingOperationsSupport = BatchListingOperationsSupport.UNSUPPORTED;
+                }
+                else {
+                    batchListingOperationsSupport = checkBatchListingOperationsSupport();
+                }
+                yield supportBatchListingOperations();
+            }
+            case SUPPORTED -> true;
+            case UNSUPPORTED -> false;
+        };
+    }
+
+    private BatchListingOperationsSupport checkBatchListingOperationsSupport()
+    {
+        try {
+            delegate.getAllTables();
+            return BatchListingOperationsSupport.SUPPORTED;
+        }
+        catch (TrinoException e) {
+            if (e.getErrorCode() == HIVE_METASTORE_ERROR.toErrorCode()) {
+                return BatchListingOperationsSupport.UNSUPPORTED;
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -544,5 +594,12 @@ public class BridgingHiveMetastore
     public void alterTransactionalTable(Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
         delegate.alterTransactionalTable(toMetastoreApiTable(table, principalPrivileges), transactionId, writeId);
+    }
+
+    private enum BatchListingOperationsSupport
+    {
+        UNKNOWN,
+        SUPPORTED,
+        UNSUPPORTED,
     }
 }

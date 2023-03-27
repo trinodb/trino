@@ -22,8 +22,10 @@ import io.airlift.units.Duration;
 import io.trino.hive.thrift.metastore.ColumnStatisticsData;
 import io.trino.hive.thrift.metastore.LongColumnStatsData;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -79,8 +81,8 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerC
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.plugin.hive.metastore.cache.BaseCachingHiveMetastoreTest.PartitionCachingAssertions.assertThatCachingWithDisabledPartitionCache;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
-import static io.trino.plugin.hive.metastore.cache.TestCachingHiveMetastore.PartitionCachingAssertions.assertThatCachingWithDisabledPartitionCache;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_PARTITION;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.PARTITION_COLUMN_NAMES;
@@ -110,19 +112,26 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestCachingHiveMetastore
+public abstract class BaseCachingHiveMetastoreTest
 {
-    private static final Logger log = Logger.get(TestCachingHiveMetastore.class);
+    private static final Logger log = Logger.get(BaseCachingHiveMetastoreTest.class);
 
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
             .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
             .build();
+
+    private final boolean useBatchTableFetches;
 
     private MockThriftMetastoreClient mockClient;
     private ListeningExecutorService executor;
     private CachingHiveMetastore metastore;
     private CachingHiveMetastore statsCacheMetastore;
     private ThriftMetastoreStats stats;
+
+    public BaseCachingHiveMetastoreTest(boolean useBatchTableFetches)
+    {
+        this.useBatchTableFetches = useBatchTableFetches;
+    }
 
     @BeforeMethod
     public void setUp()
@@ -150,6 +159,7 @@ public class TestCachingHiveMetastore
                 .maximumSize(1000)
                 .partitionCacheEnabled(true)
                 .build();
+        mockClient.resetAccessCountStats();
         stats = ((ThriftHiveMetastore) thriftHiveMetastore).getStats();
     }
 
@@ -163,14 +173,22 @@ public class TestCachingHiveMetastore
 
     private ThriftMetastore createThriftHiveMetastore()
     {
-        return createThriftHiveMetastore(mockClient);
+        return createThriftHiveMetastore(mockClient, useBatchTableFetches);
     }
 
     private static ThriftMetastore createThriftHiveMetastore(ThriftMetastoreClient client)
     {
-        return testingThriftHiveMetastoreBuilder()
-                .metastoreClient(client)
-                .build();
+        return createThriftHiveMetastore(client, false);
+    }
+
+    private static ThriftMetastore createThriftHiveMetastore(ThriftMetastoreClient client, boolean useBatchTableFetches)
+    {
+        TestingThriftHiveMetastoreBuilder builder = testingThriftHiveMetastoreBuilder()
+                .metastoreClient(client);
+        if (useBatchTableFetches) {
+            builder.hiveConfig(new HiveConfig().setTranslateHiveViews(true));
+        }
+        return builder.build();
     }
 
     @Test

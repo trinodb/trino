@@ -69,6 +69,10 @@ public interface ThriftMetastore
 
     List<String> getAllViews(String databaseName);
 
+    Map<String, List<String>> getAllTables();
+
+    Map<String, List<String>> getAllViews();
+
     Optional<Database> getDatabase(String databaseName);
 
     void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions);
@@ -117,6 +121,8 @@ public interface ThriftMetastore
      * @param principal when empty, all table privileges are returned
      */
     Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal);
+
+    boolean supportBatchGetViews();
 
     default Optional<List<FieldSchema>> getFields(String databaseName, String tableName)
     {

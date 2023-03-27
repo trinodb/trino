@@ -200,6 +200,23 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public Map<String, List<String>> getAllTables()
+            throws TException
+    {
+        accessCount.incrementAndGet();
+        if (throwException) {
+            throw new RuntimeException();
+        }
+        return ImmutableMap.of(TEST_DATABASE, ImmutableList.of(TEST_TABLE));
+    }
+
+    @Override
+    public Map<String, List<String>> getAllViews()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Table getTable(String dbName, String tableName)
             throws TException
     {
@@ -586,5 +603,10 @@ public class MockThriftMetastoreClient
     public String getDelegationToken(String userName)
     {
         throw new UnsupportedOperationException();
+    }
+
+    public void resetAccessCountStats()
+    {
+        accessCount.set(0);
     }
 }

@@ -127,6 +127,24 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
+    public Map<String, List<String>> getAllTables()
+    {
+        return delegate.getAllTables();
+    }
+
+    @Override
+    public Map<String, List<String>> getAllViews()
+    {
+        return delegate.getAllViews();
+    }
+
+    @Override
+    public boolean supportBatchListingOperations()
+    {
+        return delegate.supportBatchListingOperations();
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
         delegate.createDatabase(database);

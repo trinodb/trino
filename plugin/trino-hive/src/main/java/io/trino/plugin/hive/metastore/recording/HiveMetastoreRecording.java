@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableCache;
@@ -189,6 +190,16 @@ public class HiveMetastoreRecording
         return loadValue(allViewsCache, databaseName, valueSupplier);
     }
 
+    public Map<String, List<String>> getAllTables(Supplier<Map<String, List<String>>> valueSupplier)
+    {
+        return loadValue(allTablesCache, valueSupplier);
+    }
+
+    public Map<String, List<String>> getAllViews(Supplier<Map<String, List<String>>> valueSupplier)
+    {
+        return loadValue(allViewsCache, valueSupplier);
+    }
+
     public Optional<Partition> getPartition(HivePartitionName hivePartitionName, Supplier<Optional<Partition>> valueSupplier)
     {
         return loadValue(partitionCache, hivePartitionName, valueSupplier);
@@ -312,6 +323,17 @@ public class HiveMetastoreRecording
         V value = valueSupplier.get();
         cache.put(key, value);
         return value;
+    }
+
+    private <K, V> Map<K, V> loadValue(Cache<K, V> cache, Supplier<Map<K, V>> valuesSupplier)
+    {
+        if (replay) {
+            return ImmutableMap.copyOf(cache.asMap());
+        }
+
+        Map<K, V> values = valuesSupplier.get();
+        cache.putAll(values);
+        return values;
     }
 
     @Immutable

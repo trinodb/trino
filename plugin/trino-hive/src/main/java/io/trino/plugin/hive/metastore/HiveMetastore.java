@@ -66,6 +66,39 @@ public interface HiveMetastore
 
     List<String> getAllViews(String databaseName);
 
+    /**
+     * Fetches all tables from all schemas. CachingHiveMetastore will use this method instead of fetching tables on a
+     * schema basis.
+     * <p>
+     * This method should be implemented only if time needed to fetch all tables from considerable number of schemas
+     * is not significantly bigger than fetching tables from a single schema, i.e. in a single, swift API call
+     */
+    default Map<String, List<String>> getAllTables()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Fetches all views from all schemas. CachingHiveMetastore will use this method instead of fetching views on a
+     * schema basis.
+     * <p>
+     * This method should be implemented only if time needed to fetch all views from considerable number of schemas
+     * is not significantly bigger than fetching views from a single schema, i.e. in a single, swift API call
+     */
+    default Map<String, List<String>> getAllViews()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * @return Whether this metastore implementation supports {@link HiveMetastore#getAllTables()}
+     * and {@link HiveMetastore#getAllViews()} methods
+     */
+    default boolean supportBatchListingOperations()
+    {
+        return false;
+    }
+
     void createDatabase(Database database);
 
     void dropDatabase(String databaseName, boolean deleteData);

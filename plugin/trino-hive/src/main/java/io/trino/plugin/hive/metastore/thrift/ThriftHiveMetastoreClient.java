@@ -56,6 +56,7 @@ import io.trino.hive.thrift.metastore.PrivilegeBag;
 import io.trino.hive.thrift.metastore.Role;
 import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.TableStatsRequest;
 import io.trino.hive.thrift.metastore.TableValidWriteIds;
 import io.trino.hive.thrift.metastore.ThriftHiveMetastore;
@@ -71,8 +72,10 @@ import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -83,6 +86,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.hive.thrift.metastore.GrantRevokeType.GRANT;
 import static io.trino.hive.thrift.metastore.GrantRevokeType.REVOKE;
@@ -175,6 +179,33 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.getDatabase(dbName);
+    }
+
+    @Override
+    public Map<String, List<String>> getAllTables()
+            throws TException
+    {
+        return parseTableMetadata(client.getTableMeta("*", "*", ImmutableList.of()));
+    }
+
+    @Override
+    public Map<String, List<String>> getAllViews()
+            throws TException
+    {
+        return parseTableMetadata(client.getTableMeta("*", "*", ImmutableList.of(VIRTUAL_VIEW.name())));
+    }
+
+    private static Map<String, List<String>> parseTableMetadata(List<TableMeta> tablesMetadata)
+    {
+        HashMap<String, List<String>> result = new HashMap<>();
+
+        for (TableMeta tableMetadata : tablesMetadata) {
+            result.computeIfAbsent(tableMetadata.getDbName(), dbName -> new ArrayList<>())
+                    .add(tableMetadata.getTableName());
+        }
+
+        return result.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, e -> ImmutableList.copyOf(e.getValue())));
     }
 
     @Override

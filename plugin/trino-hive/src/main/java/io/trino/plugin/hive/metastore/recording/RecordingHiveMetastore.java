@@ -144,6 +144,24 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public Map<String, List<String>> getAllTables()
+    {
+        return recording.getAllTables(() -> delegate.getAllTables());
+    }
+
+    @Override
+    public Map<String, List<String>> getAllViews()
+    {
+        return recording.getAllViews(() -> delegate.getAllViews());
+    }
+
+    @Override
+    public boolean supportBatchListingOperations()
+    {
+        return delegate.supportBatchListingOperations();
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
         verifyRecordingMode();

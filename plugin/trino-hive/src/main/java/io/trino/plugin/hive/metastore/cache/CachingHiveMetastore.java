@@ -60,6 +60,7 @@ import io.trino.spi.type.Type;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -79,6 +80,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -113,11 +115,11 @@ public class CachingHiveMetastore
     private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
-    private final LoadingCache<String, List<String>> tableNamesCache;
+    private final TableNamesCache tableNamesCache;
     private final LoadingCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
     private final LoadingCache<HiveTableName, PartitionStatistics> tableStatisticsCache;
     private final Cache<HivePartitionName, AtomicReference<PartitionStatistics>> partitionStatisticsCache;
-    private final LoadingCache<String, List<String>> viewNamesCache;
+    private final TableNamesCache viewNamesCache;
     private final Cache<HivePartitionName, AtomicReference<Optional<Partition>>> partitionCache;
     private final LoadingCache<PartitionFilter, Optional<List<String>>> partitionFilterCache;
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
@@ -336,11 +338,11 @@ public class CachingHiveMetastore
 
         databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
-        tableNamesCache = cacheFactory.buildCache(this::loadAllTables);
+        tableNamesCache = new TableNamesCache(cacheFactory, this::loadAllTables, this::loadAllTables);
         tablesWithParameterCache = cacheFactory.buildCache(this::loadTablesMatchingParameter);
         tableStatisticsCache = statsCacheFactory.buildCache(this::loadTableColumnStatistics);
         tableCache = cacheFactory.buildCache(this::loadTable);
-        viewNamesCache = cacheFactory.buildCache(this::loadAllViews);
+        viewNamesCache = new TableNamesCache(cacheFactory, this::loadAllViews, this::loadAllViews);
         tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal()));
         rolesCache = cacheFactory.buildCache(ignored -> loadRoles());
         roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
@@ -379,7 +381,7 @@ public class CachingHiveMetastore
         invalidatePartitionCache(schemaName, tableName, partitionNameToCheck -> partitionNameToCheck.map(value -> value.equals(providedPartitionName)).orElse(false));
     }
 
-    private static <K, V> V get(LoadingCache<K, V> cache, K key)
+    static <K, V> V get(LoadingCache<K, V> cache, K key)
     {
         try {
             return cache.getUnchecked(key);
@@ -648,12 +650,23 @@ public class CachingHiveMetastore
     @Override
     public List<String> getAllTables(String databaseName)
     {
-        return get(tableNamesCache, databaseName);
+        return tableNamesCache.get(databaseName);
     }
 
     private List<String> loadAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);
+    }
+
+    @Override
+    public Map<String, List<String>> getAllTables()
+    {
+        return tableNamesCache.getAll();
+    }
+
+    private Map<String, List<String>> loadAllTables()
+    {
+        return delegate.getAllTables();
     }
 
     @Override
@@ -671,12 +684,23 @@ public class CachingHiveMetastore
     @Override
     public List<String> getAllViews(String databaseName)
     {
-        return get(viewNamesCache, databaseName);
+        return viewNamesCache.get(databaseName);
     }
 
     private List<String> loadAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
+    }
+
+    @Override
+    public Map<String, List<String>> getAllViews()
+    {
+        return viewNamesCache.getAll();
+    }
+
+    private Map<String, List<String>> loadAllViews()
+    {
+        return delegate.getAllViews();
     }
 
     @Override
@@ -1241,6 +1265,12 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
+    public boolean supportBatchListingOperations()
+    {
+        return delegate.supportBatchListingOperations();
+    }
+
     private interface CacheFactory
     {
         <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader);
@@ -1330,6 +1360,85 @@ public class CachingHiveMetastore
         return cacheBuilder.build();
     }
 
+    private class TableNamesCache
+    {
+        private static final String DUMMY_CACHE_KEY = "$KEY";
+
+        @Nullable
+        private final LoadingCache<String, List<String>> perSchemaCache;
+        /**
+         * Normally, we would use a memoized supplier. However, there is an additional refresh
+         * capability so we use a single entry loading cache with a dummy key
+         */
+        @Nullable
+        private final LoadingCache<String, Map<String, List<String>>> batchCache;
+
+        private final boolean isBatchCache;
+
+        public TableNamesCache(
+                CacheFactory cacheFactory,
+                com.google.common.base.Function<String, List<String>> perSchemaLoader,
+                Supplier<Map<String, List<String>>> batchLoader)
+        {
+            isBatchCache = delegate.supportBatchListingOperations();
+
+            if (isBatchCache) {
+                batchCache = cacheFactory.buildCache(ignore -> batchLoader.get());
+                perSchemaCache = null;
+            }
+            else {
+                batchCache = null;
+                perSchemaCache = cacheFactory.buildCache(perSchemaLoader);
+            }
+        }
+
+        public List<String> get(String databaseName)
+        {
+            if (isBatchCache) {
+                // If we ask the delegated metastore for a non-existent schema it will return an empty list.
+                // However, if we store all existing schemas in a map, then null will be returned
+                return getAll().getOrDefault(databaseName, ImmutableList.of());
+            }
+            return CachingHiveMetastore.this.get(perSchemaCache, databaseName);
+        }
+
+        public Map<String, List<String>> getAll()
+        {
+            checkState(isBatchCache, "getAll method may only be invoked if the delegated metastore supports batchGetTables");
+            return CachingHiveMetastore.this.get(batchCache, DUMMY_CACHE_KEY);
+        }
+
+        public void invalidate(String databaseName)
+        {
+            if (isBatchCache) {
+                batchCache.invalidateAll();
+            }
+            else {
+                perSchemaCache.invalidate(databaseName);
+            }
+        }
+
+        public void invalidateAll()
+        {
+            if (isBatchCache) {
+                batchCache.invalidateAll();
+            }
+            else {
+                perSchemaCache.invalidateAll();
+            }
+        }
+
+        public LoadingCache<?, ?> getDelegate()
+        {
+            if (isBatchCache) {
+                return batchCache;
+            }
+            else {
+                return perSchemaCache;
+            }
+        }
+    }
+
     //
     // Stats used for non-impersonation shared caching
     //
@@ -1359,7 +1468,7 @@ public class CachingHiveMetastore
     @Nested
     public CacheStatsMBean getTableNamesStats()
     {
-        return new CacheStatsMBean(tableNamesCache);
+        return new CacheStatsMBean(tableNamesCache.getDelegate());
     }
 
     @Managed
@@ -1387,7 +1496,7 @@ public class CachingHiveMetastore
     @Nested
     public CacheStatsMBean getViewNamesStats()
     {
-        return new CacheStatsMBean(viewNamesCache);
+        return new CacheStatsMBean(viewNamesCache.getDelegate());
     }
 
     @Managed
@@ -1457,9 +1566,9 @@ public class CachingHiveMetastore
         return tableCache;
     }
 
-    LoadingCache<String, List<String>> getTableNamesCache()
+    LoadingCache<?, ?> getTableNamesCache()
     {
-        return tableNamesCache;
+        return tableNamesCache.getDelegate();
     }
 
     LoadingCache<TablesWithParameterCacheKey, List<String>> getTablesWithParameterCache()
@@ -1477,9 +1586,9 @@ public class CachingHiveMetastore
         return partitionStatisticsCache;
     }
 
-    LoadingCache<String, List<String>> getViewNamesCache()
+    LoadingCache<?, ?> getViewNamesCache()
     {
-        return viewNamesCache;
+        return viewNamesCache.getDelegate();
     }
 
     Cache<HivePartitionName, AtomicReference<Optional<Partition>>> getPartitionCache()

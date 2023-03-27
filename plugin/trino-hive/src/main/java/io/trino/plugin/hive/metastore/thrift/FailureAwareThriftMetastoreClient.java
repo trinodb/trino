@@ -83,6 +83,20 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
+    public Map<String, List<String>> getAllTables()
+            throws TException
+    {
+        return runWithHandle(() -> delegate.getAllTables());
+    }
+
+    @Override
+    public Map<String, List<String>> getAllViews()
+            throws TException
+    {
+        return runWithHandle(() -> delegate.getAllViews());
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
             throws TException
     {

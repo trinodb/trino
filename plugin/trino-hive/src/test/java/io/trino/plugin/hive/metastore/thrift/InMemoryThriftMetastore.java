@@ -59,6 +59,7 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -69,6 +70,7 @@ import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -327,6 +329,24 @@ public class InMemoryThriftMetastore
     }
 
     @Override
+    public synchronized Map<String, List<String>> getAllTables()
+    {
+        return this.relations.keySet().stream()
+                .map(SchemaTableName::getSchemaName)
+                .distinct()
+                .collect(toImmutableMap(identity(), this::getAllTables));
+    }
+
+    @Override
+    public synchronized Map<String, List<String>> getAllViews()
+    {
+        return this.views.keySet().stream()
+                .map(SchemaTableName::getSchemaName)
+                .distinct()
+                .collect(toImmutableMap(identity(), this::getAllViews));
+    }
+
+    @Override
     public synchronized Optional<Database> getDatabase(String databaseName)
     {
         return Optional.ofNullable(databases.get(databaseName));
@@ -538,6 +558,12 @@ public class InMemoryThriftMetastore
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, Optional<String> tableOwner, Optional<HivePrincipal> principal)
     {
         return ImmutableSet.of();
+    }
+
+    @Override
+    public boolean supportBatchGetViews()
+    {
+        return true;
     }
 
     @Override
