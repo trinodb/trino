@@ -227,12 +227,12 @@ public class TestDecimalAverageAggregation
 
     private static void addToState(DecimalType type, LongDecimalWithOverflowAndLongState state, BigInteger value)
     {
-        BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(1);
-        type.writeObject(blockBuilder, Int128.valueOf(value));
         if (type.isShort()) {
-            DecimalAverageAggregation.inputShortDecimal(state, blockBuilder.build(), 0);
+            DecimalAverageAggregation.inputShortDecimal(state, Int128.valueOf(value).toLongExact());
         }
         else {
+            BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(1);
+            type.writeObject(blockBuilder, Int128.valueOf(value));
             DecimalAverageAggregation.inputLongDecimal(state, blockBuilder.build(), 0);
         }
     }
