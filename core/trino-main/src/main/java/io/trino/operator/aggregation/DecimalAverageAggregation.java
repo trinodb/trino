@@ -56,15 +56,13 @@ public final class DecimalAverageAggregation
     @LiteralParameters({"p", "s"})
     public static void inputShortDecimal(
             @AggregationState LongDecimalWithOverflowAndLongState state,
-            @BlockPosition @SqlType(value = "decimal(p, s)", nativeContainerType = long.class) Block block,
-            @BlockIndex int position)
+            @SqlType("decimal(p,s)") long rightLow)
     {
         state.addLong(1); // row counter
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
-        long rightLow = block.getLong(position, 0);
         long rightHigh = rightLow >> 63;
 
         long overflow = addWithOverflow(
