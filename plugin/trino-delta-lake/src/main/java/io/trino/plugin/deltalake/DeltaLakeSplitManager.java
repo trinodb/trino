@@ -324,7 +324,7 @@ public class DeltaLakeSplitManager
         return splits.build();
     }
 
-    private static Location buildSplitPath(Location tableLocation, AddFileEntry addAction)
+    public static Location buildSplitPath(Location tableLocation, AddFileEntry addAction)
     {
         // paths are relative to the table location and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file

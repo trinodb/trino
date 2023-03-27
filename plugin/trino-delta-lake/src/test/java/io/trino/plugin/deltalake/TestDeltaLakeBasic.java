@@ -458,7 +458,7 @@ public class TestDeltaLakeBasic
                         (null, null, null, null, 3.0, null, null)
                         """);
 
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 3);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,

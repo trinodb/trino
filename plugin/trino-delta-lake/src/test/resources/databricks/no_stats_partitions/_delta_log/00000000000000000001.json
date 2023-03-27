@@ -1,0 +1,2 @@
+{"commitInfo":{"version":1,"timestamp":1689249490051,"userId":"slawomirpajak","userName":"slawomirpajak","operation":"WRITE","operationParameters":{"queryId":"20230713_115809_00033_a56by"},"clusterId":"trino-testversion-cea94d1f-3343-4afb-a3d5-71223e42eee2","readVersion":0,"isolationLevel":"WriteSerializable","isBlindAppend":true}}
+{"add":{"path":"p_str=ppp/20230713_115809_00033_a56by-ca41bb58-70aa-4648-91f1-395d01a944f7","partitionValues":{"p_str":"ppp"},"size":339,"modificationTime":1689249490003,"dataChange":true,"tags":{}}}
