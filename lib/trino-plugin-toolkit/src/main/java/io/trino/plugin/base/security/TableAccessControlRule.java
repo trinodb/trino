@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 
 import java.util.List;
@@ -106,7 +107,7 @@ public class TableAccessControlRule
     {
         return Optional.ofNullable(columnConstraints.get(column)).flatMap(constraint ->
                 constraint.getMask().map(mask -> new ViewExpression(
-                        constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser),
+                        constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser).map(Identity::ofUser),
                         Optional.of(catalog),
                         Optional.of(schema),
                         mask)));
@@ -115,7 +116,7 @@ public class TableAccessControlRule
     public Optional<ViewExpression> getFilter(String catalog, String schema)
     {
         return filter.map(filter -> new ViewExpression(
-                filterEnvironment.flatMap(ExpressionEnvironment::getUser),
+                filterEnvironment.flatMap(ExpressionEnvironment::getUser).map(Identity::ofUser),
                 Optional.of(catalog),
                 Optional.of(schema),
                 filter));

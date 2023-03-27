@@ -1433,7 +1433,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         "masked_with_user",
                         VARCHAR).orElseThrow(),
-                new ViewExpression(Optional.of("mask-user"), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask-with-user'"));
+                new ViewExpression(Optional.of(Identity.ofUser("mask-user")), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask-with-user'"));
     }
 
     @Test
@@ -1455,7 +1455,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertEquals(rowFilters.size(), 1);
         assertViewExpressionEquals(
                 rowFilters.get(0),
-                new ViewExpression(Optional.of("filter-user"), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter-with-user')"));
+                new ViewExpression(Optional.of(Identity.ofUser("filter-user")), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter-with-user')"));
     }
 
     private static void assertViewExpressionEquals(ViewExpression actual, ViewExpression expected)

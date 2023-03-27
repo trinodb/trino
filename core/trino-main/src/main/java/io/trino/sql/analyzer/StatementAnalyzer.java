@@ -4664,8 +4664,8 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis;
             try {
                 Identity filterIdentity = filter.getSecurityIdentity()
-                        .map(filterUser -> Identity.forUser(filterUser)
-                                .withGroups(groupProvider.getGroups(filterUser))
+                        .map(identity -> Identity.from(identity)
+                                .withGroups(groupProvider.getGroups(identity.getUser()))
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
@@ -4717,9 +4717,9 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis;
             try {
                 Identity constraintIdentity = constraint.getSecurityIdentity()
-                        .map(user -> Identity.forUser(user)
-                            .withGroups(groupProvider.getGroups(user))
-                            .build())
+                        .map(identity -> Identity.from(identity)
+                                .withGroups(groupProvider.getGroups(identity.getUser()))
+                                .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
                         createViewSession(constraint.getCatalog(), constraint.getSchema(), constraintIdentity, session.getPath()),
@@ -4782,8 +4782,8 @@ class StatementAnalyzer
 
             try {
                 Identity maskIdentity = mask.getSecurityIdentity()
-                        .map(maskUser -> Identity.forUser(maskUser)
-                                .withGroups(groupProvider.getGroups(maskUser))
+                        .map(identity -> Identity.from(identity)
+                                .withGroups(groupProvider.getGroups(identity.getUser()))
                                 .build())
                         .orElseGet(session::getIdentity);
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
