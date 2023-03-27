@@ -61,7 +61,7 @@ public class TestHivePlugin
         deleteRecursively(tempDirectory, ALLOW_INSECURE);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     @BeforeMethod
     public void deinitializeRubix()
     {
