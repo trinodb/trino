@@ -722,8 +722,13 @@ public class EventDrivenFaultTolerantQueryScheduler
                 PlanFragmentId fragmentId = subPlan.getFragment().getId();
                 StageId stageId = getStageId(fragmentId);
                 currentPlanStages.add(stageId);
-                if (isReadyForExecution(subPlan) && !stageExecutions.containsKey(stageId)) {
+                StageExecution stageExecution = stageExecutions.get(stageId);
+                if (isReadyForExecution(subPlan) && stageExecution == null) {
                     createStageExecution(subPlan, fragmentId.equals(rootFragmentId), nextSchedulingPriority++);
+                }
+                if (stageExecution != null && stageExecution.getState().equals(StageState.FINISHED) && !stageExecution.isExchangeClosed()) {
+                    // we are ready to close its source exchanges
+                    closeSourceExchanges(subPlan);
                 }
             }
             stageExecutions.forEach((stageId, stageExecution) -> {
@@ -747,6 +752,16 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
             }
             return true;
+        }
+
+        private void closeSourceExchanges(SubPlan subPlan)
+        {
+            for (SubPlan child : subPlan.getChildren()) {
+                StageExecution childExecution = stageExecutions.get(getStageId(child.getFragment().getId()));
+                if (childExecution != null) {
+                    childExecution.closeExchange();
+                }
+            }
         }
 
         private void createStageExecution(SubPlan subPlan, boolean rootFragment, int schedulingPriority)
@@ -1159,6 +1174,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final Map<PlanFragmentId, ExchangeSourceOutputSelector> sourceOutputSelectors = new HashMap<>();
 
         private boolean taskDescriptorLoadingActive;
+        private boolean exchangeClosed;
 
         private StageExecution(
                 QueryStateMachine queryStateMachine,
@@ -1217,6 +1233,11 @@ public class EventDrivenFaultTolerantQueryScheduler
         public Exchange getExchange()
         {
             return exchange;
+        }
+
+        public boolean isExchangeClosed()
+        {
+            return exchangeClosed;
         }
 
         public Optional<PrioritizedScheduledTask> addPartition(int partitionId, NodeRequirements nodeRequirements)
@@ -1287,6 +1308,16 @@ public class EventDrivenFaultTolerantQueryScheduler
                 // TODO close exchange early
                 taskSource.close();
             }
+        }
+
+        public void closeExchange()
+        {
+            if (exchangeClosed) {
+                return;
+            }
+
+            exchange.close();
+            exchangeClosed = true;
         }
 
         public Optional<EventDrivenFaultTolerantQueryScheduler.GetExchangeSinkInstanceHandleResult> getExchangeSinkInstanceHandle(int partitionId)
@@ -1638,7 +1669,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             Closer closer = Closer.create();
             closer.register(taskSource);
-            closer.register(exchange);
+            closer.register(this::closeExchange);
             return closer;
         }
 

@@ -155,6 +155,7 @@ public final class Standard
                 .withStartupTimeout(Duration.ofMinutes(5));
         if (debug) {
             enableTrinoJavaDebugger(container);
+            enableTrinoJmxRmi(container);
         }
         else {
             container.withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
@@ -204,6 +205,59 @@ public final class Standard
 
             // expose debug port unconditionally when debug is enabled
             unsafelyExposePort(container, debugPort);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void enableTrinoJmxRmi(DockerContainer dockerContainer)
+    {
+        String logicalName = dockerContainer.getLogicalName();
+
+        int jmxPort;
+        if (logicalName.equals(COORDINATOR)) {
+            jmxPort = 6005;
+        }
+        else if (logicalName.equals(WORKER)) {
+            jmxPort = 6009;
+        }
+        else if (logicalName.startsWith(WORKER_NTH)) {
+            int workerNumber = parseInt(logicalName.substring(WORKER_NTH.length()));
+            jmxPort = 6008 + workerNumber;
+        }
+        else {
+            throw new IllegalStateException("Cannot enable Java JMX RMI for: " + logicalName);
+        }
+
+        enableTrinoJmxRmi(dockerContainer, logicalName, jmxPort);
+    }
+
+    private static void enableTrinoJmxRmi(DockerContainer container, String containerName, int jmxPort)
+    {
+        log.info("Enabling Java JMX RMI for container: '%s' on port %d", containerName, jmxPort);
+
+        try {
+            FileAttribute<Set<PosixFilePermission>> rwx = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxrwxrwx"));
+            Path script = Files.createTempFile("enable-java-jmx-rmi", ".sh", rwx);
+            script.toFile().deleteOnExit();
+            Files.writeString(
+                    script,
+                        """
+                                #!/bin/bash
+                                printf '%%s\\n' '-Dcom.sun.management.jmxremote=true' >> '%2$s'
+                                printf '%%s\\n' '-Dcom.sun.management.jmxremote.port=%1$s' >> '%2$s'
+                                printf '%%s\\n' '-Dcom.sun.management.jmxremote.rmi.port=%1$s' >> '%2$s'
+                                printf '%%s\\n' '-Dcom.sun.management.jmxremote.authenticate=false' >> '%2$s'
+                                printf '%%s\\n' '-Djava.rmi.server.hostname=0.0.0.0' >> '%2$s'
+                                printf '%%s\\n' '-Dcom.sun.management.jmxremote.ssl=false' >> '%2$s'
+                                printf '%%s\\n' '-XX:FlightRecorderOptions=stackdepth=256' >> '%2$s'
+                                """.formatted(Integer.toString(jmxPort), CONTAINER_TRINO_JVM_CONFIG),
+                    UTF_8);
+            container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-java-jmx-rmi.sh");
+
+            // expose JMX port unconditionally when debug is enabled
+            unsafelyExposePort(container, jmxPort);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

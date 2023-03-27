@@ -483,7 +483,8 @@ Statistical aggregate functions
 
 .. function:: skewness(x) -> double
 
-    Returns the skewness of all input values.
+    Returns the Fisher’s moment coefficient of `skewness
+    <https://wikipedia.org/wiki/Skewness>`_ of all input values.
 
 .. function:: stddev(x) -> double
 

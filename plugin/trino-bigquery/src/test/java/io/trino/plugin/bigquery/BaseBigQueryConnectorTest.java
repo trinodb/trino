@@ -234,7 +234,7 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        return nullToEmpty(exception.getMessage()).matches(".*(Fields must contain only letters, numbers, and underscores, start with a letter or underscore, and be at most 300 characters long).*");
+        return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain the allowed characters, and be at most 300 characters long..*".formatted(columnName.replace("\\", "\\\\")));
     }
 
     @Test
@@ -731,6 +731,29 @@ public abstract class BaseBigQueryConnectorTest
         assertQuery(
                 "SELECT name FROM TABLE(bigquery.system.query(query => 'SELECT * FROM tpch.nation')) WHERE nationkey = 0",
                 "VALUES 'ALGERIA'");
+    }
+
+    @Test
+    public void testNativeQueryColumnAlias()
+    {
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
+                .hasColumnNames("region_name")
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+
+        assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
+                .hasColumnNames("region_name")
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+    }
+
+    @Test
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'name' cannot be resolved");
+        assertQueryFails(
+                "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'column_not_found' cannot be resolved");
     }
 
     @Test

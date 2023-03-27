@@ -41,7 +41,6 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TypeManager;
 import io.trino.util.DateTimeUtils;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -197,7 +196,7 @@ public class TestCheckpointWriter
         File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
         targetFile.deleteOnExit();
 
-        Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
+        String targetPath = "file://" + targetFile.getAbsolutePath();
         targetFile.delete(); // file must not exist when writer is called
         writer.write(entries, createOutputFile(targetPath));
 
@@ -333,7 +332,7 @@ public class TestCheckpointWriter
         File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
         targetFile.deleteOnExit();
 
-        Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
+        String targetPath = "file://" + targetFile.getAbsolutePath();
         targetFile.delete(); // file must not exist when writer is called
         writer.write(entries, createOutputFile(targetPath));
 
@@ -404,7 +403,7 @@ public class TestCheckpointWriter
         File targetFile = File.createTempFile("testCheckpointWriteReadRoundtrip-", ".checkpoint.parquet");
         targetFile.deleteOnExit();
 
-        Path targetPath = new Path("file://" + targetFile.getAbsolutePath());
+        String targetPath = "file://" + targetFile.getAbsolutePath();
         targetFile.delete(); // file must not exist when writer is called
         writer.write(entries, createOutputFile(targetPath));
 
@@ -476,11 +475,11 @@ public class TestCheckpointWriter
         return Optional.of(comparableStats.buildOrThrow());
     }
 
-    private CheckpointEntries readCheckpoint(Path checkpointPath, MetadataEntry metadataEntry, boolean rowStatisticsEnabled)
+    private CheckpointEntries readCheckpoint(String checkpointPath, MetadataEntry metadataEntry, boolean rowStatisticsEnabled)
             throws IOException
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-        TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath.toString());
+        TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath);
 
         Iterator<DeltaLakeTransactionLogEntry> checkpointEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
@@ -504,8 +503,8 @@ public class TestCheckpointWriter
         return checkpointBuilder.build();
     }
 
-    private static TrinoOutputFile createOutputFile(Path path)
+    private static TrinoOutputFile createOutputFile(String path)
     {
-        return new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION).newOutputFile(path.toString());
+        return new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION).newOutputFile(path);
     }
 }

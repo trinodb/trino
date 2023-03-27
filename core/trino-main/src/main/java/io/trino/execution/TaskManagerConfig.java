@@ -71,6 +71,7 @@ public class TaskManagerConfig
 
     private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
+    private Duration taskTerminationTimeout = new Duration(1, TimeUnit.MINUTES);
 
     private boolean interruptStuckSplitTasksEnabled = true;
     private Duration interruptStuckSplitTasksWarningThreshold = new Duration(10, TimeUnit.MINUTES);
@@ -135,6 +136,21 @@ public class TaskManagerConfig
     public TaskManagerConfig setInfoUpdateInterval(Duration infoUpdateInterval)
     {
         this.infoUpdateInterval = infoUpdateInterval;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    @NotNull
+    public Duration getTaskTerminationTimeout()
+    {
+        return taskTerminationTimeout;
+    }
+
+    @Config("task.termination-timeout")
+    @ConfigDescription("Maximum duration to wait for a task to complete termination before failing the task on the coordinator")
+    public TaskManagerConfig setTaskTerminationTimeout(Duration taskTerminationTimeout)
+    {
+        this.taskTerminationTimeout = taskTerminationTimeout;
         return this;
     }
 

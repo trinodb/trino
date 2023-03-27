@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.jdbc.aggregation;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.type.BigintType;
 
@@ -36,7 +38,7 @@ import static java.util.Objects.requireNonNull;
  * Implements {@code count(*)}.
  */
 public class ImplementCountAll
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private final JdbcTypeHandle bigintTypeHandle;
 
@@ -57,9 +59,12 @@ public class ImplementCountAll
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         verify(aggregateFunction.getOutputType() == BIGINT);
-        return Optional.of(new JdbcExpression("count(*)", bigintTypeHandle));
+        return Optional.of(new JdbcExpression(
+                "count(*)",
+                ImmutableList.of(),
+                bigintTypeHandle));
     }
 }

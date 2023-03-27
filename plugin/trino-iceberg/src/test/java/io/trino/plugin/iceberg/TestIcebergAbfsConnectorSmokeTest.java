@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
@@ -32,7 +31,6 @@ import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
@@ -46,7 +44,6 @@ import java.util.Set;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
@@ -122,10 +119,7 @@ public class TestIcebergAbfsConnectorSmokeTest
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withSchemaName(schemaName)
-                                .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()
-                                        .addAll(REQUIRED_TPCH_TABLES)
-                                        .add(LINE_ITEM)
-                                        .build())
+                                .withClonedTpchTables(REQUIRED_TPCH_TABLES)
                                 .withSchemaProperties(Map.of("location", "'" + formatAbfsUrl(container, account, bucketName) + schemaName + "'"))
                                 .build())
                 .build();

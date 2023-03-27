@@ -41,6 +41,9 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -63,6 +66,7 @@ import org.testng.annotations.Test;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +87,9 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -346,7 +353,7 @@ public class TestIcebergV2
         assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
                 .hasMessage("Failed to set new property values")
-                .getRootCause()
+                .rootCause()
                 .hasMessage("Cannot downgrade v2 table to v1");
     }
 
@@ -505,6 +512,79 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testFilesTable()
+            throws Exception
+    {
+        String tableName = "test_files_table_" + randomNameSuffix();
+        String tableLocation = metastoreDir.getPath() + "/" + tableName;
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + tableLocation + "', format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
+        BaseTable table = loadTable(tableName);
+        Metrics metrics = new Metrics(
+                10L,
+                ImmutableMap.of(1, 2L, 2, 3L),
+                ImmutableMap.of(1, 5L, 2, 3L, 3, 2L),
+                ImmutableMap.of(1, 0L, 2, 2L),
+                ImmutableMap.of(4, 1L),
+                ImmutableMap.of(1, ByteBuffer.allocate(8).order(LITTLE_ENDIAN).putLong(0, 0L)),
+                ImmutableMap.of(1, ByteBuffer.allocate(8).order(LITTLE_ENDIAN).putLong(0, 4L)));
+        // Creating a simulated data file to verify the non-null values in the $files table
+        DataFile dataFile = DataFiles.builder(PartitionSpec.unpartitioned())
+                .withFormat(ORC)
+                .withPath(tableLocation + "/data/test_files_table.orc")
+                .withFileSizeInBytes(1234)
+                .withMetrics(metrics)
+                .withSplitOffsets(ImmutableList.of(4L))
+                .withEncryptionKeyMetadata(ByteBuffer.wrap("Trino".getBytes(UTF_8)))
+                .build();
+        table.newAppend().appendFile(dataFile).commit();
+        // TODO Currently, Trino does not include equality delete files stats in the $files table.
+        //  Once it is fixed by https://github.com/trinodb/trino/pull/16232, include equality delete output in the test.
+        writeEqualityDeleteToNationTable(table);
+        assertQuery(
+                "SELECT " +
+                        "content, " +
+                        "file_format, " +
+                        "record_count, " +
+                        "CAST(column_sizes AS JSON), " +
+                        "CAST(value_counts AS JSON), " +
+                        "CAST(null_value_counts AS JSON), " +
+                        "CAST(nan_value_counts AS JSON), " +
+                        "CAST(lower_bounds AS JSON), " +
+                        "CAST(upper_bounds AS JSON), " +
+                        "key_metadata, " +
+                        "split_offsets, " +
+                        "equality_ids " +
+                        "FROM \"" + tableName + "$files\"",
+                """
+                               VALUES
+                                       (0,
+                                        'ORC',
+                                        25L,
+                                        null,
+                                        JSON '{"1":25,"2":25,"3":25,"4":25}',
+                                        JSON '{"1":0,"2":0,"3":0,"4":0}',
+                                        null,
+                                        JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
+                                        JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
+                                        null,
+                                        null,
+                                        null),
+                                       (0,
+                                        'ORC',
+                                        10L,
+                                        JSON '{"1":2,"2":3}',
+                                        JSON '{"1":5,"2":3,"3":2}',
+                                        JSON '{"1":0,"2":2}',
+                                        JSON '{"4":1}',
+                                        JSON '{"1":"0"}',
+                                        JSON '{"1":"4"}',
+                                        X'54 72 69 6e 6f',
+                                        ARRAY[4L],
+                                        null)
+                        """);
+    }
+
+    @Test
     public void testStatsFilePruning()
     {
         try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_stats_file_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
@@ -539,6 +619,49 @@ public class TestIcebergV2
                     true);
             assertEquals(withUnenforcedFilter.getRowCount().getValue(), 2.0);
         }
+    }
+
+    @Test
+    public void testSnapshotReferenceSystemTable()
+    {
+        String tableName = "test_snapshot_reference_system_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = this.loadTable(tableName);
+        long snapshotId1 = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createTag("test-tag", snapshotId1)
+                .setMaxRefAgeMs("test-tag", 1)
+                .commit();
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
+        icebergTable.refresh();
+        long snapshotId2 = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createBranch("test-branch", snapshotId2)
+                .setMaxSnapshotAgeMs("test-branch", 1)
+                .commit();
+
+        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.tiny.nation LIMIT 5", 5);
+        icebergTable.refresh();
+        long snapshotId3 = icebergTable.currentSnapshot().snapshotId();
+        icebergTable.manageSnapshots()
+                .createBranch("test-branch2", snapshotId3)
+                .setMinSnapshotsToKeep("test-branch2", 1)
+                .commit();
+
+        assertQuery("SHOW COLUMNS FROM \"" + tableName + "$refs\"",
+                "VALUES ('name', 'varchar', '', '')," +
+                        "('type', 'varchar', '', '')," +
+                        "('snapshot_id', 'bigint', '', '')," +
+                        "('max_reference_age_in_ms', 'bigint', '', '')," +
+                        "('min_snapshots_to_keep', 'integer', '', '')," +
+                        "('max_snapshot_age_in_ms', 'bigint', '', '')");
+
+        assertQuery("SELECT * FROM \"" + tableName + "$refs\"",
+                "VALUES ('test-tag', 'TAG', " + snapshotId1 + ", 1, null, null)," +
+                        "('test-branch', 'BRANCH', " + snapshotId2 + ", null, null, 1)," +
+                        "('test-branch2', 'BRANCH', " + snapshotId3 + ", null, 1, null)," +
+                        "('main', 'BRANCH', " + snapshotId3 + ", null, null, null)");
     }
 
     private void writeEqualityDeleteToNationTable(Table icebergTable)

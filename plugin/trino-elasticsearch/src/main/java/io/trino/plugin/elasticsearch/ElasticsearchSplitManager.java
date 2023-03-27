@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -55,7 +54,7 @@ public class ElasticsearchSplitManager
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
 
         if (tableHandle.getType().equals(QUERY)) {
-            return new FixedSplitSource(ImmutableList.of(new ElasticsearchSplit(tableHandle.getIndex(), 0, Optional.empty())));
+            return new FixedSplitSource(new ElasticsearchSplit(tableHandle.getIndex(), 0, Optional.empty()));
         }
         List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
                 .map(shard -> new ElasticsearchSplit(shard.getIndex(), shard.getId(), shard.getAddress()))

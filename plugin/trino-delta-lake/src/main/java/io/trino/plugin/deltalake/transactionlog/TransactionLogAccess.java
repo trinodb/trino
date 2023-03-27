@@ -42,7 +42,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
-import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -141,16 +140,15 @@ public class TransactionLogAccess
         return new CacheStatsMBean(tableSnapshots);
     }
 
-    public TableSnapshot loadSnapshot(SchemaTableName table, Path tableLocation, ConnectorSession session)
+    public TableSnapshot loadSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
             throws IOException
     {
-        String location = tableLocation.toString();
-        TableSnapshot cachedSnapshot = tableSnapshots.getIfPresent(location);
+        TableSnapshot cachedSnapshot = tableSnapshots.getIfPresent(tableLocation);
         TableSnapshot snapshot;
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         if (cachedSnapshot == null) {
             try {
-                snapshot = tableSnapshots.get(location, () ->
+                snapshot = tableSnapshots.get(tableLocation, () ->
                         TableSnapshot.load(
                                 table,
                                 fileSystem,
@@ -168,7 +166,7 @@ public class TransactionLogAccess
             Optional<TableSnapshot> updatedSnapshot = cachedSnapshot.getUpdatedSnapshot(fileSystem);
             if (updatedSnapshot.isPresent()) {
                 snapshot = updatedSnapshot.get();
-                tableSnapshots.asMap().replace(location, cachedSnapshot, snapshot);
+                tableSnapshots.asMap().replace(tableLocation, cachedSnapshot, snapshot);
             }
             else {
                 snapshot = cachedSnapshot;
@@ -385,7 +383,7 @@ public class TransactionLogAccess
                 stats);
     }
 
-    public Stream<DeltaLakeTransactionLogEntry> getJsonEntries(TrinoFileSystem fileSystem, Path transactionLogDir, List<Long> forVersions)
+    public Stream<DeltaLakeTransactionLogEntry> getJsonEntries(TrinoFileSystem fileSystem, String transactionLogDir, List<Long> forVersions)
     {
         return forVersions.stream()
                 .flatMap(version -> {
@@ -405,12 +403,12 @@ public class TransactionLogAccess
     /**
      * Returns a stream of transaction log versions between {@code startAt} point in time and {@code lastVersion}.
      */
-    public List<Long> getPastTableVersions(TrinoFileSystem fileSystem, Path transactionLogDir, Instant startAt, long lastVersion)
+    public List<Long> getPastTableVersions(TrinoFileSystem fileSystem, String transactionLogDir, Instant startAt, long lastVersion)
     {
         ImmutableList.Builder<Long> result = ImmutableList.builder();
         for (long version = lastVersion; version >= 0; version--) {
-            Path entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version);
-            TrinoInputFile inputFile = fileSystem.newInputFile(entryPath.toString());
+            String entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version);
+            TrinoInputFile inputFile = fileSystem.newInputFile(entryPath);
             try {
                 if (inputFile.lastModified().isBefore(startAt)) {
                     // already too old

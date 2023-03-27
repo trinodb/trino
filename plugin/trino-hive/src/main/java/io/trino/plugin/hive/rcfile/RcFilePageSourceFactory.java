@@ -48,12 +48,10 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.BlockMissingException;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
@@ -61,11 +59,9 @@ import java.util.OptionalInt;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
@@ -163,10 +159,6 @@ public class RcFilePageSourceFactory
             throw e;
         }
         catch (Exception e) {
-            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
-                    e instanceof FileNotFoundException) {
-                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
-            }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
@@ -192,16 +184,13 @@ public class RcFilePageSourceFactory
             ConnectorPageSource pageSource = new RcFilePageSource(rcFileReader, projectedReaderColumns);
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));
         }
+        catch (TrinoException e) {
+            throw e;
+        }
         catch (Throwable e) {
-            if (e instanceof TrinoException) {
-                throw (TrinoException) e;
-            }
             String message = splitError(e, path, start, length);
             if (e instanceof FileCorruptionException) {
                 throw new TrinoException(HIVE_BAD_DATA, message, e);
-            }
-            if (e instanceof BlockMissingException) {
-                throw new TrinoException(HIVE_MISSING_DATA, message, e);
             }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }

@@ -933,8 +933,18 @@ Migrating existing tables
 -------------------------
 
 The connector can read from or write to Hive tables that have been migrated to Iceberg.
-There is no Trino support for migrating Hive tables to Iceberg, so you need to either use
-the Iceberg API or Apache Spark.
+An SQL procedure ``system.migrate`` allows the caller to replace
+a Hive table with an Iceberg table, loaded with the source’s data files.
+Table schema, partitioning, properties, and location will be copied from the source table.
+Migrate will fail if any table partition uses an unsupported format::
+
+    CALL iceberg.system.migrate(schema_name => 'testdb', table_name => 'customer_orders')
+
+In addition, you can provide a ``recursive_directory`` argument to migrate the table with recursive directories.
+The possible values are ``true``, ``false`` and ``fail``. The default value is ``fail`` that throws an exception
+if nested directory exists::
+
+    CALL iceberg.system.migrate(schema_name => 'testdb', table_name => 'customer_orders', recursive_directory => 'true')
 
 .. _iceberg-table-properties:
 
@@ -1345,6 +1355,50 @@ The output of the query has the following columns:
   * - ``equality_ids``
     - ``array(integer)``
     - The set of field IDs used for equality comparison in equality delete files
+
+``$refs`` table
+^^^^^^^^^^^^^^^
+
+The ``$refs`` table provides information about Iceberg references including branches and tags.
+
+You can retrieve the references of the Iceberg table ``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$refs"
+
+.. code-block:: text
+
+    name            | type   | snapshot_id | max_reference_age_in_ms | min_snapshots_to_keep | max_snapshot_age_in_ms |
+    ----------------+--------+-------------+-------------------------+-----------------------+------------------------+
+    example_tag     | TAG    | 10000000000 | 10000                   | null                  | null                   |
+    example_branch  | BRANCH | 20000000000 | 20000                   | 2                     | 30000                  |
+
+The output of the query has the following columns:
+
+.. list-table:: Refs columns
+  :widths: 20, 30, 50
+  :header-rows: 1
+
+  * - Name
+    - Type
+    - Description
+  * - ``name``
+    - ``varchar``
+    - Name of the reference
+  * - ``type``
+    - ``varchar``
+    - Type of the reference, either ``BRANCH`` or ``TAG``
+  * - ``snapshot_id``
+    - ``bigint``
+    - The snapshot ID of the reference
+  * - ``max_reference_age_in_ms``
+    - ``bigint``
+    - The maximum age of the reference before it could be expired.
+  * - ``min_snapshots_to_keep``
+    - ``integer``
+    - For branch only, the minimum number of snapshots to keep in a branch.
+  * - ``max_snapshot_age_in_ms``
+    - ``bigint``
+    - For branch only, the max snapshot age allowed in a branch. Older snapshots in the branch will be expired.
 
 .. _iceberg-materialized-views:
 

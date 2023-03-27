@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>410</version>
+        <version>411-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -249,32 +249,10 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <code>java.method.exception.checkedRemoved</code>
-                                    <old>method void io.airlift.slice.SliceOutput::write(byte[]) throws java.io.IOException</old>
-                                    <new>method void io.airlift.slice.SliceOutput::write(byte[])</new>
-                                    <exception>java.io.IOException</exception>
-                                </item>
-                                <item>
                                     <ignore>true</ignore>
-                                    <code>java.field.visibilityReduced</code>
-                                    <old>field io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor&lt;T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;&gt;.records</old>
-                                    <new>field io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor.records</new>
-                                    <oldVisibility>protected</oldVisibility>
-                                    <newVisibility>private</newVisibility>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.parameterTypeParameterChanged</code>
-                                    <old>parameter void io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor&lt;T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;&gt;::&lt;init&gt;(java.util.List&lt;io.trino.spi.type.Type&gt;, ===T===)</old>
-                                    <new>parameter void io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor::&lt;init&gt;(java.util.List&lt;io.trino.spi.type.Type&gt;, ===java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;===)</new>
-                                    <parameterIndex>1</parameterIndex>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.generics.formalTypeParameterRemoved</code>
-                                    <old>class io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor&lt;T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;&gt;</old>
-                                    <new>class io.trino.spi.connector.InMemoryRecordSet.InMemoryRecordCursor</new>
-                                    <typeParameter>T extends java.util.Iterator&lt;? extends java.util.List&lt;?&gt;&gt;</typeParameter>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.MaterializedViewFreshness::&lt;init&gt;(boolean)</old>
+                                    <new>method void io.trino.spi.connector.MaterializedViewFreshness::&lt;init&gt;(io.trino.spi.connector.MaterializedViewFreshness.Freshness, java.util.Optional&lt;java.time.Instant&gt;)</new>
                                 </item>
                             </differences>
                         </revapi.differences>

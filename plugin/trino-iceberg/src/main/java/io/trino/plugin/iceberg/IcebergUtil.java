@@ -51,6 +51,7 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
@@ -83,11 +84,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -541,7 +544,7 @@ public final class IcebergUtil
                 String partitionValue;
                 if (type.typeId() == FIXED || type.typeId() == BINARY) {
                     // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = Base64.getEncoder().encodeToString(((ByteBuffer) value).array());
+                    partitionValue = Base64.getEncoder().encodeToString(getWrappedBytes(((ByteBuffer) value)));
                 }
                 else {
                     partitionValue = value.toString();
@@ -607,6 +610,58 @@ public final class IcebergUtil
         }
 
         return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, propertiesBuilder.buildOrThrow());
+    }
+
+    /**
+     * Find the first snapshot in the table. First snapshot is the last snapshot
+     * in snapshot parents chain starting at {@link Table#currentSnapshot()}.
+     *
+     * @return First (oldest) Snapshot reachable from {@link Table#currentSnapshot()} or empty if table history
+     * expiration makes it impossible to find the snapshot.
+     * @throws IllegalArgumentException when table has no snapshot.
+     */
+    public static Optional<Snapshot> firstSnapshot(Table table)
+    {
+        Snapshot current = table.currentSnapshot();
+        checkArgument(current != null, "No current snapshot in %s when looking for the first snapshot", table);
+
+        while (true) {
+            if (current.parentId() == null) {
+                return Optional.of(current);
+            }
+            current = table.snapshot(current.parentId());
+            if (current == null) {
+                // History expired
+                return Optional.empty();
+            }
+        }
+    }
+
+    /**
+     * @return First (oldest) snapshot that is reachable from {@link Table#currentSnapshot()} but is not
+     * reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
+     * expiration makes it impossible to find the snapshot.
+     * @throws IllegalArgumentException when table has no snapshot,
+     * {@code baseSnapshotId} is not a valid snapshot in the table or
+     * the {@code baseSnapshotId} is the current snapshot.
+     */
+    public static Optional<Snapshot> firstSnapshotAfter(Table table, long baseSnapshotId)
+    {
+        Snapshot current = table.currentSnapshot();
+        checkArgument(current != null, "No current snapshot in %s when looking for the first snapshot after %s", table, baseSnapshotId);
+        checkArgument(current.snapshotId() != baseSnapshotId, "No snapshot after %s in %s, current snapshot is %s", baseSnapshotId, table, current);
+
+        while (true) {
+            checkArgument(current.parentId() != null, "Snapshot id %s is not valid in table %s, snapshot %s has no parent", baseSnapshotId, table, current);
+            if (current.parentId() == baseSnapshotId) {
+                return Optional.of(current);
+            }
+            current = table.snapshot(current.parentId());
+            if (current == null) {
+                // History expired
+                return Optional.empty();
+            }
+        }
     }
 
     public static long getSnapshotIdAsOfTime(Table table, long epochMillis)

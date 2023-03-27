@@ -250,7 +250,7 @@ public class TestRedshiftTypeMapping
         try (TestTable table = testTable("check_multibyte_char", "(c char(32))")) {
             assertThatThrownBy(() -> getRedshiftExecutor()
                     .execute(format("INSERT INTO %s VALUES ('\u968a')", table.getName())))
-                    .getCause()
+                    .cause()
                     .isInstanceOf(SQLException.class)
                     .hasMessageContaining("CHAR string contains invalid ASCII character");
         }
@@ -842,7 +842,7 @@ public class TestRedshiftTypeMapping
         try {
             assertThatThrownBy(() -> getRedshiftExecutor()
                     .execute(format("CREATE TABLE %s %s", tableName, tableBody)))
-                    .getCause()
+                    .cause()
                     .as("Redshift create fails for %s %s", tableName, tableBody)
                     .isInstanceOf(SQLException.class)
                     .hasMessage(message);

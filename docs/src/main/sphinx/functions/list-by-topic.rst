@@ -412,6 +412,7 @@ For more details, see :doc:`math`
 * :func:`round`
 * :func:`sign`
 * :func:`sin`
+* :func:`sinh`
 * :func:`sqrt`
 * :func:`tan`
 * :func:`tanh`

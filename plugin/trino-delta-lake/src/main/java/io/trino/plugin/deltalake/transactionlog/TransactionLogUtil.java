@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
-import org.apache.hadoop.fs.Path;
-
+import static io.trino.filesystem.Locations.appendPath;
 import static java.lang.String.format;
 
 public final class TransactionLogUtil
@@ -23,13 +22,13 @@ public final class TransactionLogUtil
 
     public static final String TRANSACTION_LOG_DIRECTORY = "_delta_log";
 
-    public static Path getTransactionLogDir(Path tableLocation)
+    public static String getTransactionLogDir(String tableLocation)
     {
-        return new Path(tableLocation, TRANSACTION_LOG_DIRECTORY);
+        return appendPath(tableLocation, TRANSACTION_LOG_DIRECTORY);
     }
 
-    public static Path getTransactionLogJsonEntryPath(Path transactionLogDir, long entryNumber)
+    public static String getTransactionLogJsonEntryPath(String transactionLogDir, long entryNumber)
     {
-        return new Path(transactionLogDir, format("%020d.json", entryNumber));
+        return appendPath(transactionLogDir, format("%020d.json", entryNumber));
     }
 }

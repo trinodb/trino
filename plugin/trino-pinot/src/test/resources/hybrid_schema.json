@@ -14,12 +14,11 @@
     ],
     "dateTimeFieldSpecs": [
         {
-            "name": "updatedAtSeconds",
-            "dataType": "LONG",
+            "name": "updatedAt",
+            "dataType": "TIMESTAMP",
             "defaultNullValue" : 0,
-            "format": "1:SECONDS:EPOCH",
-            "transformFunction": "toEpochSeconds(updatedAt)",
-            "granularity" : "1:SECONDS"
+            "format": "1:MILLISECONDS:EPOCH",
+            "granularity" : "1:MILLISECONDS"
         }
     ]
 }

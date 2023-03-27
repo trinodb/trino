@@ -140,7 +140,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         assertThat(e)
                 .hasMessage("Failed to write Delta Lake transaction log entry")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "Transaction log locked.*" +
                                 "|.*/_delta_log/\\d+.json already exists" +
@@ -154,7 +154,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         assertThat(e)
                 .hasMessage("Failed to write Delta Lake transaction log entry")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "Transaction log locked.*" +
                                 "|.*/_delta_log/\\d+.json already exists" +
@@ -168,7 +168,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         assertThat(e)
                 .hasMessageMatching("Unable to add '.*' column for: .*")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "Transaction log locked.*" +
                                 "|.*/_delta_log/\\d+.json already exists" +

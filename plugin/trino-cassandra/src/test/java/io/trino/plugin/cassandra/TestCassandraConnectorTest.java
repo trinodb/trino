@@ -919,7 +919,7 @@ public class TestCassandraConnectorTest
         // There is no way to figure out what the exactly keyspace we want to retrieve tables from
         assertQueryFailsEventually(
                 "SHOW TABLES FROM cassandra.keyspace_3",
-                "More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
+                "Error listing tables for catalog cassandra: More than one keyspace has been found for the case insensitive schema name: keyspace_3 -> \\(KeYsPaCe_3, kEySpAcE_3\\)",
                 new Duration(1, MINUTES));
 
         session.execute("DROP KEYSPACE \"KeYsPaCe_3\"");
@@ -1388,6 +1388,29 @@ public class TestCassandraConnectorTest
                 "VALUES 'ALGERIA'");
         assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch.nation')) WHERE nationkey = 0"))
                 .isNotFullyPushedDown(FilterNode.class);
+    }
+
+    @Test
+    public void testNativeQueryColumnAlias()
+    {
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0 ALLOW FILTERING'))"))
+                .hasColumnNames("region_name")
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+
+        assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0 ALLOW FILTERING'))"))
+                .hasColumnNames("region_name")
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+    }
+
+    @Test
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'name' cannot be resolved");
+        assertQueryFails(
+                "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'column_not_found' cannot be resolved");
     }
 
     @Test

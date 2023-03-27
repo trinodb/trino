@@ -106,9 +106,13 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE;
+import static io.trino.SystemSessionProperties.MAX_WRITER_TASKS_COUNT;
+import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
+import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 import static io.trino.SystemSessionProperties.WRITER_MIN_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -323,7 +327,7 @@ public abstract class BaseHiveConnectorTest
         // TODO (https://github.com/trinodb/trino/issues/10518) test this with a TestHiveConnectorTest version that creates ACID tables by default, or in some other way
         assertThatThrownBy(super::testUpdateRowConcurrently)
                 .hasMessage("Unexpected concurrent update failure")
-                .getCause()
+                .cause()
                 .hasMessage(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
@@ -4090,6 +4094,55 @@ public abstract class BaseHiveConnectorTest
                 .isBetween((long) taskMaxScaleWriterCount + workers, workers * taskMaxScaleWriterCount);
     }
 
+    @DataProvider(name = "taskWritersLimitParams")
+    public Object[][] prepareScaledWritersOption()
+    {
+        return new Object[][] {{true, true, 2}, {false, true, 2}, {false, false, 3}};
+    }
+
+    @Test(dataProvider = "taskWritersLimitParams")
+    public void testWriterTasksCountLimitUnpartitioned(boolean scaleWriters, boolean redistributeWrites, int expectedFilesCount)
+    {
+        testLimitWriterTasks(2, expectedFilesCount, scaleWriters, redistributeWrites, false);
+    }
+
+    @Test
+    public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
+    {
+        testLimitWriterTasks(2, 2, false, true, true);
+    }
+
+    @Test
+    public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
+    {
+        testLimitWriterTasks(2, 2, true, true, true);
+    }
+
+    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
+                .setSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.toString(maxWriterTasks))
+                .setSystemProperty(REDISTRIBUTE_WRITES, Boolean.toString(redistributeWrites))
+                .setSystemProperty(TASK_WRITER_COUNT, "1")
+                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(WRITER_MIN_SIZE, "1MB")
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
+                .build();
+        String tableName = "writing_tasks_limit_%s".formatted(randomNameSuffix());
+        @Language("SQL") String createTableSql = format(
+                "CREATE TABLE %s WITH (format = 'ORC' %s) AS SELECT *, mod(orderkey, 2) as part_key FROM tpch.sf1.orders LIMIT",
+                tableName, partitioned ? ", partitioned_by = ARRAY['part_key']" : "");
+        try {
+            assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+            long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName));
+            assertEquals(files, expectedFilesCount);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS %s".formatted(tableName));
+        }
+    }
+
     protected AbstractLongAssert<?> testTaskScaleWriters(
             Session session,
             DataSize writerMinSize,
@@ -5525,7 +5578,7 @@ public abstract class BaseHiveConnectorTest
                 "SELECT a FROM " + tableName + " WHERE b = 'b'",
                 "VALUES ('a')");
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+        String tableLocation = getTableLocation(tableName);
 
         // Reverse the table so that the Hive column ordering does not match the Parquet column ordering
         String reversedTableName = "test_parquet_by_column_index_reversed";
@@ -5578,7 +5631,7 @@ public abstract class BaseHiveConnectorTest
                 singleColumnTableName));
         assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + singleColumnTableName + " VALUES ('a')", 1);
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + singleColumnTableName).getOnlyValue();
+        String tableLocation = getTableLocation(singleColumnTableName);
         String multiColumnTableName = "test_parquet_missing_columns_two";
         assertUpdate(sessionUsingColumnIndex, format(
                 "CREATE TABLE %s(" +
@@ -5630,7 +5683,7 @@ public abstract class BaseHiveConnectorTest
                 missingNestedFieldsTableName));
         assertUpdate(sessionUsingColumnIndex, "INSERT INTO " + missingNestedFieldsTableName + " VALUES (ARRAY[ROW(2)])", 1);
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + missingNestedFieldsTableName).getOnlyValue();
+        String tableLocation = getTableLocation(missingNestedFieldsTableName);
         String missingNestedArrayTableName = "test_parquet_missing_nested_array";
         assertUpdate(sessionUsingColumnIndex, format(
                 "CREATE TABLE %s(" +
@@ -7866,7 +7919,7 @@ public abstract class BaseHiveConnectorTest
                 "SELECT b, c.f1.g2, c.f3, d FROM " + tableName,
                 "VALUES ('ala', 873321, X'abcdef', 12345678)");
 
-        String tableLocation = (String) computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName).getOnlyValue();
+        String tableLocation = getTableLocation(tableName);
 
         assertUpdate(session, format(
                 "CREATE TABLE %s(" +
@@ -8707,6 +8760,11 @@ public abstract class BaseHiveConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(catalog, "timestamp_precision", precision.name())
                 .build();
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
     }
 
     private static final class BucketedFilterTestSetup

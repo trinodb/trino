@@ -299,7 +299,7 @@ public class DeterminePartitionCount
                     node.getId(),
                     node.getType(),
                     node.getScope(),
-                    node.getPartitioningScheme().withPartitionCount(partitionCount),
+                    node.getPartitioningScheme().withPartitionCount(Optional.of(partitionCount)),
                     sources,
                     node.getInputs(),
                     node.getOrderingScheme());

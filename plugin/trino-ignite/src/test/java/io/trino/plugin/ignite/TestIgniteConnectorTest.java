@@ -91,6 +91,11 @@ public class TestIgniteConnectorTest
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
 
+            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
+                return false;
+
+            case SUPPORTS_JOIN_PUSHDOWN:
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE:
             case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
@@ -156,7 +161,7 @@ public class TestIgniteConnectorTest
         String tableWithQuote = "create_table_with_unsupported_quote_column";
         String tableDefinitionWithQuote = "(`a\"b` bigint primary key, c varchar)";
         assertThatThrownBy(() -> onRemoteDatabase().execute("CREATE TABLE " + tableWithQuote + tableDefinitionWithQuote))
-                .getRootCause()
+                .rootCause()
                 .hasMessageContaining("Failed to parse query");
 
         // Test the property column with comma
@@ -182,6 +187,20 @@ public class TestIgniteConnectorTest
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo(format(pattern, catalog, schema, tableName));
         }
+    }
+
+    @Test
+    public void testCreateTableWithNonExistingPrimaryKey()
+    {
+        String tableName = "test_invalid_primary_key" + randomNameSuffix();
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['not_existing_column'])",
+                "Column 'not_existing_column' specified in property 'primary_key' doesn't exist in table");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['dummy_id'])",
+                "Column 'dummy_id' specified in property 'primary_key' doesn't exist in table");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['A'])",
+                "Column 'A' specified in property 'primary_key' doesn't exist in table");
     }
 
     @Test
@@ -326,6 +345,24 @@ public class TestIgniteConnectorTest
                     format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
                     "line 1:21: Table function system.query not registered");
         }
+    }
+
+    @Override
+    public void testNativeQueryColumnAlias()
+    {
+        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM public.region WHERE regionkey = 0'))",
+                ".* Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM public.region'))",
+                ".* Table function system.query not registered");
     }
 
     @Override

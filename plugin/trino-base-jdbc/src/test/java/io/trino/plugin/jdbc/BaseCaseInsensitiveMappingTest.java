@@ -145,7 +145,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                         AutoCloseable ignore4 = withSchema("some_schema");
                         AutoCloseable ignore5 = withTable("some_schema", "some_table", "(c int)")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
-                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name: Ambiguous name: casesensitivename");
+                    assertQueryFails("SHOW TABLES FROM casesensitivename", "Error listing tables for catalog \\w+: Failed to find remote schema name: Ambiguous name: casesensitivename");
                     assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name: Ambiguous name: casesensitivename");
                     assertQuery("SHOW TABLES FROM some_schema", "VALUES 'some_table'");
                     assertQueryReturnsEmptyResult("SELECT * FROM some_schema.some_table");

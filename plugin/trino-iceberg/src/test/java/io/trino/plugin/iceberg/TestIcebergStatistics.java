@@ -15,9 +15,14 @@ package io.trino.plugin.iceberg;
 
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
+import static io.trino.testing.DataProviders.cartesianProduct;
+import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -28,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
-public class TestIcebergAnalyze
+public class TestIcebergStatistics
         extends AbstractTestQueryFramework
 {
     @Override
@@ -40,84 +45,84 @@ public class TestIcebergAnalyze
                 .build();
     }
 
-    @Test
-    public void testAnalyze()
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testAnalyze(boolean collectOnStatsOnWrites)
     {
-        String tableName = "test_analyze";
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        Session writeSession = withStatsOnWrite(getSession(), collectOnStatsOnWrites);
+        String tableName = "test_analyze_" + collectOnStatsOnWrites;
 
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, null, 0, null, '0', '24'),
-                          ('regionkey', null, null, 0, null, '0', '4'),
-                          ('comment', null, null, 0, null, null, null),
-                          ('name', null, null, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        String goodStatsInitial = """
+                VALUES
+                  ('nationkey', null, 25, 0, null, '0', '24'),
+                  ('regionkey', null, 5, 0, null, '0', '4'),
+                  ('comment', null, 25, 0, null, null, null),
+                  ('name', null, 25, 0, null, null, null),
+                  (null, null, null, null, 25, null, null)""";
+
+        if (collectOnStatsOnWrites) {
+            assertQuery("SHOW STATS FOR " + tableName, goodStatsInitial);
+        }
+        else {
+            assertQuery(
+                    "SHOW STATS FOR " + tableName,
+                    """
+                            VALUES
+                              ('nationkey', null, null, 0, null, '0', '24'),
+                              ('regionkey', null, null, 0, null, '0', '4'),
+                              ('comment', null, null, 0, null, null, null),
+                              ('name', null, null, 0, null, null, null),
+                              (null, null, null, null, 25, null, null)""");
+        }
 
         assertUpdate("ANALYZE " + tableName);
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, 25, 0, null, '0', '24'),
-                          ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+        assertQuery("SHOW STATS FOR " + tableName, goodStatsInitial);
 
         // reanalyze data
         assertUpdate("ANALYZE " + tableName);
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, 25, 0, null, '0', '24'),
-                          ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+        assertQuery("SHOW STATS FOR " + tableName, goodStatsInitial);
 
         // insert one more copy; should not influence stats other than rowcount
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
-
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
+        String goodStatsAfterFirstInsert = """
+                VALUES
+                  ('nationkey', null, 25, 0, null, '0', '24'),
+                  ('regionkey', null, 5, 0, null, '0', '4'),
+                  ('comment', null, 25, 0, null, null, null),
+                  ('name', null, 25, 0, null, null, null),
+                  (null, null, null, null, 50, null, null)""";
         assertUpdate("ANALYZE " + tableName);
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, 25, 0, null, '0', '24'),
-                          ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
-                          (null, null, null, null, 50, null, null)""");
+        assertQuery("SHOW STATS FOR " + tableName, goodStatsAfterFirstInsert);
 
         // insert modified rows
-        assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+        String goodStatsAfterSecondInsert = """
+                VALUES
+                  ('nationkey', null, 50, 0, null, '0', '49'),
+                  ('regionkey', null, 10, 0, null, '0', '9'),
+                  ('comment', null, 50, 0, null, null, null),
+                  ('name', null, 50, 0, null, null, null),
+                  (null, null, null, null, 75, null, null)""";
 
-        // without ANALYZE all stats but NDV should be updated
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, 25, 0, null, '0', '49'),
-                          ('regionkey', null, 5, 0, null, '0', '9'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
-                          (null, null, null, null, 75, null, null)""");
+        if (collectOnStatsOnWrites) {
+            assertQuery("SHOW STATS FOR " + tableName, goodStatsAfterSecondInsert);
+        }
+        else {
+            // without ANALYZE all stats but NDV should be updated
+            assertQuery(
+                    "SHOW STATS FOR " + tableName,
+                    """
+                            VALUES
+                              ('nationkey', null, 25, 0, null, '0', '49'),
+                              ('regionkey', null, 5, 0, null, '0', '9'),
+                              ('comment', null, 25, 0, null, null, null),
+                              ('name', null, 25, 0, null, null, null),
+                              (null, null, null, null, 75, null, null)""");
+        }
 
         // with analyze we should get new NDV
         assertUpdate("ANALYZE " + tableName);
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, 50, 0, null, '0', '49'),
-                          ('regionkey', null, 10, 0, null, '0', '9'),
-                          ('comment', null, 50, 0, null, null, null),
-                          ('name', null, 50, 0, null, null, null),
-                          (null, null, null, null, 75, null, null)""");
+        assertQuery("SHOW STATS FOR " + tableName, goodStatsAfterSecondInsert);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -159,35 +164,40 @@ public class TestIcebergAnalyze
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
-    public void testAnalyzePartitioned()
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testAnalyzePartitioned(boolean collectOnStatsOnWrites)
     {
-        String tableName = "test_analyze_partitioned";
-        assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.sf1.nation", 25);
+        Session writeSession = withStatsOnWrite(getSession(), collectOnStatsOnWrites);
+        String tableName = "test_analyze_partitioned_" + collectOnStatsOnWrites;
+        assertUpdate(writeSession, "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.sf1.nation", 25);
+        String goodStatsInitial = """
+                VALUES
+                  ('nationkey', null, 25, 0, null, '0', '24'),
+                  ('regionkey', null, 5, 0, null, '0', '4'),
+                  ('comment', null, 25, 0, null, null, null),
+                  ('name', null, 25, 0, null, null, null),
+                  (null, null, null, null, 25, null, null)""";
 
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, null, 0, null, '0', '24'),
-                          ('regionkey', null, null, 0, null, '0', '4'),
-                          ('comment', null, null, 0, null, null, null),
-                          ('name', null, null, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+        if (collectOnStatsOnWrites) {
+            assertQuery("SHOW STATS FOR " + tableName, goodStatsInitial);
+        }
+        else {
+            assertQuery(
+                    "SHOW STATS FOR " + tableName,
+                    """
+                            VALUES
+                              ('nationkey', null, null, 0, null, '0', '24'),
+                              ('regionkey', null, null, 0, null, '0', '4'),
+                              ('comment', null, null, 0, null, null, null),
+                              ('name', null, null, 0, null, null, null),
+                              (null, null, null, null, 25, null, null)""");
+        }
 
         assertUpdate("ANALYZE " + tableName);
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, 25, 0, null, '0', '24'),
-                          ('regionkey', null, 5, 0, null, '0', '4'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
-                          (null, null, null, null, 25, null, null)""");
+        assertQuery("SHOW STATS FOR " + tableName, goodStatsInitial);
 
         // insert one more copy; should not influence stats other than rowcount
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
 
         assertUpdate("ANALYZE " + tableName);
         assertQuery(
@@ -201,30 +211,34 @@ public class TestIcebergAnalyze
                           (null, null, null, null, 50, null, null)""");
 
         // insert modified rows
-        assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+        assertUpdate(writeSession, "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
+        String goodStatsAfterSecondInsert = """
+                VALUES
+                  ('nationkey', null, 50, 0, null, '0', '49'),
+                  ('regionkey', null, 10, 0, null, '0', '9'),
+                  ('comment', null, 50, 0, null, null, null),
+                  ('name', null, 50, 0, null, null, null),
+                  (null, null, null, null, 75, null, null)""";
 
-        // without ANALYZE all stats but NDV should be updated
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, 25, 0, null, '0', '49'),
-                          ('regionkey', null, 5, 0, null, '0', '9'),
-                          ('comment', null, 25, 0, null, null, null),
-                          ('name', null, 25, 0, null, null, null),
-                          (null, null, null, null, 75, null, null)""");
+        if (collectOnStatsOnWrites) {
+            assertQuery("SHOW STATS FOR " + tableName, goodStatsAfterSecondInsert);
+        }
+        else {
+            // without ANALYZE all stats but NDV should be updated
+            assertQuery(
+                    "SHOW STATS FOR " + tableName,
+                    """
+                            VALUES
+                              ('nationkey', null, 25, 0, null, '0', '49'),
+                              ('regionkey', null, 5, 0, null, '0', '9'),
+                              ('comment', null, 25, 0, null, null, null),
+                              ('name', null, 25, 0, null, null, null),
+                              (null, null, null, null, 75, null, null)""");
+        }
 
         // with analyze we should get new NDV
         assertUpdate("ANALYZE " + tableName);
-        assertQuery(
-                "SHOW STATS FOR " + tableName,
-                """
-                        VALUES
-                          ('nationkey', null, 50, 0, null, '0', '49'),
-                          ('regionkey', null, 10, 0, null, '0', '9'),
-                          ('comment', null, 50, 0, null, null, null),
-                          ('name', null, 50, 0, null, null, null),
-                          (null, null, null, null, 75, null, null)""");
+        assertQuery("SHOW STATS FOR " + tableName, goodStatsAfterSecondInsert);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -233,7 +247,9 @@ public class TestIcebergAnalyze
     public void testAnalyzeEmpty()
     {
         String tableName = "test_analyze_empty";
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
+        Session noStatsOnWrite = withStatsOnWrite(getSession(), false);
+
+        assertUpdate(noStatsOnWrite, "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation WITH NO DATA", 0);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -257,7 +273,8 @@ public class TestIcebergAnalyze
                           (null, null, null, null, 0, null, null)""");
 
         // add some data and reanalyze
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
+
+        assertUpdate(noStatsOnWrite, "INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
 
         assertUpdate("ANALYZE " + tableName);
         assertQuery(
@@ -273,11 +290,53 @@ public class TestIcebergAnalyze
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "testCollectStatisticsOnWriteDataProvider")
+    public void testCollectStatisticsOnWriteToEmptyTable(boolean collectOnStatsOnCreateTable, boolean partitioned)
+    {
+        String tableName = "test_collect_stats_insert_into_empty_" + collectOnStatsOnCreateTable + partitioned;
+
+        assertUpdate(
+                withStatsOnWrite(getSession(), collectOnStatsOnCreateTable),
+                "CREATE TABLE " + tableName + " " +
+                        (partitioned ? "WITH (partitioning=ARRAY['regionkey']) " : "") +
+                        "AS TABLE tpch.sf1.nation WITH NO DATA",
+                0);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('nationkey', 0, 0, 1, null, null, null),
+                          ('regionkey', 0, 0, 1, null, null, null),
+                          ('comment', 0, 0, 1, null, null, null),
+                          ('name', 0, 0, 1, null, null, null),
+                          (null, null, null, null, 0, null, null)""");
+
+        assertUpdate(withStatsOnWrite(getSession(), true), "INSERT INTO " + tableName + " TABLE tpch.sf1.nation", 25);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('nationkey', null, 25, 0, null, '0', '24'),
+                          ('regionkey', null, 5, 0, null, '0', '4'),
+                          ('comment', null, 25, 0, null, null, null),
+                          ('name', null, 25, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)""");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] testCollectStatisticsOnWriteDataProvider()
+    {
+        return cartesianProduct(trueFalse(), trueFalse());
+    }
+
     @Test
     public void testAnalyzeSomeColumns()
     {
         String tableName = "test_analyze_some_columns";
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
+        Session noStatsOnWrite = withStatsOnWrite(getSession(), false);
+        assertUpdate(noStatsOnWrite, "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         // analyze NULL list of columns
         assertQueryFails("ANALYZE " + tableName + " WITH (columns = NULL)", "\\QInvalid null value for catalog 'iceberg' analyze property 'columns' from [null]");
@@ -309,7 +368,7 @@ public class TestIcebergAnalyze
                           (null, null, null, null, 25, null, null)""");
 
         // insert modified rows
-        assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 25, concat(name, '1'), regionkey + 5, concat(comment, '21') FROM tpch.sf1.nation", 25);
+        assertUpdate(noStatsOnWrite, "INSERT INTO " + tableName + " SELECT nationkey + 25, concat(name, '1'), regionkey + 5, concat(comment, '21') FROM tpch.sf1.nation", 25);
 
         // perform one more analyze for nationkey and regionkey
         assertUpdate("ANALYZE " + tableName + " WITH (columns = ARRAY['nationkey', 'regionkey'])");
@@ -339,7 +398,7 @@ public class TestIcebergAnalyze
                           (null, null, null, null, 50, null, null)""");
 
         // insert modified rows
-        assertUpdate("INSERT INTO " + tableName + " SELECT nationkey + 50, concat(name, '2'), regionkey + 10, concat(comment, '22') FROM tpch.sf1.nation", 25);
+        assertUpdate(noStatsOnWrite, "INSERT INTO " + tableName + " SELECT nationkey + 50, concat(name, '2'), regionkey + 10, concat(comment, '22') FROM tpch.sf1.nation", 25);
 
         // without ANALYZE all stats but NDV should be updated
         assertQuery(
@@ -427,10 +486,6 @@ public class TestIcebergAnalyze
                   ('name',  null, 25, 0, null, null, null),
                   (null,  null, null, null, 25, null, null)""";
 
-        assertQuery("SHOW STATS FOR " + tableName, baseStats);
-
-        // Update stats to include distinct count
-        assertUpdate("ANALYZE " + tableName);
         assertQuery("SHOW STATS FOR " + tableName, extendedStats);
 
         // Dropping extended stats clears distinct count and leaves other stats alone
@@ -572,9 +627,111 @@ public class TestIcebergAnalyze
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testEmptyNoScalarColumns()
+    {
+        // Currently, only scalar columns can be analyzed
+        String tableName = "empty_table_without_scalar_columns";
+
+        assertUpdate("CREATE TABLE " + tableName + " (a row(x integer), b row(y varchar))");
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('a', 0, 0, 1, null, null, null),
+                          ('b', 0, 0, 1, null, null, null),
+                          (null,  null, null, null, 0, null, null)""");
+
+        // On empty table
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY[])", "Cannot specify empty list of columns for analysis");
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['a'])", "Invalid columns specified for analysis: \\[a]");
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['a.x'])", "Invalid columns specified for analysis: \\[a.x]");
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['b'])", "Invalid columns specified for analysis: \\[b]");
+        assertUpdate("ANALYZE " + tableName);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('a', 0, 0, 1, null, null, null),
+                          ('b', 0, 0, 1, null, null, null),
+                          (null,  null, null, null, 0, null, null)""");
+
+        // write with stats collection
+        assertUpdate(
+                withStatsOnWrite(getSession(), true),
+                "INSERT INTO " + tableName + " VALUES (ROW(52), ROW('hot')), (ROW(53), ROW('dog'))",
+                2);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('a', null, null, 0, null, null, null),
+                          ('b', null, null, 0, null, null, null),
+                          (null,  null, null, null, 2, null, null)""");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNoScalarColumns()
+    {
+        // Currently, only scalar columns can be analyzed
+        String tableName = "table_without_scalar_columns";
+
+        assertUpdate("CREATE TABLE " + tableName + " (a row(x integer), b row(y varchar))");
+        assertUpdate(
+                withStatsOnWrite(getSession(), false),
+                "INSERT INTO " + tableName + " VALUES (ROW(42), ROW('ala')), (ROW(43), ROW('has a cat'))",
+                2);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('a', null, null, 0, null, null, null),
+                          ('b', null, null, 0, null, null, null),
+                          (null,  null, null, null, 2, null, null)""");
+
+        // On non-empty table
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY[])", "Cannot specify empty list of columns for analysis");
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['a'])", "Invalid columns specified for analysis: \\[a]");
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['a.x'])", "Invalid columns specified for analysis: \\[a.x]");
+        assertQueryFails("ANALYZE " + tableName + " WITH (columns = ARRAY['b'])", "Invalid columns specified for analysis: \\[b]");
+        assertUpdate("ANALYZE " + tableName);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('a', null, null, 0, null, null, null),
+                          ('b', null, null, 0, null, null, null),
+                          (null,  null, null, null, 2, null, null)""");
+
+        // write with stats collection
+        assertUpdate(
+                withStatsOnWrite(getSession(), true),
+                "INSERT INTO " + tableName + " VALUES (ROW(52), ROW('hot')), (ROW(53), ROW('dog'))",
+                2);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('a', null, null, 0, null, null, null),
+                          ('b', null, null, 0, null, null, null),
+                          (null,  null, null, null, 4, null, null)""");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName))
                 .getOnlyValue();
+    }
+
+    private static Session withStatsOnWrite(Session session, boolean enabled)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
+                .build();
     }
 }

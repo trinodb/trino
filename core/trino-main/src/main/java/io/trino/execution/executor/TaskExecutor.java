@@ -283,7 +283,10 @@ public class TaskExecutor
     public void removeTask(TaskHandle taskHandle)
     {
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskHandle.getTaskId())) {
-            doRemoveTask(taskHandle);
+            // Skip additional scheduling if the task was already destroyed
+            if (!doRemoveTask(taskHandle)) {
+                return;
+            }
         }
 
         // replace blocked splits that were terminated
@@ -293,13 +296,23 @@ public class TaskExecutor
         }
     }
 
-    private void doRemoveTask(TaskHandle taskHandle)
+    /**
+     * Returns <code>true</code> if the task handle was destroyed and removed splits as a result that may need to be replaced. Otherwise,
+     * if the {@link TaskHandle} was already destroyed or no splits were removed then this method returns <code>false</code> and no additional
+     * splits need to be scheduled.
+     */
+    private boolean doRemoveTask(TaskHandle taskHandle)
     {
         List<PrioritizedSplitRunner> splits;
         synchronized (this) {
             tasks.remove(taskHandle);
-            splits = taskHandle.destroy();
 
+            // Task is already destroyed
+            if (taskHandle.isDestroyed()) {
+                return false;
+            }
+
+            splits = taskHandle.destroy();
             // stop tracking splits (especially blocked splits which may never unblock)
             allSplits.removeAll(splits);
             intermediateSplits.removeAll(splits);
@@ -318,6 +331,7 @@ public class TaskExecutor
         completedTasksPerLevel.incrementAndGet(computeLevel(threadUsageNanos));
 
         log.debug("Task finished or failed %s", taskHandle.getTaskId());
+        return !splits.isEmpty();
     }
 
     public List<ListenableFuture<Void>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)

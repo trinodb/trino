@@ -28,6 +28,6 @@ public class TestSnowflakePlugin
     {
         Plugin plugin = new SnowflakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:test:test:test"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("connection-url", "jdbc:snowflake://test"), new TestingConnectorContext()).shutdown();
     }
 }

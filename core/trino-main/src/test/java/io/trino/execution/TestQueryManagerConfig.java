@@ -82,7 +82,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxTaskSplitCount(256)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15)))
                 .setFaultTolerantExecutionPartitionCount(50)
-                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true));
+                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true)
+                .setMaxWriterTasksCount(100));
     }
 
     @Test
@@ -133,6 +134,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-task-descriptor-storage-max-memory", "3GB")
                 .put("fault-tolerant-execution-partition-count", "123")
                 .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
+                .put("query.max-writer-task-count", "101")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -179,7 +181,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMaxTaskSplitCount(22)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.of(3, GIGABYTE))
                 .setFaultTolerantExecutionPartitionCount(123)
-                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false);
+                .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false)
+                .setMaxWriterTasksCount(101);
 
         assertFullMapping(properties, expected);
     }

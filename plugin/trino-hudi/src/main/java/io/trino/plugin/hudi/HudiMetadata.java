@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -114,6 +116,35 @@ public class HudiMetadata
                 HoodieTableType.COPY_ON_WRITE,
                 TupleDomain.all(),
                 TupleDomain.all());
+    }
+
+    @Override
+    public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        return getRawSystemTable(session, tableName)
+                .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
+    }
+
+    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        HudiTableName name = HudiTableName.from(tableName.getTableName());
+        if (name.getTableType() == TableType.DATA) {
+            return Optional.empty();
+        }
+
+        Optional<Table> tableOptional = metastore.getTable(tableName.getSchemaName(), name.getTableName());
+        if (tableOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        switch (name.getTableType()) {
+            case DATA:
+                break;
+            case TIMELINE:
+                SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
+                Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(tableOptional.get().getStorage().getLocation()));
+                return Optional.of(new TimelineTable(configuration, systemTableName, tableOptional.get()));
+        }
+        return Optional.empty();
     }
 
     @Override

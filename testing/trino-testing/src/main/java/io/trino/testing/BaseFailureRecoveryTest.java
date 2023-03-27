@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
@@ -30,10 +31,13 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
@@ -77,14 +81,20 @@ public abstract class BaseFailureRecoveryTest
     protected static final int INVOCATION_COUNT = 1;
     private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
-    private static final int MAX_PARALLEL_TEST_CONCURRENCY = 4;
+    private static final int DEFAULT_MAX_PARALLEL_TEST_CONCURRENCY = 4;
 
     private final RetryPolicy retryPolicy;
-    private final Semaphore parallelTestsSemaphore = new Semaphore(MAX_PARALLEL_TEST_CONCURRENCY);
+    private final Semaphore parallelTestsSemaphore;
 
     protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
     {
+        this(retryPolicy, DEFAULT_MAX_PARALLEL_TEST_CONCURRENCY);
+    }
+
+    protected BaseFailureRecoveryTest(RetryPolicy retryPolicy, int maxParallelTestConcurrency)
+    {
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
+        this.parallelTestsSemaphore = new Semaphore(maxParallelTestConcurrency);
     }
 
     protected RetryPolicy getRetryPolicy()
@@ -346,7 +356,8 @@ public abstract class BaseFailureRecoveryTest
                     .withSession(session)
                     .withSetupQuery(setupQuery)
                     .withCleanupQuery(cleanupQuery)
-                    .failsDespiteRetries(failure -> failure.hasMessageMatching("This connector does not support query retries"));
+                    .failsDespiteRetries(failure -> failure.hasMessageMatching("This connector does not support query retries"))
+                    .cleansUpTemporaryTables();
             return;
         }
 
@@ -356,7 +367,8 @@ public abstract class BaseFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryCoordinatorStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                .cleansUpTemporaryTables();
 
         assertThatQuery(query)
                 .withSession(session)
@@ -364,7 +376,8 @@ public abstract class BaseFailureRecoveryTest
                 .withCleanupQuery(cleanupQuery)
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(rootStage())
-                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE));
+                .failsAlways(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
+                .cleansUpTemporaryTables();
 
         assertThatQuery(query)
                 .withSession(session)
@@ -373,7 +386,8 @@ public abstract class BaseFailureRecoveryTest
                 .experiencing(TASK_FAILURE, Optional.of(ErrorType.INTERNAL_ERROR))
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining(FAILURE_INJECTION_MESSAGE))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         assertThatQuery(query)
                 .withSetupQuery(setupQuery)
@@ -381,7 +395,8 @@ public abstract class BaseFailureRecoveryTest
                 .experiencing(TASK_MANAGEMENT_REQUEST_TIMEOUT)
                 .at(boundaryDistributedStage())
                 .failsWithoutRetries(failure -> failure.hasMessageContaining("Encountered too many errors talking to a worker node"))
-                .finishesSuccessfully();
+                .finishesSuccessfully()
+                .cleansUpTemporaryTables();
 
         if (getRetryPolicy() == RetryPolicy.QUERY) {
             assertThatQuery(query)
@@ -391,7 +406,8 @@ public abstract class BaseFailureRecoveryTest
                     .experiencing(TASK_GET_RESULTS_REQUEST_FAILURE)
                     .at(boundaryDistributedStage())
                     .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Error 500 Internal Server Error|Error closing remote buffer, expected 204 got 500"))
-                    .finishesSuccessfully();
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
 
             assertThatQuery(query)
                     .withSetupQuery(setupQuery)
@@ -399,13 +415,53 @@ public abstract class BaseFailureRecoveryTest
                     .experiencing(TASK_GET_RESULTS_REQUEST_TIMEOUT)
                     .at(boundaryDistributedStage())
                     .failsWithoutRetries(failure -> failure.hasMessageFindingMatch("Encountered too many errors talking to a worker node|Error closing remote buffer"))
-                    .finishesSuccessfully();
+                    .finishesSuccessfully()
+                    .cleansUpTemporaryTables();
         }
     }
 
     protected FailureRecoveryAssert assertThatQuery(String query)
     {
         return new FailureRecoveryAssert(query);
+    }
+
+    // Provided as a protected method here in case this is not a one-sized-fits-all solution
+    protected void checkTemporaryTables(Set<String> queryIds)
+    {
+        // queryId -> temporary table names
+        Map<String, Set<String>> remainingTemporaryTables = new HashMap<>();
+        // queryId -> assertion messages
+        Map<String, Set<String>> assertionErrorMessages = new HashMap<>();
+        for (String queryId : queryIds) {
+            String temporaryTablePrefix = temporaryTableNamePrefix(queryId);
+            MaterializedResult temporaryTablesResult = getQueryRunner()
+                    .execute("SHOW TABLES LIKE '%s%%' ESCAPE '\\'".formatted(temporaryTablePrefix.replace("_", "\\_")));
+            // Unfortunately, information_schema is not strictly consistent with recently dropped tables,
+            // and for some connectors, it can return tables that have been recently dropped. Therefore,
+            // we can't rely simply on SHOW TABLES LIKE returning no results - we have to try to query the table
+            for (MaterializedRow temporaryTableRow : temporaryTablesResult.getMaterializedRows()) {
+                String temporaryTableName = (String) temporaryTableRow.getField(0);
+                try {
+                    assertThatThrownBy(() -> getQueryRunner().execute("SELECT 1 FROM %s WHERE 1 = 0".formatted(temporaryTableName)))
+                            .hasMessageContaining("Table '%s' does not exist", temporaryTableName);
+                }
+                catch (AssertionError e) {
+                    remainingTemporaryTables.computeIfAbsent(queryId, ignored -> new HashSet<>()).add(temporaryTableName);
+                    assertionErrorMessages.computeIfAbsent(queryId, ignored -> new HashSet<>()).add(e.getMessage());
+                }
+            }
+        }
+
+        assertThat(remainingTemporaryTables.isEmpty())
+                .as("There should be no remaining tmp_trino tables that are queryable. They are:\n%s",
+                        remainingTemporaryTables.entrySet().stream()
+                                .map(entry -> "\tFor queryId [%s] (prefix [%s]) remaining tables: [%s]\n\t\tWith errors: [%s]".formatted(
+                                        entry.getKey(),
+                                        temporaryTableNamePrefix(entry.getKey()),
+                                        Joiner.on(",").join(entry.getValue()),
+                                        Joiner.on("],\n[").join(assertionErrorMessages.get(entry.getKey())).replace("\n", "\n\t\t\t")))
+                                .collect(joining("\n")))
+                .isTrue();
     }
 
     protected class FailureRecoveryAssert
@@ -417,6 +473,7 @@ public abstract class BaseFailureRecoveryTest
         private Optional<ErrorType> errorType = Optional.empty();
         private Optional<String> setup = Optional.empty();
         private Optional<String> cleanup = Optional.empty();
+        private Set<String> queryIds = new HashSet<>();
 
         public FailureRecoveryAssert(String query)
         {
@@ -519,16 +576,7 @@ public abstract class BaseFailureRecoveryTest
             }
 
             if (queryId != null) {
-                String temporaryTablePrefix = temporaryTableNamePrefix(queryId);
-                MaterializedResult temporaryTablesResult = getQueryRunner()
-                        .execute("SHOW TABLES LIKE '%s%%' ESCAPE '\\'".formatted(temporaryTablePrefix.replace("_", "\\_")));
-                assertThat(temporaryTablesResult.getRowCount())
-                        .as("There should be no remaining %s* tables. They are: [%s]",
-                                temporaryTablePrefix,
-                                temporaryTablesResult.getMaterializedRows().stream()
-                                        .map(row -> row.getField(0).toString())
-                                        .collect(joining(",")))
-                        .isEqualTo(0);
+                queryIds.add(queryId);
             }
 
             MaterializedResult result = resultWithQueryId == null ? null : resultWithQueryId.getResult();
@@ -572,22 +620,28 @@ public abstract class BaseFailureRecoveryTest
             assertThat(subStages).isEmpty();
         }
 
-        public void finishesSuccessfully()
+        public FailureRecoveryAssert cleansUpTemporaryTables()
         {
-            finishesSuccessfully(queryId -> {});
+            checkTemporaryTables(queryIds);
+            return this;
         }
 
-        public void finishesSuccessfullyWithoutTaskFailures()
+        public FailureRecoveryAssert finishesSuccessfully()
         {
-            finishesSuccessfully(queryId -> {}, false);
+            return finishesSuccessfully(queryId -> {});
         }
 
-        private void finishesSuccessfully(Consumer<QueryId> queryAssertion)
+        public FailureRecoveryAssert finishesSuccessfullyWithoutTaskFailures()
         {
-            finishesSuccessfully(queryAssertion, true);
+            return finishesSuccessfully(queryId -> {}, false);
         }
 
-        public void finishesSuccessfully(Consumer<QueryId> queryAssertion, boolean expectTaskFailures)
+        private FailureRecoveryAssert finishesSuccessfully(Consumer<QueryId> queryAssertion)
+        {
+            return finishesSuccessfully(queryAssertion, true);
+        }
+
+        public FailureRecoveryAssert finishesSuccessfully(Consumer<QueryId> queryAssertion, boolean expectTaskFailures)
         {
             verifyFailureTypeAndStageSelector();
             ExecutionResult expected = executeExpected();
@@ -657,6 +711,7 @@ public abstract class BaseFailureRecoveryTest
             }
 
             queryAssertion.accept(actual.getQueryId());
+            return this;
         }
 
         public FailureRecoveryAssert failsAlways(Consumer<AbstractThrowableAssert<?, ? extends Throwable>> failureAssertion)

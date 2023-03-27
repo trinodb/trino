@@ -839,70 +839,22 @@ public class TestingAccessControlManager
         }
     }
 
-    private static class RowFilterKey
+    private record RowFilterKey(String identity, QualifiedObjectName table)
     {
-        private final String identity;
-        private final QualifiedObjectName table;
-
-        public RowFilterKey(String identity, QualifiedObjectName table)
+        private RowFilterKey
         {
-            this.identity = requireNonNull(identity, "identity is null");
-            this.table = requireNonNull(table, "table is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            RowFilterKey that = (RowFilterKey) o;
-            return identity.equals(that.identity) &&
-                    table.equals(that.table);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, table);
+            requireNonNull(identity, "identity is null");
+            requireNonNull(table, "table is null");
         }
     }
 
-    private static class ColumnMaskKey
+    private record ColumnMaskKey(String identity, QualifiedObjectName table, String column)
     {
-        private final String identity;
-        private final QualifiedObjectName table;
-        private final String column;
-
-        public ColumnMaskKey(String identity, QualifiedObjectName table, String column)
+        private ColumnMaskKey
         {
-            this.identity = identity;
-            this.table = table;
-            this.column = column;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ColumnMaskKey that = (ColumnMaskKey) o;
-            return identity.equals(that.identity) &&
-                    table.equals(that.table) &&
-                    column.equals(that.column);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, table, column);
+            requireNonNull(identity, "identity is null");
+            requireNonNull(table, "table is null");
+            requireNonNull(column, "column is null");
         }
     }
 }

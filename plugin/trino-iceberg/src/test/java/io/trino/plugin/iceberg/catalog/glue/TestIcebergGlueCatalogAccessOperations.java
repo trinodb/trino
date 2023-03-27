@@ -52,12 +52,14 @@ import java.util.stream.Stream;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
+import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.iceberg.catalog.glue.GlueMetastoreMethod.GET_DATABASE;
@@ -157,7 +159,9 @@ public class TestIcebergGlueCatalogAccessOperations
     public void testCreateTableAsSelect()
     {
         try {
-            assertGlueMetastoreApiInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
+            assertGlueMetastoreApiInvocations(
+                    withStatsOnWrite(getSession(), false),
+                    "CREATE TABLE test_ctas AS SELECT 1 AS age",
                     ImmutableMultiset.builder()
                             .add(GET_DATABASE)
                             .add(GET_DATABASE)
@@ -167,6 +171,22 @@ public class TestIcebergGlueCatalogAccessOperations
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_ctas");
+        }
+
+        try {
+            assertGlueMetastoreApiInvocations(
+                    withStatsOnWrite(getSession(), true),
+                    "CREATE TABLE test_ctas_with_stats AS SELECT 1 AS age",
+                    ImmutableMultiset.builder()
+                            .add(GET_DATABASE)
+                            .add(GET_DATABASE)
+                            .add(CREATE_TABLE)
+                            .addCopies(GET_TABLE, 6)
+                            .add(UPDATE_TABLE)
+                            .build());
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_ctas_with_stats");
         }
     }
 
@@ -417,9 +437,15 @@ public class TestIcebergGlueCatalogAccessOperations
                             .addCopies(GET_TABLE, 1)
                             .build());
 
+            // select from $refs
+            assertGlueMetastoreApiInvocations("SELECT * FROM \"test_select_snapshots$refs\"",
+                    ImmutableMultiset.builder()
+                            .addCopies(GET_TABLE, 1)
+                            .build());
+
             // This test should get updated if a new system table is added.
             assertThat(TableType.values())
-                    .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES);
+                    .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS);
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_select_snapshots");
@@ -466,6 +492,14 @@ public class TestIcebergGlueCatalogAccessOperations
                 .collect(toImmutableList());
 
         fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
+    }
+
+    private static Session withStatsOnWrite(Session session, boolean enabled)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
+                .build();
     }
 
     @Retention(RUNTIME)

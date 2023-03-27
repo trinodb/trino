@@ -18,6 +18,7 @@ import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
+import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -87,13 +88,39 @@ public class HiveMetastoreClosure
 
     public PartitionStatistics getTableStatistics(String databaseName, String tableName)
     {
-        return delegate.getTableStatistics(getExistingTable(databaseName, tableName));
+        return getTableStatistics(databaseName, tableName, Optional.empty());
+    }
+
+    public PartitionStatistics getTableStatistics(String databaseName, String tableName, Optional<Set<String>> columns)
+    {
+        Table table = getExistingTable(databaseName, tableName);
+        if (columns.isPresent()) {
+            Set<String> requestedColumnNames = columns.get();
+            List<Column> requestedColumns = table.getDataColumns().stream()
+                    .filter(column -> requestedColumnNames.contains(column.getName()))
+                    .collect(toImmutableList());
+            table = Table.builder(table).setDataColumns(requestedColumns).build();
+        }
+        return delegate.getTableStatistics(table);
     }
 
     public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames)
     {
+        return getPartitionStatistics(databaseName, tableName, partitionNames, Optional.empty());
+    }
+
+    public Map<String, PartitionStatistics> getPartitionStatistics(String databaseName, String tableName, Set<String> partitionNames, Optional<Set<String>> columns)
+    {
         Table table = getExistingTable(databaseName, tableName);
         List<Partition> partitions = getExistingPartitionsByNames(table, ImmutableList.copyOf(partitionNames));
+        if (columns.isPresent()) {
+            Set<String> requestedColumnNames = columns.get();
+            List<Column> requestedColumns = table.getDataColumns().stream()
+                    .filter(column -> requestedColumnNames.contains(column.getName()))
+                    .collect(toImmutableList());
+            table = Table.builder(table).setDataColumns(requestedColumns).build();
+            partitions = partitions.stream().map(partition -> Partition.builder(partition).setColumns(requestedColumns).build()).collect(toImmutableList());
+        }
         return delegate.getPartitionStatistics(table, partitions);
     }
 

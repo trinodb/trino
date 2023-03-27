@@ -64,8 +64,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.SystemSessionProperties.getInitialSplitsPerNode;
 import static io.trino.SystemSessionProperties.getMaxDriversPerTask;
 import static io.trino.SystemSessionProperties.getSplitConcurrencyAdjustmentInterval;
@@ -90,10 +90,12 @@ public class SqlTaskExecution
     private final Executor notificationExecutor;
 
     private final SplitMonitor splitMonitor;
+    private final DriverAndTaskTerminationTracker driverAndTaskTerminationTracker;
 
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle;
     private final List<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle;
     private final Map<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithRemoteSource;
+    private final List<DriverSplitRunnerFactory> allDriverRunnerFactories;
 
     @GuardedBy("this")
     private final Map<PlanNodeId, Long> maxAcknowledgedSplitByPlanNode = new HashMap<>();
@@ -127,14 +129,16 @@ public class SqlTaskExecution
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
+        this.driverAndTaskTerminationTracker = new DriverAndTaskTerminationTracker(taskStateMachine);
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+            List<DriverFactory> driverFactories = localExecutionPlan.getDriverFactories();
             // index driver factories
             Set<PlanNodeId> partitionedSources = ImmutableSet.copyOf(localExecutionPlan.getPartitionedSourceOrder());
             ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle = ImmutableMap.builder();
             ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle = ImmutableList.builder();
             ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithRemoteSource = ImmutableMap.builder();
-            for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+            for (DriverFactory driverFactory : driverFactories) {
                 Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
                 if (sourceId.isPresent() && partitionedSources.contains(sourceId.get())) {
                     driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
@@ -148,6 +152,10 @@ public class SqlTaskExecution
             this.driverRunnerFactoriesWithSplitLifeCycle = driverRunnerFactoriesWithSplitLifeCycle.buildOrThrow();
             this.driverRunnerFactoriesWithTaskLifeCycle = driverRunnerFactoriesWithTaskLifeCycle.build();
             this.driverRunnerFactoriesWithRemoteSource = driverRunnerFactoriesWithRemoteSource.buildOrThrow();
+            this.allDriverRunnerFactories = ImmutableList.<DriverSplitRunnerFactory>builderWithExpectedSize(driverFactories.size())
+                    .addAll(this.driverRunnerFactoriesWithTaskLifeCycle)
+                    .addAll(this.driverRunnerFactoriesWithSplitLifeCycle.values())
+                    .build();
 
             this.pendingSplitsByPlanNode = this.driverRunnerFactoriesWithSplitLifeCycle.keySet().stream()
                     .collect(toImmutableMap(identity(), ignore -> new PendingSplitsForPlanNode()));
@@ -157,28 +165,32 @@ public class SqlTaskExecution
                     "Fragment is partitioned, but not all partitioned drivers were found");
 
             // don't register the task if it is already completed (most likely failed during planning above)
-            if (!taskStateMachine.getState().isDone()) {
-                taskHandle = createTaskHandle(taskStateMachine, taskContext, outputBuffer, localExecutionPlan, taskExecutor);
+            if (taskStateMachine.getState().isTerminatingOrDone()) {
+                taskHandle = null;
+                driverFactories.forEach(DriverFactory::noMoreDrivers);
             }
             else {
-                taskHandle = null;
+                taskHandle = createTaskHandle(taskStateMachine, taskContext, outputBuffer, driverFactories, taskExecutor, driverAndTaskTerminationTracker);
             }
         }
     }
 
-    public void start()
+    // this must be synchronized to prevent a concurrent call to checkTaskCompletion() from proceeding before all task lifecycle drivers are created
+    public synchronized void start()
     {
         try (SetThreadName ignored = new SetThreadName("Task-%s", getTaskId())) {
-            // Task handle was not created because the task is already done, nothing to do
-            if (taskHandle == null) {
-                return;
+            // Signal immediate termination complete if task termination has started
+            if (taskStateMachine.getState().isTerminating()) {
+                taskStateMachine.terminationComplete();
             }
-            // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
-            // The call back is accessed from another thread, so this code cannot be placed in the constructor. This must also happen before outputBuffer
-            // callbacks are registered to prevent a task completion check before task lifecycle splits are created
-            scheduleDriversForTaskLifeCycle();
-            // Output buffer state change listener callback must not run in the constructor to avoid leaking a reference to "this" across to another thread
-            outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
+            else if (taskHandle != null) {
+                // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
+                // The call back is accessed from another thread, so this code cannot be placed in the constructor. This must also happen before outputBuffer
+                // callbacks are registered to prevent a task completion check before task lifecycle splits are created
+                scheduleDriversForTaskLifeCycle();
+                // Output buffer state change listener callback must not run in the constructor to avoid leaking a reference to "this" across to another thread
+                outputBuffer.addStateChangeListener(new CheckTaskCompletionOnBufferFinish(SqlTaskExecution.this));
+            }
         }
     }
 
@@ -187,8 +199,9 @@ public class SqlTaskExecution
             TaskStateMachine taskStateMachine,
             TaskContext taskContext,
             OutputBuffer outputBuffer,
-            LocalExecutionPlan localExecutionPlan,
-            TaskExecutor taskExecutor)
+            List<DriverFactory> driverFactories,
+            TaskExecutor taskExecutor,
+            DriverAndTaskTerminationTracker driverAndTaskTerminationTracker)
     {
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskStateMachine.getTaskId(),
@@ -197,10 +210,16 @@ public class SqlTaskExecution
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
                 getMaxDriversPerTask(taskContext.getSession()));
         taskStateMachine.addStateChangeListener(state -> {
-            if (state.isDone()) {
-                taskExecutor.removeTask(taskHandle);
-                for (DriverFactory factory : localExecutionPlan.getDriverFactories()) {
-                    factory.noMoreDrivers();
+            if (state.isTerminatingOrDone()) {
+                if (!taskHandle.isDestroyed()) {
+                    taskExecutor.removeTask(taskHandle);
+                    for (DriverFactory factory : driverFactories) {
+                        factory.noMoreDrivers();
+                    }
+                }
+                // Need to re-check the live driver count since termination may have occurred without any running
+                if (state.isTerminating()) {
+                    driverAndTaskTerminationTracker.checkTaskTermination();
                 }
             }
         });
@@ -221,6 +240,11 @@ public class SqlTaskExecution
     {
         requireNonNull(splitAssignments, "splitAssignments is null");
         checkState(!Thread.holdsLock(this), "Cannot add split assignments while holding a lock on the %s", getClass().getSimpleName());
+
+        // Avoid accepting new splits once the task is terminating or done
+        if (taskStateMachine.getState().isTerminatingOrDone()) {
+            return;
+        }
 
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
             // update our record of split assignments and schedule drivers for new partitioned splits
@@ -436,19 +460,27 @@ public class SqlTaskExecution
 
     private synchronized void checkTaskCompletion()
     {
-        if (taskStateMachine.getState().isDone()) {
+        TaskState taskState = taskStateMachine.getState();
+        if (taskState.isDone()) {
+            return;
+        }
+
+        // have all drivers finished terminating?
+        if (taskState.isTerminating()) {
+            driverAndTaskTerminationTracker.checkTaskTermination();
+            return;
+        }
+
+        // do we still have running tasks?
+        if (remainingSplitRunners.get() != 0) {
             return;
         }
 
         // are there more drivers expected?
-        for (DriverSplitRunnerFactory driverSplitRunnerFactory : concat(driverRunnerFactoriesWithTaskLifeCycle, driverRunnerFactoriesWithSplitLifeCycle.values())) {
+        for (DriverSplitRunnerFactory driverSplitRunnerFactory : allDriverRunnerFactories) {
             if (!driverSplitRunnerFactory.isNoMoreDrivers()) {
                 return;
             }
-        }
-        // do we still have running tasks?
-        if (remainingSplitRunners.get() != 0) {
-            return;
         }
 
         // no more output will be created
@@ -484,6 +516,7 @@ public class SqlTaskExecution
         return toStringHelper(this)
                 .add("taskId", taskId)
                 .add("remainingSplitRunners", remainingSplitRunners.get())
+                .add("liveCreatedDrivers", driverAndTaskTerminationTracker.getLiveCreatedDrivers())
                 .toString();
     }
 
@@ -587,10 +620,37 @@ public class SqlTaskExecution
             return new DriverSplitRunner(this, driverContext, partitionedSplit);
         }
 
+        /**
+         * @return the created {@link Driver}, or <code>null</code> if the driver factory is already closed because the task is terminating
+         */
+        @Nullable
         public Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
-            Driver driver = driverFactory.createDriver(driverContext);
+            // Attempt to increment the driver count eagerly, but skip driver creation if the task is already terminating or done
+            if (!driverAndTaskTerminationTracker.tryCreateNewDriver()) {
+                return null;
+            }
+            Driver driver;
+            try {
+                driver = driverFactory.createDriver(driverContext);
+            }
+            catch (Throwable t) {
+                try {
+                    // driverFactory is already closed, ignore the exception and return null, but don't swallow fatal errors
+                    if (t instanceof Exception && driverFactory.isNoMoreDrivers()) {
+                        return null;
+                    }
+                    // this exception is unexpected if driverFactory has not been closed, so rethrow it
+                    throw t;
+                }
+                finally {
+                    // decrement the live driver count since driver creation failed
+                    driverAndTaskTerminationTracker.driverDestroyed();
+                }
+            }
 
+            // register driver destroyed listener to detect when termination completes
+            driver.getDestroyedFuture().addListener(driverAndTaskTerminationTracker::driverDestroyed, directExecutor());
             try {
                 if (partitionedSplit != null) {
                     // TableScanOperator requires partitioned split to be added before the first call to process
@@ -765,6 +825,11 @@ public class SqlTaskExecution
 
                 if (this.driver == null) {
                     this.driver = driverSplitRunnerFactory.createDriver(driverContext, partitionedSplit);
+                    // Termination has begun, mark the runner as closed and return
+                    if (this.driver == null) {
+                        closed = true;
+                        return immediateVoidFuture();
+                    }
                 }
 
                 driver = this.driver;
@@ -812,6 +877,54 @@ public class SqlTaskExecution
                 SqlTaskExecution sqlTaskExecution = sqlTaskExecutionReference.get();
                 if (sqlTaskExecution != null) {
                     sqlTaskExecution.checkTaskCompletion();
+                }
+            }
+        }
+    }
+
+    private static final class DriverAndTaskTerminationTracker
+    {
+        private final TaskStateMachine taskStateMachine;
+        private final AtomicLong liveCreatedDrivers = new AtomicLong();
+
+        private DriverAndTaskTerminationTracker(TaskStateMachine taskStateMachine)
+        {
+            this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
+        }
+
+        public boolean tryCreateNewDriver()
+        {
+            // Eagerly increment the counter before checking the state machine
+            liveCreatedDrivers.incrementAndGet();
+            // If termination has started already, we need to decrement the counter and check for termination complete
+            if (taskStateMachine.getState().isTerminatingOrDone()) {
+                driverDestroyed();
+                return false;
+            }
+            return true;
+        }
+
+        public void driverDestroyed()
+        {
+            if (liveCreatedDrivers.decrementAndGet() == 0) {
+                checkTaskTermination();
+            }
+        }
+
+        public long getLiveCreatedDrivers()
+        {
+            return liveCreatedDrivers.get();
+        }
+
+        public void checkTaskTermination()
+        {
+            if (taskStateMachine.getState().isTerminating()) {
+                long liveCreatedDrivers = this.liveCreatedDrivers.get();
+                // Allow unexpectedly negative values to complete task termination to avoid having stuck tasks, but
+                // throw an exception afterwards to avoid masking bugs
+                if (liveCreatedDrivers <= 0) {
+                    taskStateMachine.terminationComplete();
+                    checkState(liveCreatedDrivers == 0, "liveCreatedDrivers is negative: %s", liveCreatedDrivers);
                 }
             }
         }

@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.ResourceEstimates;
@@ -33,15 +34,14 @@ import java.util.Set;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.Unit.TERABYTE;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
+import static io.trino.execution.QueryRunnerUtil.cancelQuery;
+import static io.trino.execution.QueryRunnerUtil.createQuery;
+import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.execution.TestQueryRunnerUtil.cancelQuery;
-import static io.trino.execution.TestQueryRunnerUtil.createQuery;
-import static io.trino.execution.TestQueryRunnerUtil.createQueryRunner;
-import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -309,6 +309,24 @@ public class TestQueues
             waitForQueryState(queryRunner, queryId, FAILED);
             DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
             assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
+        }
+    }
+
+    private static DistributedQueryRunner createQueryRunner()
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
+                .setNodeCount(2)
+                .build();
+
+        try {
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
+            return queryRunner;
+        }
+        catch (Exception e) {
+            queryRunner.close();
+            throw e;
         }
     }
 

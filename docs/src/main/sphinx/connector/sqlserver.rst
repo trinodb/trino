@@ -41,7 +41,7 @@ appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the SQL Server JDBC driver. The supported parameters for the URL are
 available in the `SQL Server JDBC driver documentation
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/building-the-connection-url>`_.
+<https://docs.microsoft.com/sql/connect/jdbc/building-the-connection-url>`_.
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -67,7 +67,7 @@ encryption in the connection string with the ``encrypt`` property:
 Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
 ``trustStore``, and ``trustStorePassword`` are details in the `TLS section of
 SQL Server JDBC driver documentation
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
+<https://docs.microsoft.com/sql/connect/jdbc/using-ssl-encryption>`_.
 
 .. include:: jdbc-authentication.fragment
 
@@ -281,7 +281,7 @@ The connector maps Trino types to the corresponding SQL Server types following t
     - ``0 <= n <= 7``
 
 Complete list of `SQL Server data types
-<https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
+<https://msdn.microsoft.com/library/ms187752.aspx>`_.
 
 .. _sqlserver-numeric-mapping:
 
@@ -444,12 +444,12 @@ Bulk insert
 ^^^^^^^^^^^
 
 You can optionally use the `bulk copy API
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
+<https://docs.microsoft.com/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
 to drastically speed up write operations.
 
 Enable bulk copying and a lock on the destination table to meet `minimal
 logging requirements
-<https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
+<https://docs.microsoft.com/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
 
 The following table shows the relevant catalog configuration properties and
 their default values:
@@ -481,7 +481,7 @@ Data compression
 ----------------
 
 You can specify the `data compression policy for SQL Server tables
-<https://docs.microsoft.com/en-us/sql/relational-databases/data-compression/data-compression>`_
+<https://docs.microsoft.com/sql/relational-databases/data-compression/data-compression>`_
 with the ``data_compression`` table property. Valid policies are ``NONE``, ``ROW`` or ``PAGE``.
 
 Example::

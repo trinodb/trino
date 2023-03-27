@@ -34,7 +34,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.apache.hadoop.fs.Path;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -68,7 +67,7 @@ public class SortingFileWriter
     private static final int INSTANCE_SIZE = instanceSize(SortingFileWriter.class);
 
     private final TrinoFileSystem fileSystem;
-    private final Path tempFilePrefix;
+    private final String tempFilePrefix;
     private final int maxOpenTempFiles;
     private final List<Type> types;
     private final List<Integer> sortFields;
@@ -82,7 +81,7 @@ public class SortingFileWriter
 
     public SortingFileWriter(
             TrinoFileSystem fileSystem,
-            Path tempFilePrefix,
+            String tempFilePrefix,
             FileWriter outputWriter,
             DataSize maxMemory,
             int maxOpenTempFiles,

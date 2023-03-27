@@ -81,6 +81,7 @@ public final class SystemSessionProperties
     public static final String PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS = "preferred_write_partitioning_min_number_of_partitions";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
+    public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
     public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
@@ -160,6 +161,7 @@ public final class SystemSessionProperties
     public static final String RETRY_INITIAL_DELAY = "retry_initial_delay";
     public static final String RETRY_MAX_DELAY = "retry_max_delay";
     public static final String RETRY_DELAY_SCALE_FACTOR = "retry_delay_scale_factor";
+    public static final String LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD = "legacy_materialized_view_grace_period";
     public static final String HIDE_INACCESSIBLE_COLUMNS = "hide_inaccessible_columns";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE = "fault_tolerant_execution_target_task_input_size";
     public static final String FAULT_TOLERANT_EXECUTION_TARGET_TASK_SPLIT_COUNT = "fault_tolerant_execution_target_task_split_count";
@@ -245,7 +247,7 @@ public final class SystemSessionProperties
                         MAX_HASH_PARTITION_COUNT,
                         "Maximum number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getMaxHashPartitionCount(),
-                        value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT, 1, false),
+                        value -> validateIntegerValue(value, MAX_HASH_PARTITION_COUNT, 1, false),
                         false),
                 integerProperty(
                         MIN_HASH_PARTITION_COUNT,
@@ -293,6 +295,12 @@ public final class SystemSessionProperties
                         SCALE_WRITERS,
                         "Scale out writers based on throughput (use minimum necessary)",
                         featuresConfig.isScaleWriters(),
+                        false),
+                integerProperty(
+                        MAX_WRITER_TASKS_COUNT,
+                        "Maximum number of tasks that will participate in writing data",
+                        queryManagerConfig.getMaxWriterTasksCount(),
+                        value -> validateIntegerValue(value, MAX_WRITER_TASKS_COUNT, 1, false),
                         false),
                 booleanProperty(
                         TASK_SCALE_WRITERS_ENABLED,
@@ -428,7 +436,7 @@ public final class SystemSessionProperties
                         value -> value),
                 booleanProperty(
                         COLOCATED_JOIN,
-                        "Experimental: Use a colocated join when possible",
+                        "Use a colocated join when possible",
                         optimizerConfig.isColocatedJoinsEnabled(),
                         false),
                 booleanProperty(
@@ -484,7 +492,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
                         "Push partial aggregations below joins",
-                        optimizerConfig.isPushPartialAggregationThoughJoin(),
+                        optimizerConfig.isPushPartialAggregationThroughJoin(),
                         false),
                 booleanProperty(
                         PRE_AGGREGATE_CASE_AGGREGATIONS_ENABLED,
@@ -797,6 +805,11 @@ public final class SystemSessionProperties
                         },
                         false),
                 booleanProperty(
+                        LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD,
+                        "Enable legacy handling of stale materialized views",
+                        featuresConfig.isLegacyMaterializedViewGracePeriod(),
+                        false),
+                booleanProperty(
                         HIDE_INACCESSIBLE_COLUMNS,
                         "When enabled non-accessible columns are silently filtered from results from SELECT * statements",
                         featuresConfig.isHideInaccessibleColumns(),
@@ -1000,6 +1013,11 @@ public final class SystemSessionProperties
     public static int getTaskScaleWritersMaxWriterCount(Session session)
     {
         return session.getSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, Integer.class);
+    }
+
+    public static int getMaxWriterTaskCount(Session session)
+    {
+        return session.getSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.class);
     }
 
     public static DataSize getWriterMinSize(Session session)
@@ -1517,6 +1535,12 @@ public final class SystemSessionProperties
     public static double getRetryDelayScaleFactor(Session session)
     {
         return session.getSystemProperty(RETRY_DELAY_SCALE_FACTOR, Double.class);
+    }
+
+    @Deprecated
+    public static boolean isLegacyMaterializedViewGracePeriod(Session session)
+    {
+        return session.getSystemProperty(LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, Boolean.class);
     }
 
     public static boolean isHideInaccessibleColumns(Session session)

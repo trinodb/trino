@@ -291,7 +291,7 @@ public abstract class BaseClickHouseConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessageContaining("For query: ")
+                .hasMessageContaining("For query")
                 .hasMessageContaining("Actual rows")
                 .hasMessageContaining("Expected rows");
 
@@ -682,6 +682,24 @@ public abstract class BaseClickHouseConnectorTest
                     format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
                     "line 1:21: Table function system.query not registered");
         }
+    }
+
+    @Override
+    public void testNativeQueryColumnAlias()
+    {
+        // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))",
+                ".* Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Table function system.query not registered");
     }
 
     @Override

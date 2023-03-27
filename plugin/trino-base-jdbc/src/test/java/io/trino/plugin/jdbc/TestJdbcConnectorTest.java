@@ -140,6 +140,14 @@ public class TestJdbcConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @Override
+    public void testReadMetadataWithRelationsConcurrentModifications()
+    {
+        // Under concurrently, H2 sometimes returns null table name in DatabaseMetaData.getTables's ResultSet
+        // See https://github.com/trinodb/trino/issues/16658 for more information
+        throw new SkipException("Skipped due to H2 problems");
+    }
+
     @Test
     public void testUnknownTypeAsIgnored()
     {
@@ -254,6 +262,19 @@ public class TestJdbcConnectorTest
                     "DESCRIBE " + table.getName(),
                     unsupportedTableErrorMessage);
         }
+    }
+
+    @Override
+    public void testNativeQueryColumnAlias()
+    {
+        // override because H2 uppercase column names by default
+        assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+                .hasColumnNames("REGION_NAME")
+                .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
+
+        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
+                .hasColumnNames("region_name")
+                .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
     }
 
     @Override
