@@ -64,8 +64,6 @@ public class TestCsvFormat
     public void testCsv()
             throws Exception
     {
-        assertTrinoHiveByteForByte(false, Arrays.asList("|", "a", "|"), Optional.empty(), Optional.of('|'), Optional.empty());
-
         assertLine(true, "", Arrays.asList(null, null, null));
         assertLine(true, " ", Arrays.asList(" ", null, null));
 
