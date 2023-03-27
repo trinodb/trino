@@ -224,7 +224,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
             resetHiveMetastoreInvocationCounts();
             queryRunner.execute("SELECT * FROM nation JOIN region ON nation.regionkey = region.regionkey");
             // Sanity check that getTable call is done more than twice if per-transaction cache is disabled.
-            // This is to be sure that `testPerTransactionHiveMetastoreCachingEnabled` passes because of per-transation
+            // This is to be sure that `testPerTransactionHiveMetastoreCachingEnabled` passes because of per-transaction
             // caching and not because of caching done by some other layer.
             assertThat(hiveMetastoreInvocationCounts.get("getTable")).isGreaterThan(2);
         }
