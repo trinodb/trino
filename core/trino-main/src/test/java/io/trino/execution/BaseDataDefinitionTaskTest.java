@@ -134,7 +134,7 @@ public abstract class BaseDataDefinitionTaskTest
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         if (queryRunner != null) {

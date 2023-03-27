@@ -52,7 +52,7 @@ public class TestDropCatalogTask
         queryRunner.registerCatalogFactory(new TpchConnectorFactory());
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         if (queryRunner != null) {

@@ -131,7 +131,7 @@ public class TestRubixCaching
         nonCachingFileSystem = getNonCachingFileSystem();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     @BeforeMethod
     public void deinitializeRubix()
     {

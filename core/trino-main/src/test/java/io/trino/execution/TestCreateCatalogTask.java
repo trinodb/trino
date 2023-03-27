@@ -76,7 +76,7 @@ public class TestCreateCatalogTask
                 new NodeVersion("test"));
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         if (queryRunner != null) {
