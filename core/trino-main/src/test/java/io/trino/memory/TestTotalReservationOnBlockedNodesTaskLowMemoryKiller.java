@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
@@ -27,63 +26,12 @@ import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList
 import static org.testng.Assert.assertEquals;
 
 public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
+        extends AbstractTaskLowMemoryKillerTest
 {
-    private final LowMemoryKiller lowMemoryKiller = new TotalReservationOnBlockedNodesTaskLowMemoryKiller();
-
-    @Test
-    public void testMemoryPoolHasNoReservation()
+    @Override
+    protected LowMemoryKiller createLowMemoryKiller()
     {
-        int memoryPool = 12;
-        Map<String, Map<String, Long>> queries = ImmutableMap.of("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
-                        toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries)),
-                Optional.empty());
-    }
-
-    @Test
-    public void testMemoryPoolNotBlocked()
-    {
-        int memoryPool = 12;
-        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
-                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 6L, "n3", 0L, "n4", 0L, "n5", 0L))
-                .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
-                .buildOrThrow();
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
-                        toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries)),
-                Optional.empty());
-    }
-
-    @Test
-    public void testWillNotKillTaskForQueryWithoutTaskRetriesEnabled()
-    {
-        int memoryPool = 5;
-        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
-                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 2L))
-                .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L))
-                .buildOrThrow();
-        Map<String, Map<String, Map<Integer, Long>>> tasks = ImmutableMap.<String, Map<String, Map<Integer, Long>>>builder()
-                .put("q_1", ImmutableMap.of(
-                        "n3", ImmutableMap.of(1, 5L)))
-                .put("q_2", ImmutableMap.of(
-                        "n1", ImmutableMap.of(
-                                1, 1L,
-                                2, 2L),
-                        "n2", ImmutableMap.of(
-                                3, 3L,
-                                4, 1L,
-                                5, 1L),
-                        "n3", ImmutableMap.of(6, 2L)))
-                .buildOrThrow();
-
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
-                        toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
-                Optional.empty());
+        return new TotalReservationOnBlockedNodesTaskLowMemoryKiller();
     }
 
     @Test
@@ -113,7 +61,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                         "n5", ImmutableMap.of()));
 
         assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+                getLowMemoryKiller().chooseTargetToKill(
                         toRunningQueryInfoList(queries, ImmutableSet.of("q_2")),
                         toNodeMemoryInfoList(memoryPool, queries, tasks)),
                 Optional.of(KillTarget.selectedTasks(
@@ -153,7 +101,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                 .buildOrThrow();
 
         assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+                getLowMemoryKiller().chooseTargetToKill(
                         toRunningQueryInfoList(queries, ImmutableSet.of("q_1", "q_2")),
                         toNodeMemoryInfoList(memoryPool, queries, tasks)),
                 Optional.of(KillTarget.selectedTasks(
