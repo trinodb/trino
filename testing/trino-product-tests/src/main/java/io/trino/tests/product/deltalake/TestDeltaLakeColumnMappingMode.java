@@ -1010,6 +1010,57 @@ public class TestDeltaLakeColumnMappingMode
         }
     }
 
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testRecalculateStatsForColumnMappingModeAndNoInitialStatistics(String mode)
+    {
+        String tableName = "test_recalculate_stats_for_column_mapping_mode_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (a_number INT, a_string STRING)" +
+                " USING delta " +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES (" +
+                " 'delta.columnMapping.mode' = '" + mode + "', " +
+                " 'delta.dataSkippingNumIndexedCols' = 0" +
+                ")");
+
+        try {
+            List<Row> expectedRows = ImmutableList.of(
+                    row(1, "a"),
+                    row(2, "bc"),
+                    row(null, null));
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 'a'), (2, 'bc'), (null, null)");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(expectedRows);
+
+            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
+                    .containsOnly(
+                            row("a_number", null, null, null, null, null, null),
+                            row("a_string", null, null, null, null, null, null),
+                            row(null, null, null, null, 3.0, null, null));
+
+            onTrino().executeQuery("ANALYZE delta.default." + tableName);
+            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
+                    .containsOnly(ImmutableList.of(
+                            row("a_number", null, 2.0, 0.33333333333, null, "1", "2"),
+                            row("a_string", 3.0, 2.0, 0.33333333333, null, null, null),
+                            row(null, null, null, null, 3.0, null, null)));
+
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
     @DataProvider
     public Object[][] changeColumnMappingDataProvider()
     {
