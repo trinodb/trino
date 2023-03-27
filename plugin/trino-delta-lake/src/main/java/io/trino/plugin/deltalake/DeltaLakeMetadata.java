@@ -2851,7 +2851,7 @@ public class DeltaLakeMetadata
         TableStatisticsMetadata statisticsMetadata = getStatisticsCollectionMetadata(
                 columnsMetadata.stream().map(DeltaLakeColumnMetadata::getColumnMetadata).collect(toImmutableList()),
                 analyzeColumnNames.orElse(allColumnNames),
-                true);
+                false);
 
         return new ConnectorAnalyzeMetadata(newHandle, statisticsMetadata);
     }
@@ -2877,14 +2877,13 @@ public class DeltaLakeMetadata
         return getStatisticsCollectionMetadata(
                 tableMetadata.getColumns(),
                 analyzeColumnNames.orElse(allColumnNames),
-                // File modified time does not need to be collected as a statistics because it gets derived directly from files being written
-                false);
+                true);
     }
 
     private TableStatisticsMetadata getStatisticsCollectionMetadata(
             List<ColumnMetadata> tableColumns,
             Set<String> analyzeColumnNames,
-            boolean includeMaxFileModifiedTime)
+            boolean isCollectionOnWrite)
     {
         ImmutableSet.Builder<ColumnStatisticMetadata> columnStatistics = ImmutableSet.builder();
         tableColumns.stream()
@@ -2897,8 +2896,9 @@ public class DeltaLakeMetadata
                     columnStatistics.add(new ColumnStatisticMetadata(columnMetadata.getName(), NUMBER_OF_DISTINCT_VALUES_SUMMARY));
                 });
 
-        if (includeMaxFileModifiedTime) {
+        if (!isCollectionOnWrite) {
             // collect max(file modification time) for sake of incremental ANALYZE
+            // File modified time does not need to be collected as a statistics because it gets derived directly from files being written
             columnStatistics.add(new ColumnStatisticMetadata(FILE_MODIFIED_TIME_COLUMN_NAME, MAX_VALUE));
         }
 
