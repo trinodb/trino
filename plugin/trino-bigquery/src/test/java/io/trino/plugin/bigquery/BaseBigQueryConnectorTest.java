@@ -20,7 +20,6 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
@@ -211,11 +210,12 @@ public abstract class BaseBigQueryConnectorTest
     @Test(dataProvider = "emptyProjectionSetupDataProvider")
     public void testEmptyProjection(TableDefinition.Type tableType, String createSql, String dropSql)
     {
-        // Regression test for https://github.com/trinodb/trino/issues/14981
+        // Regression test for https://github.com/trinodb/trino/issues/14981, https://github.com/trinodb/trino/issues/5635 and https://github.com/trinodb/trino/issues/6696
         String name = TEST_SCHEMA + ".test_empty_projection_" + tableType.name().toLowerCase(ENGLISH) + randomNameSuffix();
         onBigQuery(createSql.formatted(name));
         try {
             assertQuery("SELECT count(*) FROM " + name, "VALUES 5");
+            assertQuery("SELECT count(*) FROM " + name, "VALUES 5"); // repeated query to cover https://github.com/trinodb/trino/issues/6696
             assertQuery("SELECT count(*) FROM " + name + " WHERE regionkey = 1", "VALUES 1");
             assertQuery("SELECT count(name) FROM " + name + " WHERE regionkey = 1", "VALUES 1");
         }
@@ -420,33 +420,6 @@ public abstract class BaseBigQueryConnectorTest
                             "    ((NULL IS NULL) OR a = 100) AND " +
                             "    b = 2",
                     "VALUES (1)");
-        }
-    }
-
-    @Test(description = "regression test for https://github.com/trinodb/trino/issues/5635")
-    public void testCountAggregationView()
-    {
-        try (TestTable table = new TestTable(
-                bigQuerySqlExecutor,
-                "test.count_aggregation_table",
-                "(a INT64, b INT64, c INT64)",
-                List.of("1, 2, 3", "4, 5, 6"));
-                TestView view = new TestView(bigQuerySqlExecutor, "test.count_aggregation_view", "SELECT * FROM " + table.getName())) {
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (2)");
-            assertQuery("SELECT count(*) FROM " + view.getName() + " WHERE a = 1", "VALUES (1)");
-            assertQuery("SELECT count(a) FROM " + view.getName() + " WHERE b = 2", "VALUES (1)");
-        }
-    }
-
-    /**
-     * regression test for https://github.com/trinodb/trino/issues/6696
-     */
-    @Test
-    public void testRepeatCountAggregationView()
-    {
-        try (TestView view = new TestView(bigQuerySqlExecutor, "test.repeat_count_aggregation_view", "SELECT 1 AS col1")) {
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (1)");
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (1)");
         }
     }
 
