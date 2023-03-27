@@ -16,6 +16,7 @@ package io.trino.plugin.phoenix5;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -35,15 +36,20 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.expression.RewriteComparison;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -210,6 +216,8 @@ public class PhoenixClient
 
     private final Configuration configuration;
 
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+
     @Inject
     public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
             throws SQLException
@@ -224,6 +232,23 @@ public class PhoenixClient
                 false);
         this.configuration = newEmptyConfiguration();
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
+                .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
+                .map("$add(left: integer_type, right: integer_type)").to("left + right")
+                .map("$subtract(left: integer_type, right: integer_type)").to("left - right")
+                .map("$multiply(left: integer_type, right: integer_type)").to("left * right")
+                .map("$divide(left: integer_type, right: integer_type)").to("left / right")
+                .map("$modulus(left: integer_type, right: integer_type)").to("left % right")
+                .map("$negate(value: integer_type)").to("-value")
+                .build();
+    }
+
+    @Override
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
     public Connection getConnection(ConnectorSession session)
