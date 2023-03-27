@@ -15,30 +15,54 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.google.common.base.Verify.verify;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
+import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.assertj.core.api.Assertions.assertThat;
 
 // smoke test which covers ANALYZE compatibility with different filesystems is part of BaseDeltaLakeConnectorSmokeTest
 public class TestDeltaLakeAnalyze
         extends AbstractTestQueryFramework
 {
+    private static final TrinoFileSystem FILE_SYSTEM = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -46,7 +70,9 @@ public class TestDeltaLakeAnalyze
         return createDeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 ImmutableMap.of(),
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
+                ImmutableMap.of(
+                        "delta.enable-non-concurrent-writes", "true",
+                        "delta.register-table-procedure.enabled", "true"));
     }
 
     @Test
@@ -365,7 +391,7 @@ public class TestDeltaLakeAnalyze
                         "(null, null, null, null, 50.0, null, null)");
 
         // show that using full_refresh allows us to analyze any subset of columns
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh', columns = ARRAY['nationkey', 'regionkey', 'name'])", tableName));
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh', columns = ARRAY['nationkey', 'regionkey', 'name'])", tableName), 50);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -381,13 +407,13 @@ public class TestDeltaLakeAnalyze
                 "('comment', 3764.0, 50.0, 0.0, null, null, null)," +
                 "('name', 379.0, 50.0, 0.0, null, null, null)," +
                 "(null, null, null, null, 50.0, null, null)";
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 50);
         assertQuery("SHOW STATS FOR " + tableName, expectedFullStats);
 
         // drop stats
         assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, tableName));
         // now we should be able to analyze all columns
-        assertUpdate(format("ANALYZE %s", tableName));
+        assertUpdate(format("ANALYZE %s", tableName), 50);
         assertQuery("SHOW STATS FOR " + tableName, expectedFullStats);
 
         // we and we should be able to reanalyze with a subset of columns
@@ -444,7 +470,7 @@ public class TestDeltaLakeAnalyze
             assertQuery(query, baseStats);
 
             // Re-analyzing should work
-            assertUpdate("ANALYZE " + table.getName());
+            assertUpdate("ANALYZE " + table.getName(), 25);
             assertQuery(query, extendedStats);
         }
     }
@@ -523,7 +549,7 @@ public class TestDeltaLakeAnalyze
                         "('name', null, null, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
-        assertUpdate("ANALYZE " + tableName);
+        assertUpdate("ANALYZE " + tableName, 25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -559,7 +585,7 @@ public class TestDeltaLakeAnalyze
                         "('name', null, null, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
 
-        assertUpdate("ANALYZE " + tableName);
+        assertUpdate("ANALYZE " + tableName, 25);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,
@@ -841,7 +867,7 @@ public class TestDeltaLakeAnalyze
                         "('name', 346.3695652173913, 23.5, 0.02083333333333337, null, null, null)," +
                         "(null, null, null, null, 24.0, null, null)");
 
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 24);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -887,7 +913,7 @@ public class TestDeltaLakeAnalyze
                         "('name', 5.0, 1.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 26.0, null, null)");
 
-        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName), 26);
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
@@ -899,11 +925,240 @@ public class TestDeltaLakeAnalyze
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testNoStats()
+            throws Exception
+    {
+        String tableName = copyResourcesAndRegisterTable("no_stats");
+        String expectedData = "VALUES (42, 'foo'), (12, 'ab'), (null, null), (15, 'cd'), (15, 'bar')";
+
+        assertQuery("SELECT * FROM " + tableName, expectedData);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('c_int', null, null, null, null, null, null),
+                        ('c_str', null, null, null, null, null, null),
+                        (null, null, null, null, null, null, null)
+                        """);
+
+        assertUpdate("ANALYZE " + tableName, 5);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('c_int', null, 3.0, 0.2, null, 12, 42),
+                        ('c_str', 10.0, 4.0, 0.2, null, null, null),
+                        (null, null, null, null, 5.0, null, null)
+                        """);
+
+        // Ensure that ANALYZE does not change data
+        assertQuery("SELECT * FROM " + tableName, expectedData);
+
+        cleanExternalTable(tableName);
+    }
+
+    @Test
+    public void testNoColumnStats()
+            throws Exception
+    {
+        String tableName = copyResourcesAndRegisterTable("no_column_stats");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (42, 'foo')");
+
+        assertUpdate("ANALYZE " + tableName, 1);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('c_int', null, 1.0, 0.0, null, 42, 42),
+                        ('c_str', 3.0, 1.0, 0.0, null, null, null),
+                        (null, null, null, null, 1.0, null, null)
+                        """);
+
+        cleanExternalTable(tableName);
+    }
+
+    @Test
+    public void testNoColumnStatsMixedCase()
+            throws Exception
+    {
+        String tableName = copyResourcesAndRegisterTable("no_column_stats_mixed_case");
+        String tableLocation = getTableLocation(tableName);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (11, 'a'), (2, 'b'), (null, null)");
+
+        assertUpdate("ANALYZE " + tableName, 3);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('c_int', null, 2.0, 0.33333333, null, 2, 11),
+                        ('c_str', 2.0, 2.0, 0.33333333, null, null, null),
+                        (null, null, null, null, 3.0, null, null)
+                        """);
+
+        // Version 3 should be created with recalculated statistics.
+        List<DeltaLakeTransactionLogEntry> transactionLogAfterUpdate = getEntriesFromJson(3, tableLocation + "/_delta_log", FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLogAfterUpdate).hasSize(2);
+        AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(1).getAdd();
+        DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
+        assertThat(updateStats.getMinValues().orElseThrow().get("c_Int")).isEqualTo(2);
+        assertThat(updateStats.getMaxValues().orElseThrow().get("c_Int")).isEqualTo(11);
+        assertThat(updateStats.getNullCount("c_Int").orElseThrow()).isEqualTo(1);
+        assertThat(updateStats.getNullCount("c_Str").orElseThrow()).isEqualTo(1);
+
+        cleanExternalTable(tableName);
+    }
+
+    @Test
+    public void testPartiallyNoStats()
+            throws Exception
+    {
+        String tableName = copyResourcesAndRegisterTable("no_stats");
+        // Add additional transaction log entry with statistics
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1,'a'), (12,'b')", 2);
+        assertQuery("SELECT * FROM " + tableName, " VALUES (42, 'foo'), (12, 'ab'), (null, null), (15, 'cd'), (15, 'bar'), (1, 'a'), (12, 'b')");
+
+        // Simulate initial analysis
+        assertUpdate(format("CALL system.drop_extended_stats('%s', '%s')", TPCH_SCHEMA, tableName));
+
+        assertUpdate("ANALYZE " + tableName, 7);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('c_int', null, 4.0, 0.14285714285714285, null, 1, 42),
+                        ('c_str', 12.0, 6.0, 0.14285714285714285, null, null, null),
+                        (null, null, null, null, 7.0, null, null)
+                        """);
+
+        cleanExternalTable(tableName);
+    }
+
+    @Test
+    public void testNoStatsPartitionedTable()
+            throws Exception
+    {
+        String tableName = copyResourcesAndRegisterTable("no_stats_partitions");
+        assertQuery("SELECT * FROM " + tableName,
+                """
+                        VALUES
+                        ('p?p', 42, 'foo'),
+                        ('p?p', 12, 'ab'),
+                        (null, null, null),
+                        ('ppp', 15, 'cd'),
+                        ('ppp', 15, 'bar')
+                        """);
+
+        assertUpdate("ANALYZE " + tableName, 5);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('p_str', null, 2.0, 0.2, null, null, null),
+                        ('c_int', null, 3.0, 0.2, null, 12, 42),
+                        ('c_str', 10.0, 4.0, 0.2, null, null, null),
+                        (null, null, null, null, 5.0, null, null)
+                        """);
+
+        cleanExternalTable(tableName);
+    }
+
+    @Test
+    public void testNoStatsVariousTypes()
+            throws Exception
+    {
+        String tableName = copyResourcesAndRegisterTable("no_stats_various_types");
+        assertQuery("SELECT c_boolean, c_tinyint, c_smallint, c_integer, c_bigint, c_real, c_double, c_decimal1, c_decimal2, c_date1, CAST(c_timestamp AS TIMESTAMP), c_varchar1, c_varchar2, c_varbinary FROM " + tableName,
+                """
+                        VALUES
+                        (false, 37, 32123, 1274942432, 312739231274942432, 567.123, 1234567890123.123, 12.345, 123456789012.345, '1999-01-01', '2020-02-12 14:03:00', 'ab', 'de',  X'12ab3f'),
+                        (true, 127, 32767, 2147483647, 9223372036854775807, 999999.999, 9999999999999.999, 99.999, 999999999999.99, '2028-10-04', '2199-12-31 22:59:59.999', 'zzz', 'zzz',  X'ffffffffffffffffffff'),
+                        (null,null,null,null,null,null,null,null,null,null,null,null,null,null),
+                        (null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+                        """);
+
+        assertUpdate("ANALYZE " + tableName, 4);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('c_boolean', null, 2.0, 0.5, null, null, null),
+                        ('c_tinyint', null, 2.0, 0.5, null, '37', '127'),
+                        ('c_smallint', null, 2.0, 0.5, null, '32123', '32767'),
+                        ('c_integer', null, 2.0, 0.5, null, '1274942432', '2147483647'),
+                        ('c_bigint', null, 2.0, 0.5, null, '312739231274942464', '9223372036854775807'),
+                        ('c_real', null, 2.0, 0.5, null, '567.123', '1000000.0'),
+                        ('c_double', null, 2.0, 0.5, null, '1.234567890123123E12', '9.999999999999998E12'),
+                        ('c_decimal1', null, 2.0, 0.5, null, '12.345', '99.999'),
+                        ('c_decimal2', null, 2.0, 0.5, null, '1.23456789012345E11', '9.9999999999999E11'),
+                        ('c_date1', null, 2.0, 0.5, null, '1999-01-01', '2028-10-04'),
+                        ('c_timestamp', null, 2.0, 0.5, null, '2020-02-12 14:03:00.000 UTC', '2199-12-31 22:59:59.999 UTC'),
+                        ('c_varchar1', 5.0, 2.0, 0.5, null, null, null),
+                        ('c_varchar2', 5.0, 2.0, 0.5, null, null, null),
+                        ('c_varbinary', 13.0, 2.0, 0.5, null, null, null),
+                        (null, null, null, null, 4.0, null, null)
+                        """);
+
+        cleanExternalTable(tableName);
+    }
+
+    @Test
+    public void testNoStatsWithColumnMappingModeId()
+            throws Exception
+    {
+        String tableName = copyResourcesAndRegisterTable("no_stats_column_mapping_id");
+
+        assertQuery("SELECT * FROM " + tableName, " VALUES (42, 'foo'), (1, 'a'), (2, 'b'), (null, null)");
+
+        assertUpdate("ANALYZE " + tableName, 4);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('c_int', null, 3.0, 0.25, null, 1, 42),
+                        ('c_str', 5.0, 3.0, 0.25, null, null, null),
+                        (null, null, null, null, 4.0, null, null)
+                        """);
+
+        cleanExternalTable(tableName);
+    }
+
+    private String copyResourcesAndRegisterTable(String resourceTable)
+            throws IOException, URISyntaxException
+    {
+        Path tableLocation = Files.createTempDirectory(null);
+        String tableName = resourceTable + randomNameSuffix();
+        URI resourcesLocation = getClass().getClassLoader().getResource("databricks/" + resourceTable).toURI();
+        copyDirectoryContents(Path.of(resourcesLocation), tableLocation);
+        assertUpdate(format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        return tableName;
+    }
+
     private Session withStatsOnWrite(boolean value)
     {
         Session session = getSession();
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, Boolean.toString(value))
                 .build();
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
+    }
+
+    private void cleanExternalTable(String tableName)
+            throws Exception
+    {
+        String tableLocation = getTableLocation(tableName);
+        assertUpdate("DROP TABLE " + tableName);
+        deleteRecursively(Path.of(new URI(tableLocation).getPath()), ALLOW_INSECURE);
     }
 }
