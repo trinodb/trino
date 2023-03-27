@@ -33,7 +33,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestSnowflakeConnectorTest
         extends BaseJdbcConnectorTest
@@ -124,13 +123,11 @@ public class TestSnowflakeConnectorTest
         return nullToEmpty(exception.getMessage()).matches(".*(Incorrect column name).*");
     }
 
-    @Test
     @Override
-    public void testShowColumns()
+    protected MaterializedResult getDescribeOrdersResult()
     {
         // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(38,0)", "", "")
                 .row("custkey", "decimal(38,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -141,7 +138,13 @@ public class TestSnowflakeConnectorTest
                 .row("shippriority", "decimal(38,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
-        assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Test
+    @Override
+    public void testShowColumns()
+    {
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Test
@@ -151,26 +154,6 @@ public class TestSnowflakeConnectorTest
         onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch." + tableName + " AS SELECT * FROM tpch.orders");
         assertQuery("SELECT orderkey FROM " + tableName, "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch." + tableName);
-    }
-
-    @Test
-    @Override
-    public void testDescribeTable()
-    {
-        // Override this test because the type of row "shippriority" should be bigint rather than integer for snowflake case
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "decimal(38,0)", "", "")
-                .row("custkey", "decimal(38,0)", "", "")
-                .row("orderstatus", "varchar(1)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(15)", "", "")
-                .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "decimal(38,0)", "", "")
-                .row("comment", "varchar(79)", "", "")
-                .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
