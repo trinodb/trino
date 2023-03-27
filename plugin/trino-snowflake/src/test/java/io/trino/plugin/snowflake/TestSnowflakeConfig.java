@@ -28,24 +28,33 @@ public class TestSnowflakeConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SnowflakeConfig.class)
+                .setAccount(null)
                 .setDatabase(null)
                 .setRole(null)
-                .setWarehouse(null));
+                .setWarehouse(null)
+                .setHTTPProxy(null)
+                .setTimestampNoTimezoneAsUTC(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("snowflake.account", "MYACCOUNT")
                 .put("snowflake.database", "MYDATABASE")
                 .put("snowflake.role", "MYROLE")
                 .put("snowflake.warehouse", "MYWAREHOUSE")
+                .put("snowflake.httpProxy", "MYPROXY")
+                .put("snowflake.timestampNoTimezoneAsUtc", "true")
                 .buildOrThrow();
 
         SnowflakeConfig expected = new SnowflakeConfig()
+                .setAccount("MYACCOUNT")
                 .setDatabase("MYDATABASE")
                 .setRole("MYROLE")
-                .setWarehouse("MYWAREHOUSE");
+                .setWarehouse("MYWAREHOUSE")
+                .setHTTPProxy("MYPROXY")
+                .setTimestampNoTimezoneAsUTC(true);
 
         assertFullMapping(properties, expected);
     }

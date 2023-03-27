@@ -14,52 +14,87 @@
 package io.trino.plugin.snowflake;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigDescription;
 
 import java.util.Optional;
 
 public class SnowflakeConfig
 {
-    private Optional<String> database = Optional.empty();
-    private Optional<String> role = Optional.empty();
-    private Optional<String> warehouse = Optional.empty();
+    private String account;
+    private String database;
+    private String role;
+    private String warehouse;
+    private Boolean timestampNoTimezoneAsUTC;
+    private String httpProxy;
+
+    public Optional<String> getAccount()
+    {
+        return Optional.ofNullable(account);
+    }
+
+    @Config("snowflake.account")
+    public SnowflakeConfig setAccount(String account)
+    {
+        this.account = account;
+        return this;
+    }
 
     public Optional<String> getDatabase()
     {
-        return database;
+        return Optional.ofNullable(database);
     }
 
     @Config("snowflake.database")
-    @ConfigDescription("Name of Snowflake database to use")
     public SnowflakeConfig setDatabase(String database)
     {
-        this.database = Optional.ofNullable(database);
+        this.database = database;
         return this;
     }
 
     public Optional<String> getRole()
     {
-        return role;
+        return Optional.ofNullable(role);
     }
 
     @Config("snowflake.role")
-    @ConfigDescription("Name of Snowflake role to use")
     public SnowflakeConfig setRole(String role)
     {
-        this.role = Optional.ofNullable(role);
+        this.role = role;
         return this;
     }
 
     public Optional<String> getWarehouse()
     {
-        return this.warehouse;
+        return Optional.ofNullable(warehouse);
     }
 
     @Config("snowflake.warehouse")
-    @ConfigDescription("Name of Snowflake warehouse to use")
     public SnowflakeConfig setWarehouse(String warehouse)
     {
-        this.warehouse = Optional.ofNullable(warehouse);
+        this.warehouse = warehouse;
+        return this;
+    }
+
+    public Optional<Boolean> getTimestampNoTimezoneAsUTC()
+    {
+        return Optional.ofNullable(timestampNoTimezoneAsUTC);
+    }
+
+    @Config("snowflake.timestampNoTimezoneAsUtc")
+    public SnowflakeConfig setTimestampNoTimezoneAsUTC(Boolean timestampNoTimezoneAsUTC)
+    {
+        this.timestampNoTimezoneAsUTC = timestampNoTimezoneAsUTC;
+        return this;
+    }
+
+    public Optional<String> getHTTPProxy()
+    {
+        return Optional.ofNullable(httpProxy);
+    }
+
+    @Config("snowflake.httpProxy")
+    public SnowflakeConfig setHTTPProxy(String httpProxy)
+    {
+        this.httpProxy = httpProxy;
         return this;
     }
 }
