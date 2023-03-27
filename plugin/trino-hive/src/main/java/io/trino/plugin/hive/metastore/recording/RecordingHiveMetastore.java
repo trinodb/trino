@@ -125,6 +125,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        verifyRecordingMode();
+        delegate.dropPartitionStatistics(table, partitionName);
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         return recording.getAllTables(databaseName, () -> delegate.getAllTables(databaseName));

@@ -60,6 +60,8 @@ public interface HiveMetastore
 
     void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
 
+    void dropPartitionStatistics(Table table, String partitionName);
+
     List<String> getAllTables(String databaseName);
 
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);

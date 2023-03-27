@@ -147,6 +147,12 @@ public class HiveMetastoreClosure
         delegate.updatePartitionStatistics(table, updates);
     }
 
+    public void dropPartitionStatistics(String databaseName, String tableName, String partitionName)
+    {
+        Table table = getExistingTable(databaseName, tableName);
+        delegate.dropPartitionStatistics(table, partitionName);
+    }
+
     public List<String> getAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);

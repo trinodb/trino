@@ -595,6 +595,31 @@ public class ThriftHiveMetastore
         removedStatistics.forEach(column -> deletePartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, column));
     }
 
+    @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
+                    .stopOnIllegalExceptions()
+                    .run("deletePartitionColumnStatistics", stats.getDeletePartitionColumnStatistics().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            client.deletePartitionColumnStatistics(table.getDbName(), table.getTableName(), partitionName, null);
+                        }
+                        return null;
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            throw new TableNotFoundException(new SchemaTableName(table.getDbName(), table.getTableName()));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
     private void setPartitionColumnStatistics(
             String databaseName,
             String tableName,

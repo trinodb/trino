@@ -199,6 +199,12 @@ public class AlluxioHiveMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "dropPartitionStatistics");
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         try {

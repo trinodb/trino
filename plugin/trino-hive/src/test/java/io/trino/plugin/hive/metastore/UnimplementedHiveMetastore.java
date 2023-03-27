@@ -83,6 +83,12 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         throw new UnsupportedOperationException();

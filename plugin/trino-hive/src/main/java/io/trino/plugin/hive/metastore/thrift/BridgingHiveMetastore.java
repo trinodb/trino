@@ -137,6 +137,13 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        io.trino.hive.thrift.metastore.Table metastoreTable = toMetastoreApiTable(table);
+        delegate.dropPartitionStatistics(metastoreTable, partitionName);
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);

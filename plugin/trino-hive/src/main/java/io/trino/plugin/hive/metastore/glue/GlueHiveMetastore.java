@@ -413,6 +413,12 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        updatePartitionStatistics(table, ImmutableMap.of(partitionName, stats -> PartitionStatistics.empty()));
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         try {

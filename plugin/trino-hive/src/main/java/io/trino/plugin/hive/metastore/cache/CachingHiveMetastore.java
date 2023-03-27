@@ -646,6 +646,20 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        try {
+            delegate.dropPartitionStatistics(table, partitionName);
+        }
+        finally {
+            HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
+            partitionStatisticsCache.invalidate(hivePartitionName);
+            // basic stats are stored as partition properties
+            partitionCache.invalidate(hivePartitionName);
+        }
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         return get(tableNamesCache, databaseName);

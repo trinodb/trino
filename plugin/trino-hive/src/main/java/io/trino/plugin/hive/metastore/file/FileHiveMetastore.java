@@ -508,6 +508,12 @@ public class FileHiveMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        updatePartitionStatistics(table, ImmutableMap.of(partitionName, stats -> PartitionStatistics.empty()));
+    }
+
+    @Override
     public synchronized List<String> getAllTables(String databaseName)
     {
         return listAllTables(databaseName).stream()

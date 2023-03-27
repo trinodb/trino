@@ -109,6 +109,12 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        delegate.dropPartitionStatistics(table, partitionName);
+    }
+
+    @Override
     public List<String> getAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);

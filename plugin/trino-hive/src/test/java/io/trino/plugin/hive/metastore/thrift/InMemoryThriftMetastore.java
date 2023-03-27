@@ -493,6 +493,13 @@ public class InMemoryThriftMetastore
     }
 
     @Override
+    public void dropPartitionStatistics(Table table, String partitionName)
+    {
+        PartitionName partitionKey = PartitionName.partition(table.getDbName(), table.getTableName(), partitionName);
+        partitionColumnStatistics.remove(partitionKey);
+    }
+
+    @Override
     public void createRole(String role, String grantor)
     {
         throw new UnsupportedOperationException();
