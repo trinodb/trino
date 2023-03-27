@@ -51,12 +51,18 @@ public final class RowReferencePageManager
 
     public LoadCursor add(Page page)
     {
+        return add(page, 0);
+    }
+
+    public LoadCursor add(Page page, int startingPosition)
+    {
         checkState(currentCursor == null, "Cursor still active");
+        checkArgument(startingPosition >= 0 && startingPosition <= page.getPositionCount(), "invalid startingPosition: %s", startingPosition);
 
         PageAccounting pageAccounting = pages.allocateId(id -> new PageAccounting(id, page));
 
         pageAccounting.lockPage();
-        currentCursor = new LoadCursor(pageAccounting, () -> {
+        currentCursor = new LoadCursor(pageAccounting, startingPosition, () -> {
             // Initiate additional actions on close
             checkState(currentCursor != null);
             pageAccounting.unlockPage();
@@ -162,11 +168,12 @@ public final class RowReferencePageManager
         private final PageAccounting pageAccounting;
         private final Runnable closeCallback;
 
-        private int currentPosition = -1;
+        private int currentPosition;
 
-        private LoadCursor(PageAccounting pageAccounting, Runnable closeCallback)
+        private LoadCursor(PageAccounting pageAccounting, int startingPosition, Runnable closeCallback)
         {
             this.pageAccounting = pageAccounting;
+            this.currentPosition = startingPosition - 1;
             this.closeCallback = closeCallback;
         }
 
