@@ -121,6 +121,10 @@ public class TestCsvFormat
         assertTrinoHiveByteForByte(true, Arrays.asList("foo", "bar", "baz"), Optional.of('\t'), Optional.of('\0'), Optional.of('\\'));
         assertTrinoHiveByteForByte(false, Arrays.asList("f\0\0", "\0bar\0", "baz"), Optional.of('\t'), Optional.of('\0'), Optional.of('\\'));
 
+        // If escape character is `\0` then escaping is simply disabled, even if this would cause output that does not round trip
+        assertTrinoHiveByteForByte(true, Arrays.asList("f**", "b*r", "b*z"), Optional.of('\t'), Optional.of('*'), Optional.of('#'));
+        assertTrinoHiveByteForByte(false, Arrays.asList("f**", "b*r", "b*z"), Optional.of('\t'), Optional.of('*'), Optional.of('\0'));
+
         // These cases don't round trip, because Hive uses different default escape characters for serialization and deserialization.
         // For serialization the pipe character is escaped with a quote char, but for deserialization escape character is the backslash character
         assertTrinoHiveByteForByte(false, Arrays.asList("|", "a", "b"), Optional.empty(), Optional.of('|'), Optional.empty());
