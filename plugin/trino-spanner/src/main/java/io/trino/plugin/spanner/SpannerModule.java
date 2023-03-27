@@ -47,11 +47,11 @@ public class SpannerModule
         Properties connectionProperties = new Properties();
         String connectionUrl = config.getConnectionUrl();
         JdbcDriver driver = new JdbcDriver();
-        File credentials = new File(spannerConfig.getCredentialsFile());
+        //File credentials = new File(spannerConfig.getCredentialsFile());
         if (!driver.acceptsURL(connectionUrl)) {
             throw new RuntimeException(config.getConnectionUrl() + " is incorrect");
         }
-        connectionProperties.put("credentials", credentials.getAbsolutePath());
+        //connectionProperties.put("credentials", spannerConfig.getCredentialsFile());
         return new ConfiguringConnectionFactory(new DriverConnectionFactory(
                 driver,
                 config.getConnectionUrl(),

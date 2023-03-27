@@ -24,6 +24,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +38,8 @@ import static java.util.Objects.requireNonNull;
 public final class SpannerSqlQueryRunner
 {
     private static final String TPCH_SCHEMA = "tpch";
-    private static final String JDBC_URL = "";
+    //url for emulated spanner host
+    private static final String JDBC_URL = "jdbc:cloudspanner://0.0.0.0:9010/projects/spanner-project/instances/spanner-instance/databases/spanner-database;autoConfigEmulator=true";
     private static final String USER = "";
     private static final String PASSWORD = "";
     private static final String SCHEMA = "";
@@ -127,26 +129,31 @@ public final class SpannerSqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createSpannerSqlQueryRunner(
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                TpchTable.getTables()
-                , xr -> {});
+        DistributedQueryRunner queryRunner = getQueryRunner();
 
         queryRunner.installPlugin(new JmxPlugin());
         queryRunner.createCatalog("jmx", "jmx");
         MaterializedResult schemas = queryRunner.execute("SHOW SCHEMAS FROM spanner");
         System.out.println(schemas);
-        MaterializedResult execute = queryRunner.execute("SHOW TABLES FROM spanner.public");
+        MaterializedResult execute = queryRunner.execute("SHOW TABLES FROM spanner.default");
         System.out.println(execute);
-        MaterializedResult create = queryRunner.execute("create table spanner.public.dept" +
+        MaterializedResult emp = queryRunner.execute("create table if not exists spanner.default.emp" +
                 "( id int,name varchar" +
-                ")WITH (primary_key = 'id'," +
+                ") WITH(primary_keys = ARRAY['id'])");
+        System.out.println(emp);
+        MaterializedResult create = queryRunner.execute("create table if not exists spanner.default.dept" +
+                "( id int,name varchar" +
+                ")WITH (primary_keys = ARRAY['id']," +
                 "interleave_in_parent='emp'," +
-                "on_delete_cascade=true)");
+                "on_delete_cascade=true" +
+                ")");
         System.out.println(create);
-        MaterializedResult drop = queryRunner.execute("DROP TABLE spanner.public.dept");
+        MaterializedResult insert = queryRunner.execute("insert into spanner.default.emp values(1,'Tom')");
+        System.out.println(insert);
+        MaterializedResult count = queryRunner.execute("select count(*) from spanner.default.emp");
+        System.out.println(count);
+
+        MaterializedResult drop = queryRunner.execute("DROP TABLE spanner.default.dept");
         System.out.println(drop);
 
         System.out.println("DONE");
@@ -155,4 +162,18 @@ public final class SpannerSqlQueryRunner
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
+
+    static DistributedQueryRunner getQueryRunner()
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createSpannerSqlQueryRunner(
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                TpchTable.getTables()
+                , xr -> {});
+        return queryRunner;
+    }
+
+
 }
