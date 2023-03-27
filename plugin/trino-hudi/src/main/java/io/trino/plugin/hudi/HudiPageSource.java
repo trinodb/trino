@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSource;
 import io.trino.plugin.hive.HiveType;
@@ -23,7 +24,6 @@ import io.trino.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
 import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hudi.coercer.DateToVarcharCoercer;
 import io.trino.spi.Page;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -75,7 +75,6 @@ import static io.trino.plugin.hudi.coercer.NestedTypeCoercers.createStructCoerce
 import static io.trino.plugin.hudi.coercer.VarcharCoercers.createDoubleToVarcharCoercer;
 import static io.trino.plugin.hudi.coercer.VarcharCoercers.createVarcharToDateCoercer;
 import static io.trino.plugin.hudi.coercer.VarcharCoercers.createVarcharToDecimalCoercer;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -85,6 +84,8 @@ import static java.util.Objects.requireNonNull;
 public class HudiPageSource
         implements ConnectorPageSource
 {
+    private static final Logger log = Logger.get(HudiPageSource.class);
+
     private final Block[] prefilledBlocks;
     private final int[] delegateIndexes;
     private final ConnectorPageSource dataPageSource;
@@ -141,7 +142,10 @@ public class HudiPageSource
                 if (schemaEvolutionColumns.isPresent()
                         && !schemaEvolutionColumns.get().isEmpty()
                         && schemaEvolutionColumns.get().containsKey(column.getBaseHiveColumnIndex())) {
-                    coercers.add(createCoercer(typeManager, schemaEvolutionColumns.get().get(column.getBaseHiveColumnIndex()).getHiveType(), column.getHiveType()));
+                    coercers.add(createCoercer(
+                            typeManager,
+                            schemaEvolutionColumns.get().get(column.getBaseHiveColumnIndex()).getHiveType(),
+                            column.getHiveType()));
                 }
                 else {
                     coercers.add(Optional.empty());
@@ -239,7 +243,7 @@ public class HudiPageSource
             else if (fromType instanceof DoubleType fromDoubleType) {
                 return Optional.of(createDoubleToVarcharCoercer(fromDoubleType, toVarcharType));
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+            log.warn(format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
         }
 
         if (fromType instanceof VarcharType fromVarcharType) {
@@ -249,7 +253,7 @@ public class HudiPageSource
             else if (toType instanceof DateType toDateType) {
                 return Optional.of(createVarcharToDateCoercer(fromVarcharType, toDateType));
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+            log.warn(format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
         }
 
         if (fromType instanceof IntegerType
@@ -266,7 +270,7 @@ public class HudiPageSource
             else if (toType instanceof DecimalType toDecimalType) {
                 return Optional.of(createIntegerToDecimalCoercer(fromType, toDecimalType));
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+            log.warn(format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
         }
 
         if (fromType instanceof RealType) {
@@ -276,14 +280,14 @@ public class HudiPageSource
             else if (toType instanceof DecimalType toDecimalType) {
                 return Optional.of(createRealToDecimalCoercer(toDecimalType));
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+            log.warn(format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
         }
 
         if (fromType instanceof DoubleType) {
             if (toType instanceof DecimalType toDecimalType) {
                 return Optional.of(createDoubleToDecimalCoercer(toDecimalType));
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+            log.warn(format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
         }
 
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
@@ -299,6 +303,7 @@ public class HudiPageSource
             return Optional.of(createStructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct));
         }
 
-        throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+        log.warn(format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+        return Optional.empty();
     }
 }

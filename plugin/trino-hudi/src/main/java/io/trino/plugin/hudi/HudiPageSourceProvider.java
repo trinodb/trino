@@ -77,6 +77,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -90,11 +91,11 @@ import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.ParquetReaderProvider;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createParquetPageSource;
-import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getColumnIndexStore;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetMessageType;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.getParquetTupleDomain;
@@ -267,7 +268,7 @@ public class HudiPageSourceProvider
             InternalSchema mergedInternalSchema = new InternalSchemaMerger(fileInternalSchema, queryInternalSchema,
                     true, true).mergeSchema();
 
-            Map<Integer, HiveColumnHandle> readColumns = columns.stream().map(column -> {
+            Map<Integer, HiveColumnHandle> readColumnMap = columns.stream().map(column -> {
                 Types.Field mergedField = mergedInternalSchema.findField(column.getBaseHiveColumnIndex());
                 HiveType hiveType = HiveType.toHiveType(getHiveSchemaFromType(mergedField.type()));
                 return createBaseColumn(
@@ -279,7 +280,9 @@ public class HudiPageSourceProvider
                         column.getComment());
             }).collect(toUnmodifiableMap(HiveColumnHandle::getBaseHiveColumnIndex, identity()));
 
-            Optional<MessageType> message = getParquetMessageType(ImmutableList.copyOf(readColumns.values()), useColumnNames, fileSchema);
+            List<HiveColumnHandle> readColumns = readColumnMap.values().stream().sorted(Comparator.comparing(HiveColumnHandle::getBaseHiveColumnIndex)).collect(toUnmodifiableList());
+
+            Optional<MessageType> message = getParquetMessageType(readColumns, useColumnNames, fileSchema);
 
             MessageType requestedSchema = message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
             MessageColumnIO messageColumn = getColumnIO(fileSchema, requestedSchema);
@@ -307,13 +310,14 @@ public class HudiPageSourceProvider
                 nextStart += block.getRowCount();
             }
 
-            Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
+            Optional<ReaderColumns> readerProjections = projectBaseColumns(readColumns);
             List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
                             projection.get().stream()
                                     .map(HiveColumnHandle.class::cast)
                                     .collect(toUnmodifiableList()))
-                    .orElse(columns);
-            Optional<Map<Integer, HiveColumnHandle>> schemaEvolutionColumns = differentColumns(baseColumns, readColumns);
+                    .orElse(readColumns);
+
+            Optional<Map<Integer, HiveColumnHandle>> schemaEvolutionColumns = differentColumns(columns, readColumnMap);
 
             ParquetDataSourceId dataSourceId = dataSource.getId();
             ParquetDataSource finalDataSource = dataSource;
@@ -337,7 +341,7 @@ public class HudiPageSourceProvider
                             baseColumns,
                             fileSchema,
                             messageColumn,
-                            useColumnNames,
+                            schemaEvolutionColumns.isEmpty() ? useColumnNames : false,
                             parquetReaderProvider),
                     schemaEvolutionColumns));
         }
