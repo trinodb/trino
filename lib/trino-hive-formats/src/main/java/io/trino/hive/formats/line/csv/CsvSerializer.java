@@ -75,7 +75,10 @@ public class CsvSerializer
             }
             Block block = page.getBlock(channel);
             if (!block.isNull(position)) {
-                sliceOutput.write(quoteChar);
+                // if quote is zero, quoting is disabled
+                if (quoteChar != '\0') {
+                    sliceOutput.write(quoteChar);
+                }
 
                 Slice value = VARCHAR.getSlice(block, position);
                 if (value.indexOfByte(quoteChar) < 0 && (escapeChar == quoteChar || value.indexOfByte(escapeChar) < 0)) {
@@ -91,7 +94,9 @@ public class CsvSerializer
                     }
                 }
 
-                sliceOutput.write(quoteChar);
+                if (quoteChar != '\0') {
+                    sliceOutput.write(quoteChar);
+                }
             }
         }
     }
