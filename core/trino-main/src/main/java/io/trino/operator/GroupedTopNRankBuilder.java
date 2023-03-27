@@ -42,6 +42,7 @@ public class GroupedTopNRankBuilder
     private final List<Type> sourceTypes;
     private final boolean produceRanking;
     private final GroupByHash groupByHash;
+    private final PageWithPositionComparator comparator;
     private final RowReferencePageManager pageManager = new RowReferencePageManager();
     private final GroupedTopNRankAccumulator groupedTopNRankAccumulator;
 
@@ -58,7 +59,7 @@ public class GroupedTopNRankBuilder
         this.produceRanking = produceRanking;
         this.groupByHash = requireNonNull(groupByHash, "groupByHash is null");
 
-        requireNonNull(comparator, "comparator is null");
+        this.comparator = requireNonNull(comparator, "comparator is null");
         requireNonNull(equalsAndHash, "equalsAndHash is null");
         groupedTopNRankAccumulator = new GroupedTopNRankAccumulator(
                 new RowIdComparisonHashStrategy()
@@ -123,8 +124,13 @@ public class GroupedTopNRankBuilder
 
     private void processPage(Page newPage, GroupByIdBlock groupIds)
     {
-        try (LoadCursor loadCursor = pageManager.add(newPage)) {
-            for (int position = 0; position < newPage.getPositionCount(); position++) {
+        int firstPositionToAdd = groupedTopNRankAccumulator.findFirstPositionToAdd(newPage, groupIds, comparator, pageManager);
+        if (firstPositionToAdd < 0) {
+            return;
+        }
+
+        try (LoadCursor loadCursor = pageManager.add(newPage, firstPositionToAdd)) {
+            for (int position = firstPositionToAdd; position < newPage.getPositionCount(); position++) {
                 long groupId = groupIds.getGroupId(position);
                 loadCursor.advance();
                 groupedTopNRankAccumulator.add(groupId, loadCursor);
