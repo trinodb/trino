@@ -236,6 +236,7 @@ public class MemoryManagerConfig
     {
         NONE,
         TOTAL_RESERVATION_ON_BLOCKED_NODES,
+        BIGGEST_QUERY_ON_BLOCKED_NODES,
         LEAST_WASTE,
         /**/;
 
@@ -246,6 +247,8 @@ public class MemoryManagerConfig
                     return NONE;
                 case "total-reservation-on-blocked-nodes":
                     return TOTAL_RESERVATION_ON_BLOCKED_NODES;
+                case "biggest-query-on-blocked-nodes":
+                    return BIGGEST_QUERY_ON_BLOCKED_NODES;
                 case "least-waste":
                     return LEAST_WASTE;
             }

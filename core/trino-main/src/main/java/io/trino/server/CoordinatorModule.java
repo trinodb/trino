@@ -75,6 +75,7 @@ import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
 import io.trino.failuredetector.FailureDetectorModule;
+import io.trino.memory.BiggestQueryOnBlockedNodesTaskLowMemoryKiller;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.ForMemoryManager;
 import io.trino.memory.LeastWastedEffortTaskLowMemoryKiller;
@@ -215,6 +216,7 @@ public class CoordinatorModule
 
         bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.NONE, NoneLowMemoryKiller.class);
         bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesTaskLowMemoryKiller.class);
+        bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.BIGGEST_QUERY_ON_BLOCKED_NODES, BiggestQueryOnBlockedNodesTaskLowMemoryKiller.class);
         bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.LEAST_WASTE, LeastWastedEffortTaskLowMemoryKiller.class);
         bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.NONE, NoneLowMemoryKiller.class);
         bindLowMemoryQueryKiller(LowMemoryQueryKillerPolicy.TOTAL_RESERVATION, TotalReservationLowMemoryKiller.class);
