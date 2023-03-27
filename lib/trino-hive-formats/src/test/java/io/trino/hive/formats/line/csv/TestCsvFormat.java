@@ -117,6 +117,10 @@ public class TestCsvFormat
         // Note: the quote is ignored in the first value due to strange special handling at beginning of line
         assertLine(true, "\"a\"  ,  \"b\"  ,  \"c\"  ", Arrays.asList("a  ", "b\"  ", "c\"  "));
 
+        // If quote character is `\0` then quoting is simply disabled, even if this would cause output that does not round trip
+        assertTrinoHiveByteForByte(true, Arrays.asList("foo", "bar", "baz"), Optional.of('\t'), Optional.of('\0'), Optional.of('\\'));
+        assertTrinoHiveByteForByte(false, Arrays.asList("f\0\0", "\0bar\0", "baz"), Optional.of('\t'), Optional.of('\0'), Optional.of('\\'));
+
         // These cases don't round trip, because Hive uses different default escape characters for serialization and deserialization.
         // For serialization the pipe character is escaped with a quote char, but for deserialization escape character is the backslash character
         assertTrinoHiveByteForByte(false, Arrays.asList("|", "a", "b"), Optional.empty(), Optional.of('|'), Optional.empty());
