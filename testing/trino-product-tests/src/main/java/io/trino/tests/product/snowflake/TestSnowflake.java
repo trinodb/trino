@@ -21,7 +21,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.SNOWFLAKE;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public class TestSnowflake
@@ -30,7 +30,7 @@ public class TestSnowflake
     @Test(groups = {SNOWFLAKE, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        String tableName = "snowflake.tpch.nation_" + randomTableSuffix();
+        String tableName = "snowflake.tpch.nation_" + randomNameSuffix();
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + tableName);
         QueryResult result = onTrino().executeQuery("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation");
