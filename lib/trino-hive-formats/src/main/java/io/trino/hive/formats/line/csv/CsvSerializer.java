@@ -81,7 +81,8 @@ public class CsvSerializer
                 }
 
                 Slice value = VARCHAR.getSlice(block, position);
-                if (value.indexOfByte(quoteChar) < 0 && (escapeChar == quoteChar || value.indexOfByte(escapeChar) < 0)) {
+                // if escape is zero, escaping is disabled; otherwise, check if value contains quote or escape character
+                if (escapeChar == '\0' || (value.indexOfByte(quoteChar) < 0 && (escapeChar == quoteChar || value.indexOfByte(escapeChar) < 0))) {
                     sliceOutput.appendBytes(value);
                 }
                 else {
