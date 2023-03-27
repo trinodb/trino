@@ -15,15 +15,12 @@ package io.trino.plugin.hudi.partition;
 
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hive.metastore.Table;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface HudiPartitionInfo
 {
-    Table getTable();
-
     String getRelativePartitionPath();
 
     String getHivePartitionName();
