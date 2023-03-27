@@ -149,7 +149,7 @@ public class TransactionLogTail
             if (isFileNotFoundException(e)) {
                 return Optional.empty();  // end of tail
             }
-            throw new IOException(e);
+            throw e;
         }
     }
 
