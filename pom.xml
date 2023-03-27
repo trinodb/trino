@@ -624,6 +624,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-snowflake</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-spi</artifactId>
                 <version>${project.version}</version>
             </dependency>
