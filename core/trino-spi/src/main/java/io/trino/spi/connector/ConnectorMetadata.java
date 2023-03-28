@@ -487,6 +487,18 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Rename the specified field, potentially nested, to a row.
+     *
+     * @param fieldPath path starting with column name.
+     * @param target the new field name. The field position and nested level shouldn't be changed.
+     */
+    @Experimental(eta = "2023-09-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming fields");
+    }
+
+    /**
      * Drop the specified column
      */
     default void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)

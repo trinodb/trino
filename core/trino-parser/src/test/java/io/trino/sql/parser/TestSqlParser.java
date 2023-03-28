@@ -2924,7 +2924,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 13), "foo", false),
                                 new Identifier(location(1, 17), "t", false))),
-                        new Identifier(location(1, 33), "a", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 33), "a", false))),
                         new Identifier(location(1, 38), "b", false),
                         false,
                         false));
@@ -2935,7 +2935,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 23), "foo", false),
                                 new Identifier(location(1, 27), "t", false))),
-                        new Identifier(location(1, 43), "a", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 43), "a", false))),
                         new Identifier(location(1, 48), "b", false),
                         true,
                         false));
@@ -2946,7 +2946,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 13), "foo", false),
                                 new Identifier(location(1, 17), "t", false))),
-                        new Identifier(location(1, 43), "a", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 43), "a", false))),
                         new Identifier(location(1, 48), "b", false),
                         false,
                         true));
@@ -2957,8 +2957,62 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(
                                 new Identifier(location(1, 23), "foo", false),
                                 new Identifier(location(1, 27), "t", false))),
-                        new Identifier(location(1, 53), "a", false),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 53), "a", false))),
                         new Identifier(location(1, 58), "b", false),
+                        true,
+                        true));
+
+        assertThat(statement("ALTER TABLE foo.t RENAME COLUMN c.d TO x"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 33), "c", false), new Identifier(location(1, 35), "d", false))),
+                        new Identifier(location(1, 40), "x", false),
+                        false,
+                        false));
+
+        assertThat(statement("ALTER TABLE foo.t RENAME COLUMN IF EXISTS c.d TO x"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 43), "c", false), new Identifier(location(1, 45), "d", false))),
+                        new Identifier(location(1, 50), "x", false),
+                        false,
+                        true));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN c.d TO x"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "foo", false), new Identifier(location(1, 27), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 43), "c", false), new Identifier(location(1, 45), "d", false))),
+                        new Identifier(location(1, 50), "x", false),
+                        true,
+                        false));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN b.\"c.d\" TO x"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "foo", false), new Identifier(location(1, 27), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 43), "b", false), new Identifier(location(1, 45), "c.d", true))),
+                        new Identifier(location(1, 54), "x", false),
+                        true,
+                        false));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN \"b.c\".d TO x"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "foo", false), new Identifier(location(1, 27), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 43), "b.c", true), new Identifier(location(1, 49), "d", false))),
+                        new Identifier(location(1, 54), "x", false),
+                        true,
+                        false));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN IF EXISTS c.d TO x"))
+                .isEqualTo(new RenameColumn(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 23), "foo", false), new Identifier(location(1, 27), "t", false))),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 53), "c", false), new Identifier(location(1, 55), "d", false))),
+                        new Identifier(location(1, 60), "x", false),
                         true,
                         true));
     }

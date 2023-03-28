@@ -603,6 +603,12 @@ public class MockConnector
         public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target) {}
 
         @Override
+        public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column) {}
 
         @Override

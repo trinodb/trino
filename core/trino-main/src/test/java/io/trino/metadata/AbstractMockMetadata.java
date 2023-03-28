@@ -307,6 +307,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
     {
         throw new UnsupportedOperationException();

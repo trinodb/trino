@@ -76,7 +76,7 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        RENAME COLUMN (IF EXISTS)? from=identifier TO to=identifier    #renameColumn
+        RENAME COLUMN (IF EXISTS)? from=qualifiedName TO to=identifier #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName

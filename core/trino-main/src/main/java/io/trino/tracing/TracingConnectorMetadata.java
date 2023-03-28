@@ -478,6 +478,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        Span span = startSpan("renameField", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            delegate.renameField(session, tableHandle, fieldPath, target);
+        }
+    }
+
+    @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         Span span = startSpan("dropColumn", tableHandle);
