@@ -1556,7 +1556,7 @@ with Parquet files performed by the Hive connector.
       - Adjusts timestamp values to a specific time zone. For Hive 3.1+, set
         this to UTC.
       - JVM default
-    * - ``hive.parquet.use-columns-names``
+    * - ``hive.parquet.use-column-names``
       - Access Parquet columns by name by default. Set this property to
         ``false`` to access columns by their ordinal position in the Hive table
         definition. The equivalent catalog session property is
