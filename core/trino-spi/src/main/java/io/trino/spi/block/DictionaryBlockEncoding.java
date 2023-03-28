@@ -19,8 +19,6 @@ import io.airlift.slice.Slices;
 
 import java.util.Optional;
 
-import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
-
 public class DictionaryBlockEncoding
         implements BlockEncoding
 {
@@ -52,11 +50,6 @@ public class DictionaryBlockEncoding
 
         // ids
         sliceOutput.writeBytes(dictionaryBlock.getIds());
-
-        // instance id
-        sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getMostSignificantBits());
-        sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getLeastSignificantBits());
-        sliceOutput.appendLong(dictionaryBlock.getDictionarySourceId().getSequenceId());
     }
 
     @Override
@@ -72,15 +65,8 @@ public class DictionaryBlockEncoding
         int[] ids = new int[positionCount];
         sliceInput.readBytes(Slices.wrappedIntArray(ids));
 
-        // instance id
-        long mostSignificantBits = sliceInput.readLong();
-        long leastSignificantBits = sliceInput.readLong();
-        long sequenceId = sliceInput.readLong();
-
-        // We always compact the dictionary before we send it. However, dictionaryBlock comes from sliceInput, which may over-retain memory.
-        // As a result, setting dictionaryIsCompacted to true is not appropriate here.
-        // TODO: fix DictionaryBlock so that dictionaryIsCompacted can be set to true when the underlying block over-retains memory.
-        return createProjectedDictionaryBlock(positionCount, dictionaryBlock, ids, new DictionaryId(mostSignificantBits, leastSignificantBits, sequenceId));
+        // flatten the dictionary
+        return dictionaryBlock.copyPositions(ids, 0, ids.length);
     }
 
     @Override
