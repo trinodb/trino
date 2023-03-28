@@ -105,7 +105,7 @@ public final class Standard
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainers(createTrinoMaster(), createTestsContainer());
+        builder.addContainers(createTrinoCoordinator(), createTestsContainer());
         // default catalogs copied from /docker/presto-product-tests
         builder.addConnector("blackhole");
         builder.addConnector("jmx");
@@ -114,7 +114,7 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    private DockerContainer createTrinoMaster()
+    private DockerContainer createTrinoCoordinator()
     {
         DockerContainer container =
                 createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, COORDINATOR)
