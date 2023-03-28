@@ -152,6 +152,7 @@ public class TestDeltaLakeConnectorTest
 
             case SUPPORTS_ADD_FIELD:
             case SUPPORTS_DROP_FIELD:
+            case SUPPORTS_RENAME_FIELD:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 

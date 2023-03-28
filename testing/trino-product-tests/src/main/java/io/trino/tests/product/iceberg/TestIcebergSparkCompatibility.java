@@ -2270,6 +2270,26 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC})
+    public void testRenameNestedField()
+    {
+        String baseTableName = "test_rename_nested_field_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col");
+
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ADD COLUMN col.c integer");
+        assertThat(onTrino().executeQuery("SELECT col.a, col.b.x, col.c FROM " + trinoTableName)).containsOnly(row(1, 10, null));
+        assertThat(onSpark().executeQuery("SELECT col.a, col.b.x, col.c FROM " + sparkTableName)).containsOnly(row(1, 10, null));
+
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " ADD COLUMN col.b.y integer");
+        assertThat(onTrino().executeQuery("SELECT col.a, col.b.x, col.b.y, col.c FROM " + trinoTableName)).containsOnly(row(1, 10, null, null));
+        assertThat(onSpark().executeQuery("SELECT col.a, col.b.x, col.b.y, col.c FROM " + sparkTableName)).containsOnly(row(1, 10, null, null));
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC})
     public void testDropNestedField()
     {
         String baseTableName = "test_drop_nested_field_" + randomNameSuffix();
