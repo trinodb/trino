@@ -31,19 +31,9 @@ public class RenameColumn
     private final boolean tableExists;
     private final boolean columnExists;
 
-    public RenameColumn(QualifiedName table, Identifier source, Identifier target, boolean tableExists, boolean columnExists)
-    {
-        this(Optional.empty(), table, source, target, tableExists, columnExists);
-    }
-
     public RenameColumn(NodeLocation location, QualifiedName table, Identifier source, Identifier target, boolean tableExists, boolean columnExists)
     {
-        this(Optional.of(location), table, source, target, tableExists, columnExists);
-    }
-
-    private RenameColumn(Optional<NodeLocation> location, QualifiedName table, Identifier source, Identifier target, boolean tableExists, boolean columnExists)
-    {
-        super(location);
+        super(Optional.of(location));
         this.table = requireNonNull(table, "table is null");
         this.source = requireNonNull(source, "source is null");
         this.target = requireNonNull(target, "target is null");
