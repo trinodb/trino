@@ -382,10 +382,12 @@ public class TestDeltaLakeMetadata
                 .isEqualTo(Optional.of(expectedProjectedColumns));
 
         assertThat(projection.getProjections())
-                .isEqualToComparingFieldByFieldRecursively(expectedProjections);
+                .usingRecursiveComparison()
+                .isEqualTo(expectedProjections);
 
         assertThat(projection.getAssignments())
-                .isEqualToComparingFieldByFieldRecursively(createNewColumnAssignments(inputAssignments));
+                .usingRecursiveComparison()
+                .isEqualTo(createNewColumnAssignments(inputAssignments));
 
         assertThat(projection.isPrecalculateStatistics())
                 .isFalse();
