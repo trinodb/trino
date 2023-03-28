@@ -52,7 +52,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
@@ -61,13 +60,13 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.testng.Assert.assertFalse;
@@ -683,20 +682,5 @@ public class TestDeltaLakeBasic
                 .filter(log -> log.getMetaData() != null)
                 .collect(onlyElement());
         return transactionLog.getMetaData();
-    }
-
-    private void copyDirectoryContents(Path source, Path destination)
-            throws IOException
-    {
-        try (Stream<Path> stream = Files.walk(source)) {
-            stream.forEach(file -> {
-                try {
-                    Files.copy(file, destination.resolve(source.relativize(file)), REPLACE_EXISTING);
-                }
-                catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        }
     }
 }
