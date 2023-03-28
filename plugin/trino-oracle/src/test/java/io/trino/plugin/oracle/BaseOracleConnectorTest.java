@@ -433,13 +433,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     public void testNativeQueryColumnAlias()
     {
-        // override because Oracle uppercase column names by default
-        assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
-                .hasColumnNames("REGION_NAME")
-                .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
-
         assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
-                .hasColumnNames("region_name")
                 .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
     }
 

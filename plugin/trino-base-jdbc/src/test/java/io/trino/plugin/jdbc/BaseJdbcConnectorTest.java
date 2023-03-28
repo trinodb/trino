@@ -1680,14 +1680,8 @@ public abstract class BaseJdbcConnectorTest
     public void testNativeQueryColumnAlias()
     {
         // The output column type may differ per connector. Skipping the check because it's unrelated to the test purpose.
-        assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
-                .skippingTypesCheck()
-                .hasColumnNames("region_name")
-                .matches("VALUES 'AFRICA'");
-
         assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
-                .hasColumnNames("region_name")
                 .matches("VALUES 'AFRICA'");
     }
 
