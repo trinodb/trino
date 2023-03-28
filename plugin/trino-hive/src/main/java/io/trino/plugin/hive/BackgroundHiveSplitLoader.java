@@ -594,7 +594,6 @@ public class BackgroundHiveSplitLoader
             if (targetInputFormat instanceof JobConfigurable) {
                 ((JobConfigurable) targetInputFormat).configure(targetJob);
             }
-            FileInputFormat.setInputPaths(targetJob, targetPath);
             targetJob.set(FILE_INPUT_FORMAT_INPUT_DIR, StringUtils.escapeString(targetPath.toString()));
             InputSplit[] targetSplits = hdfsEnvironment.doAs(
                     hdfsContext.getIdentity(),
