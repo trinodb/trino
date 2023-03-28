@@ -685,10 +685,20 @@ public class PlanBuilder
         }
     }
 
-    public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol, PartitioningScheme partitioningScheme)
+    public TableFinishNode tableFinish(PlanNode source, WriterTarget target, Symbol rowCountSymbol)
     {
         return new TableFinishNode(
                 idAllocator.getNextId(),
+                source,
+                target,
+                rowCountSymbol,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol, PartitioningScheme partitioningScheme)
+    {
+        return tableFinish(
                 exchange(e -> e
                         .addSource(tableWriter(
                                 ImmutableList.of(rowCountSymbol),
@@ -701,9 +711,7 @@ public class PlanBuilder
                         .addInputsSet(rowCountSymbol)
                         .partitioningScheme(partitioningScheme)),
                 target,
-                rowCountSymbol,
-                Optional.empty(),
-                Optional.empty());
+                rowCountSymbol);
     }
 
     public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported, boolean multipleWritersPerPartitionSupported, OptionalInt maxWriterTasks)
