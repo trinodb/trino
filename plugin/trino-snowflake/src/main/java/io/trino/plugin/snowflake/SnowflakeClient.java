@@ -189,6 +189,9 @@ public class SnowflakeClient
                         VarcharType.createUnboundedVarcharType(), variantReadFunction(), StandardColumnMappings.varcharWriteFunction(),
                         PredicatePushdownController.FULL_PUSHDOWN));
             })
+            .put("varchar", typeHandle -> {
+                return Optional.of(varcharColumnMapping(typeHandle.getRequiredColumnSize()));
+            })
             .put("number", typeHandle -> {
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 int precision = typeHandle.getRequiredColumnSize() + Math.max(-decimalDigits, 0);
@@ -462,6 +465,17 @@ public class SnowflakeClient
         else {
             return ColumnMapping.objectMapping(TimestampWithTimeZoneType.createTimestampWithTimeZoneType(precision), longTimestampWithTimezoneReadFunction(), longTimestampWithTZWriteFunction());
         }
+    }
+
+    private static ColumnMapping varcharColumnMapping(int varcharLength)
+    {
+        VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH
+                ? VarcharType.createVarcharType(varcharLength)
+                : VarcharType.createUnboundedVarcharType();
+        return ColumnMapping.sliceMapping(
+                varcharType,
+                StandardColumnMappings.varcharReadFunction(varcharType),
+                StandardColumnMappings.varcharWriteFunction());
     }
 
     private static ObjectReadFunction longTimestampWithTimezoneReadFunction()
