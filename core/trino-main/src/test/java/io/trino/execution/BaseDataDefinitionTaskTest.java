@@ -352,6 +352,19 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
+        public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            ConnectorTableMetadata metadata = tables.get(tableName);
+            String columnName = ((TestingColumnHandle) source).getName();
+
+            List<ColumnMetadata> columns = metadata.getColumns().stream()
+                    .map(column -> column.getName().equals(columnName) ? ColumnMetadata.builderFrom(column).setName(target).build() : column)
+                    .collect(toImmutableList());
+            tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
+        }
+
+        @Override
         public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle columnHandle, Type type)
         {
             SchemaTableName tableName = getTableName(tableHandle);
