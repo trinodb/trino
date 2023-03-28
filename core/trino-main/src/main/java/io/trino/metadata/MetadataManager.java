@@ -758,6 +758,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.renameField(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), fieldPath, target.toLowerCase(ENGLISH));
+    }
+
+    @Override
     public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
     {
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
