@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -970,11 +969,5 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
-    }
-
-    private void assertThatShowCreateTable(String tableName, String expectedRegex)
-    {
-        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .matches(Pattern.compile(expectedRegex, Pattern.DOTALL));
     }
 }
