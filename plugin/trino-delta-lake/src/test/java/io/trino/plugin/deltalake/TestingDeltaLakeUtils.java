@@ -20,10 +20,14 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public final class TestingDeltaLakeUtils
 {
@@ -44,5 +48,20 @@ public final class TestingDeltaLakeUtils
 
         TableSnapshot snapshot = transactionLogAccess.loadSnapshot(dummyTable, tableLocation, SESSION);
         return transactionLogAccess.getActiveFiles(snapshot, SESSION);
+    }
+
+    public static void copyDirectoryContents(Path source, Path destination)
+            throws IOException
+    {
+        try (Stream<Path> stream = Files.walk(source)) {
+            stream.forEach(file -> {
+                try {
+                    Files.copy(file, destination.resolve(source.relativize(file)), REPLACE_EXISTING);
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
     }
 }
