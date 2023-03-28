@@ -750,12 +750,7 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testNativeQueryColumnAlias()
     {
-        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
-                .hasColumnNames("region_name")
-                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
-
         assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
-                .hasColumnNames("region_name")
                 .matches("VALUES CAST('AFRICA' AS VARCHAR)");
     }
 

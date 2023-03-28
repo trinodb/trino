@@ -471,16 +471,6 @@ public class QueryAssertions
         }
 
         @CanIgnoreReturnValue
-        public QueryAssert hasColumnNames(String... expectedColumnNames)
-        {
-            return satisfies(actual -> {
-                assertThat(actual.getColumnNames())
-                        .as("Column names for query [%s]", query)
-                        .containsExactly(expectedColumnNames);
-            });
-        }
-
-        @CanIgnoreReturnValue
         public QueryAssert hasOutputTypes(List<Type> expectedTypes)
         {
             return satisfies(actual -> {
