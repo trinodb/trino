@@ -35,7 +35,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
  * built against these row IDs, while still enabling bulk memory optimizations such as compaction and lazy loading
  * behind the scenes. Callers are responsible for explicitly de-referencing any rows that are no longer needed.
  */
-public class RowReferencePageManager
+public final class RowReferencePageManager
 {
     private static final long INSTANCE_SIZE = instanceSize(RowReferencePageManager.class);
     private static final long PAGE_ACCOUNTING_INSTANCE_SIZE = instanceSize(PageAccounting.class);
@@ -53,8 +53,7 @@ public class RowReferencePageManager
     {
         checkState(currentCursor == null, "Cursor still active");
 
-        int pageId = pages.allocateId(id -> new PageAccounting(id, page));
-        PageAccounting pageAccounting = pages.get(pageId);
+        PageAccounting pageAccounting = pages.allocateId(id -> new PageAccounting(id, page));
 
         pageAccounting.lockPage();
         currentCursor = new LoadCursor(pageAccounting, () -> {
@@ -157,7 +156,7 @@ public class RowReferencePageManager
      * be preserved with a stable row ID. Row ID generation can be expensive in tight loops, so this allows callers to
      * quickly skip positions that won't be needed.
      */
-    public static class LoadCursor
+    public static final class LoadCursor
             implements RowReference, AutoCloseable
     {
         private final PageAccounting pageAccounting;
@@ -226,7 +225,7 @@ public class RowReferencePageManager
         }
     }
 
-    private class PageAccounting
+    private final class PageAccounting
     {
         private static final int COMPACTION_MIN_FILL_MULTIPLIER = 2;
 
@@ -331,19 +330,19 @@ public class RowReferencePageManager
             int newIndex = 0;
             int[] positionsToKeep = new int[activePositions];
             long[] newRowIds = new long[activePositions];
-            for (int i = 0; i < page.getPositionCount(); i++) {
+            for (int i = 0; i < page.getPositionCount() && newIndex < positionsToKeep.length; i++) {
                 long rowId = rowIds[i];
-                if (rowId != RowIdBuffer.UNKNOWN_ID) {
-                    positionsToKeep[newIndex] = i;
-                    newRowIds[newIndex] = rowId;
-                    rowIdBuffer.setPosition(rowId, newIndex);
-                    newIndex++;
-                }
+                positionsToKeep[newIndex] = i;
+                newRowIds[newIndex] = rowId;
+                newIndex += rowId == RowIdBuffer.UNKNOWN_ID ? 0 : 1;
             }
             verify(newIndex == activePositions);
+            for (int i = 0; i < newRowIds.length; i++) {
+                rowIdBuffer.setPosition(newRowIds[i], i);
+            }
 
             // Compact page
-            page = page.copyPositions(positionsToKeep, 0, activePositions);
+            page = page.copyPositions(positionsToKeep, 0, positionsToKeep.length);
             rowIds = newRowIds;
         }
 
