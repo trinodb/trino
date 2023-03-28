@@ -441,6 +441,15 @@ public class TracingMetadata
     }
 
     @Override
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        Span span = startSpan("renameField", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            delegate.renameField(session, tableHandle, fieldPath, target);
+        }
+    }
+
+    @Override
     public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
     {
         Span span = startSpan("addColumn", table);

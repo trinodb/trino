@@ -238,6 +238,11 @@ public interface Metadata
     void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target);
 
     /**
+     * Rename the specified field.
+     */
+    void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target);
+
+    /**
      * Add the specified column to the table.
      */
     void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column);
