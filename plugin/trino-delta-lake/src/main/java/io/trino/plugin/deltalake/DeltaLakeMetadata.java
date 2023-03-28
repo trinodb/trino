@@ -3185,7 +3185,7 @@ public class DeltaLakeMetadata
     private static OptionalLong getLongValue(Block block)
     {
         if (block.isNull(0)) {
-            return OptionalLong.of(0);
+            return OptionalLong.empty();
         }
         return OptionalLong.of(BIGINT.getLong(block, 0));
     }
