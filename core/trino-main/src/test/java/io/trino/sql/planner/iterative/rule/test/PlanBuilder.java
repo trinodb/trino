@@ -696,7 +696,7 @@ public class PlanBuilder
                 Optional.empty());
     }
 
-    public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol, PartitioningScheme partitioningScheme)
+    public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol)
     {
         return tableFinish(
                 exchange(e -> e
@@ -709,7 +709,7 @@ public class PlanBuilder
                                 source,
                                 rowCountSymbol))
                         .addInputsSet(rowCountSymbol)
-                        .partitioningScheme(partitioningScheme)),
+                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(rowCountSymbol)))),
                 target,
                 rowCountSymbol);
     }
