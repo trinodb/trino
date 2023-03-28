@@ -1051,7 +1051,7 @@ public interface ConnectorMetadata
      */
     default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
-        if (constraint.getSummary().getDomains().isEmpty()) {
+        if (constraint.getSummary().isNone()) {
             throw new IllegalArgumentException("constraint summary is NONE");
         }
         return Optional.empty();
