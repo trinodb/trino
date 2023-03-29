@@ -81,6 +81,11 @@ public class CachingExtendedStatisticsAccess
         cache.invalidate(tableLocation);
     }
 
+    public void invalidateCache()
+    {
+        cache.invalidateAll();
+    }
+
     public void invalidateCache(String tableLocation)
     {
         // for explicit cache invalidation
