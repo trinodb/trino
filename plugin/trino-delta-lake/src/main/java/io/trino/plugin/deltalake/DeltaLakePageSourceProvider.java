@@ -135,9 +135,7 @@ public class DeltaLakePageSourceProvider
             partitionValues = Optional.of(new ArrayList<>());
             for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), typeManager)) {
                 Optional<String> value = partitionKeys.get(column.getName());
-                if (value != null) {
-                    partitionValues.get().add(value.orElse(null));
-                }
+                partitionValues.get().add(value.orElse(null));
             }
         }
 
