@@ -15,7 +15,7 @@ package io.trino.plugin.deltalake;
 
 import io.trino.plugin.hive.metastore.HiveMetastore;
 
-import java.io.File;
+import java.nio.file.Path;
 
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 
@@ -23,8 +23,8 @@ public class TestDeltaLakeSharedFileMetastoreViews
         extends BaseDeltaLakeSharedMetastoreViewsTest
 {
     @Override
-    protected HiveMetastore createTestMetastore(String dataDirectory)
+    protected HiveMetastore createTestMetastore(Path dataDirectory)
     {
-        return createTestingFileHiveMetastore(new File(dataDirectory));
+        return createTestingFileHiveMetastore(dataDirectory.toFile());
     }
 }
