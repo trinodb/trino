@@ -39,6 +39,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.plugin.geospatial.GeoFunctions.stPoint;
@@ -249,7 +250,7 @@ public class TestSpatialJoinPlanning
         LocalQueryRunner queryRunner = getQueryRunner();
         try {
             queryRunner.inTransaction(session, transactionSession -> {
-                queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+                queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 return null;
             });
             fail(format("Expected query to fail: %s", sql));

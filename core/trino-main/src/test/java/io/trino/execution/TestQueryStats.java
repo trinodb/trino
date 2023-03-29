@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.operator.FilterAndProjectOperator;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
+import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -161,6 +162,18 @@ public class TestQueryStats
                     Optional.empty(),
                     null));
 
+    private static final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries = ImmutableList.of(
+            new QueryPlanOptimizerStatistics("io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan",
+                    10L,
+                    1L,
+                    4600,
+                    0),
+            new QueryPlanOptimizerStatistics("io.trino.sql.planner.iterative.rule.PushTopNThroughUnion",
+                    5L,
+                    0L,
+                    499,
+                    0));
+
     public static final QueryStats EXPECTED = new QueryStats(
             new DateTime(1),
             new DateTime(2),
@@ -255,7 +268,8 @@ public class TestQueryStats
 
             DynamicFiltersStats.EMPTY,
 
-            operatorSummaries);
+            operatorSummaries,
+            optimizerRulesSummaries);
 
     @Test
     public void testJson()
@@ -365,5 +379,16 @@ public class TestQueryStats
         assertEquals(58, actual.getLogicalWrittenDataSize().toBytes());
 
         assertEquals(DynamicFiltersStats.EMPTY, actual.getDynamicFiltersStats());
+        assertEquals(actual.getOptimizerRulesSummaries().size(), optimizerRulesSummaries.size());
+        for (int i = 0, end = optimizerRulesSummaries.size(); i < end; i++) {
+            QueryPlanOptimizerStatistics actualRule = actual.getOptimizerRulesSummaries().get(i);
+            QueryPlanOptimizerStatistics expectedRule = optimizerRulesSummaries.get(i);
+
+            assertEquals(actualRule.rule(), expectedRule.rule());
+            assertEquals(actualRule.applied(), expectedRule.applied());
+            assertEquals(actualRule.totalTime(), expectedRule.totalTime());
+            assertEquals(actualRule.invocations(), expectedRule.invocations());
+            assertEquals(actualRule.failures(), expectedRule.failures());
+        }
     }
 }

@@ -124,6 +124,8 @@ public class TestMysqlEventListener
             // not stored
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
+            Collections.emptyList(),
+            // not stored
             Optional.empty());
 
     private static final QueryContext FULL_QUERY_CONTEXT = new QueryContext(
@@ -268,6 +270,7 @@ public class TestMysqlEventListener
             // not stored
             Collections.emptyList(),
             // not stored
+            Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
             // not stored

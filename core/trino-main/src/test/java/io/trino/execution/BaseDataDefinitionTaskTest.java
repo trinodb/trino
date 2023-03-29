@@ -77,6 +77,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -229,6 +230,7 @@ public abstract class BaseDataDefinitionTaskTest
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));

@@ -51,6 +51,7 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -124,7 +125,7 @@ public class BenchmarkPlanner
     {
         return benchmarkData.queryRunner.inTransaction(transactionSession -> {
             return benchmarkData.queries.getQueries().stream()
-                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, benchmarkData.stage, false, WarningCollector.NOOP))
+                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, benchmarkData.stage, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector()))
                     .collect(toImmutableList());
         });
     }

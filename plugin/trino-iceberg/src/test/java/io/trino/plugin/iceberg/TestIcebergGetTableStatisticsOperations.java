@@ -40,6 +40,7 @@ import java.util.Optional;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -136,7 +137,7 @@ public class TestIcebergGetTableStatisticsOperations
     {
         transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getAccessControl())
                 .execute(localQueryRunner.getDefaultSession(), session -> {
-                    localQueryRunner.createPlan(session, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+                    localQueryRunner.createPlan(session, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 }

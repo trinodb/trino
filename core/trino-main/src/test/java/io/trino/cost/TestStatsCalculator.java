@@ -26,6 +26,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -76,7 +77,7 @@ public class TestStatsCalculator
     private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, stage, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
             PlanAssert.assertPlan(
                     transactionSession,
                     queryRunner.getMetadata(),

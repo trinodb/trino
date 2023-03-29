@@ -187,6 +187,7 @@ public class TestHttpEventListener
                 Collections.emptyList(),
                 List.of(new StageOutputBufferUtilization(0, 10, 0.1, 0.5, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 0.0, 1.0, Duration.ofSeconds(1234))),
                 Collections.emptyList(),
+                Collections.emptyList(),
                 Optional.empty());
 
         splitCompleteEvent = new SplitCompletedEvent(

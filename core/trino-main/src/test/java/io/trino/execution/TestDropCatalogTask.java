@@ -33,6 +33,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.testng.Assert.assertFalse;
@@ -110,6 +111,7 @@ public class TestDropCatalogTask
                 directExecutor(),
                 queryRunner.getMetadata(),
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));

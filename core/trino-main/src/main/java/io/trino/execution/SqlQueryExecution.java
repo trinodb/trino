@@ -24,6 +24,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.scheduler.EventDrivenFaultTolerantQueryScheduler;
 import io.trino.execution.scheduler.EventDrivenTaskSourceFactory;
 import io.trino.execution.scheduler.NodeAllocatorService;
@@ -131,6 +132,7 @@ public class SqlQueryExecution
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
     private final TaskDescriptorStorage taskDescriptorStorage;
+    private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -158,6 +160,7 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
             TableExecuteContextManager tableExecuteContextManager,
             TypeAnalyzer typeAnalyzer,
             SqlTaskManager coordinatorTaskManager,
@@ -193,7 +196,7 @@ public class SqlQueryExecution
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
-            this.analysis = analyze(preparedQuery, stateMachine, warningCollector, analyzerFactory);
+            this.analysis = analyze(preparedQuery, stateMachine, warningCollector, planOptimizersStatsCollector, analyzerFactory);
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -211,6 +214,7 @@ public class SqlQueryExecution
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "taskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
+            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "queryStatsCollector is null");
         }
     }
 
@@ -243,6 +247,7 @@ public class SqlQueryExecution
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
             WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
             AnalyzerFactory analyzerFactory)
     {
         stateMachine.beginAnalysis();
@@ -252,7 +257,8 @@ public class SqlQueryExecution
                 stateMachine.getSession(),
                 preparedQuery.getParameters(),
                 bindParameters(preparedQuery.getStatement(), preparedQuery.getParameters()),
-                warningCollector);
+                warningCollector,
+                planOptimizersStatsCollector);
         Analysis analysis;
         try {
             analysis = analyzer.analyze(preparedQuery.getStatement());
@@ -462,7 +468,8 @@ public class SqlQueryExecution
                 typeAnalyzer,
                 statsCalculator,
                 costCalculator,
-                stateMachine.getWarningCollector());
+                stateMachine.getWarningCollector(),
+                planOptimizersStatsCollector);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -809,7 +816,8 @@ public class SqlQueryExecution
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 Slug slug,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                PlanOptimizersStatsCollector planOptimizersStatsCollector)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
@@ -841,6 +849,7 @@ public class SqlQueryExecution
                     costCalculator,
                     dynamicFilterService,
                     warningCollector,
+                    planOptimizersStatsCollector,
                     tableExecuteContextManager,
                     typeAnalyzer,
                     coordinatorTaskManager,

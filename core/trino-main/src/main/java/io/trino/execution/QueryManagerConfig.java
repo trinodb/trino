@@ -80,6 +80,7 @@ public class QueryManagerConfig
     private Duration queryMaxPlanningTime = new Duration(10, TimeUnit.MINUTES);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
     private Optional<DataSize> queryMaxScanPhysicalBytes = Optional.empty();
+    private int queryReportedRuleStatsLimit = 10;
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -418,6 +419,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxScanPhysicalBytes(DataSize queryMaxScanPhysicalBytes)
     {
         this.queryMaxScanPhysicalBytes = Optional.ofNullable(queryMaxScanPhysicalBytes);
+        return this;
+    }
+
+    @Min(1)
+    public int getQueryReportedRuleStatsLimit()
+    {
+        return queryReportedRuleStatsLimit;
+    }
+
+    @Config("query.reported-rule-stats-limit")
+    public QueryManagerConfig setQueryReportedRuleStatsLimit(int queryReportedRuleStatsLimit)
+    {
+        this.queryReportedRuleStatsLimit = queryReportedRuleStatsLimit;
         return this;
     }
 

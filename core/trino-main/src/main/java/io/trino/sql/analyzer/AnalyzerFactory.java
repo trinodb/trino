@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Expression;
@@ -43,7 +44,8 @@ public class AnalyzerFactory
             Session session,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         return new Analyzer(
                 session,
@@ -52,6 +54,7 @@ public class AnalyzerFactory
                 parameters,
                 parameterLookup,
                 warningCollector,
+                planOptimizersStatsCollector,
                 statementRewrite);
     }
 }

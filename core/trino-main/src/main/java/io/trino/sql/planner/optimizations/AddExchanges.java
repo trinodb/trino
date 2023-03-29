@@ -27,6 +27,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.cost.TaskCountEstimator;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.GroupingProperty;
@@ -151,7 +152,15 @@ public class AddExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         PlanWithProperties result = plan.accept(new Rewriter(idAllocator, symbolAllocator, session, tableStatsProvider), PreferredProperties.any());
         return result.getNode();
