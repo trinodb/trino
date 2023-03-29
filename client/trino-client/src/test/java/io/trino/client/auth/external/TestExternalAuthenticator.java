@@ -139,8 +139,7 @@ public class TestExternalAuthenticator
 
         Request authenticated = authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\""));
 
-        assertThat(authenticated.headers())
-                .extracting(headers -> headers.get(AUTHORIZATION))
+        assertThat(authenticated.headers().get(AUTHORIZATION))
                 .isEqualTo("Bearer valid-token");
     }
 
