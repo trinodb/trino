@@ -21,7 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Int128;
+import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -39,9 +39,10 @@ import org.openjdk.jmh.runner.options.WarmupMode;
 import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -58,6 +59,7 @@ import static org.testng.Assert.assertEquals;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkDecimalAggregation
 {
+    private static final Random RANDOM = new Random(633969769);
     private static final int ELEMENT_COUNT = 1_000_000;
 
     @Benchmark
@@ -108,6 +110,9 @@ public class BenchmarkDecimalAggregation
         @Param({"10", "1000"})
         private int groupCount = 10;
 
+        @Param({"0.0", "0.05"})
+        private float nullRate;
+
         private AggregatorFactory partialAggregatorFactory;
         private AggregatorFactory finalAggregatorFactory;
         private GroupByIdBlock groupIds;
@@ -122,19 +127,19 @@ public class BenchmarkDecimalAggregation
             switch (type) {
                 case "SHORT": {
                     DecimalType type = createDecimalType(14, 3);
-                    values = createValues(functionResolution, type, type::writeLong);
+                    values = createValues(functionResolution, type);
                     break;
                 }
                 case "LONG": {
                     DecimalType type = createDecimalType(30, 10);
-                    values = createValues(functionResolution, type, (builder, value) -> type.writeObject(builder, Int128.valueOf(value)));
+                    values = createValues(functionResolution, type);
                     break;
                 }
             }
 
             BlockBuilder ids = BIGINT.createBlockBuilder(null, ELEMENT_COUNT);
             for (int i = 0; i < ELEMENT_COUNT; i++) {
-                BIGINT.writeLong(ids, ThreadLocalRandom.current().nextLong(groupCount));
+                BIGINT.writeLong(ids, RANDOM.nextLong(groupCount));
             }
             groupIds = new GroupByIdBlock(groupCount, ids.build());
             intermediateValues = new Page(createIntermediateValues(partialAggregatorFactory.createGroupedAggregator(), groupIds, values));
@@ -150,17 +155,13 @@ public class BenchmarkDecimalAggregation
             return builder.build();
         }
 
-        private Page createValues(TestingFunctionResolution functionResolution, DecimalType type, ValueWriter writer)
+        private Page createValues(TestingFunctionResolution functionResolution, Type type)
         {
             TestingAggregationFunction implementation = functionResolution.getAggregateFunction(QualifiedName.of(function), fromTypes(type));
             partialAggregatorFactory = implementation.createAggregatorFactory(PARTIAL, ImmutableList.of(0), OptionalInt.empty());
             finalAggregatorFactory = implementation.createAggregatorFactory(FINAL, ImmutableList.of(0), OptionalInt.empty());
 
-            BlockBuilder builder = type.createBlockBuilder(null, ELEMENT_COUNT);
-            for (int i = 0; i < ELEMENT_COUNT; i++) {
-                writer.write(builder, i);
-            }
-            return new Page(builder.build());
+            return new Page(createRandomBlockForType(type, ELEMENT_COUNT, nullRate));
         }
 
         public AggregatorFactory getPartialAggregatorFactory()
@@ -191,11 +192,6 @@ public class BenchmarkDecimalAggregation
         public Page getIntermediateValues()
         {
             return intermediateValues;
-        }
-
-        interface ValueWriter
-        {
-            void write(BlockBuilder valuesBuilder, int value);
         }
     }
 
