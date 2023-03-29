@@ -188,8 +188,8 @@ public abstract class BaseConnectorTest
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.copyOf(mockTableListings.keySet()))
                 .withListTables((session, schemaName) ->
-                        verifyNotNull(mockTableListings.get(schemaName), "No listing function registered for [%s]", schemaName)
-                                .apply(session))
+                    verifyNotNull(mockTableListings.get(schemaName), "No listing function registered for [%s]", schemaName)
+                            .apply(session))
                 .build();
         return new MockConnectorPlugin(connectorFactory);
     }
@@ -1641,9 +1641,9 @@ public abstract class BaseConnectorTest
         // test SHOW COLUMNS
         assertThat(query("SHOW COLUMNS FROM " + viewName))
                 .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                        .row("x", "bigint", "", "")
-                        .row("y", "varchar(3)", "", "")
-                        .build());
+                .row("x", "bigint", "", "")
+                .row("y", "varchar(3)", "", "")
+                .build());
 
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
