@@ -279,7 +279,15 @@ public final class QueryAssertions
             actualResults = resultWithQueryId.getResult().toTestTypes();
         }
         catch (RuntimeException ex) {
-            fail("Execution of 'actual' query failed: " + actual, ex);
+            if (queryId == null && ex instanceof QueryFailedException queryFailedException) {
+                queryId = queryFailedException.getQueryId();
+            }
+            if (queryId != null) {
+                fail("Execution of 'actual' query " + queryId + " failed: " + actual, ex);
+            }
+            else {
+                fail("Execution of 'actual' query failed: " + actual, ex);
+            }
         }
         if (planAssertion.isPresent()) {
             try {
