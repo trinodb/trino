@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg.procedure;
 import com.google.common.base.Enums;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.log.Logger;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -72,6 +74,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
@@ -117,6 +122,7 @@ public class MigrateProcedure
     private final HiveMetastoreFactory metastoreFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
+    private final ExecutorService executor;
     private final int formatVersion;
     private final boolean isUsingSystemSecurity;
 
@@ -145,6 +151,7 @@ public class MigrateProcedure
             @RawHiveMetastoreFactory HiveMetastoreFactory metastoreFactory,
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
+            ExecutorService coreExecutor,
             IcebergConfig icebergConfig,
             IcebergSecurityConfig securityConfig)
     {
@@ -152,6 +159,7 @@ public class MigrateProcedure
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.executor = ExecutorServiceAdapter.from(new BoundedExecutor(coreExecutor, 4 * Runtime.getRuntime().availableProcessors()));
         this.formatVersion = icebergConfig.getFormatVersion();
         this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
     }
@@ -309,12 +317,12 @@ public class MigrateProcedure
     }
 
     private List<DataFile> buildDataFiles(ConnectorSession session, RecursiveDirectory recursive, HiveStorageFormat format, String location, PartitionSpec partitionSpec, StructLike partition, NameMapping nameMapping)
-            throws IOException
+            throws IOException, ExecutionException, InterruptedException
     {
-        // TODO: Introduce parallelism
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         FileIterator files = fileSystem.listFiles(location);
         ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
+        List<Future<DataFile>> futures = new ArrayList<>();
         while (files.hasNext()) {
             FileEntry file = files.next();
             String relativePath = file.location().substring(location.length());
@@ -328,9 +336,13 @@ public class MigrateProcedure
                 throw new TrinoException(NOT_SUPPORTED, "Recursive directory must not exist when recursive_directory argument is 'fail': " + file.location());
             }
 
-            Metrics metrics = loadMetrics(fileSystem, format, file.location(), nameMapping);
-            DataFile dataFile = buildDataFile(file, partition, partitionSpec, format.name(), metrics);
-            dataFilesBuilder.add(dataFile);
+            futures.add(executor.submit(() -> {
+                Metrics metrics = loadMetrics(fileSystem, format, file.location(), nameMapping);
+                return buildDataFile(file, partition, partitionSpec, format.name(), metrics);
+            }));
+        }
+        for (Future<DataFile> future : futures) {
+            dataFilesBuilder.add(future.get());
         }
         List<DataFile> dataFiles = dataFilesBuilder.build();
         log.debug("Found %d files in '%s'", dataFiles.size(), location);
