@@ -13,13 +13,17 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multiset;
+import io.trino.filesystem.TrackingFileSystemFactory;
+import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.parquet.ParquetReaderOptions;
-import io.trino.plugin.deltalake.AccessTrackingFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -29,18 +33,21 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -51,8 +58,8 @@ public class TestTableSnapshot
     private final int domainCompactionThreshold = 32;
 
     private CheckpointSchemaManager checkpointSchemaManager;
-    private AccessTrackingFileSystemFactory accessTrackingFileSystemFactory;
-    private TrinoFileSystem accessTrackingFileSystem;
+    private TrackingFileSystemFactory trackingFileSystemFactory;
+    private TrinoFileSystem trackingFileSystem;
     private String tableLocation;
 
     @BeforeMethod
@@ -62,26 +69,27 @@ public class TestTableSnapshot
         checkpointSchemaManager = new CheckpointSchemaManager(TESTING_TYPE_MANAGER);
         tableLocation = getClass().getClassLoader().getResource("databricks/person").toURI().toString();
 
-        accessTrackingFileSystemFactory = new AccessTrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
-        accessTrackingFileSystem = accessTrackingFileSystemFactory.create(SESSION);
+        trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
+        trackingFileSystem = trackingFileSystemFactory.create(SESSION);
     }
 
     @Test
     public void testOnlyReadsTrailingJsonFiles()
             throws IOException
     {
-        Map<String, Integer> expectedFileAccess = new HashMap<>();
         TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
-        expectedFileAccess.put("_last_checkpoint", 1);
-        expectedFileAccess.put("00000000000000000011.json", 1);
-        expectedFileAccess.put("00000000000000000012.json", 1);
-        expectedFileAccess.put("00000000000000000013.json", 1);
-        expectedFileAccess.put("00000000000000000014.json", 1);
-        assertEquals(accessTrackingFileSystemFactory.getOpenCount(), expectedFileAccess);
+                new SchemaTableName("schema", "person"), trackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
+        Multiset<FileOperation> expectedFileAccess = ImmutableMultiset.<FileOperation>builder()
+                .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
+                .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
+                .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 1)
+                .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 1)
+                .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 1)
+                .build();
+        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(expectedFileAccess);
 
         tableSnapshot.getJsonTransactionLogEntries().forEach(entry -> {});
-        assertEquals(accessTrackingFileSystemFactory.getOpenCount(), expectedFileAccess);
+        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(expectedFileAccess);
     }
 
     // TODO: Can't test the FileSystem access here because the DeltaLakePageSourceProvider doesn't use the FileSystem passed into the TableSnapshot. (https://github.com/trinodb/trino/issues/12040)
@@ -90,10 +98,10 @@ public class TestTableSnapshot
             throws IOException
     {
         TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
+                new SchemaTableName("schema", "person"), trackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
         tableSnapshot.setCachedMetadata(Optional.of(new MetadataEntry("id", "name", "description", null, "schema", ImmutableList.of(), ImmutableMap.of(), 0)));
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                SESSION, ImmutableSet.of(ADD), checkpointSchemaManager, TESTING_TYPE_MANAGER, accessTrackingFileSystem, new FileFormatDataSourceStats())) {
+                SESSION, ImmutableSet.of(ADD), checkpointSchemaManager, TESTING_TYPE_MANAGER, trackingFileSystem, new FileFormatDataSourceStats())) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(9);
@@ -133,7 +141,7 @@ public class TestTableSnapshot
 
         // lets read two entry types in one call; add and protocol
         try (Stream<DeltaLakeTransactionLogEntry> stream = tableSnapshot.getCheckpointTransactionLogEntries(
-                SESSION, ImmutableSet.of(ADD, PROTOCOL), checkpointSchemaManager, TESTING_TYPE_MANAGER, accessTrackingFileSystem, new FileFormatDataSourceStats())) {
+                SESSION, ImmutableSet.of(ADD, PROTOCOL), checkpointSchemaManager, TESTING_TYPE_MANAGER, trackingFileSystem, new FileFormatDataSourceStats())) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
 
             assertThat(entries).hasSize(10);
@@ -179,7 +187,26 @@ public class TestTableSnapshot
             throws IOException
     {
         TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), accessTrackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
+                new SchemaTableName("schema", "person"), trackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
         assertEquals(tableSnapshot.getVersion(), 13L);
+    }
+
+    private Multiset<FileOperation> getOperations()
+    {
+        return trackingFileSystemFactory.getOperationCounts()
+                .entrySet().stream()
+                .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
+                        entry.getKey().getFilePath().replaceFirst(".*/_delta_log/", ""),
+                        entry.getKey().getOperationType())).stream())
+                .collect(toCollection(HashMultiset::create));
+    }
+
+    private record FileOperation(String path, OperationType operationType)
+    {
+        FileOperation
+        {
+            requireNonNull(path, "path is null");
+            requireNonNull(operationType, "operationType is null");
+        }
     }
 }
