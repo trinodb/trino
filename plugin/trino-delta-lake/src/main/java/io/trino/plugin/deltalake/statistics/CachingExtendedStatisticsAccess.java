@@ -95,5 +95,5 @@ public class CachingExtendedStatisticsAccess
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
     @Qualifier
-    public @interface ForCachingExtendedStatisticsAccess {};
+    public @interface ForCachingExtendedStatisticsAccess {}
 }

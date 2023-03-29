@@ -183,7 +183,6 @@ public class TestDeltaLakeSplitManager
             throws ExecutionException, InterruptedException
     {
         ConnectorSplitSource splitSource = splitManager.getSplits(
-                // ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle handle, SplitSchedulingStrategy splitSchedulingStrategy
                 new HiveTransactionHandle(false),
                 testingConnectorSessionWithConfig(deltaLakeConfig),
                 tableHandle,
