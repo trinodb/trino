@@ -108,7 +108,7 @@ public class TestIcebergGlueCreateTableFailure
         dataDirectory = Files.createTempDirectory("test_iceberg_create_table_failure");
         dataDirectory.toFile().deleteOnExit();
 
-        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory.toString());
+        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory);
         fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(TestingConnectorSession.SESSION);
 
         Database database = Database.builder()
