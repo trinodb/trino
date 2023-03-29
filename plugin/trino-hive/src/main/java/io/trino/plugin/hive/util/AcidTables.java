@@ -312,8 +312,7 @@ public final class AcidTables
         FileIterator iterator = fileSystem.listFiles(directory);
         while (iterator.hasNext()) {
             FileEntry file = iterator.next();
-            String name = new Path(file.location()).getName();
-            if (!name.startsWith("_") && !name.startsWith(".")) {
+            if (!file.location().contains("/_") && !file.location().contains("/.")) {
                 files.add(file);
             }
         }
