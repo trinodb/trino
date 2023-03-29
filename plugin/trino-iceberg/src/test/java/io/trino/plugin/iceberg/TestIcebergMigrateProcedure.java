@@ -41,8 +41,8 @@ public class TestIcebergMigrateProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().build();
-        dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        dataDirectory = Files.createTempDirectory("_test_hidden");
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
         queryRunner.installPlugin(new TestingHivePlugin());
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "file")
