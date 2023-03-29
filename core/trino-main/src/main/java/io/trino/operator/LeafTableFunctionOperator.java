@@ -25,6 +25,7 @@ import io.trino.spi.ptf.TableFunctionProcessorState;
 import io.trino.spi.ptf.TableFunctionProcessorState.Blocked;
 import io.trino.spi.ptf.TableFunctionProcessorState.Processed;
 import io.trino.spi.ptf.TableFunctionSplitProcessor;
+import io.trino.split.EmptySplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
@@ -167,6 +168,12 @@ public class LeafTableFunctionOperator
                 return null;
             }
             currentSplit = pendingSplits.remove(0);
+            while (currentSplit instanceof EmptySplit) {
+                if (pendingSplits.isEmpty()) {
+                    return null;
+                }
+                currentSplit = pendingSplits.remove(0);
+            }
             resetProcessor();
         }
         else {
