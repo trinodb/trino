@@ -92,12 +92,14 @@ public class PushPredicateIntoTableScan
     private final TypeAnalyzer typeAnalyzer;
 
     private final boolean pruneWithPredicateExpression;
+    private final int which;
 
-    public PushPredicateIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, boolean pruneWithPredicateExpression)
+    public PushPredicateIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, boolean pruneWithPredicateExpression, int which)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.pruneWithPredicateExpression = pruneWithPredicateExpression;
+        this.which = which;
     }
 
     @Override
@@ -126,7 +128,8 @@ public class PushPredicateIntoTableScan
                 plannerContext,
                 typeAnalyzer,
                 context.getStatsProvider(),
-                new DomainTranslator(plannerContext));
+                new DomainTranslator(plannerContext),
+                which);
 
         if (rewritten.isEmpty() || arePlansSame(filterNode, tableScan, rewritten.get())) {
             return Result.empty();
@@ -162,7 +165,8 @@ public class PushPredicateIntoTableScan
             PlannerContext plannerContext,
             TypeAnalyzer typeAnalyzer,
             StatsProvider statsProvider,
-            DomainTranslator domainTranslator)
+            DomainTranslator domainTranslator,
+            int which)
     {
         if (!isAllowPushdownIntoConnectors(session)) {
             return Optional.empty();
@@ -238,8 +242,7 @@ public class PushPredicateIntoTableScan
         }
 
         if (newDomain.isNone()) {
-            // This is just for extra safety, the rule RemoveFalseFiltersAfterDomainTranslator is responsible for eliminating such filters
-            return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
+            throw new RuntimeException("none! " + which);
         }
 
         Optional<ConstraintApplicationResult<TableHandle>> result = plannerContext.getMetadata().applyFilter(session, node.getTable(), constraint);

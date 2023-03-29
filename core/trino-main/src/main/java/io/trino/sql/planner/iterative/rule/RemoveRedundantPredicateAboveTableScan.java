@@ -106,11 +106,6 @@ public class RemoveRedundantPredicateAboveTableScan
         TupleDomain<ColumnHandle> predicateDomain = decomposedPredicate.getTupleDomain()
                 .transformKeys(node.getAssignments()::get);
 
-        if (predicateDomain.isNone()) {
-            // This is just for extra safety, the rule RemoveFalseFiltersAfterDomainTranslator is responsible for eliminating such filters
-            return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
-        }
-
         if (node.getEnforcedConstraint().isNone()) {
             // table scans with none domain should be converted to ValuesNode
             return Result.ofPlanNode(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));

@@ -911,9 +911,13 @@ public final class DomainTranslator
 
         private Optional<Object> floorValue(Type fromType, Type toType, Object value)
         {
-            if (typeCoercion.canCoerce(fromType, toType)) {
-                return getSaturatedFloorCastOperator(fromType, toType)
-                        .map(operator -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
+            Optional<ResolvedFunction> operator = getSaturatedFloorCastOperator(fromType, toType);
+            if (operator.isPresent()) {
+                try {
+                    return Optional.of(functionInvoker.invoke(operator.get(), session.toConnectorSession(), value));
+                }
+                catch (TrinoException ignored) {
+                }
             }
             return Optional.empty();
         }

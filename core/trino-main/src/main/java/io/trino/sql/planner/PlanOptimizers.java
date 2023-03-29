@@ -578,6 +578,7 @@ public class PlanOptimizers
                                 .addAll(columnPruningRules)
                                 .add(new InlineProjections(plannerContext, typeAnalyzer))
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
+                                .add(new RemoveFalseFiltersAfterDomainTranslator(plannerContext))   // Because of PushPredicateIntoTableScan #1 (for example, run TestDistributedEngineOnlyQueries#testCorrelatedExistsSubqueriesWithPrunedCorrelationSymbols)
                                 .build()));
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used
@@ -596,7 +597,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new ApplyTableScanRedirection(plannerContext),
                                 new PruneTableScanColumns(metadata),
-                                new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))));
+                                new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false, 1))));
 
         Set<Rule<?>> pushIntoTableScanRulesExceptJoins = ImmutableSet.<Rule<?>>builder()
                 .addAll(columnPruningRules)
@@ -604,7 +605,7 @@ public class PlanOptimizers
                 .add(new PushProjectionIntoTableScan(plannerContext, typeAnalyzer, scalarStatsCalculator))
                 .add(new RemoveRedundantIdentityProjections())
                 .add(new PushLimitIntoTableScan(metadata))
-                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false, 2))
                 .add(new PushSampleIntoTableScan(metadata))
                 .add(new PushAggregationIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushDistinctLimitIntoTableScan(plannerContext, typeAnalyzer))
@@ -668,7 +669,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false, 3))
                                 .build()),
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
@@ -733,7 +734,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false, 4))
                                 .build()),
                 pushProjectionIntoTableScanOptimizer,
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
@@ -747,7 +748,7 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                                .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false, 5))
                                 .build()),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
@@ -822,7 +823,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.of(
-                        new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, true),
+                        new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, true, 6),
                         new RemoveEmptyUnionBranches(),
                         new EvaluateEmptyIntersect(),
                         new RemoveEmptyExceptBranches(),
@@ -917,7 +918,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
-                        .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                        .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false, 7))
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext, typeAnalyzer))
                         .build()));
         builder.add(inlineProjections);

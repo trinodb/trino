@@ -629,7 +629,8 @@ public class AddExchanges
                         plannerContext,
                         typeAnalyzer,
                         statsProvider,
-                        domainTranslator);
+                        domainTranslator,
+                        -1);
                 if (plan.isPresent()) {
                     return new PlanWithProperties(plan.get(), derivePropertiesRecursively(plan.get()));
                 }

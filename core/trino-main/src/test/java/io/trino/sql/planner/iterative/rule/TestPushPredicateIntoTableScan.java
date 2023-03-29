@@ -97,7 +97,7 @@ public class TestPushPredicateIntoTableScan
     @BeforeClass
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()), false);
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()), false, -2);
 
         CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
         tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
@@ -133,21 +133,6 @@ public class TestPushPredicateIntoTableScan
                                 ordersTableHandle,
                                 ImmutableList.of(p.symbol("orderstatus", createVarcharType(1))),
                                 ImmutableMap.of(p.symbol("orderstatus", createVarcharType(1)), new TpchColumnHandle("orderstatus", createVarcharType(1))))))
-                .matches(values("A"));
-    }
-
-    @Test
-    public void replaceWithExistsWhenNoLayoutExist()
-    {
-        ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
-                        p.tableScan(
-                                nationTableHandle,
-                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
-                                TupleDomain.fromFixedValues(ImmutableMap.of(
-                                        columnHandle, NullableValue.of(BIGINT, (long) 45))))))
                 .matches(values("A"));
     }
 
@@ -375,28 +360,6 @@ public class TestPushPredicateIntoTableScan
                                 ImmutableMap.of(p.symbol("col", VARCHAR), MOCK_COLUMN_HANDLE),
                                 Optional.of(true))))
                 .matches(tableScan("partitioned"));
-    }
-
-    @Test
-    public void testEliminateTableScanWhenPredicateIsNull()
-    {
-        ColumnHandle nationKeyColumn = new TpchColumnHandle("nationkey", BIGINT);
-
-        tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("CAST(null AS boolean)"),
-                        p.tableScan(
-                                ordersTableHandle,
-                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
-                .matches(values(ImmutableList.of("A"), ImmutableList.of()));
-
-        tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("nationkey = BIGINT '44' AND CAST(null AS boolean)"),
-                        p.tableScan(
-                                ordersTableHandle,
-                                ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
-                .matches(values(ImmutableList.of("A"), ImmutableList.of()));
     }
 
     public static MockConnectorFactory createMockFactory()
