@@ -143,6 +143,13 @@ public class TestMongoConnectorTest
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
     }
 
+    @Test
+    public void testProjectionPushdown()
+    {
+        assertThat(query("SELECT orderdate, clerk FROM orders"))
+                .isFullyPushedDown();
+    }
+
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
@@ -799,7 +806,8 @@ public class TestMongoConnectorTest
     public void testNativeQueryProjection()
     {
         assertThat(query("SELECT name FROM TABLE(mongodb.system.query(database => 'tpch', collection => 'region', filter => '{}'))"))
-                .matches("SELECT name FROM region");
+                .matches("SELECT name FROM region")
+                .isFullyPushedDown();
     }
 
     @Test

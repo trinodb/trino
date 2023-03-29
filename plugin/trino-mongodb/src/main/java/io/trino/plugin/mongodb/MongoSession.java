@@ -69,6 +69,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -454,6 +455,9 @@ public class MongoSession
 
     public MongoCursor<Document> execute(MongoTableHandle tableHandle, List<MongoColumnHandle> columns)
     {
+        Set<MongoColumnHandle> projectedColumns = tableHandle.getProjectedColumns();
+        checkArgument(projectedColumns.isEmpty() || projectedColumns.equals(new HashSet<>(columns)), "Columns and projected columns must be equal");
+
         Document output = new Document();
         for (MongoColumnHandle column : columns) {
             output.append(column.getName(), 1);
