@@ -72,7 +72,6 @@ public class PruneTableFunctionProcessorColumns
         return Optional.of(new TableFunctionProcessorNode(
                 node.getId(),
                 node.getName(),
-                node.getFunctionCatalog(),
                 node.getProperOutputs(),
                 node.getSource(),
                 node.isPruneWhenEmpty(),

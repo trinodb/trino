@@ -388,7 +388,6 @@ public class UnaliasSymbolReferences
                         new TableFunctionProcessorNode(
                                 node.getId(),
                                 node.getName(),
-                                node.getFunctionCatalog(),
                                 mapper.map(node.getProperOutputs()),
                                 Optional.empty(),
                                 node.isPruneWhenEmpty(),
