@@ -117,6 +117,8 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/000002_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/random", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/_done", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/000000_0", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/abc/000000_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/subdir/000000_0", 0, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
@@ -147,6 +149,8 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/000002_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/random", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/_done", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/000000_0", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/delta_025_025/000000_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/subdir/000000_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_025_025/bucket_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_029_029/bucket_0", 0, FAKE_DATA),
@@ -185,6 +189,8 @@ public class TestAcidTables
             throws Exception
     {
         MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+                new MockFile("mock:/tbl/part1/_tmp/bucket_0", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/base_5/bucket_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_5/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_10/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_49/bucket_0", 500, FAKE_DATA),
