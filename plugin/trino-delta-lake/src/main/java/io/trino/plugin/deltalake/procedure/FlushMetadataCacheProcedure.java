@@ -47,10 +47,6 @@ public class FlushMetadataCacheProcedure
     private static final String PARAM_SCHEMA_NAME = "SCHEMA_NAME";
     private static final String PARAM_TABLE_NAME = "TABLE_NAME";
 
-    private final HiveMetastoreFactory metastoreFactory;
-    private final Optional<CachingHiveMetastore> cachingHiveMetastore;
-    private final TransactionLogAccess transactionLogAccess;
-
     private static final MethodHandle FLUSH_METADATA_CACHE;
 
     static {
@@ -61,6 +57,10 @@ public class FlushMetadataCacheProcedure
             throw new AssertionError(e);
         }
     }
+
+    private final HiveMetastoreFactory metastoreFactory;
+    private final Optional<CachingHiveMetastore> cachingHiveMetastore;
+    private final TransactionLogAccess transactionLogAccess;
 
     @Inject
     public FlushMetadataCacheProcedure(
