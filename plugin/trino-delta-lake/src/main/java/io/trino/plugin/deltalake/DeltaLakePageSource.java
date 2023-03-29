@@ -66,7 +66,7 @@ public class DeltaLakePageSource
             List<DeltaLakeColumnHandle> columns,
             Set<String> missingColumnNames,
             Map<String, Optional<String>> partitionKeys,
-            List<String> partitionValues,
+            Optional<List<String>> partitionValues,
             ConnectorPageSource delegate,
             String path,
             long fileSize,
@@ -109,7 +109,7 @@ public class DeltaLakePageSource
             else if (column.getName().equals(ROW_ID_COLUMN_NAME)) {
                 rowIdIndex = outputIndex;
                 pathBlock = Utils.nativeValueToBlock(VARCHAR, utf8Slice(path));
-                partitionsBlock = Utils.nativeValueToBlock(VARCHAR, wrappedBuffer(PARTITIONS_CODEC.toJsonBytes(partitionValues)));
+                partitionsBlock = Utils.nativeValueToBlock(VARCHAR, wrappedBuffer(PARTITIONS_CODEC.toJsonBytes(partitionValues.orElseThrow(() -> new IllegalStateException("partitionValues not provided")))));
                 delegateIndexes[outputIndex] = delegateIndex;
                 delegateIndex++;
             }
