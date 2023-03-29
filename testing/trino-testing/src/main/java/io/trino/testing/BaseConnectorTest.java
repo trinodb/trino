@@ -164,6 +164,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
+
 /**
  * Generic test for connectors.
  */
@@ -187,8 +188,8 @@ public abstract class BaseConnectorTest
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.copyOf(mockTableListings.keySet()))
                 .withListTables((session, schemaName) ->
-                    verifyNotNull(mockTableListings.get(schemaName), "No listing function registered for [%s]", schemaName)
-                            .apply(session))
+                        verifyNotNull(mockTableListings.get(schemaName), "No listing function registered for [%s]", schemaName)
+                                .apply(session))
                 .build();
         return new MockConnectorPlugin(connectorFactory);
     }
@@ -1640,9 +1641,9 @@ public abstract class BaseConnectorTest
         // test SHOW COLUMNS
         assertThat(query("SHOW COLUMNS FROM " + viewName))
                 .matches(resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("x", "bigint", "", "")
-                .row("y", "varchar(3)", "", "")
-                .build());
+                        .row("x", "bigint", "", "")
+                        .row("y", "varchar(3)", "", "")
+                        .build());
 
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
@@ -2624,25 +2625,23 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testSetColumnType() {
+    public void testSetColumnType()
+    {
+        if (!hasBehavior(SUPPORTS_SET_COLUMN_TYPE)) {
+            assertQueryFails("ALTER TABLE nation ALTER COLUMN nationkey SET DATA TYPE bigint", "This connector does not support setting column types");
+            return;
+        }
+
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        String tableName = "test_set_column_type";
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double NOT NULL, c varchar(50)) WITH (order_by=ARRAY['b'], engine = 'MergeTree')");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", "AS SELECT CAST(123 AS integer) AS col")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE bigint");
 
-        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN a SET DATA TYPE varchar(50)");
-
-        assertEquals(getColumnType(tableName, "a"), "varchar");
-        assertThat((String) computeScalar("show create table " + tableName)).contains("CREATE TABLE clickhouse.tpch.test_set_column_type (\n" +
-                "   a varchar NOT NULL,\n" +
-                "   b double NOT NULL,\n" +
-                "   c varchar\n" +
-                ")\n" +
-                "WITH (\n" +
-                "   engine = 'MERGETREE',\n" +
-                "   order_by = ARRAY['b'],\n" +
-                "   primary_key = ARRAY['b']\n" +
-                ")");
+            assertEquals(getColumnType(table.getName(), "col"), "bigint");
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES bigint '123'");
+        }
     }
 
     @Test(dataProvider = "setColumnTypesDataProvider")
@@ -2813,14 +2812,10 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        String tableName = "test_set_column_type";
-        assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
-        assertUpdate("insert into " + tableName + " values(9223372036854775807, 22)", "SELECT count(*) FROM " + tableName);
-//ass("insert into " + tableName + " values(44, 22)");
-
-//            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
-//                    .satisfies(this::verifySetColumnTypeFailurePermissible);
-//        }
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_invalid_range_", "AS SELECT CAST(9223372036854775807 AS bigint) AS col")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
+                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+        }
     }
 
     protected void verifySetColumnTypeFailurePermissible(Throwable e)
