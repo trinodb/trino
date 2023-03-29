@@ -36,6 +36,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -51,7 +52,7 @@ import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@Test(singleThreaded = true) // e.g. TrackingFileSystemFactory is shared mutable state
 public class TestTableSnapshot
 {
     private final ParquetReaderOptions parquetReaderOptions = new ParquetReaderConfig().toParquetReaderOptions();
@@ -75,21 +76,27 @@ public class TestTableSnapshot
 
     @Test
     public void testOnlyReadsTrailingJsonFiles()
-            throws IOException
+            throws Exception
     {
-        TableSnapshot tableSnapshot = TableSnapshot.load(
-                new SchemaTableName("schema", "person"), trackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold);
-        Multiset<FileOperation> expectedFileAccess = ImmutableMultiset.<FileOperation>builder()
-                .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
-                .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
-                .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 1)
-                .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 1)
-                .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 1)
-                .build();
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(expectedFileAccess);
+        AtomicReference<TableSnapshot> tableSnapshot = new AtomicReference<>();
+        assertFileSystemAccesses(
+                () -> {
+                    tableSnapshot.set(TableSnapshot.load(
+                            new SchemaTableName("schema", "person"), trackingFileSystem, tableLocation, parquetReaderOptions, true, domainCompactionThreshold));
+                },
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 1)
+                        .build());
 
-        tableSnapshot.getJsonTransactionLogEntries().forEach(entry -> {});
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(expectedFileAccess);
+        assertFileSystemAccesses(
+                () -> {
+                    tableSnapshot.get().getJsonTransactionLogEntries().forEach(entry -> {});
+                },
+                ImmutableMultiset.of());
     }
 
     // TODO: Can't test the FileSystem access here because the DeltaLakePageSourceProvider doesn't use the FileSystem passed into the TableSnapshot. (https://github.com/trinodb/trino/issues/12040)
@@ -191,6 +198,14 @@ public class TestTableSnapshot
         assertEquals(tableSnapshot.getVersion(), 13L);
     }
 
+    private void assertFileSystemAccesses(ThrowingRunnable callback, Multiset<FileOperation> expectedAccesses)
+            throws Exception
+    {
+        trackingFileSystemFactory.reset();
+        callback.run();
+        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(expectedAccesses);
+    }
+
     private Multiset<FileOperation> getOperations()
     {
         return trackingFileSystemFactory.getOperationCounts()
@@ -208,5 +223,11 @@ public class TestTableSnapshot
             requireNonNull(path, "path is null");
             requireNonNull(operationType, "operationType is null");
         }
+    }
+
+    private interface ThrowingRunnable
+    {
+        void run()
+                throws Exception;
     }
 }
