@@ -88,7 +88,6 @@ public class PruneTableFunctionProcessorSourceColumns
                 .map(child -> Result.ofPlanNode(new TableFunctionProcessorNode(
                         node.getId(),
                         node.getName(),
-                        node.getFunctionCatalog(),
                         node.getProperOutputs(),
                         Optional.of(child),
                         node.isPruneWhenEmpty(),

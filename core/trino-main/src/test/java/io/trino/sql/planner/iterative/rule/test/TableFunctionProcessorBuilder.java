@@ -120,7 +120,6 @@ public class TableFunctionProcessorBuilder
         return new TableFunctionProcessorNode(
                 idAllocator.getNextId(),
                 name,
-                TEST_CATALOG_HANDLE,
                 properOutputs,
                 source,
                 pruneWhenEmpty,
