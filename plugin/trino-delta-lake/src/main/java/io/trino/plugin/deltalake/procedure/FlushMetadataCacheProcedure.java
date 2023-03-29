@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -61,16 +62,19 @@ public class FlushMetadataCacheProcedure
     private final HiveMetastoreFactory metastoreFactory;
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
     private final TransactionLogAccess transactionLogAccess;
+    private final CachingExtendedStatisticsAccess extendedStatisticsAccess;
 
     @Inject
     public FlushMetadataCacheProcedure(
             HiveMetastoreFactory metastoreFactory,
             Optional<CachingHiveMetastore> cachingHiveMetastore,
-            TransactionLogAccess transactionLogAccess)
+            TransactionLogAccess transactionLogAccess,
+            CachingExtendedStatisticsAccess extendedStatisticsAccess)
     {
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
         this.cachingHiveMetastore = requireNonNull(cachingHiveMetastore, "cachingHiveMetastore is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
+        this.extendedStatisticsAccess = requireNonNull(extendedStatisticsAccess, "extendedStatisticsAccess is null");
     }
 
     @Override
@@ -98,6 +102,7 @@ public class FlushMetadataCacheProcedure
         if (schemaName.isEmpty() && tableName.isEmpty()) {
             cachingHiveMetastore.ifPresent(CachingHiveMetastore::flushCache);
             transactionLogAccess.flushCache();
+            extendedStatisticsAccess.invalidateCache();
         }
         else if (schemaName.isPresent() && tableName.isPresent()) {
             HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
@@ -105,7 +110,9 @@ public class FlushMetadataCacheProcedure
                             .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schemaName.get(), tableName.get())));
             verifyDeltaLakeTable(table);
             cachingHiveMetastore.ifPresent(caching -> caching.invalidateTable(table.getDatabaseName(), table.getTableName()));
-            transactionLogAccess.invalidateCaches(getTableLocation(table));
+            String tableLocation = getTableLocation(table);
+            transactionLogAccess.invalidateCaches(tableLocation);
+            extendedStatisticsAccess.invalidateCache(tableLocation);
         }
         else {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Illegal parameter set passed");
