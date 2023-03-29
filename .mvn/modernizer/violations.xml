@@ -31,6 +31,12 @@
     </violation>
 
     <violation>
+        <name>java/lang/String.toString:()Ljava/lang/String;</name>
+        <version>1.1</version>
+        <comment>Call to toString() is redundant</comment>
+    </violation>
+
+    <violation>
         <!-- File.getPath() is the canonical way to convert File to its String representation suitable for passing to new File() -->
         <name>java/io/File.toString:()Ljava/lang/String;</name>
         <version>1.1</version>
