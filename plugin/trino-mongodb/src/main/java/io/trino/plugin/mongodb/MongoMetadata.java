@@ -15,6 +15,7 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.common.io.Closer;
 import com.mongodb.client.MongoCollection;
@@ -23,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.mongodb.MongoIndex.MongodbIndexKey;
 import io.trino.plugin.mongodb.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -39,12 +41,14 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.NotFoundException;
+import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
@@ -552,7 +556,7 @@ public class MongoMetadata
         }
 
         return Optional.of(new LimitApplicationResult<>(
-                new MongoTableHandle(handle.getSchemaTableName(), handle.getRemoteTableName(), handle.getFilter(), handle.getConstraint(), OptionalInt.of(toIntExact(limit))),
+                new MongoTableHandle(handle.getSchemaTableName(), handle.getRemoteTableName(), handle.getFilter(), handle.getConstraint(), handle.getProjectedColumns(), OptionalInt.of(toIntExact(limit))),
                 true,
                 false));
     }
@@ -599,9 +603,39 @@ public class MongoMetadata
                 handle.getRemoteTableName(),
                 handle.getFilter(),
                 newDomain,
+                handle.getProjectedColumns(),
                 handle.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
+    }
+
+    @Override
+    public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            List<ConnectorExpression> projections,
+            Map<String, ColumnHandle> assignments)
+    {
+        MongoTableHandle mongoTableHandle = (MongoTableHandle) handle;
+
+        Set<ColumnHandle> newColumns = ImmutableSet.copyOf(assignments.values());
+
+        if (newColumns.equals(mongoTableHandle.getProjectedColumns())) {
+            return Optional.empty();
+        }
+
+        // TODO: support dereference pushdown
+        ImmutableSet.Builder<MongoColumnHandle> projectedColumns = ImmutableSet.builder();
+        ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
+        assignments.forEach((name, column) -> {
+            MongoColumnHandle columnHandle = (MongoColumnHandle) column;
+            assignmentList.add(new Assignment(name, column, columnHandle.getType()));
+            projectedColumns.add(columnHandle);
+        });
+
+        mongoTableHandle = mongoTableHandle.withProjectedColumns(projectedColumns.build());
+
+        return Optional.of(new ProjectionApplicationResult<>(mongoTableHandle, projections, assignmentList.build(), false));
     }
 
     @Override

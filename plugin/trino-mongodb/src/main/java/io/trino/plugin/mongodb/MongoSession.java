@@ -455,8 +455,16 @@ public class MongoSession
     public MongoCursor<Document> execute(MongoTableHandle tableHandle, List<MongoColumnHandle> columns)
     {
         Document output = new Document();
-        for (MongoColumnHandle column : columns) {
-            output.append(column.getName(), 1);
+
+        if (!tableHandle.getProjectedColumns().isEmpty()) {
+            for (MongoColumnHandle column : tableHandle.getProjectedColumns()) {
+                output.append(column.getName(), 1);
+            }
+        }
+        else {
+            for (MongoColumnHandle column : columns) {
+                output.append(column.getName(), 1);
+            }
         }
         MongoCollection<Document> collection = getCollection(tableHandle.getRemoteTableName());
         Document filter = buildFilter(tableHandle);

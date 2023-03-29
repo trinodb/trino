@@ -143,6 +143,12 @@ public class TestMongoConnectorTest
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
     }
 
+    @Test
+    public void testProjectionPushdown()
+    {
+        assertThat(query("SELECT orderdate, clerk FROM orders")).isFullyPushedDown();
+    }
+
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
