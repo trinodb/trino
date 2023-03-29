@@ -155,6 +155,16 @@ it is terminated. The time includes time for analysis and planning, but also
 time spend in a queue waiting, so essentially this is the time allowed for a
 query to exist since creation.
 
+``query.max-scan-physical-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-data-size`
+* **Session property:** ``query_max_scan_physical_bytes``
+
+The maximum number of bytes that can be scanned by a query during its execution.
+When this limit is reached, query processing is terminated to prevent excessive
+resource usage.
+
 ``query.max-stage-count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
