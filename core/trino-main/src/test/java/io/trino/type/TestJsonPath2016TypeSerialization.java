@@ -38,6 +38,7 @@ import io.trino.json.ir.IrNamedJsonVariable;
 import io.trino.json.ir.IrNamedValueVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrTypeMethod;
+import io.trino.json.ir.IrUnfoldMethod;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
@@ -116,6 +117,7 @@ public class TestJsonPath2016TypeSerialization
         assertJsonRoundTrip(new IrJsonPath(true, new IrKeyValueMethod(new IrJsonNull())));
         assertJsonRoundTrip(new IrJsonPath(true, new IrSizeMethod(new IrJsonNull(), Optional.of(INTEGER))));
         assertJsonRoundTrip(new IrJsonPath(true, new IrTypeMethod(new IrJsonNull(), Optional.of(createVarcharType(7)))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrUnfoldMethod(new IrJsonNull())));
     }
 
     @Test

@@ -423,4 +423,25 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $var' PASSING null FORMAT JSON AS \"var\" EMPTY ARRAY ON EMPTY)"))
                 .matches("VALUES cast('[]' AS  varchar)");
     }
+
+    @Test
+    public void testUnfoldMethod()
+    {
+        assertThat(assertions.query("""
+                SELECT json_query(
+                                '{"a" : {"b" : 1}, "c" :  [true, {"d" : {"e" : null}}]}',
+                                'lax $.unfold()'
+                                WITH ARRAY WRAPPER)
+                """))
+                .matches("VALUES cast('[" +
+                        "{\"node\":{\"a\":{\"b\":1},\"c\":[true,{\"d\":{\"e\":null}}]},\"path\":[]}," +
+                        "{\"node\":{\"b\":1},\"path\":[\"a\"]}," +
+                        "{\"node\":1,\"path\":[\"a\",\"b\"]}," +
+                        "{\"node\":[true,{\"d\":{\"e\":null}}],\"path\":[\"c\"]}," +
+                        "{\"node\":true,\"path\":[\"c\",0]}," +
+                        "{\"node\":{\"d\":{\"e\":null}},\"path\":[\"c\",1]}," +
+                        "{\"node\":{\"e\":null},\"path\":[\"c\",1,\"d\"]}," +
+                        "{\"node\":null,\"path\":[\"c\",1,\"d\",\"e\"]}" +
+                        "]'AS varchar)");
+    }
 }

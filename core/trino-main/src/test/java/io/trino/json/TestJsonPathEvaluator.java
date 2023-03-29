@@ -100,6 +100,7 @@ import static io.trino.sql.planner.PathNodes.startsWith;
 import static io.trino.sql.planner.PathNodes.subtract;
 import static io.trino.sql.planner.PathNodes.toDouble;
 import static io.trino.sql.planner.PathNodes.type;
+import static io.trino.sql.planner.PathNodes.unfold;
 import static io.trino.sql.planner.PathNodes.wildcardArrayAccessor;
 import static io.trino.sql.planner.PathNodes.wildcardMemberAccessor;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -911,6 +912,141 @@ public class TestJsonPathEvaluator
                 new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(DoubleNode.valueOf(1.5e0), new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, BooleanNode.FALSE)))),
                 path(true, type(wildcardArrayAccessor(contextVariable())))))
                 .isEqualTo(sequence(new TypedValue(createVarcharType(27), utf8Slice("number")), new TypedValue(createVarcharType(27), utf8Slice("array"))));
+    }
+
+    @Test
+    public void testUnfoldMethod()
+    {
+        // non-structural value
+        assertThat(pathResult(
+                BooleanNode.TRUE,
+                path(true, unfold(contextVariable()))))
+                .isEqualTo(singletonSequence(new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                        "node", BooleanNode.TRUE,
+                        "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of())))));
+
+        // array
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, TextNode.valueOf("foo"))),
+                path(true, unfold(contextVariable()))))
+                .isEqualTo(sequence(
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, TextNode.valueOf("foo"))),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of()))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", BooleanNode.TRUE,
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(0))))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", TextNode.valueOf("foo"),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1)))))));
+
+        // object
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("first", BooleanNode.TRUE, "second", IntNode.valueOf(42))),
+                path(true, unfold(contextVariable()))))
+                .isEqualTo(sequence(
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("first", BooleanNode.TRUE, "second", IntNode.valueOf(42))),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of()))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", BooleanNode.TRUE,
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("first"))))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", IntNode.valueOf(42),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(TextNode.valueOf("second")))))));
+
+        // unfold a sequence: all elements of an array
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, TextNode.valueOf("foo"), NullNode.instance)),
+                path(true, unfold(wildcardArrayAccessor(contextVariable())))))
+                .isEqualTo(sequence(
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", BooleanNode.TRUE,
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of()))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", TextNode.valueOf("foo"),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of()))),
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", NullNode.instance,
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of())))));
+
+        // deep nesting array(object(array(object)))
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                        BooleanNode.TRUE,
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "key1", IntNode.valueOf(42),
+                                "key2", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                                        NullNode.instance,
+                                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                                "key3", TextNode.valueOf("foo"),
+                                                "key4", BooleanNode.FALSE)))))))),
+                path(true, unfold(contextVariable()))))
+                .isEqualTo(sequence(
+                        // top level array
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                                        BooleanNode.TRUE,
+                                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                                "key1", IntNode.valueOf(42),
+                                                "key2", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                                                        NullNode.instance,
+                                                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                                                "key3", TextNode.valueOf("foo"),
+                                                                "key4", BooleanNode.FALSE)))))))),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of()))),
+                        // first element: boolean
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", BooleanNode.TRUE,
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(0))))),
+                        // second element: nested object
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                        "key1", IntNode.valueOf(42),
+                                        "key2", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                                                NullNode.instance,
+                                                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                                        "key3", TextNode.valueOf("foo"),
+                                                        "key4", BooleanNode.FALSE)))))),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1))))),
+                        // first member: int
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", IntNode.valueOf(42),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), TextNode.valueOf("key1"))))),
+                        // second member: nested array
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                                        NullNode.instance,
+                                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                                "key3", TextNode.valueOf("foo"),
+                                                "key4", BooleanNode.FALSE)))),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), TextNode.valueOf("key2"))))),
+                        // first element: null
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", NullNode.instance,
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), TextNode.valueOf("key2"), IntNode.valueOf(0))))),
+                        // second element: nested object
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                        "key3", TextNode.valueOf("foo"),
+                                        "key4", BooleanNode.FALSE)),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), TextNode.valueOf("key2"), IntNode.valueOf(1))))),
+                        // first member: text
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", TextNode.valueOf("foo"),
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), TextNode.valueOf("key2"), IntNode.valueOf(1), TextNode.valueOf("key3"))))),
+                        // second member: boolean
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "node", BooleanNode.FALSE,
+                                "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(IntNode.valueOf(1), TextNode.valueOf("key2"), IntNode.valueOf(1), TextNode.valueOf("key4")))))));
+
+        // strict mode
+        assertThat(pathResult(
+                BooleanNode.TRUE,
+                path(false, unfold(contextVariable()))))
+                .isEqualTo(singletonSequence(new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                        "node", BooleanNode.TRUE,
+                        "path", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of())))));
     }
 
     // JSON PREDICATE

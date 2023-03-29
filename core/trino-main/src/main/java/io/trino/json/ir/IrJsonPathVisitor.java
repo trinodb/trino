@@ -186,4 +186,9 @@ public abstract class IrJsonPathVisitor<R, C>
     {
         return visitIrMethod(node, context);
     }
+
+    protected R visitIrUnfoldMethod(IrUnfoldMethod node, C context)
+    {
+        return visitIrMethod(node, context);
+    }
 }

@@ -50,6 +50,7 @@ accessorExpression
     | accessorExpression '.' ABS '(' ')'                        #absMethod
     | accessorExpression '.' DATETIME '(' stringLiteral?  ')'   #datetimeMethod
     | accessorExpression '.' KEYVALUE '(' ')'                   #keyValueMethod
+    | accessorExpression '.' UNFOLD '(' ')'                     #unfoldMethod
     ;
 
 identifier
@@ -127,7 +128,7 @@ comparisonOperator
 
 // there shall be no reserved words in JSON path
 nonReserved
-    : ABS | CEILING | DATETIME | DOUBLE | EXISTS | FALSE | FLAG | FLOOR | IS | KEYVALUE | LAST | LAX | LIKE_REGEX | MINUS | NULL | SIZE | STARTS | STRICT | TO | TRUE | TYPE | UNKNOWN | WITH
+    : ABS | CEILING | DATETIME | DOUBLE | EXISTS | FALSE | FLAG | FLOOR | IS | KEYVALUE | LAST | LAX | LIKE_REGEX | MINUS | NULL | SIZE | STARTS | STRICT | TO | TRUE | TYPE | UNFOLD | UNKNOWN | WITH
     ;
 
 ABS: 'abs';
@@ -151,6 +152,7 @@ STRICT: 'strict';
 TO: 'to';
 TRUE: 'true';
 TYPE: 'type';
+UNFOLD: 'unfold';
 UNKNOWN: 'unknown';
 WITH: 'with';
 

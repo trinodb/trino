@@ -47,6 +47,7 @@ import io.trino.sql.jsonpath.tree.SizeMethod;
 import io.trino.sql.jsonpath.tree.SqlValueLiteral;
 import io.trino.sql.jsonpath.tree.StartsWithPredicate;
 import io.trino.sql.jsonpath.tree.TypeMethod;
+import io.trino.sql.jsonpath.tree.UnfoldMethod;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
@@ -204,6 +205,13 @@ public class PathTreeBuilder
     {
         PathNode base = visit(context.accessorExpression());
         return new TypeMethod(base);
+    }
+
+    @Override
+    public PathNode visitUnfoldMethod(JsonPathParser.UnfoldMethodContext context)
+    {
+        PathNode base = visit(context.accessorExpression());
+        return new UnfoldMethod(base);
     }
 
     @Override

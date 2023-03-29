@@ -54,6 +54,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = IrSizeMethod.class, name = "size"),
         @JsonSubTypes.Type(value = IrStartsWithPredicate.class, name = "startswith"),
         @JsonSubTypes.Type(value = IrTypeMethod.class, name = "type"),
+        @JsonSubTypes.Type(value = IrUnfoldMethod.class, name = "unfold"),
 })
 public abstract class IrPathNode
 {

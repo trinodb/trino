@@ -43,6 +43,7 @@ import io.trino.sql.jsonpath.tree.SizeMethod;
 import io.trino.sql.jsonpath.tree.SqlValueLiteral;
 import io.trino.sql.jsonpath.tree.StartsWithPredicate;
 import io.trino.sql.jsonpath.tree.TypeMethod;
+import io.trino.sql.jsonpath.tree.UnfoldMethod;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
@@ -174,6 +175,9 @@ public class TestPathParser
 
         assertThat(path("lax $.type()"))
                 .isEqualTo(new JsonPath(true, new TypeMethod(new ContextVariable())));
+
+        assertThat(path("lax $.unfold()"))
+                .isEqualTo(new JsonPath(true, new UnfoldMethod(new ContextVariable())));
     }
 
     @Test

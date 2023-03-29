@@ -44,6 +44,7 @@ import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrStartsWithPredicate;
 import io.trino.json.ir.IrTypeMethod;
+import io.trino.json.ir.IrUnfoldMethod;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -212,6 +213,11 @@ public class PathNodes
     public static IrPathNode type(IrPathNode base)
     {
         return new IrTypeMethod(base, Optional.of(createVarcharType(27)));
+    }
+
+    public static IrPathNode unfold(IrPathNode base)
+    {
+        return new IrUnfoldMethod(base);
     }
 
     // PATH PREDICATE

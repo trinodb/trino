@@ -191,4 +191,9 @@ public abstract class JsonPathTreeVisitor<R, C>
     {
         return visitMethod(node, context);
     }
+
+    protected R visitUnfoldMethod(UnfoldMethod node, C context)
+    {
+        return visitMethod(node, context);
+    }
 }

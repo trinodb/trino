@@ -57,6 +57,7 @@ import io.trino.sql.jsonpath.tree.SizeMethod;
 import io.trino.sql.jsonpath.tree.SqlValueLiteral;
 import io.trino.sql.jsonpath.tree.StartsWithPredicate;
 import io.trino.sql.jsonpath.tree.TypeMethod;
+import io.trino.sql.jsonpath.tree.UnfoldMethod;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
@@ -292,25 +293,6 @@ public class JsonPathAnalyzer
         }
 
         @Override
-        protected Type visitFloorMethod(FloorMethod node, Void context)
-        {
-            Type sourceType = process(node.getBase());
-            if (sourceType != null) {
-                Type resultType;
-                try {
-                    resultType = metadata.resolveFunction(session, QualifiedName.of("floor"), fromTypes(sourceType)).getSignature().getReturnType();
-                }
-                catch (TrinoException e) {
-                    throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path floor() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
-                }
-                types.put(PathNodeRef.of(node), resultType);
-                return resultType;
-            }
-
-            return null;
-        }
-
-        @Override
         protected Type visitJsonNullLiteral(JsonNullLiteral node, Void context)
         {
             return null;
@@ -406,6 +388,32 @@ public class JsonPathAnalyzer
             Type type = TYPE_METHOD_RESULT_TYPE;
             types.put(PathNodeRef.of(node), type);
             return type;
+        }
+
+        @Override
+        protected Type visitUnfoldMethod(UnfoldMethod node, Void context)
+        {
+            process(node.getBase());
+            return null;
+        }
+
+        @Override
+        protected Type visitFloorMethod(FloorMethod node, Void context)
+        {
+            Type sourceType = process(node.getBase());
+            if (sourceType != null) {
+                Type resultType;
+                try {
+                    resultType = metadata.resolveFunction(session, QualifiedName.of("floor"), fromTypes(sourceType)).getSignature().getReturnType();
+                }
+                catch (TrinoException e) {
+                    throw semanticException(INVALID_PATH, pathNode, e, "cannot perform JSON path floor() method with %s argument: %s", sourceType.getDisplayName(), e.getMessage());
+                }
+                types.put(PathNodeRef.of(node), resultType);
+                return resultType;
+            }
+
+            return null;
         }
 
         // predicate

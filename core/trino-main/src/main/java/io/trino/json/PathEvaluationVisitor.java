@@ -14,6 +14,7 @@
 package io.trino.json;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.IntNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
@@ -50,6 +51,7 @@ import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrTypeMethod;
+import io.trino.json.ir.IrUnfoldMethod;
 import io.trino.json.ir.SqlJsonLiteralConverter;
 import io.trino.json.ir.TypedValue;
 import io.trino.spi.function.OperatorType;
@@ -74,10 +76,12 @@ import io.trino.type.SmallintOperators;
 import io.trino.type.TinyintOperators;
 import io.trino.type.VarcharOperators;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.CachingResolver.ResolvedOperatorAndCoercions.RESOLUTION_ERROR;
@@ -86,6 +90,7 @@ import static io.trino.json.PathEvaluationError.itemTypeError;
 import static io.trino.json.PathEvaluationError.structuralError;
 import static io.trino.json.PathEvaluationUtil.unwrapArrays;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.PLUS;
+import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getTextTypedValue;
 import static io.trino.operator.scalar.MathFunctions.Ceiling.ceilingLong;
 import static io.trino.operator.scalar.MathFunctions.Ceiling.ceilingLongShort;
@@ -1016,6 +1021,90 @@ class PathEvaluationVisitor
         }
 
         return outputSequence.build();
+    }
+
+    @Override
+    protected List<Object> visitIrUnfoldMethod(IrUnfoldMethod node, PathEvaluationContext context)
+    {
+        List<Object> sequence = process(node.getBase(), context);
+
+        return sequence.stream()
+                .map(object -> flatten(object, FlattenPath.empty()))
+                .flatMap(Collection::stream)
+                .collect(toImmutableList());
+    }
+
+    private List<Object> flatten(Object object, FlattenPath path)
+    {
+        if (object instanceof JsonNode jsonNode && jsonNode.isArray()) {
+            ImmutableList.Builder<Object> builder = ImmutableList.builder();
+            // prefix order: enclosing array first
+            builder.add(nodeAndPath(jsonNode, path));
+            for (int index = 0; index < jsonNode.size(); index++) {
+                builder.addAll(flatten(jsonNode.get(index), path.with(index)));
+            }
+            return builder.build();
+        }
+        if (object instanceof JsonNode jsonNode && jsonNode.isObject()) {
+            ImmutableList.Builder<Object> builder = ImmutableList.builder();
+            // prefix order: enclosing object first
+            builder.add(nodeAndPath(jsonNode, path));
+            ImmutableList.copyOf(jsonNode.fields()).stream()
+                    .map(field -> flatten(field.getValue(), path.with(field.getKey())))
+                    .forEach(builder::addAll);
+            return builder.build();
+        }
+        return ImmutableList.of(nodeAndPath(object, path));
+    }
+
+    private static JsonNode nodeAndPath(Object object, FlattenPath flattenPath)
+    {
+        JsonNode node;
+        if (object instanceof JsonNode) {
+            node = (JsonNode) object;
+        }
+        else {
+            node = getJsonNode((TypedValue) object)
+                    .orElseThrow(() -> new PathEvaluationError(format("cannot convert value %s to json", object)));
+        }
+
+        JsonNode path = new ArrayNode(
+                JsonNodeFactory.instance,
+                flattenPath.steps().stream().map(step -> {
+                    if (step instanceof String key) {
+                        return TextNode.valueOf(key);
+                    }
+                    return IntNode.valueOf((Integer) step);
+                }).collect(toImmutableList()));
+
+        return new ObjectNode(
+                JsonNodeFactory.instance,
+                ImmutableMap.of(
+                        "node", node,
+                        "path", path));
+    }
+
+    private record FlattenPath(List<Object> steps)
+    {
+        private FlattenPath(List<Object> steps)
+        {
+            this.steps = requireNonNull(steps, "steps is null");
+        }
+
+        public static FlattenPath empty()
+        {
+            return new FlattenPath(ImmutableList.of());
+        }
+
+        public FlattenPath with(String key)
+        {
+            return new FlattenPath(ImmutableList.builder().addAll(steps).add(key).build());
+        }
+
+        public FlattenPath with(Integer index)
+        {
+            return new FlattenPath(ImmutableList.builder().addAll(steps).add(index).build());
+        }
     }
 
     private static Optional<TypedValue> getNumericTypedValue(JsonNode jsonNode)

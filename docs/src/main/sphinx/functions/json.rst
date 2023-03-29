@@ -561,6 +561,44 @@ Let ``<path>`` return a sequence of three JSON arrays:
     [0, 1, 2], ["a", "b", "c", "d"], [null, null]
     <path>.size() --> 3, 4, 2
 
+unfold()
+''''''''
+
+Returns a collection of JSON objects, representing all items from all levels of
+nesting in the input sequence.
+
+.. code-block:: text
+
+    <path>.unfold()
+
+The returned objects have two members:
+
+- "node" - a JSON item,
+- "path" - a JSON array containing one entry for every level of nesting.
+
+  When entering a JSON object member, the key is added to the path.
+
+  When entering a JSON array element, the index is added to the path.
+
+The order of returned objects is that of preorder DFS.
+
+This method does not perform array unwrapping in the lax mode. The results
+are the same in the lax and strict modes.
+
+Let ``<path>`` be a sequence containing a JSON object:
+
+.. code-block:: text
+
+    {"customer" : 100, "region" : ["AFRICA", "ASIA"]},
+
+.. code-block:: text
+
+    <path>.unfold() --> {"node" : {"customer" : 100, "region" : ["AFRICA", "ASIA"]}, "path" : []},
+                        {"node" : 100, "path" : ["customer"]},
+                        {"node" : ["AFRICA", "ASIA"], "path" : ["region"]},
+                        {"node" : "AFRICA", "path" : ["region", 0]},
+                        {"node" : "ASIA", "path" : ["region", 1]}
+
 Limitations
 ^^^^^^^^^^^
 

@@ -46,6 +46,7 @@ import io.trino.json.ir.IrPredicateCurrentItemVariable;
 import io.trino.json.ir.IrSizeMethod;
 import io.trino.json.ir.IrStartsWithPredicate;
 import io.trino.json.ir.IrTypeMethod;
+import io.trino.json.ir.IrUnfoldMethod;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
@@ -79,6 +80,7 @@ import io.trino.sql.jsonpath.tree.SizeMethod;
 import io.trino.sql.jsonpath.tree.SqlValueLiteral;
 import io.trino.sql.jsonpath.tree.StartsWithPredicate;
 import io.trino.sql.jsonpath.tree.TypeMethod;
+import io.trino.sql.jsonpath.tree.UnfoldMethod;
 import io.trino.sql.tree.Expression;
 
 import java.util.List;
@@ -308,6 +310,13 @@ class JsonPathTranslator
         {
             IrPathNode base = process(node.getBase());
             return new IrTypeMethod(base, Optional.ofNullable(types.get(PathNodeRef.of(node))));
+        }
+
+        @Override
+        protected IrPathNode visitUnfoldMethod(UnfoldMethod node, Void context)
+        {
+            IrPathNode base = process(node.getBase());
+            return new IrUnfoldMethod(base);
         }
 
         // predicate
