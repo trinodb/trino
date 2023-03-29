@@ -29,6 +29,7 @@ import io.trino.client.NodeVersion;
 import io.trino.exchange.ExchangeInput;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.operator.BlockedReason;
@@ -165,6 +166,7 @@ public class QueryStateMachine
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
     private final WarningCollector warningCollector;
+    private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
     private final Optional<QueryType> queryType;
 
@@ -188,6 +190,7 @@ public class QueryStateMachine
             Ticker ticker,
             Metadata metadata,
             WarningCollector warningCollector,
+            PlanOptimizersStatsCollector queryStatsCollector,
             Optional<QueryType> queryType,
             NodeVersion version)
     {
@@ -201,6 +204,7 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.stateMachineExecutor = requireNonNull(stateMachineExecutor, "stateMachineExecutor is null");
+        this.planOptimizersStatsCollector = requireNonNull(queryStatsCollector, "queryStatsCollector is null");
 
         this.queryState = new StateMachine<>("query " + query, stateMachineExecutor, QUEUED, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, stateMachineExecutor, Optional.empty());
@@ -226,6 +230,7 @@ public class QueryStateMachine
             Executor executor,
             Metadata metadata,
             WarningCollector warningCollector,
+            PlanOptimizersStatsCollector queryStatsCollector,
             Optional<QueryType> queryType,
             boolean faultTolerantExecutionExchangeEncryptionEnabled,
             NodeVersion version)
@@ -244,6 +249,7 @@ public class QueryStateMachine
                 Ticker.systemTicker(),
                 metadata,
                 warningCollector,
+                queryStatsCollector,
                 queryType,
                 faultTolerantExecutionExchangeEncryptionEnabled,
                 version);
@@ -263,6 +269,7 @@ public class QueryStateMachine
             Ticker ticker,
             Metadata metadata,
             WarningCollector warningCollector,
+            PlanOptimizersStatsCollector queryStatsCollector,
             Optional<QueryType> queryType,
             boolean faultTolerantExecutionExchangeEncryptionEnabled,
             NodeVersion version)
@@ -302,6 +309,7 @@ public class QueryStateMachine
                 ticker,
                 metadata,
                 warningCollector,
+                queryStatsCollector,
                 queryType,
                 version);
         queryStateMachine.addStateChangeListener(newState -> {
@@ -363,6 +371,11 @@ public class QueryStateMachine
     public WarningCollector getWarningCollector()
     {
         return warningCollector;
+    }
+
+    public PlanOptimizersStatsCollector getPlanOptimizersStatsCollector()
+    {
+        return planOptimizersStatsCollector;
     }
 
     public void updateMemoryUsage(
@@ -740,7 +753,8 @@ public class QueryStateMachine
 
                 getDynamicFiltersStats(),
 
-                operatorStatsSummary.build());
+                operatorStatsSummary.build(),
+                planOptimizersStatsCollector.getTopRuleStats());
     }
 
     public void setOutputInfoListener(Consumer<QueryOutputInfo> listener)
@@ -1313,6 +1327,7 @@ public class QueryStateMachine
                 queryStats.getFailedPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getDynamicFiltersStats(),
+                ImmutableList.of(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially DirectExchangeClientStatus) can hold onto a large amount of memory
     }
 

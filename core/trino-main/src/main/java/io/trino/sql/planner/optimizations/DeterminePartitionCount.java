@@ -20,6 +20,7 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.PartitioningHandle;
@@ -99,6 +100,7 @@ public class DeterminePartitionCount
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
             TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");

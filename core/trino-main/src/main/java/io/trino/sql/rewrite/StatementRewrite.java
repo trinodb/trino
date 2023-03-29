@@ -15,6 +15,7 @@ package io.trino.sql.rewrite;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.tree.Expression;
@@ -46,7 +47,8 @@ public final class StatementRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         for (Rewrite rewrite : rewrites) {
             node = requireNonNull(
@@ -56,7 +58,8 @@ public final class StatementRewrite
                             node,
                             parameters,
                             parameterLookup,
-                            warningCollector),
+                            warningCollector,
+                            planOptimizersStatsCollector),
                     "Statement rewrite returned null");
         }
         return node;
@@ -70,6 +73,7 @@ public final class StatementRewrite
                 Statement node,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
-                WarningCollector warningCollector);
+                WarningCollector warningCollector,
+                PlanOptimizersStatsCollector planOptimizersStatsCollector);
     }
 }

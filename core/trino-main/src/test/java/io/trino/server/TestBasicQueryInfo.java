@@ -134,6 +134,7 @@ public class TestBasicQueryInfo
                                         106,
                                         107)),
                                 DynamicFiltersStats.EMPTY,
+                                ImmutableList.of(),
                                 ImmutableList.of()),
                         Optional.empty(),
                         Optional.empty(),
