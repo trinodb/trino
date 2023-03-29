@@ -83,7 +83,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@Test(singleThreaded = true) // e.g. TrackingFileSystemFactory is shared mutable state
 public class TestTransactionLogAccess
 {
     private static final Set<String> EXPECTED_ADD_FILE_PATHS = ImmutableSet.of(
@@ -108,10 +108,10 @@ public class TestTransactionLogAccess
             new RemoveFileEntry("age=42/part-00000-6aed618a-2beb-4edd-8466-653e67a9b380.c000.snappy.parquet", 1579190155406L, false),
             new RemoveFileEntry("age=42/part-00000-b82d8859-84a0-4f05-872c-206b07dd54f0.c000.snappy.parquet", 1579190163932L, false));
 
+    private final TrackingFileSystemFactory trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
+
     private TransactionLogAccess transactionLogAccess;
     private TableSnapshot tableSnapshot;
-
-    private TrackingFileSystemFactory trackingFileSystemFactory;
 
     private void setupTransactionLogAccess(String tableName)
             throws Exception
@@ -131,7 +131,6 @@ public class TestTransactionLogAccess
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
 
-        trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
         transactionLogAccess = new TransactionLogAccess(
@@ -535,9 +534,6 @@ public class TestTransactionLogAccess
         copyTransactionLogEntry(0, 12, resourceDir, transactionLogDir);
         Files.copy(new File(resourceDir, LAST_CHECKPOINT_FILENAME).toPath(), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
 
-        setupTransactionLogAccess(tableName, tableDir.toURI().toString());
-        List<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
-
         Set<String> originalDataFiles = ImmutableSet.of(
                 "age=42/part-00000-b26c891a-7288-4d96-9d3b-bef648f12a34.c000.snappy.parquet",
                 "age=25/part-00001-aceaf062-1cd1-45cb-8f83-277ffebe995c.c000.snappy.parquet",
@@ -550,8 +546,12 @@ public class TestTransactionLogAccess
                 "age=21/part-00000-3d546786-bedc-407f-b9f7-e97aa12cce0f.c000.snappy.parquet",
                 "age=30/part-00000-37ccfcd3-b44b-4d04-a1e6-d2837da75f7a.c000.snappy.parquet");
 
-        assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), originalDataFiles);
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    setupTransactionLogAccess(tableName, tableDir.toURI().toString());
+                    List<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+                    assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), originalDataFiles);
+                },
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 4) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
@@ -564,16 +564,15 @@ public class TestTransactionLogAccess
         Set<String> newDataFiles = ImmutableSet.of(
                 "age=28/part-00000-40dd1707-1d42-4328-a59a-21f5c945fe60.c000.snappy.parquet",
                 "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
-        TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toURI().toString(), SESSION);
-        activeDataFiles = transactionLogAccess.getActiveFiles(updatedTableSnapshot, SESSION);
-        assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), union(originalDataFiles, newDataFiles));
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    TableSnapshot updatedTableSnapshot = transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toURI().toString(), SESSION);
+                    List<AddFileEntry> activeDataFiles = transactionLogAccess.getActiveFiles(updatedTableSnapshot, SESSION);
+                    assertEqualsIgnoreOrder(activeDataFiles.stream().map(AddFileEntry::getPath).collect(Collectors.toSet()), union(originalDataFiles, newDataFiles));
+                },
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 4) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 3)
+                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 1)
                         .build());
@@ -715,9 +714,11 @@ public class TestTransactionLogAccess
         String tableDir = getClass().getClassLoader().getResource("databricks/" + tableName).toURI().toString();
         DeltaLakeConfig cacheDisabledConfig = new DeltaLakeConfig();
         cacheDisabledConfig.setMetadataCacheTtl(new Duration(0, TimeUnit.SECONDS));
-        setupTransactionLogAccess(tableName, tableDir, cacheDisabledConfig);
 
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    setupTransactionLogAccess(tableName, tableDir, cacheDisabledConfig);
+                },
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
@@ -727,14 +728,16 @@ public class TestTransactionLogAccess
                         .build());
 
         // With the transaction log cache disabled, when loading the snapshot again, all the needed files will be opened again
-        transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toString(), SESSION);
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir.toString(), SESSION);
+                },
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 2)
+                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 1)
                         .build());
     }
 
@@ -746,11 +749,13 @@ public class TestTransactionLogAccess
         String tableDir = getClass().getClassLoader().getResource("databricks/" + tableName).toURI().toString();
         DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
         shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(10, TimeUnit.MINUTES));
-        setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
 
-        List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
-        assertEquals(addFileEntries.size(), 12);
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
+                    List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+                    assertEquals(addFileEntries.size(), 12);
+                },
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
@@ -761,19 +766,13 @@ public class TestTransactionLogAccess
                         .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 2)
                         .build());
 
-        addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
-        assertEquals(addFileEntries.size(), 12);
         // The internal data cache should still contain the data files for the table
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 4) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 2)
-                        .build());
+        assertFileSystemAccesses(
+                () -> {
+                    List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+                    assertEquals(addFileEntries.size(), 12);
+                },
+                ImmutableMultiset.of());
     }
 
     @Test
@@ -784,11 +783,13 @@ public class TestTransactionLogAccess
         String tableDir = getClass().getClassLoader().getResource("databricks/" + tableName).toURI().toString();
         DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
         shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(10, TimeUnit.MINUTES));
-        setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
 
-        List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
-        assertEquals(addFileEntries.size(), 12);
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
+                    List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+                    assertEquals(addFileEntries.size(), 12);
+                },
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
@@ -801,19 +802,20 @@ public class TestTransactionLogAccess
 
         // Flush all cache and then load snapshot and get active files
         transactionLogAccess.flushCache();
-        transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir, SESSION);
-        addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
-
-        assertEquals(addFileEntries.size(), 12);
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    transactionLogAccess.loadSnapshot(new SchemaTableName("schema", tableName), tableDir, SESSION);
+                    List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+                    assertEquals(addFileEntries.size(), 12);
+                },
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 8) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. twice?
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 4)
+                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 4) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 2)
                         .build());
     }
 
@@ -825,11 +827,13 @@ public class TestTransactionLogAccess
         String tableDir = getClass().getClassLoader().getResource("databricks/" + tableName).toURI().toString();
         DeltaLakeConfig shortLivedActiveDataFilesCacheConfig = new DeltaLakeConfig();
         shortLivedActiveDataFilesCacheConfig.setDataFileCacheTtl(new Duration(0, TimeUnit.SECONDS));
-        setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
 
-        List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
-        assertEquals(addFileEntries.size(), 12);
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
+                    List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+                    assertEquals(addFileEntries.size(), 12);
+                },
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
@@ -842,17 +846,14 @@ public class TestTransactionLogAccess
 
         // With no caching for the transaction log entries, when loading the snapshot again,
         // the checkpoint file will be read again
-        addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
-        assertEquals(addFileEntries.size(), 12);
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(
+        assertFileSystemAccesses(
+                () -> {
+                    List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
+                    assertEquals(addFileEntries.size(), 12);
+                },
                 ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000011.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000012.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000013.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000014.json", INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 8) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. twice?
-                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 4)
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 4) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?
+                        .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 2)
                         .build());
     }
 
@@ -867,6 +868,14 @@ public class TestTransactionLogAccess
             String lastTransactionName = format("%020d.json", i);
             Files.copy(new File(sourceDir, lastTransactionName).toPath(), new File(targetDir, lastTransactionName).toPath());
         }
+    }
+
+    private void assertFileSystemAccesses(ThrowingRunnable callback, Multiset<FileOperation> expectedAccesses)
+            throws Exception
+    {
+        trackingFileSystemFactory.reset();
+        callback.run();
+        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(expectedAccesses);
     }
 
     private Multiset<FileOperation> getOperations()
@@ -886,5 +895,11 @@ public class TestTransactionLogAccess
             requireNonNull(path, "path is null");
             requireNonNull(operationType, "operationType is null");
         }
+    }
+
+    private interface ThrowingRunnable
+    {
+        void run()
+                throws Exception;
     }
 }
