@@ -32,6 +32,7 @@ import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
@@ -94,6 +95,7 @@ import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -844,8 +846,19 @@ public final class DomainTranslator
             }
             Type valueType = nullableValue.getType();
             Object value = nullableValue.getValue();
-            return floorValue(valueType, symbolExpressionType, value)
-                    .map(floorValue -> rewriteComparisonExpression(symbolExpressionType, symbolExpression, valueType, value, floorValue, comparisonOperator));
+            Optional<Object> floorValueOptional;
+            try {
+                floorValueOptional = floorValue(valueType, symbolExpressionType, value);
+            }
+            catch (TrinoException e) {
+                ErrorCode errorCode = e.getErrorCode();
+                if (INVALID_CAST_ARGUMENT.toErrorCode().equals(errorCode)) {
+                    // There's no such value at symbolExpressionType
+                    return Optional.of(FALSE_LITERAL);
+                }
+                throw e;
+            }
+            return floorValueOptional.map(floorValue -> rewriteComparisonExpression(symbolExpressionType, symbolExpression, valueType, value, floorValue, comparisonOperator));
         }
 
         private Expression rewriteComparisonExpression(
