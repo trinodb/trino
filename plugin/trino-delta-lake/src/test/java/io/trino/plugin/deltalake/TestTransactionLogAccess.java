@@ -271,11 +271,9 @@ public class TestTransactionLogAccess
                 "age=28/part-00000-40dd1707-1d42-4328-a59a-21f5c945fe60.c000.snappy.parquet");
 
         for (String path : overwrittenPaths) {
-            List<AddFileEntry> activeEntries = addFileEntries
-                    .stream()
+            List<AddFileEntry> activeEntries = addFileEntries.stream()
                     .filter(addFileEntry -> addFileEntry.getPath().equals(path))
-                    .collect(Collectors.toList());
-
+                    .toList();
             assertEquals(activeEntries.size(), 1);
             assertEquals(activeEntries.get(0).getModificationTime(), 9999999L);
         }
@@ -289,10 +287,9 @@ public class TestTransactionLogAccess
         List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, SESSION);
 
         // Test data contains an entry added by the parquet checkpoint, removed by a JSON action, and then added back by a later JSON action
-        List<AddFileEntry> activeEntries = addFileEntries
-                .stream()
+        List<AddFileEntry> activeEntries = addFileEntries.stream()
                 .filter(addFileEntry -> addFileEntry.getPath().equals("age=30/part-00002-5800be2e-2373-47d8-8b86-776a8ea9d69f.c000.snappy.parquet"))
-                .collect(Collectors.toList());
+                .toList();
 
         assertEquals(activeEntries.size(), 1);
         assertEquals(activeEntries.get(0).getModificationTime(), 9999999L);
@@ -396,8 +393,7 @@ public class TestTransactionLogAccess
         setupTransactionLogAccess(tableName);
 
         try (Stream<ProtocolEntry> protocolEntryStream = transactionLogAccess.getProtocolEntries(tableSnapshot, SESSION)) {
-            List<ProtocolEntry> protocolEntries = protocolEntryStream.collect(Collectors.toList());
-
+            List<ProtocolEntry> protocolEntries = protocolEntryStream.toList();
             assertEquals(protocolEntries.size(), 1);
             assertEquals(protocolEntries.get(0).getMinReaderVersion(), 1);
             assertEquals(protocolEntries.get(0).getMinWriterVersion(), 2);
@@ -409,7 +405,6 @@ public class TestTransactionLogAccess
             throws Exception
     {
         String tableName = "person";
-        // setupTransactionLogAccess(tableName, new Path(getClass().getClassLoader().getResource("databricks/" + tableName).toURI()));
         File tempDir = Files.createTempDirectory(null).toFile();
         File tableDir = new File(tempDir, tableName);
         File transactionLogDir = new File(tableDir, TRANSACTION_LOG_DIRECTORY);
