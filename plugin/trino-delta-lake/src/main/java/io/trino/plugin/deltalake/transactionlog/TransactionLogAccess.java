@@ -208,7 +208,7 @@ public class TransactionLogAccess
     public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         try {
-            String tableLocation = tableSnapshot.getTableLocation().toString();
+            String tableLocation = tableSnapshot.getTableLocation();
             DeltaLakeDataFileCacheEntry cachedTable = activeDataFileCache.get(tableLocation, () -> {
                 List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
                 return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
