@@ -22,6 +22,7 @@ import io.airlift.units.Duration;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.operator.TableWriterOperator;
+import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 
@@ -127,6 +128,7 @@ public class QueryStats
     private final DynamicFiltersStats dynamicFiltersStats;
 
     private final List<OperatorStats> operatorSummaries;
+    private final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries;
 
     @JsonCreator
     public QueryStats(
@@ -216,7 +218,8 @@ public class QueryStats
 
             @JsonProperty("dynamicFiltersStats") DynamicFiltersStats dynamicFiltersStats,
 
-            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
+            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
+            @JsonProperty("optimizerRulesSummaries") List<QueryPlanOptimizerStatistics> optimizerRulesSummaries)
     {
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.executionStartTime = executionStartTime;
@@ -323,6 +326,7 @@ public class QueryStats
         this.dynamicFiltersStats = requireNonNull(dynamicFiltersStats, "dynamicFiltersStats is null");
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+        this.optimizerRulesSummaries = ImmutableList.copyOf(requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null"));
     }
 
     @JsonProperty
@@ -769,6 +773,12 @@ public class QueryStats
     public List<OperatorStats> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    @JsonProperty
+    public List<QueryPlanOptimizerStatistics> getOptimizerRulesSummaries()
+    {
+        return optimizerRulesSummaries;
     }
 
     @JsonProperty

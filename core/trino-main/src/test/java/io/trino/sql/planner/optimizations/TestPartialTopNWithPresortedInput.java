@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -198,7 +199,7 @@ public class TestPartialTopNWithPresortedInput
     {
         LocalQueryRunner queryRunner = getQueryRunner();
         queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             PlannerContext plannerContext = queryRunner.getPlannerContext();
             new ValidateLimitWithPresortedInput().validate(actualPlan.getRoot(), transactionSession, plannerContext, createTestingTypeAnalyzer(plannerContext), actualPlan.getTypes(), WarningCollector.NOOP);

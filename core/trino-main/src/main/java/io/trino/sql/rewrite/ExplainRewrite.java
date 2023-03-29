@@ -16,6 +16,7 @@ package io.trino.sql.rewrite;
 import io.trino.Session;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
@@ -65,9 +66,10 @@ public final class ExplainRewrite
             Statement node,
             List<Expression> parameter,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, queryPreparer, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector).process(node, null);
+        return (Statement) new Visitor(session, queryPreparer, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, planOptimizersStatsCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -77,17 +79,20 @@ public final class ExplainRewrite
         private final QueryPreparer queryPreparer;
         private final QueryExplainer queryExplainer;
         private final WarningCollector warningCollector;
+        private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
         public Visitor(
                 Session session,
                 QueryPreparer queryPreparer,
                 QueryExplainer queryExplainer,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                PlanOptimizersStatsCollector planOptimizersStatsCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.planOptimizersStatsCollector = planOptimizersStatsCollector;
         }
 
         @Override
@@ -131,20 +136,20 @@ public final class ExplainRewrite
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, node.getStatement());
 
             if (planType == VALIDATE) {
-                queryExplainer.validate(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
+                queryExplainer.validate(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
                 return singleValueQuery("Valid", true);
             }
 
             String plan;
             switch (planFormat) {
                 case GRAPHVIZ:
-                    plan = queryExplainer.getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
                     break;
                 case JSON:
-                    plan = queryExplainer.getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
                     break;
                 case TEXT:
-                    plan = queryExplainer.getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid Explain Format: " + planFormat);

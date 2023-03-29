@@ -107,6 +107,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -7062,7 +7063,8 @@ public class TestAnalyzer
                 session,
                 emptyList(),
                 emptyMap(),
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector());
     }
 
     private Analysis analyze(@Language("SQL") String query)
