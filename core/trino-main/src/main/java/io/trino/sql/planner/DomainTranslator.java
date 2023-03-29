@@ -911,8 +911,17 @@ public final class DomainTranslator
 
         private Optional<Object> floorValue(Type fromType, Type toType, Object value)
         {
-            return getSaturatedFloorCastOperator(fromType, toType)
-                    .map(operator -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
+            Optional<ResolvedFunction> operator = getSaturatedFloorCastOperator(fromType, toType);
+            if (operator.isPresent()) {
+                try {
+                    return Optional.of(functionInvoker.invoke(operator.get(), session.toConnectorSession(), value));
+                }
+                catch (TrinoException ignored) {
+                    // Can fail in case of an invalid cast.
+                    // In this case, it's safe to just bail out and leave the cast to be handled later.
+                }
+            }
+            return Optional.empty();
         }
 
         private Optional<ResolvedFunction> getSaturatedFloorCastOperator(Type fromType, Type toType)
