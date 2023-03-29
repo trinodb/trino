@@ -91,7 +91,8 @@ public class TestOptimizerConfig
                 .setJoinPartitionedBuildMinRowCount(1_000_000)
                 .setMinInputSizePerTask(DataSize.of(5, GIGABYTE))
                 .setMinInputRowsPerTask(10_000_000L)
-                .setUseExactPartitioning(false));
+                .setUseExactPartitioning(false)
+                .setUseCostBasedPartitioning(true));
     }
 
     @Test
@@ -150,6 +151,7 @@ public class TestOptimizerConfig
                 .put("optimizer.min-input-size-per-task", "1MB")
                 .put("optimizer.min-input-rows-per-task", "1000000")
                 .put("optimizer.use-exact-partitioning", "true")
+                .put("optimizer.use-cost-based-partitioning", "false")
                 .buildOrThrow();
 
         OptimizerConfig expected = new OptimizerConfig()
@@ -204,7 +206,8 @@ public class TestOptimizerConfig
                 .setJoinPartitionedBuildMinRowCount(1)
                 .setMinInputSizePerTask(DataSize.of(1, MEGABYTE))
                 .setMinInputRowsPerTask(1_000_000L)
-                .setUseExactPartitioning(true);
+                .setUseExactPartitioning(true)
+                .setUseCostBasedPartitioning(false);
         assertFullMapping(properties, expected);
     }
 }

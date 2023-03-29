@@ -109,6 +109,7 @@ import static io.trino.SystemSessionProperties.ignoreDownStreamPreferences;
 import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
 import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
+import static io.trino.SystemSessionProperties.isUseCostBasedPartitioning;
 import static io.trino.SystemSessionProperties.isUseExactPartitioning;
 import static io.trino.SystemSessionProperties.isUsePartialDistinctLimit;
 import static io.trino.sql.planner.FragmentTableScanCounter.countSources;
@@ -276,7 +277,7 @@ public class AddExchanges
          */
         private Optional<List<Symbol>> useParentPreferredPartitioning(AggregationNode node, Set<Symbol> parentPreferredPartitioningColumns)
         {
-            if (isUseExactPartitioning(session)) {
+            if (isUseExactPartitioning(session) || !isUseCostBasedPartitioning(session)) {
                 return Optional.empty();
             }
             if (parentPreferredPartitioningColumns.isEmpty()) {

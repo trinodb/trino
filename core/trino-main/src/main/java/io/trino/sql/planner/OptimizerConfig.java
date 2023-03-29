@@ -87,6 +87,7 @@ public class OptimizerConfig
     private boolean mergeProjectWithValues = true;
     private boolean forceSingleNodeOutput;
     private boolean useExactPartitioning;
+    private boolean useCostBasedPartitioning = true;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
     private long adaptivePartialAggregationMinRows = 100_000;
@@ -800,6 +801,19 @@ public class OptimizerConfig
     public OptimizerConfig setUseExactPartitioning(boolean useExactPartitioning)
     {
         this.useExactPartitioning = useExactPartitioning;
+        return this;
+    }
+
+    public boolean isUseCostBasedPartitioning()
+    {
+        return useCostBasedPartitioning;
+    }
+
+    @Config("optimizer.use-cost-based-partitioning")
+    @ConfigDescription("When enabled the cost based optimizer is used to determine if repartitioning the output of an already partitioned stage is necessary")
+    public OptimizerConfig setUseCostBasedPartitioning(boolean useCostBasedPartitioning)
+    {
+        this.useCostBasedPartitioning = useCostBasedPartitioning;
         return this;
     }
 }
