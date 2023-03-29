@@ -731,5 +731,10 @@ public class TestTableFunctionInvocation
                 FROM TABLE(system.constant(2, 1000000))
                 """))
                 .matches("VALUES (BIGINT '1000000', BIGINT '1', 2)");
+
+        assertQueryReturnsEmptyResult("""
+                SELECT *
+                FROM TABLE(system.constant(5, 0))
+                """);
     }
 }
