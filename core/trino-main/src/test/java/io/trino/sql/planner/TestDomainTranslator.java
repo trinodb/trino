@@ -835,6 +835,16 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromCoercionComparisonsWithNaN()
+    {
+        Expression nanDouble = literalEncoder.toExpression(TEST_SESSION, Double.NaN, DOUBLE);
+
+        assertPredicateIsAlwaysFalse(equal(cast(C_TINYINT, DOUBLE), nanDouble));
+        assertPredicateIsAlwaysFalse(equal(cast(C_SMALLINT, DOUBLE), nanDouble));
+        assertPredicateIsAlwaysFalse(equal(cast(C_INTEGER, DOUBLE), nanDouble));
+    }
+
+    @Test
     public void testNonImplicitCastOnSymbolSide()
     {
         // we expect TupleDomain.all here().
