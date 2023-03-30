@@ -648,7 +648,14 @@ public abstract class BaseFailureRecoveryTest
             MaterializedResult expectedQueryResult = expected.getQueryResult();
             OptionalInt failureStageId = getFailureStageId(() -> expectedQueryResult);
             ExecutionResult actual = executeActual(failureStageId);
-            assertEquals(getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks(), expectTaskFailures ? 1 : 0);
+            int failedTasksCount = getStageStats(actual.getQueryResult(), failureStageId.getAsInt()).getFailedTasks();
+            if (expectTaskFailures) {
+                assertThat(failedTasksCount).withFailMessage("expected some task failures").isGreaterThan(0);
+            }
+            else {
+                assertThat(failedTasksCount).withFailMessage("expected no task failures; got %s", failedTasksCount).isEqualTo(0);
+            }
+            assertEquals(failedTasksCount, expectTaskFailures ? 1 : 0);
             MaterializedResult actualQueryResult = actual.getQueryResult();
 
             boolean isAnalyze = expectedQueryResult.getUpdateType().isPresent() && expectedQueryResult.getUpdateType().get().equals("ANALYZE");
