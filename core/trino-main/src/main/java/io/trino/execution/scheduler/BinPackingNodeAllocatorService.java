@@ -16,11 +16,9 @@ package io.trino.execution.scheduler;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -64,6 +62,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -696,16 +695,14 @@ public class BinPackingNodeAllocatorService
 
         private String memoryUsageDistributionInfo()
         {
-            List<Double> quantiles = ImmutableList.of(0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99);
-            List<Double> values;
+            double[] quantiles = new double[] {0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9, 0.95, 0.99};
+            double[] values;
             synchronized (this) {
                 values = memoryUsageDistribution.valuesAt(quantiles);
             }
 
-            return Streams.zip(
-                            quantiles.stream(),
-                            values.stream(),
-                            (quantile, value) -> "" + quantile + "=" + value)
+            return IntStream.range(0, quantiles.length)
+                    .mapToObj(i -> "" + quantiles[i] + "=" + values[i])
                     .collect(Collectors.joining(", ", "[", "]"));
         }
 
