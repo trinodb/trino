@@ -40,6 +40,7 @@ public class TestStargateAutomaticJoinPushdown
     public void cleanup()
     {
         remoteStarburst = null;
+        postgreSqlServer = null;
     }
 
     @Override
