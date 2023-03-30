@@ -124,10 +124,10 @@ public final class ApproximateDoublePercentileArrayAggregations
             indexes[b] = tempIndex;
         });
 
-        List<Double> valuesAtPercentiles = digest.valuesAt(Doubles.asList(sortedPercentiles));
-        double[] result = new double[valuesAtPercentiles.size()];
-        for (int i = 0; i < valuesAtPercentiles.size(); i++) {
-            result[indexes[i]] = valuesAtPercentiles.get(i);
+        double[] valuesAtPercentiles = digest.valuesAt(sortedPercentiles);
+        double[] result = new double[valuesAtPercentiles.length];
+        for (int i = 0; i < valuesAtPercentiles.length; i++) {
+            result[indexes[i]] = valuesAtPercentiles[i];
         }
 
         return Doubles.asList(result);
