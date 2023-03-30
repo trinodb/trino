@@ -32,6 +32,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteIn;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -42,7 +43,6 @@ import io.trino.plugin.sqlserver.ImplementSqlServerStddevPop;
 import io.trino.plugin.sqlserver.ImplementSqlServerStdev;
 import io.trino.plugin.sqlserver.ImplementSqlServerVariance;
 import io.trino.plugin.sqlserver.ImplementSqlServerVariancePop;
-import io.trino.plugin.sqlserver.RewriteUnicodeVarcharConstant;
 import io.trino.plugin.sqlserver.SqlServerClient;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -97,8 +97,8 @@ public class StarburstSynapseClient
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
     public StarburstSynapseClient(
@@ -114,7 +114,6 @@ public class StarburstSynapseClient
         // TODO: Remove once https://starburstdata.atlassian.net/browse/SEP-10133 is addressed
         // Explicitly copied from SQL Server to remove some connector expression rewrites since it's unsafe for varchars due to default case-insensitive collation of Synapse
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
-                .add(new RewriteUnicodeVarcharConstant())
                 .addStandardRules(this::quoted)
                 .add(new RewriteIn())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
@@ -131,7 +130,7 @@ public class StarburstSynapseClient
                 .build();
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementSqlServerCountBigAll())
                         .add(new ImplementSqlServerCountBig())
                         .add(new ImplementMinMax(false))
@@ -155,7 +154,7 @@ public class StarburstSynapseClient
 
     // TODO: Remove once https://starburstdata.atlassian.net/browse/SEP-10133 is addressed
     @Override
-    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }

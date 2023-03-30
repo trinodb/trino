@@ -56,6 +56,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteComparison;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -213,8 +214,8 @@ public class SnowflakeClient
             .put(DateType.DATE, WriteMapping.longMapping("date", dateWriteFunctionUsingString()))
             .buildOrThrow();
 
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
     private final Type jsonType;
     private final Type jsonPathType;
     private final boolean statisticsEnabled;
@@ -239,7 +240,6 @@ public class SnowflakeClient
         this.distributedConnector = distributedConnector;
         this.databasePrefixForSchemaEnabled = requireNonNull(snowflakeConfig, "snowflakeConfig is null").getDatabasePrefixForSchemaEnabled();
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
-                .add(new RewriteVarcharConstant())
                 .addStandardRules(this::quoted)
                 // TODO allow all comparison operators for numeric types
                 .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
@@ -254,7 +254,7 @@ public class SnowflakeClient
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementCountDistinct(bigintTypeHandle, true))
@@ -394,7 +394,7 @@ public class SnowflakeClient
     }
 
     @Override
-    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }

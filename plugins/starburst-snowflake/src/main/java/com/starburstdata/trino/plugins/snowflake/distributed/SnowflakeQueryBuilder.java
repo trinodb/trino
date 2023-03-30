@@ -12,6 +12,8 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
@@ -19,6 +21,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -49,7 +52,7 @@ public class SnowflakeQueryBuilder
     }
 
     @Override
-    protected String getProjection(JdbcClient client, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
+    protected String getProjection(JdbcClient client, List<JdbcColumnHandle> columns, Map<String, ParameterizedExpression> columnExpressions, Consumer<QueryParameter> accumulator)
     {
         if (columns.isEmpty()) {
             return "null";
@@ -66,18 +69,18 @@ public class SnowflakeQueryBuilder
                                 // using TO_DECIMAL to prevent Snowflake from losing precision on the shift result
                                 "TO_DECIMAL(BITSHIFTLEFT(EXTRACT('EPOCH_MILLISECOND', %1$s), %2$s), 38, 0), " +
                                 "%3$s + EXTRACT('TZH', %1$s) * 60 + EXTRACT('TZM', %1$s))",
-                                getColumnExpression(client, columnHandle, columnExpressions),
+                                getColumnExpression(client, columnHandle, columnExpressions, accumulator),
                                 TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT,
                                 ZONE_OFFSET_MINUTES_BIAS);
                     }
                     else if (columnHandle.getColumnType() instanceof TimestampType) {
-                        expression = format("CAST(%s as TIMESTAMP(3))", getColumnExpression(client, columnHandle, columnExpressions));
+                        expression = format("CAST(%s as TIMESTAMP(3))", getColumnExpression(client, columnHandle, columnExpressions, accumulator));
                     }
                     else if (columnHandle.getColumnType() instanceof TimeType) {
-                        expression = format("CAST(%s as TIME(3))", getColumnExpression(client, columnHandle, columnExpressions));
+                        expression = format("CAST(%s as TIME(3))", getColumnExpression(client, columnHandle, columnExpressions, accumulator));
                     }
                     else {
-                        expression = getColumnExpression(client, columnHandle, columnExpressions);
+                        expression = getColumnExpression(client, columnHandle, columnExpressions, accumulator);
                     }
 
                     return format("%s AS %s", expression, client.quoted(columnHandle.getColumnName()));
@@ -85,12 +88,13 @@ public class SnowflakeQueryBuilder
                 .collect(joining(", "));
     }
 
-    private String getColumnExpression(JdbcClient client, JdbcColumnHandle jdbcColumnHandle, Map<String, String> columnExpressions)
+    private String getColumnExpression(JdbcClient client, JdbcColumnHandle jdbcColumnHandle, Map<String, ParameterizedExpression> columnExpressions, Consumer<QueryParameter> accumulator)
     {
-        String expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
+        ParameterizedExpression expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
         if (expression == null) {
             return client.quoted(jdbcColumnHandle.getColumnName());
         }
-        return expression;
+        expression.parameters().forEach(accumulator);
+        return expression.expression();
     }
 }

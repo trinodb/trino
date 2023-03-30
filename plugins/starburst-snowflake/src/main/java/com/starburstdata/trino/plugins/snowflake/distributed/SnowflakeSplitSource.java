@@ -46,6 +46,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -235,7 +236,7 @@ public class SnowflakeSplitSource
                             getAdditionalPredicate(jdbcTableHandle.getConstraintExpressions(), Optional.empty()));
                     preparedQuery = client.applyQueryTransformations(jdbcTableHandle, preparedQuery);
                     preparedQuery = preparedQuery.transformQuery(sql -> copyIntoStage(sql, stageName));
-                    try (PreparedStatement statement = queryBuilder.prepareStatement(client, session, connection, preparedQuery)) {
+                    try (PreparedStatement statement = queryBuilder.prepareStatement(client, session, connection, preparedQuery, Optional.empty())) {
                         // TODO close ResultSet
                         statement.executeQuery();
                     }
@@ -261,15 +262,18 @@ public class SnowflakeSplitSource
         }));
     }
 
-    protected static Optional<String> getAdditionalPredicate(List<String> constraintExpressions, Optional<String> splitPredicate)
+    protected static Optional<ParameterizedExpression> getAdditionalPredicate(List<ParameterizedExpression> constraintExpressions, Optional<String> splitPredicate)
     {
         if (constraintExpressions.isEmpty() && splitPredicate.isEmpty()) {
             return Optional.empty();
         }
 
-        return Optional.of(
-                Stream.concat(constraintExpressions.stream(), splitPredicate.stream())
-                        .collect(joining(") AND (", "(", ")")));
+        return Optional.of(new ParameterizedExpression(
+                Stream.concat(constraintExpressions.stream().map(ParameterizedExpression::expression), splitPredicate.stream())
+                        .collect(joining(") AND (", "(", ")")),
+                constraintExpressions.stream()
+                        .flatMap(expressionRewrite -> expressionRewrite.parameters().stream())
+                        .collect(toImmutableList())));
     }
 
     private <T> CheckedSupplier<T> measureExportAttemptTime(Callable<T> supplier)

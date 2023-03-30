@@ -9,10 +9,14 @@
  */
 package com.starburstdata.trino.plugins.snowflake.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeSessionProperties;
+import io.airlift.slice.Slices;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.type.Type;
 
@@ -20,9 +24,10 @@ import java.util.Optional;
 
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.constant;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.type;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class RewriteJsonPath
-        implements ConnectorExpressionRule<Constant, String>
+        implements ConnectorExpressionRule<Constant, ParameterizedExpression>
 {
     private final Pattern<Constant> pattern;
 
@@ -38,7 +43,7 @@ public class RewriteJsonPath
     }
 
     @Override
-    public Optional<String> rewrite(Constant constant, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(Constant constant, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         if (!SnowflakeSessionProperties.getExperimentalPushdownEnabled(context.getSession())) {
             return Optional.empty();
@@ -54,7 +59,6 @@ public class RewriteJsonPath
         if (snowflakeJsonPath.startsWith("$.")) {
             snowflakeJsonPath = snowflakeJsonPath.substring("$.".length());
         }
-        snowflakeJsonPath = "'" + snowflakeJsonPath.replace("'", "''") + "'";
-        return Optional.of(snowflakeJsonPath);
+        return Optional.of(new ParameterizedExpression("?", ImmutableList.of(new QueryParameter(VARCHAR, Optional.of(Slices.utf8Slice(snowflakeJsonPath))))));
     }
 }
