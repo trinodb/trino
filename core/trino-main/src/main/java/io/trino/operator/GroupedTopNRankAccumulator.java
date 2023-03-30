@@ -487,7 +487,7 @@ public class GroupedTopNRankAccumulator
             long heapSize = groupIdToHeapBuffer.getHeapSize(groupId);
             long heapValueCount = groupIdToHeapBuffer.getHeapValueCount(groupId);
             long rootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
-            verify(rootNodeIndex == UNKNOWN_INDEX || calculateRootRank(rootNodeIndex) <= topN, "Max heap has more values than needed");
+            verify(rootNodeIndex == UNKNOWN_INDEX || calculateRootRank(groupId) <= topN, "Max heap has more values than needed");
             IntegrityStats integrityStats = verifyHeapIntegrity(groupId, rootNodeIndex);
             verify(integrityStats.getPeerGroupCount() == heapSize, "Recorded heap size does not match actual heap size");
             totalHeapNodes += integrityStats.getPeerGroupCount();
