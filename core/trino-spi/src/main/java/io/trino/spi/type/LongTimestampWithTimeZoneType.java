@@ -24,6 +24,8 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.ScalarOperator;
 
+import java.util.Optional;
+
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -33,6 +35,9 @@ import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.rescale;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -138,6 +143,42 @@ final class LongTimestampWithTimeZoneType
         int picosOfMilli = getPicosOfMilli(block, position);
 
         return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), picosOfMilli, unpackZoneKey(packedEpochMillis));
+    }
+
+    @Override
+    public Optional<Object> getPreviousValue(Object value)
+    {
+        LongTimestampWithTimeZone timestampWithTimeZone = (LongTimestampWithTimeZone) value;
+        long epochMillis = timestampWithTimeZone.getEpochMillis();
+        int picosOfMilli = timestampWithTimeZone.getPicosOfMilli();
+        picosOfMilli -= rescale(1, 0, 12 - getPrecision());
+        if (picosOfMilli < 0) {
+            if (epochMillis == Long.MIN_VALUE) {
+                return Optional.empty();
+            }
+            epochMillis--;
+            picosOfMilli += PICOSECONDS_PER_MILLISECOND;
+        }
+        // time zone doesn't matter for ordering
+        return Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, UTC_KEY));
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object value)
+    {
+        LongTimestampWithTimeZone timestampWithTimeZone = (LongTimestampWithTimeZone) value;
+        long epochMillis = timestampWithTimeZone.getEpochMillis();
+        int picosOfMilli = timestampWithTimeZone.getPicosOfMilli();
+        picosOfMilli += rescale(1, 0, 12 - getPrecision());
+        if (picosOfMilli >= PICOSECONDS_PER_MILLISECOND) {
+            if (epochMillis == Long.MAX_VALUE) {
+                return Optional.empty();
+            }
+            epochMillis--;
+            picosOfMilli -= PICOSECONDS_PER_MILLISECOND;
+        }
+        // time zone doesn't matter for ordering
+        return Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picosOfMilli, UTC_KEY));
     }
 
     private static long getPackedEpochMillis(Block block, int position)

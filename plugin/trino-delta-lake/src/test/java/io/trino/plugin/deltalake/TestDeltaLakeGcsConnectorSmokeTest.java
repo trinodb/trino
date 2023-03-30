@@ -20,16 +20,16 @@ import com.google.common.io.ByteStreams;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
 
@@ -37,9 +37,8 @@ import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
@@ -52,6 +51,7 @@ import java.util.regex.Pattern;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDeltaLakeQueryRunner;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -71,15 +71,21 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     private static final FileAttribute<?> READ_ONLY_PERMISSIONS = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
 
     private final String gcpStorageBucket;
-    private final Path gcpCredentialsFile;
-    private final FileSystem fileSystem;
+    private final String gcpCredentialKey;
+
+    private Path gcpCredentialsFile;
+    private TrinoFileSystem fileSystem;
 
     @Parameters({"testing.gcp-storage-bucket", "testing.gcp-credentials-key"})
     public TestDeltaLakeGcsConnectorSmokeTest(String gcpStorageBucket, String gcpCredentialKey)
     {
         this.gcpStorageBucket = requireNonNull(gcpStorageBucket, "gcpStorageBucket is null");
+        this.gcpCredentialKey = requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+    }
 
-        requireNonNull(gcpCredentialKey, "gcpCredentialKey is null");
+    @Override
+    protected void environmentSetup()
+    {
         InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(gcpCredentialKey));
         try {
             this.gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".json", READ_ONLY_PERMISSIONS);
@@ -89,14 +95,9 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             HiveGcsConfig gcsConfig = new HiveGcsConfig().setJsonKeyFilePath(gcpCredentialsFile.toAbsolutePath().toString());
             Configuration configuration = ConfigurationInstantiator.newEmptyConfiguration();
             new GoogleGcsConfigurationInitializer(gcsConfig).initializeConfiguration(configuration);
-
-            this.fileSystem = FileSystem.newInstance(new URI(bucketUrl()), configuration);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -105,12 +106,13 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     {
         if (fileSystem != null) {
             try {
-                fileSystem.delete(new org.apache.hadoop.fs.Path(bucketUrl()), true);
+                fileSystem.deleteDirectory(bucketUrl());
             }
             catch (IOException e) {
                 // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
                 LOG.warn(e, "Failed to clean up GCS test directory: %s", bucketUrl());
             }
+            fileSystem = null;
         }
     }
 
@@ -139,7 +141,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
             throws Exception
     {
-        return createDockerizedDeltaLakeQueryRunner(
+        DistributedQueryRunner runner = createDockerizedDeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of(),
@@ -151,12 +153,14 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                         .buildOrThrow(),
                 hiveMinioDataLake.getHiveHadoop(),
                 queryRunner -> {});
+        this.fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(runner.getDefaultSession().toConnectorSession());
+        return runner;
     }
 
     @Override
-    protected void createTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
+    protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
-        String targetDirectory = bucketName + "/" + table;
+        String targetDirectory = bucketUrl() + table;
 
         try {
             List<ClassPath.ResourceInfo> resources = ClassPath.from(TestDeltaLakeAdlsConnectorSmokeTest.class.getClassLoader())
@@ -167,7 +171,8 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             for (ClassPath.ResourceInfo resourceInfo : resources) {
                 String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(targetDirectory));
                 ByteSource byteSource = resourceInfo.asByteSource();
-                try (FSDataOutputStream fileStream = fileSystem.create(new org.apache.hadoop.fs.Path(fileName), true)) {
+                TrinoOutputFile trinoOutputFile = fileSystem.newOutputFile(fileName);
+                try (OutputStream fileStream = trinoOutputFile.createOrOverwrite()) {
                     ByteStreams.copy(byteSource.openBufferedStream(), fileStream);
                 }
             }
@@ -176,7 +181,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             throw new UncheckedIOException(e);
         }
 
-        queryRunner.execute(format("CREATE TABLE %s (dummy int) WITH (location = '%s')", table, getLocationForTable(bucketName, table)));
+        queryRunner.execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, table, getLocationForTable(bucketName, table)));
     }
 
     @Override
@@ -201,18 +206,13 @@ public class TestDeltaLakeGcsConnectorSmokeTest
 
     private List<String> listAllFilesRecursive(String directory)
     {
-        String path = bucketUrl() + directory;
-        ImmutableList.Builder<String> paths = ImmutableList.builder();
-
+        ImmutableList.Builder<String> locations = ImmutableList.builder();
         try {
-            RemoteIterator<LocatedFileStatus> files = fileSystem.listFiles(new org.apache.hadoop.fs.Path(path), true);
+            FileIterator files = fileSystem.listFiles(bucketUrl() + directory);
             while (files.hasNext()) {
-                LocatedFileStatus file = files.next();
-                if (!file.isDirectory()) {
-                    paths.add(file.getPath().toString());
-                }
+                locations.add(files.next().location());
             }
-            return paths.build();
+            return locations.build();
         }
         catch (FileNotFoundException e) {
             return ImmutableList.of();

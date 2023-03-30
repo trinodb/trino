@@ -30,9 +30,7 @@ public class TestClickHouseLatestConnectorTest
         return createClickHouseQueryRunner(
                 clickhouseServer,
                 ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("clickhouse.map-string-as-varchar", "true")
-                        .buildOrThrow(),
+                ImmutableMap.of("clickhouse.map-string-as-varchar", "true"),
                 REQUIRED_TPCH_TABLES);
     }
 }

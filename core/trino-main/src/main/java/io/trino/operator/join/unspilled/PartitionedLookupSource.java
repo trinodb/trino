@@ -42,6 +42,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Integer.numberOfTrailingZeros;
 import static java.lang.Math.toIntExact;
 
+/**
+ * Like {@link io.trino.operator.join.PartitionedLookupSource} but simplified,
+ * without spill support.
+ */
 @NotThreadSafe
 public class PartitionedLookupSource
         implements LookupSource

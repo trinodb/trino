@@ -13,6 +13,8 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.Experimental;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,6 +31,7 @@ public class ConnectorTableMetadata
     private final Optional<String> comment;
     private final List<ColumnMetadata> columns;
     private final Map<String, Object> properties;
+    private final List<String> checkConstraints;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
@@ -37,19 +40,27 @@ public class ConnectorTableMetadata
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties)
     {
-        this(table, columns, properties, Optional.empty());
+        this(table, columns, properties, Optional.empty(), List.of());
     }
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment)
     {
+        this(table, columns, properties, comment, List.of());
+    }
+
+    @Experimental(eta = "2023-03-31")
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment, List<String> checkConstraints)
+    {
         requireNonNull(table, "table is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(comment, "comment is null");
+        requireNonNull(checkConstraints, "checkConstraints is null");
 
         this.table = table;
         this.columns = List.copyOf(columns);
         this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
         this.comment = comment;
+        this.checkConstraints = List.copyOf(checkConstraints);
     }
 
     public SchemaTableName getTable()
@@ -72,13 +83,27 @@ public class ConnectorTableMetadata
         return comment;
     }
 
+    /**
+     * List of constraints data in a table is expected to satisfy.
+     * Engine ensures rows written to a table meet these constraints.
+     * A check constraint is satisfied when it evaluates to True or Unknown.
+     *
+     * @return List of string representation of a Trino SQL scalar expression that can refer to table columns by name and produces a result coercible to boolean
+     */
+    @Experimental(eta = "2023-03-31")
+    public List<String> getCheckConstraints()
+    {
+        return checkConstraints;
+    }
+
     public ConnectorTableSchema getTableSchema()
     {
         return new ConnectorTableSchema(
                 table,
                 columns.stream()
                         .map(ColumnMetadata::getColumnSchema)
-                        .collect(toUnmodifiableList()));
+                        .collect(toUnmodifiableList()),
+                checkConstraints);
     }
 
     @Override
@@ -89,6 +114,7 @@ public class ConnectorTableMetadata
         sb.append(", columns=").append(columns);
         sb.append(", properties=").append(properties);
         comment.ifPresent(value -> sb.append(", comment='").append(value).append("'"));
+        sb.append(", checkConstraints=").append(checkConstraints);
         sb.append('}');
         return sb.toString();
     }

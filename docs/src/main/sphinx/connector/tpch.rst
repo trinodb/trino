@@ -15,7 +15,7 @@ Configuration
 -------------
 
 To configure the TPCH connector, create a catalog properties file
-``etc/catalog/tpch.properties`` with the following contents:
+``etc/catalog/example.properties`` with the following contents:
 
 .. code-block:: text
 
@@ -26,7 +26,7 @@ TPCH schemas
 
 The TPCH connector supplies several schemas::
 
-    SHOW SCHEMAS FROM tpch;
+    SHOW SCHEMAS FROM example;
 
 .. code-block:: text
 

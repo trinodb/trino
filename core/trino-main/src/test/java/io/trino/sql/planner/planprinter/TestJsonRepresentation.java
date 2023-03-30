@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -73,6 +74,13 @@ public class TestJsonRepresentation
         queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(1), ImmutableMap.of());
     }
 
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        queryRunner.close();
+        queryRunner = null;
+    }
+
     @Test
     public void testDistributedJsonPlan()
     {
@@ -93,7 +101,7 @@ public class TestJsonRepresentation
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                                 ImmutableList.of(new JsonRenderedNode(
-                                        "147",
+                                        "149",
                                         "LocalExchange",
                                         ImmutableMap.of(
                                                 "partitioning", "SINGLE",
@@ -136,7 +144,7 @@ public class TestJsonRepresentation
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
-                                "147",
+                                "149",
                                 "LocalExchange",
                                 ImmutableMap.of(
                                         "partitioning", "SINGLE",

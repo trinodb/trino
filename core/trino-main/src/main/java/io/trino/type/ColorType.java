@@ -19,11 +19,12 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.TypeSignature;
 
-import static java.lang.String.format;
+import java.util.HexFormat;
 
 public class ColorType
         extends AbstractIntType
 {
+    private static final HexFormat HEX_FORMAT = HexFormat.of();
     public static final ColorType COLOR = new ColorType();
     public static final String NAME = "color";
 
@@ -50,10 +51,11 @@ public class ColorType
             return ColorFunctions.SystemColor.valueOf(-(color + 1)).getName();
         }
 
-        return format("#%02x%02x%02x",
-                (color >> 16) & 0xFF,
-                (color >> 8) & 0xFF,
-                color & 0xFF);
+        StringBuilder builder = new StringBuilder(7).append('#');
+        HEX_FORMAT.toHexDigits(builder, (byte) ((color >> 16) & 0xFF));
+        HEX_FORMAT.toHexDigits(builder, (byte) ((color >> 8) & 0xFF));
+        HEX_FORMAT.toHexDigits(builder, (byte) (color & 0xFF));
+        return builder.toString();
     }
 
     @Override

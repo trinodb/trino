@@ -17,38 +17,25 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.exchange.ExchangeSinkHandle;
 
-import java.util.Arrays;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeSinkHandle
         implements ExchangeSinkHandle
 {
     private final int partitionId;
-    private final Optional<byte[]> secretKey;
 
     @JsonCreator
-    public FileSystemExchangeSinkHandle(
-            @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("secretKey") Optional<byte[]> secretKey)
+    public FileSystemExchangeSinkHandle(@JsonProperty("partitionId") int partitionId)
     {
         this.partitionId = partitionId;
-        this.secretKey = requireNonNull(secretKey, "secretKey is null");
     }
 
     @JsonProperty
     public int getPartitionId()
     {
         return partitionId;
-    }
-
-    @JsonProperty
-    public Optional<byte[]> getSecretKey()
-    {
-        return secretKey;
     }
 
     @Override
@@ -61,16 +48,13 @@ public class FileSystemExchangeSinkHandle
             return false;
         }
         FileSystemExchangeSinkHandle that = (FileSystemExchangeSinkHandle) o;
-        if (secretKey.isPresent() && that.secretKey.isPresent()) {
-            return partitionId == that.getPartitionId() && Arrays.equals(secretKey.get(), that.secretKey.get());
-        }
-        return partitionId == that.getPartitionId() && secretKey.isEmpty() && that.secretKey.isEmpty();
+        return partitionId == that.getPartitionId();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitionId, secretKey);
+        return Objects.hash(partitionId);
     }
 
     @Override
@@ -78,7 +62,6 @@ public class FileSystemExchangeSinkHandle
     {
         return toStringHelper(this)
                 .add("partitionId", partitionId)
-                .add("secretKey", secretKey.map(value -> "[REDACTED]"))
                 .toString();
     }
 }

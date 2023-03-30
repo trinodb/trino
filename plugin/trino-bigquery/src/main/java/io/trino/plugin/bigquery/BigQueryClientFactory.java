@@ -37,6 +37,7 @@ public class BigQueryClientFactory
     private final IdentityCacheMapping identityCacheMapping;
     private final BigQueryCredentialsSupplier credentialsSupplier;
     private final Optional<String> parentProjectId;
+    private final Optional<String> projectId;
     private final boolean caseInsensitiveNameMatching;
     private final ViewMaterializationCache materializationCache;
     private final HeaderProvider headerProvider;
@@ -55,6 +56,7 @@ public class BigQueryClientFactory
         this.credentialsSupplier = requireNonNull(credentialsSupplier, "credentialsSupplier is null");
         requireNonNull(bigQueryConfig, "bigQueryConfig is null");
         this.parentProjectId = bigQueryConfig.getParentProjectId();
+        this.projectId = bigQueryConfig.getProjectId();
         this.caseInsensitiveNameMatching = bigQueryConfig.isCaseInsensitiveNameMatching();
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
         this.headerProvider = requireNonNull(headerProvider, "headerProvider is null");
@@ -75,7 +77,7 @@ public class BigQueryClientFactory
 
     protected BigQueryClient createBigQueryClient(ConnectorSession session)
     {
-        return new BigQueryClient(createBigQuery(session), caseInsensitiveNameMatching, materializationCache, metadataCacheTtl);
+        return new BigQueryClient(createBigQuery(session), caseInsensitiveNameMatching, materializationCache, metadataCacheTtl, projectId);
     }
 
     protected BigQuery createBigQuery(ConnectorSession session)

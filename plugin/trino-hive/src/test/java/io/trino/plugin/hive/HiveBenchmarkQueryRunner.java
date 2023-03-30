@@ -74,9 +74,7 @@ public final class HiveBenchmarkQueryRunner
                         .setOwnerType(Optional.of(PrincipalType.ROLE))
                         .build());
 
-        Map<String, String> hiveCatalogConfig = ImmutableMap.<String, String>builder()
-                .put("hive.max-split-size", "10GB")
-                .buildOrThrow();
+        Map<String, String> hiveCatalogConfig = ImmutableMap.of("hive.max-split-size", "10GB");
 
         localQueryRunner.createCatalog("hive", new TestingHiveConnectorFactory(metastore), hiveCatalogConfig);
 

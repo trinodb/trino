@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
@@ -36,8 +35,10 @@ import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
 import io.trino.metadata.TableMetadata;
+import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -55,7 +56,6 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -71,7 +71,6 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.planner.sanity.PlanSanityChecker;
@@ -118,6 +117,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
+import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
@@ -245,7 +246,9 @@ public class LogicalPlanner
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             for (PlanOptimizer optimizer : planOptimizers) {
                 root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, tableStatsProvider);
-                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
+                if (root == null) {
+                    throw new NullPointerException(optimizer.getClass().getName() + " returned a null plan");
+                }
 
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
@@ -489,7 +492,19 @@ public class LogicalPlanner
         plan = planner.addRowFilters(
                 table,
                 plan,
-                failIfPredicateIsNotMet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match to a row filter"),
+                failIfPredicateIsNotMet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match a row filter"),
+                node -> {
+                    Scope accessControlScope = analysis.getAccessControlScope(table);
+                    // hidden fields are not accessible in insert
+                    return Scope.builder()
+                            .like(accessControlScope)
+                            .withRelationType(accessControlScope.getRelationId(), accessControlScope.getRelationType().withOnlyVisibleFields())
+                            .build();
+                });
+        plan = planner.addCheckConstraints(
+                analysis.getCheckConstraints(table),
+                table,
+                plan,
                 node -> {
                     Scope accessControlScope = analysis.getAccessControlScope(table);
                     // hidden fields are not accessible in insert
@@ -532,9 +547,7 @@ public class LogicalPlanner
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
     {
-        return new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, format(
-                "NULL value not allowed for NOT NULL column: %s",
-                columnName)), toSqlType(type));
+        return new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(type));
     }
 
     private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
@@ -578,7 +591,7 @@ public class LogicalPlanner
         Query query = viewAnalysis.getQuery();
         Optional<TableLayout> newTableLayout = metadata.getInsertLayout(session, viewAnalysis.getTarget());
         TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
-                viewAnalysis.getTable(),
+                viewAnalysis.getTable().toString(),
                 tableHandle,
                 new ArrayList<>(analysis.getTables()));
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
@@ -595,6 +608,12 @@ public class LogicalPlanner
     {
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         Optional<PartitioningScheme> preferredPartitioningScheme = Optional.empty();
+
+        int maxWriterTasks = target.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+        Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                : Optional.empty();
+
         if (writeTableLayout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
             writeTableLayout.get().getPartitionColumns().stream()
@@ -606,6 +625,7 @@ public class LogicalPlanner
 
             Optional<PartitioningHandle> partitioningHandle = writeTableLayout.get().getPartitioning();
             if (partitioningHandle.isPresent()) {
+                checkState(target.getMaxWriterTasks(plannerContext.getMetadata(), session).isEmpty(), "maxWriterTasks must be empty if partitioning is set by connector");
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
@@ -614,7 +634,11 @@ public class LogicalPlanner
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
                 preferredPartitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
-                        outputLayout));
+                        outputLayout,
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        maxWritersNodesCount));
             }
         }
 
@@ -727,13 +751,14 @@ public class LogicalPlanner
 
     private RelationPlan createDeletePlan(Analysis analysis, Delete node)
     {
-        DeleteNode deleteNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
+        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
+        WriterTarget target = ((MergeWriterNode) planNode).getTarget();
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
-                deleteNode,
-                deleteNode.getTarget(),
+                planNode,
+                target,
                 symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
@@ -743,13 +768,14 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
-        UpdateNode updateNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
+        PlanNode planNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of())
                 .plan(node);
 
+        WriterTarget target = ((MergeWriterNode) planNode).getTarget();
         TableFinishNode commitNode = new TableFinishNode(
                 idAllocator.getNextId(),
-                updateNode,
-                updateNode.getTarget(),
+                planNode,
+                target,
                 symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
@@ -815,11 +841,10 @@ public class LogicalPlanner
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> result = new LinkedHashMap<>();
 
         for (Entry<NodeRef<Expression>, Type> entry : analysis.getTypes().entrySet()) {
-            if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration)) {
+            if (!(entry.getKey().getNode() instanceof LambdaArgumentDeclaration argument)) {
                 continue;
             }
 
-            LambdaArgumentDeclaration argument = (LambdaArgumentDeclaration) entry.getKey().getNode();
             Key key = new Key(argument, entry.getValue());
 
             // Allocate the same symbol for all lambda argument names with a given type. This is needed to be able to
@@ -890,15 +915,24 @@ public class LogicalPlanner
 
             Optional<PartitioningHandle> partitioningHandle = layout.get().getPartitioning();
             if (partitioningHandle.isPresent()) {
+                checkState(tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).isEmpty(), "maxWriterTasks must be empty if partitioning is set by connector");
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
             }
             else {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
+                int maxWriterTasks = tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+                Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
+                        ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                        : Optional.empty();
                 preferredPartitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
-                        outputLayout));
+                        outputLayout,
+                        Optional.empty(),
+                        false,
+                        Optional.empty(),
+                        maxWritersNodesCount));
             }
         }
 

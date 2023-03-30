@@ -36,7 +36,7 @@ public class TestDropTableTask
     @Test
     public void testDropExistingTable()
     {
-        QualifiedObjectName tableName = qualifiedObjectName("not_existing_table");
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
         assertThat(metadata.getTableHandle(testSession, tableName)).isPresent();
 
@@ -55,7 +55,25 @@ public class TestDropTableTask
     }
 
     @Test
-    public void testDropNotExistingTableIfExists()
+    public void testDropTableIfExistsWithoutExistingCatalog()
+    {
+        QualifiedName tableName = QualifiedName.of("non_existing_catalog", "non_existing_schema", "not_existing_table");
+
+        getFutureValue(executeDropTable(tableName, true));
+        // no exception
+    }
+
+    @Test
+    public void testDropTableIfExistsWithoutExistingSchema()
+    {
+        QualifiedName tableName = QualifiedName.of(TEST_CATALOG_NAME, "non_existing_schema", "not_existing_table");
+
+        getFutureValue(executeDropTable(tableName, true));
+        // no exception
+    }
+
+    @Test
+    public void testDropTableIfExistsWithoutExistingTable()
     {
         QualifiedName tableName = qualifiedName("not_existing_table");
 
@@ -75,7 +93,7 @@ public class TestDropTableTask
     }
 
     @Test
-    public void testDropTableOnViewIfExists()
+    public void testDropTableIfExistsOnView()
     {
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, asQualifiedObjectName(viewName), someView(), false);
@@ -97,7 +115,7 @@ public class TestDropTableTask
     }
 
     @Test
-    public void testDropTableOnMaterializedViewIfExists()
+    public void testDropTableIfExistsOnMaterializedView()
     {
         QualifiedName viewName = qualifiedName("existing_materialized_view");
         metadata.createMaterializedView(testSession, asQualifiedObjectName(viewName), someMaterializedView(), false, false);

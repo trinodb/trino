@@ -40,9 +40,7 @@ public class TestHiveCosServiceConfig
     {
         Path serviceConfig = createTempFile(null, null);
 
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.cos.service-config", serviceConfig.toString())
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("hive.cos.service-config", serviceConfig.toString());
 
         HiveCosServiceConfig expected = new HiveCosServiceConfig()
                 .setServiceConfig(serviceConfig.toFile());

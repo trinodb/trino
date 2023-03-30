@@ -39,8 +39,8 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.trino.execution.buffer.PagesSerde.isSerializedPageCompressed;
-import static io.trino.execution.buffer.PagesSerde.isSerializedPageEncrypted;
+import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageCompressed;
+import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageEncrypted;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -48,6 +48,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Double.doubleToLongBits;
 import static java.nio.file.Files.newInputStream;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -150,6 +151,11 @@ public class TestFileSingleStreamSpiller
         for (int i = 0; i < 4; ++i) {
             PageAssertions.assertPageEquals(TYPES, page, spilledPages.get(i));
         }
+
+        // Repeated reads are disallowed
+        assertThatThrownBy(spiller::getSpilledPages)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Repeated reads are disallowed to prevent potential resource leaks");
 
         spiller.close();
         assertEquals(listFiles(spillPath.toPath()).size(), 0);

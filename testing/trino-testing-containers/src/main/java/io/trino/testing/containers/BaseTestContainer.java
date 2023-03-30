@@ -16,9 +16,10 @@ package io.trino.testing.containers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -119,13 +120,14 @@ public abstract class BaseTestContainer
 
     public void start()
     {
-        Failsafe.with(new RetryPolicy<>()
+        Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(startupRetryLimit)
                         .onRetry(event -> log.warn(
                                 "%s initialization failed (attempt %s), will retry. Exception: %s",
                                 this.getClass().getSimpleName(),
                                 event.getAttemptCount(),
-                                event.getLastFailure().getMessage())))
+                                event.getLastException().getMessage()))
+                        .build())
                 .get(() -> TestContainers.startOrReuse(this.container));
     }
 
@@ -161,6 +163,12 @@ public abstract class BaseTestContainer
     public void close()
     {
         stop();
+    }
+
+    @ResourcePresence
+    public boolean isPresent()
+    {
+        return container.isRunning() || container.getContainerId() != null;
     }
 
     protected abstract static class Builder<SELF extends BaseTestContainer.Builder<SELF, BUILD>, BUILD extends BaseTestContainer>

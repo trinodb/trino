@@ -148,7 +148,7 @@ public abstract class S3AsyncClientWrapper
                 .version(VersionInfo.SDK_VERSION).name("PAGINATED").build());
         AwsRequestOverrideConfiguration overrideConfiguration = request.overrideConfiguration()
                 .map(c -> c.toBuilder().applyMutation(userAgentApplier).build())
-                .orElse((AwsRequestOverrideConfiguration.builder().applyMutation(userAgentApplier).build()));
+                .orElseGet(() -> AwsRequestOverrideConfiguration.builder().applyMutation(userAgentApplier).build());
         return (T) request.toBuilder().overrideConfiguration(overrideConfiguration).build();
     }
 

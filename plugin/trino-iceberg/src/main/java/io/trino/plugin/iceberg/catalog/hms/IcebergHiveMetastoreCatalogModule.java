@@ -16,14 +16,24 @@ package io.trino.plugin.iceberg.catalog.hms;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.MetastoreValidator;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.procedure.MigrateProcedure;
+import io.trino.spi.procedure.Procedure;
+
+import java.util.concurrent.TimeUnit;
+
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class IcebergHiveMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
@@ -39,6 +49,13 @@ public class IcebergHiveMetastoreCatalogModule
         binder.bind(MetastoreValidator.class).asEagerSingleton();
         binder.bind(Key.get(boolean.class, TranslateHiveViews.class)).toInstance(false);
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(HIDE_DELTA_LAKE_TABLES_IN_ICEBERG);
-        install(new DecoratedHiveMetastoreModule());
+        install(new DecoratedHiveMetastoreModule(false));
+
+        configBinder(binder).bindConfigDefaults(CachingHiveMetastoreConfig.class, config -> {
+            // ensure caching metastore wrapper isn't created, as it's not leveraged by Iceberg
+            config.setStatsCacheTtl(new Duration(0, TimeUnit.SECONDS));
+        });
+        Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
+        procedures.addBinding().toProvider(MigrateProcedure.class).in(Scopes.SINGLETON);
     }
 }

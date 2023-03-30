@@ -16,11 +16,9 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,7 +34,7 @@ public class TestTransactionLogTail
     public void testTail(String dataSource)
             throws Exception
     {
-        String tableLocation = format("%s/person", dataSource);
+        String tableLocation = getClass().getClassLoader().getResource(format("%s/person", dataSource)).toURI().toString();
         assertEquals(readJsonTransactionLogTails(tableLocation).size(), 7);
         assertEquals(updateJsonTransactionLogTails(tableLocation).size(), 7);
     }
@@ -54,10 +52,8 @@ public class TestTransactionLogTail
             throws Exception
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-        URI resource = getClass().getClassLoader().getResource(tableLocation).toURI();
-        Path tablePath = new Path(resource);
-        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tablePath, Optional.of(10L), Optional.of(12L));
-        Optional<TransactionLogTail> updatedLogTail = transactionLogTail.getUpdatedTail(fileSystem, tablePath);
+        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(10L), Optional.of(12L));
+        Optional<TransactionLogTail> updatedLogTail = transactionLogTail.getUpdatedTail(fileSystem, tableLocation);
         assertTrue(updatedLogTail.isPresent());
         return updatedLogTail.get().getFileEntries();
     }
@@ -66,9 +62,7 @@ public class TestTransactionLogTail
             throws Exception
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-        URI resource = getClass().getClassLoader().getResource(tableLocation).toURI();
-        Path tablePath = new Path(resource);
-        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tablePath, Optional.of(10L));
+        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(10L));
         return transactionLogTail.getFileEntries();
     }
 }

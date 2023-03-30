@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -33,6 +32,7 @@ import io.trino.metadata.TableLayout;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -44,6 +44,7 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.ptf.Argument;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.Identity;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.JsonPathAnalyzer.JsonPathAnalysis;
@@ -88,7 +89,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -111,6 +111,7 @@ import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -211,9 +212,10 @@ public class Analysis
 
     private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
-    private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
 
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
@@ -963,7 +965,7 @@ public class Analysis
     public Range getRange(RangeQuantifier quantifier)
     {
         Range range = ranges.get(NodeRef.of(quantifier));
-        checkNotNull(range, "missing range for quantifier ", quantifier);
+        checkNotNull(range, "missing range for quantifier %s", quantifier);
         return range;
     }
 
@@ -980,7 +982,7 @@ public class Analysis
     public Set<String> getUndefinedLabels(RowPattern pattern)
     {
         Set<String> labels = undefinedLabels.get(NodeRef.of(pattern));
-        checkNotNull(labels, "missing undefined labels for ", pattern);
+        checkNotNull(labels, "missing undefined labels for %s", pattern);
         return labels;
     }
 
@@ -1070,9 +1072,20 @@ public class Analysis
                 .add(filter);
     }
 
+    public void addCheckConstraints(Table table, Expression constraint)
+    {
+        checkConstraints.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(constraint);
+    }
+
     public List<Expression> getRowFilters(Table node)
     {
-        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+        return unmodifiableList(rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of()));
+    }
+
+    public List<Expression> getCheckConstraints(Table node)
+    {
+        return unmodifiableList(checkConstraints.getOrDefault(NodeRef.of(node), ImmutableList.of()));
     }
 
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
@@ -1092,14 +1105,15 @@ public class Analysis
 
     public void addColumnMask(Table table, String column, Expression mask)
     {
-        Map<String, List<Expression>> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
-        masks.computeIfAbsent(column, name -> new ArrayList<>())
-                .add(mask);
+        Map<String, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
+        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column);
+
+        masks.put(column, mask);
     }
 
-    public Map<String, List<Expression>> getColumnMasks(Table table)
+    public Map<String, Expression> getColumnMasks(Table table)
     {
-        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+        return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
 
     public List<TableInfo> getReferencedTables()
@@ -1117,10 +1131,8 @@ public class Analysis
                             .distinct()
                             .map(fieldName -> new ColumnInfo(
                                     fieldName,
-                                    columnMasks.getOrDefault(table, ImmutableMap.of())
-                                            .getOrDefault(fieldName, ImmutableList.of()).stream()
-                                            .map(Expression::toString)
-                                            .collect(toImmutableList())))
+                                    Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(fieldName))
+                                            .map(Expression::toString)))
                             .collect(toImmutableList());
 
                     TableEntry info = entry.getValue();
@@ -1140,8 +1152,8 @@ public class Analysis
 
     public List<RoutineInfo> getRoutines()
     {
-        return resolvedFunctions.entrySet().stream()
-                .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
+        return resolvedFunctions.values().stream()
+                .map(value -> new RoutineInfo(value.function.getSignature().getName(), value.getAuthorization()))
                 .collect(toImmutableList());
     }
 
@@ -1571,22 +1583,22 @@ public class Analysis
 
         public List<InPredicate> getInPredicatesSubqueries()
         {
-            return Collections.unmodifiableList(inPredicatesSubqueries);
+            return unmodifiableList(inPredicatesSubqueries);
         }
 
         public List<SubqueryExpression> getSubqueries()
         {
-            return Collections.unmodifiableList(subqueries);
+            return unmodifiableList(subqueries);
         }
 
         public List<ExistsPredicate> getExistsSubqueries()
         {
-            return Collections.unmodifiableList(existsSubqueries);
+            return unmodifiableList(existsSubqueries);
         }
 
         public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
         {
-            return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+            return unmodifiableList(quantifiedComparisonSubqueries);
         }
     }
 
@@ -1681,6 +1693,7 @@ public class Analysis
         private final List<List<ColumnHandle>> mergeCaseColumnHandles;
         private final Set<ColumnHandle> nonNullableColumnHandles;
         private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final RowType mergeRowType;
         private final List<Integer> insertPartitioningArgumentIndexes;
         private final Optional<TableLayout> insertLayout;
         private final Optional<PartitioningHandle> updateLayout;
@@ -1695,6 +1708,7 @@ public class Analysis
                 List<List<ColumnHandle>> mergeCaseColumnHandles,
                 Set<ColumnHandle> nonNullableColumnHandles,
                 Map<ColumnHandle, Integer> columnHandleFieldNumbers,
+                RowType mergeRowType,
                 List<Integer> insertPartitioningArgumentIndexes,
                 Optional<TableLayout> insertLayout,
                 Optional<PartitioningHandle> updateLayout,
@@ -1708,6 +1722,7 @@ public class Analysis
             this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
             this.nonNullableColumnHandles = requireNonNull(nonNullableColumnHandles, "nonNullableColumnHandles is null");
             this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
+            this.mergeRowType = requireNonNull(mergeRowType, "mergeRowType is null");
             this.insertLayout = requireNonNull(insertLayout, "insertLayout is null");
             this.updateLayout = requireNonNull(updateLayout, "updateLayout is null");
             this.insertPartitioningArgumentIndexes = (requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null"));
@@ -1748,6 +1763,11 @@ public class Analysis
         public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
         {
             return columnHandleFieldNumbers;
+        }
+
+        public RowType getMergeRowType()
+        {
+            return mergeRowType;
         }
 
         public List<Integer> getInsertPartitioningArgumentIndexes()
@@ -2210,9 +2230,11 @@ public class Analysis
     public static class TableFunctionInvocationAnalysis
     {
         private final CatalogHandle catalogHandle;
+        private final String schemaName;
         private final String functionName;
         private final Map<String, Argument> arguments;
         private final List<TableArgumentAnalysis> tableArgumentAnalyses;
+        private final Map<String, List<Integer>> requiredColumns;
         private final List<List<String>> copartitioningLists;
         private final int properColumnsCount;
         private final ConnectorTableFunctionHandle connectorTableFunctionHandle;
@@ -2220,18 +2242,23 @@ public class Analysis
 
         public TableFunctionInvocationAnalysis(
                 CatalogHandle catalogHandle,
+                String schemaName,
                 String functionName,
                 Map<String, Argument> arguments,
                 List<TableArgumentAnalysis> tableArgumentAnalyses,
+                Map<String, List<Integer>> requiredColumns,
                 List<List<String>> copartitioningLists,
                 int properColumnsCount,
                 ConnectorTableFunctionHandle connectorTableFunctionHandle,
                 ConnectorTransactionHandle transactionHandle)
         {
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+            this.schemaName = requireNonNull(schemaName, "schemaName is null");
             this.functionName = requireNonNull(functionName, "functionName is null");
             this.arguments = ImmutableMap.copyOf(arguments);
             this.tableArgumentAnalyses = ImmutableList.copyOf(tableArgumentAnalyses);
+            this.requiredColumns = requiredColumns.entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableList.copyOf(entry.getValue())));
             this.copartitioningLists = ImmutableList.copyOf(copartitioningLists);
             this.properColumnsCount = properColumnsCount;
             this.connectorTableFunctionHandle = requireNonNull(connectorTableFunctionHandle, "connectorTableFunctionHandle is null");
@@ -2241,6 +2268,11 @@ public class Analysis
         public CatalogHandle getCatalogHandle()
         {
             return catalogHandle;
+        }
+
+        public String getSchemaName()
+        {
+            return schemaName;
         }
 
         public String getFunctionName()
@@ -2258,6 +2290,11 @@ public class Analysis
             return tableArgumentAnalyses;
         }
 
+        public Map<String, List<Integer>> getRequiredColumns()
+        {
+            return requiredColumns;
+        }
+
         public List<List<String>> getCopartitioningLists()
         {
             return copartitioningLists;
@@ -2266,6 +2303,7 @@ public class Analysis
         /**
          * Proper columns are the columns produced by the table function, as opposed to pass-through columns from input tables.
          * Proper columns should be considered the actual result of the table function.
+         *
          * @return the number of table function's proper columns
          */
         public int getProperColumnsCount()

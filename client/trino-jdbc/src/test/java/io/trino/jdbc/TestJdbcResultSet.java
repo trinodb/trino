@@ -49,6 +49,7 @@ public class TestJdbcResultSet
             throws Exception
     {
         server.close();
+        server = null;
     }
 
     @Override

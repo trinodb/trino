@@ -65,6 +65,7 @@ public class TestProgressMonitor
             throws IOException
     {
         server.close();
+        server = null;
     }
 
     private List<String> createResults()

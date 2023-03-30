@@ -17,11 +17,9 @@ import io.trino.Session;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.DISTRIBUTED_SORT;
-import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestOrderByQueries
         extends AbstractTestQueryFramework
@@ -136,15 +134,8 @@ public abstract class AbstractTestOrderByQueries
     @Test
     public void testDuplicateColumnsInOrderByClause()
     {
-        MaterializedResult actual = computeActual("SELECT * FROM (VALUES INTEGER '3', INTEGER '2', INTEGER '1') t(a) ORDER BY a ASC, a DESC");
-
-        MaterializedResult expected = resultBuilder(getSession(), INTEGER)
-                .row(1)
-                .row(2)
-                .row(3)
-                .build();
-
-        assertEquals(actual, expected);
+        assertThat(query("SELECT * FROM (VALUES INTEGER '3', INTEGER '2', INTEGER '1') t(a) ORDER BY a ASC, a DESC"))
+                .matches("VALUES 1, 2, 3");
     }
 
     @Test

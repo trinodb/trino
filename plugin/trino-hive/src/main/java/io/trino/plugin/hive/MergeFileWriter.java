@@ -44,7 +44,6 @@ public class MergeFileWriter
         extends AbstractHiveAcidWriters
         implements FileWriter
 {
-    private final String partitionName;
     private final List<HiveColumnHandle> inputColumns;
 
     private int deleteRowCount;
@@ -56,7 +55,6 @@ public class MergeFileWriter
             OptionalInt bucketNumber,
             RowIdSortingFileWriterMaker sortingFileWriterMaker,
             Path bucketPath,
-            Optional<String> partitionName,
             OrcFileWriterFactory orcFileWriterFactory,
             List<HiveColumnHandle> inputColumns,
             Configuration configuration,
@@ -76,7 +74,6 @@ public class MergeFileWriter
                 typeManager,
                 hiveRowType,
                 AcidOperation.MERGE);
-        this.partitionName = partitionName.orElse("");
         this.inputColumns = requireNonNull(inputColumns, "inputColumns is null");
     }
 
@@ -96,7 +93,6 @@ public class MergeFileWriter
         });
         mergePage.getInsertionsPage().ifPresent(insertPage -> {
             Page orcInsertPage = buildInsertPage(insertPage, transaction.getWriteId(), inputColumns, bucketValueBlock, insertRowCount);
-            insertRowCount += insertPage.getPositionCount();
             getOrCreateInsertFileWriter().appendRows(orcInsertPage);
             insertRowCount += insertPage.getPositionCount();
         });
@@ -122,11 +118,6 @@ public class MergeFileWriter
         };
 
         return new Page(blockArray);
-    }
-
-    public String getPartitionName()
-    {
-        return partitionName;
     }
 
     @Override
@@ -179,7 +170,7 @@ public class MergeFileWriter
     public PartitionUpdateAndMergeResults getPartitionUpdateAndMergeResults(PartitionUpdate partitionUpdate)
     {
         return new PartitionUpdateAndMergeResults(
-                partitionUpdate,
+                partitionUpdate.withRowCount(insertRowCount - deleteRowCount),
                 insertRowCount,
                 insertFileWriter.isPresent() ? Optional.of(deltaDirectory.toString()) : Optional.empty(),
                 deleteRowCount,

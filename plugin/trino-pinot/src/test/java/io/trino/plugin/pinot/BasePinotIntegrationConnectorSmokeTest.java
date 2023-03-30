@@ -66,7 +66,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -83,7 +83,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_PREVIOUS_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -128,6 +127,8 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     // Use a fixed instant for testing date time functions
     private static final Instant CREATED_AT_INSTANT = Instant.parse("2021-05-10T00:00:00.00Z");
 
+    private static final DateTimeFormatter MILLIS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
+
     protected abstract boolean isSecured();
 
     protected boolean isGrpcEnabled()
@@ -138,11 +139,6 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     protected String getPinotImageName()
     {
         return PINOT_PREVIOUS_IMAGE_NAME;
-    }
-
-    protected boolean isLatestVersion()
-    {
-        return getPinotImageName().equals(PINOT_LATEST_IMAGE_NAME);
     }
 
     @Override
@@ -306,13 +302,6 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                     .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
                     .build()));
         }
-        // For pinot 0.11.0+: rows with null time column values are ingested
-        // Only add a null row with a null time column for pinot < 0.11.0
-        if (!isLatestVersion()) {
-            // Add a null row, verify it was not ingested as pinot does not accept null time column values.
-            // The data is verified in testBrokerQueryWithTooManyRowsForSegmentQuery
-            tooManyRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_ROWS_TABLE, "key" + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, new GenericRecordBuilder(tooManyRowsAvroSchema).build()));
-        }
         kafka.sendMessages(tooManyRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_rows_schema.json"), TOO_MANY_ROWS_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("too_many_rows_realtimeSpec.json"), TOO_MANY_ROWS_TABLE);
@@ -445,46 +434,27 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("hybrid_realtimeSpec.json"), HYBRID_TABLE_NAME);
         pinot.addOfflineTable(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), HYBRID_TABLE_NAME);
 
+        Instant startInstant = initialUpdatedAt.truncatedTo(DAYS);
         List<ProducerRecord<String, GenericRecord>> hybridProducerRecords = ImmutableList.<ProducerRecord<String, GenericRecord>>builder()
                 .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key0", new GenericRecordBuilder(hybridAvroSchema)
                         .set("stringCol", "string_0")
                         .set("longCol", 0L)
-                        .set("updatedAt", initialUpdatedAt.toEpochMilli())
+                        .set("updatedAt", startInstant.toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key1", new GenericRecordBuilder(hybridAvroSchema)
                         .set("stringCol", "string_1")
                         .set("longCol", 1L)
-                        .set("updatedAt", initialUpdatedAt.plusMillis(1000).toEpochMilli())
+                        .set("updatedAt", startInstant.plusMillis(1000).toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key2", new GenericRecordBuilder(hybridAvroSchema)
                         .set("stringCol", "string_2")
                         .set("longCol", 2L)
-                        .set("updatedAt", initialUpdatedAt.plusMillis(2000).toEpochMilli())
+                        .set("updatedAt", startInstant.plusMillis(2000).toEpochMilli())
                         .build()))
                 .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key3", new GenericRecordBuilder(hybridAvroSchema)
                         .set("stringCol", "string_3")
                         .set("longCol", 3L)
-                        .set("updatedAt", initialUpdatedAt.plusMillis(3000).toEpochMilli())
-                        .build()))
-                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key4", new GenericRecordBuilder(hybridAvroSchema)
-                        .set("stringCol", "string_4")
-                        .set("longCol", 0L)
-                        .set("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(3600).toEpochMilli())
-                        .build()))
-                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key5", new GenericRecordBuilder(hybridAvroSchema)
-                        .set("stringCol", "string_5")
-                        .set("longCol", 1L)
-                        .set("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(3600 * 2).toEpochMilli())
-                        .build()))
-                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key6", new GenericRecordBuilder(hybridAvroSchema)
-                        .set("stringCol", "string_6")
-                        .set("longCol", 2L)
-                        .set("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(86400 * 2 - 3600).toEpochMilli())
-                        .build()))
-                .add(new ProducerRecord<>(HYBRID_TABLE_NAME, "key7", new GenericRecordBuilder(hybridAvroSchema)
-                        .set("stringCol", "string_7")
-                        .set("longCol", 3L)
-                        .set("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(86400 * 2 - 7200).toEpochMilli())
+                        .set("updatedAt", startInstant.plusMillis(3000).toEpochMilli())
                         .build()))
                 .build();
 
@@ -492,22 +462,24 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         try {
             Files.createDirectory(temporaryDirectory);
             ImmutableList.Builder<GenericRow> offlineRowsBuilder = ImmutableList.builder();
-            for (int i = 8; i < 12; i++) {
+            for (int i = 4; i < 8; i++) {
                 GenericRow row = new GenericRow();
                 row.putValue("stringCol", "string_" + i);
-                row.putValue("longCol", (long) i - 8);
-                row.putValue("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(3600 * 12 * (i - 8)).toEpochMilli());
+                row.putValue("longCol", (long) i);
+                row.putValue("updatedAt", startInstant.plus(1, DAYS).plusMillis(1000 * (i - 4)).toEpochMilli());
                 offlineRowsBuilder.add(row);
             }
             Path segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 0);
             pinot.publishOfflineSegment("hybrid", segmentPath);
 
             offlineRowsBuilder = ImmutableList.builder();
-            for (int i = 12; i < 16; i++) {
+            // These rows will be visible as they are older than the Pinot time boundary
+            // In Pinot the time boundary is the most recent time column value for an offline row - 24 hours
+            for (int i = 8; i < 12; i++) {
                 GenericRow row = new GenericRow();
                 row.putValue("stringCol", "string_" + i);
-                row.putValue("longCol", (long) i - 12);
-                row.putValue("updatedAt", initialUpdatedAt.truncatedTo(DAYS).minusSeconds(100 + 3600 * 12 * (i - 12)).toEpochMilli());
+                row.putValue("longCol", (long) i);
+                row.putValue("updatedAt", startInstant.minus(1, DAYS).plusMillis(1000 * (i - 7)).toEpochMilli());
                 offlineRowsBuilder.add(row);
             }
             segmentPath = createSegment(getClass().getClassLoader().getResourceAsStream("hybrid_offlineSpec.json"), getClass().getClassLoader().getResourceAsStream("hybrid_schema.json"), new GenericRowRecordReader(offlineRowsBuilder.build()), temporaryDirectory.toString(), 1);
@@ -703,9 +675,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     protected Map<String, String> additionalPinotProperties()
     {
         if (isGrpcEnabled()) {
-            return ImmutableMap.<String, String>builder()
-                    .put("pinot.grpc.enabled", "true")
-                    .buildOrThrow();
+            return ImmutableMap.of("pinot.grpc.enabled", "true");
         }
         return ImmutableMap.of();
     }
@@ -1231,7 +1201,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         assertQueryFails("SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE, "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
         assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_LOWERCASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
         assertQueryFails("SELECT * FROM \"SELECT * FROM " + DUPLICATE_TABLE_MIXED_CASE + "\"", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
-        assertQueryFails("SELECT * FROM information_schema.columns", "Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
+        assertQueryFails("SELECT * FROM information_schema.columns", "Error listing table columns for catalog pinot: Ambiguous table names: (" + DUPLICATE_TABLE_LOWERCASE + ", " + DUPLICATE_TABLE_MIXED_CASE + "|" + DUPLICATE_TABLE_MIXED_CASE + ", " + DUPLICATE_TABLE_LOWERCASE + ")");
     }
 
     @Test
@@ -1488,11 +1458,10 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                         "  CARDINALITY(int_array_col_with_pinot_default)," +
                         "  CARDINALITY(int_array_col)," +
                         "  CARDINALITY(float_array_col)," +
-                        "  CARDINALITY(long_array_col)," +
                         "  CARDINALITY(long_array_col)" +
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE string_col = 'null'"))
-                .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
+                .matches("VALUES (BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
                 .isNotFullyPushedDown(ProjectNode.class);
 
         // If an array contains both null and non-null values, the null values are omitted:
@@ -1501,11 +1470,10 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                         "  CARDINALITY(int_array_col_with_pinot_default)," +
                         "  CARDINALITY(int_array_col)," +
                         "  CARDINALITY(float_array_col)," +
-                        "  CARDINALITY(long_array_col)," +
                         "  CARDINALITY(long_array_col)" +
                         "  FROM " + ALL_TYPES_TABLE +
                         "  WHERE string_col = 'array_null'"))
-                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '1', BIGINT '1', BIGINT '1')")
+                .matches("VALUES (BIGINT '3', BIGINT '3', BIGINT '1', BIGINT '1', BIGINT '1')")
                 .isNotFullyPushedDown(ProjectNode.class);
     }
 
@@ -1761,7 +1729,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .isFullyPushedDown();
         // Distinct on int is partially pushed down
         assertThat(query("SELECT DISTINCT int_col FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown();
+                .isFullyPushedDown();
 
         // Distinct on 2 columns for supported types:
         assertThat(query("SELECT DISTINCT bool_col, string_col FROM " + ALL_TYPES_TABLE))
@@ -1775,7 +1743,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         assertThat(query("SELECT DISTINCT bool_col, timestamp_col FROM " + ALL_TYPES_TABLE))
                 .isFullyPushedDown();
         assertThat(query("SELECT DISTINCT bool_col, int_col FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown();
+                .isFullyPushedDown();
 
         // Test distinct for mixed case values
         assertThat(query("SELECT DISTINCT string_col FROM " + MIXED_CASE_DISTINCT_TABLE))
@@ -1806,7 +1774,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                 .isFullyPushedDown();
         // Approx distinct on int is partially pushed down
         assertThat(query("SELECT approx_distinct(int_col) FROM " + ALL_TYPES_TABLE))
-                .isNotFullyPushedDown();
+                .isFullyPushedDown();
 
         // Approx distinct on 2 columns for supported types:
         assertThat(query("SELECT bool_col, approx_distinct(string_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
@@ -1818,7 +1786,7 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
         assertThat(query("SELECT bool_col, approx_distinct(long_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
                 .isFullyPushedDown();
         assertThat(query("SELECT bool_col, approx_distinct(int_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
-                .isNotFullyPushedDown();
+                .isFullyPushedDown();
 
         // Distinct count is fully pushed down by default
         assertThat(query("SELECT bool_col, COUNT(DISTINCT string_col) FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col"))
@@ -2448,13 +2416,30 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     }
 
     @Test
+    public void testTimeBoundary()
+    {
+        // Note: This table uses Pinot TIMESTAMP and not LONG as the time column type.
+        Instant startInstant = initialUpdatedAt.truncatedTo(DAYS);
+        String expectedValues = "VALUES " +
+                "(VARCHAR 'string_8', BIGINT '8', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(1000)) + "')," +
+                "(VARCHAR 'string_9', BIGINT '9', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(2000)) + "')," +
+                "(VARCHAR 'string_10', BIGINT '10', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(3000)) + "')," +
+                "(VARCHAR 'string_11', BIGINT '11', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(4000)) + "')";
+        assertThat(query("SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME))
+                .matches(expectedValues);
+        // Verify that this matches the time boundary behavior on the broker
+        assertThat(query("SELECT stringcol, longcol, updatedat FROM \"SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME + "\""))
+                .matches(expectedValues);
+    }
+
+    @Test
     public void testTimestamp()
     {
         assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " ORDER BY ts LIMIT 1")).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
         assertThat(query("SELECT min(ts) FROM " + ALL_TYPES_TABLE)).matches("VALUES (TIMESTAMP '1970-01-01 00:00:00.000')");
         assertThat(query("SELECT max(ts) FROM " + ALL_TYPES_TABLE)).isFullyPushedDown();
         assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " ORDER BY ts DESC LIMIT 1")).matches("SELECT max(ts) FROM " + ALL_TYPES_TABLE);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneId.of("UTC"));
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
         for (int i = 0, step = 1200; i < MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES - 2; i++) {
             String initialUpdatedAtStr = formatter.format(initialUpdatedAt.plusMillis(i * step));
             assertThat(query("SELECT ts FROM " + ALL_TYPES_TABLE + " WHERE ts >= TIMESTAMP '" + initialUpdatedAtStr + "' ORDER BY ts LIMIT 1"))

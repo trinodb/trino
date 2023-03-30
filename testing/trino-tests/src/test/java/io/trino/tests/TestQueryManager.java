@@ -32,10 +32,10 @@ import org.testng.annotations.Test;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.QueryRunnerUtil.createQuery;
+import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.execution.TestQueryRunnerUtil.createQuery;
-import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_SCAN_LIMIT;

@@ -22,9 +22,9 @@ To connect to Oracle, you need:
 Configuration
 -------------
 
-To configure the Oracle connector as the ``oracle`` catalog, create a file named
-``oracle.properties`` in ``etc/catalog``. Include the following connection
-properties in the file:
+To configure the Oracle connector as the ``example`` catalog, create a file
+named ``example.properties`` in ``etc/catalog``. Include the following
+connection properties in the file:
 
 .. code-block:: text
 
@@ -73,6 +73,8 @@ To disable connection pooling, update properties to include the following:
 
     oracle.connection-pool.enabled=false
 
+.. include:: jdbc-authentication.fragment
+
 Multiple Oracle servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -101,10 +103,10 @@ The Oracle connector provides a schema for every Oracle database.
 
 Run ``SHOW SCHEMAS`` to see the available Oracle databases::
 
-    SHOW SCHEMAS FROM oracle;
+    SHOW SCHEMAS FROM example;
 
 If you used a different name for your catalog properties file, use that catalog
-name instead of ``oracle``.
+name instead of ``example``.
 
 .. note::
     The Oracle user must have access to the table in order to access it from Trino.
@@ -117,17 +119,17 @@ Examples
 If you have an Oracle database named ``web``, run ``SHOW TABLES`` to see the
 tables it contains::
 
-    SHOW TABLES FROM oracle.web;
+    SHOW TABLES FROM example.web;
 
 To see a list of the columns in the ``clicks`` table in the ``web``
 database, run either of the following::
 
-    DESCRIBE oracle.web.clicks;
-    SHOW COLUMNS FROM oracle.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 To access the clicks table in the web database, run the following::
 
-    SELECT * FROM oracle.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 .. _oracle-type-mapping:
 
@@ -428,13 +430,13 @@ running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-As a simple example, to select an entire table::
+As a simple example, query the ``example`` catalog and select an entire table::
 
     SELECT
       *
     FROM
       TABLE(
-        oracle.system.query(
+        example.system.query(
           query => 'SELECT
             *
           FROM
@@ -452,7 +454,7 @@ As a practical example, you can use the
       sales
     FROM
       TABLE(
-        oracle.system.query(
+        example.system.query(
           query => 'SELECT
             *
           FROM
@@ -523,6 +525,8 @@ with the following functions:
 
 * :func:`covar_samp()`
 * :func:`covar_pop()`
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. include:: join-pushdown-enabled-false.fragment
 

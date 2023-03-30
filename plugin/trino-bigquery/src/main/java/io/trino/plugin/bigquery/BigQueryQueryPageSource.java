@@ -52,7 +52,6 @@ import static io.trino.plugin.bigquery.BigQueryType.toTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
@@ -200,8 +199,8 @@ public class BigQueryQueryPageSource
                 type.writeDouble(output, value.getDoubleValue());
             }
             else if (type.getJavaType() == Int128.class) {
-                verify(isLongDecimal(type), "The type should be long decimal");
                 DecimalType decimalType = (DecimalType) type;
+                verify(!decimalType.isShort(), "The type should be long decimal");
                 BigDecimal decimal = value.getNumericValue();
                 type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
             }

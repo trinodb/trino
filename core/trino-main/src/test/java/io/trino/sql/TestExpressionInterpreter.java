@@ -1698,16 +1698,6 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testOptimizeInvalidLike()
-    {
-        assertOptimizedMatches("unbound_string LIKE 'abc' ESCAPE ''", "unbound_string LIKE 'abc' ESCAPE ''");
-        assertOptimizedMatches("unbound_string LIKE 'abc' ESCAPE 'bc'", "unbound_string LIKE 'abc' ESCAPE 'bc'");
-        assertOptimizedMatches("unbound_string LIKE '#' ESCAPE '#'", "unbound_string LIKE '#' ESCAPE '#'");
-        assertOptimizedMatches("unbound_string LIKE '#abc' ESCAPE '#'", "unbound_string LIKE '#abc' ESCAPE '#'");
-        assertOptimizedMatches("unbound_string LIKE 'ab#' ESCAPE '#'", "unbound_string LIKE 'ab#' ESCAPE '#'");
-    }
-
-    @Test
     public void testEvaluateInvalidLike()
     {
         // TODO This doesn't fail (https://github.com/trinodb/trino/issues/7273)

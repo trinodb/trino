@@ -14,6 +14,7 @@
 package io.trino.dispatcher;
 
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.event.QueryMonitor;
 import io.trino.execution.LocationFactory;
 import io.trino.server.BasicQueryInfo;
@@ -32,13 +33,15 @@ public class FailedDispatchQueryFactory
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
     private final ExecutorService executor;
+    private final NodeVersion version;
 
     @Inject
-    public FailedDispatchQueryFactory(QueryMonitor queryMonitor, LocationFactory locationFactory, DispatchExecutor dispatchExecutor)
+    public FailedDispatchQueryFactory(QueryMonitor queryMonitor, LocationFactory locationFactory, DispatchExecutor dispatchExecutor, NodeVersion version)
     {
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executor = dispatchExecutor.getExecutor();
+        this.version = requireNonNull(version, "version is null");
     }
 
     public FailedDispatchQuery createFailedDispatchQuery(Session session, String query, Optional<String> preparedQuery, Optional<ResourceGroupId> resourceGroup, Throwable throwable)
@@ -50,7 +53,8 @@ public class FailedDispatchQueryFactory
                 locationFactory.createQueryLocation(session.getQueryId()),
                 resourceGroup,
                 throwable,
-                executor);
+                executor,
+                version);
 
         BasicQueryInfo queryInfo = failedDispatchQuery.getBasicQueryInfo();
 

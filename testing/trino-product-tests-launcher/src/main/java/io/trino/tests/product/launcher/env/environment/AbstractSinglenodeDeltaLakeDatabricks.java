@@ -60,7 +60,7 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
                 .withEnv("DATABRICKS_TOKEN", databricksTestToken));
         builder.addConnector("hive", forHostPath(configDir.getPath("hive.properties")));
         builder.addConnector(
-                "delta-lake",
+                "delta_lake",
                 forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
 
@@ -76,9 +76,9 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
 
     private DockerContainer exportAWSCredentials(DockerContainer container)
     {
-        container = exportAWSCredential(container, "DATABRICKS_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", true);
-        container = exportAWSCredential(container, "DATABRICKS_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", true);
-        return exportAWSCredential(container, "DATABRICKS_AWS_SESSION_TOKEN", "AWS_SESSION_TOKEN", false);
+        container = exportAWSCredential(container, "TRINO_AWS_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", true);
+        container = exportAWSCredential(container, "TRINO_AWS_SECRET_ACCESS_KEY", "AWS_SECRET_ACCESS_KEY", true);
+        return exportAWSCredential(container, "TRINO_AWS_SESSION_TOKEN", "AWS_SESSION_TOKEN", false);
     }
 
     private DockerContainer exportAWSCredential(DockerContainer container, String credentialEnvVariable, String containerEnvVariable, boolean required)

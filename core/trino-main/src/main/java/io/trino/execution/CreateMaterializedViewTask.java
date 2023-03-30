@@ -15,13 +15,15 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -33,16 +35,29 @@ import io.trino.sql.tree.Parameter;
 
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.connector.ConnectorCapabilities.MATERIALIZED_VIEW_GRACE_PERIOD;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
+import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateMaterializedViewTask
@@ -84,7 +99,7 @@ public class CreateMaterializedViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
@@ -109,17 +124,50 @@ public class CreateMaterializedViewTask
                 parameterLookup,
                 true);
 
+        Optional<Duration> gracePeriod = statement.getGracePeriod()
+                .map(expression -> {
+                    if (!plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(MATERIALIZED_VIEW_GRACE_PERIOD)) {
+                        throw semanticException(NOT_SUPPORTED, statement, "Catalog '%s' does not support GRACE PERIOD", catalogName);
+                    }
+
+                    Type type = analysis.getType(expression);
+                    if (type != INTERVAL_DAY_TIME) {
+                        throw new TrinoException(TYPE_MISMATCH, "Unsupported grace period type %s, expected %s".formatted(type.getDisplayName(), INTERVAL_DAY_TIME.getDisplayName()));
+                    }
+                    Long milliseconds = (Long) evaluateConstantExpression(
+                            expression,
+                            analysis.getCoercions(),
+                            analysis.getTypeOnlyCoercions(),
+                            plannerContext,
+                            session,
+                            accessControl,
+                            analysis.getColumnReferences(),
+                            parameterLookup);
+                    // Sanity check. Impossible per grammar.
+                    verify(milliseconds != null, "Grace period cannot be null");
+                    return Duration.ofMillis(milliseconds);
+                });
+
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
                 sql,
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
+                gracePeriod,
                 statement.getComment(),
                 session.getIdentity(),
                 Optional.empty(),
                 properties);
 
-        accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, properties);
+        Set<String> specifiedPropertyKeys = statement.getProperties().stream()
+                // property names are case-insensitive and normalized to lower case
+                .map(property -> property.getName().getValue().toLowerCase(ENGLISH))
+                .collect(toImmutableSet());
+        Map<String, Object> explicitlySetProperties = properties.keySet().stream()
+                .peek(key -> verify(key.equals(key.toLowerCase(ENGLISH)), "Property name '%s' not in lower-case", key))
+                .filter(specifiedPropertyKeys::contains)
+                .collect(toImmutableMap(Function.identity(), properties::get));
+        accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
 
         stateMachine.setOutput(analysis.getTarget());

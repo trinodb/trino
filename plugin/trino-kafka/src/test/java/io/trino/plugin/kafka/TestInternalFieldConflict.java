@@ -26,7 +26,7 @@ import static io.trino.plugin.kafka.util.TestUtils.createOneFieldDescription;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 @Test(singleThreaded = true)
 public class TestInternalFieldConflict
@@ -40,8 +40,8 @@ public class TestInternalFieldConflict
             throws Exception
     {
         TestingKafka testingKafka = closeAfterClass(TestingKafka.create());
-        topicWithDefaultPrefixes = new SchemaTableName("default", "test_" + randomTableSuffix());
-        topicWithCustomPrefixes = new SchemaTableName("default", "test_" + randomTableSuffix());
+        topicWithDefaultPrefixes = new SchemaTableName("default", "test_" + randomNameSuffix());
+        topicWithCustomPrefixes = new SchemaTableName("default", "test_" + randomNameSuffix());
         return KafkaQueryRunner.builder(testingKafka)
                 .setExtraTopicDescription(ImmutableMap.of(
                         topicWithDefaultPrefixes, createDescription(
@@ -52,9 +52,7 @@ public class TestInternalFieldConflict
                                 topicWithCustomPrefixes,
                                 createOneFieldDescription("unpredictable_prefix_key", createVarcharType(15)),
                                 ImmutableList.of(createOneFieldDescription("custkey", BIGINT), createOneFieldDescription("acctbal", DOUBLE)))))
-                .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
-                        .put("kafka.internal-column-prefix", "unpredictable_prefix_")
-                        .buildOrThrow())
+                .setExtraKafkaProperties(ImmutableMap.of("kafka.internal-column-prefix", "unpredictable_prefix_"))
                 .build();
     }
 

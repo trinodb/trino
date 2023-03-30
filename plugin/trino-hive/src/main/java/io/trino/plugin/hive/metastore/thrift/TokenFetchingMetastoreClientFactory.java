@@ -17,12 +17,15 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.plugin.base.security.UserNameProvider;
+import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
 
 import javax.inject.Inject;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -35,22 +38,27 @@ public class TokenFetchingMetastoreClientFactory
         implements IdentityAwareMetastoreClientFactory
 {
     private final TokenAwareMetastoreClientFactory clientProvider;
+    private final UserNameProvider userNameProvider;
     private final boolean impersonationEnabled;
-    private final NonEvictableLoadingCache<String, String> delegationTokenCache;
+    private final NonEvictableLoadingCache<String, DelegationToken> delegationTokenCache;
+    private final long refreshPeriod;
 
     @Inject
     public TokenFetchingMetastoreClientFactory(
             TokenAwareMetastoreClientFactory tokenAwareMetastoreClientFactory,
+            @ForHiveMetastore UserNameProvider userNameProvider,
             ThriftMetastoreConfig thriftConfig)
     {
         this.clientProvider = requireNonNull(tokenAwareMetastoreClientFactory, "tokenAwareMetastoreClientFactory is null");
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
+        this.userNameProvider = requireNonNull(userNameProvider, "userNameProvider is null");
 
         this.delegationTokenCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .expireAfterWrite(thriftConfig.getDelegationTokenCacheTtl().toMillis(), MILLISECONDS)
                         .maximumSize(thriftConfig.getDelegationTokenCacheMaximumSize()),
                 CacheLoader.from(this::loadDelegationToken));
+        this.refreshPeriod = Duration.ofMinutes(1).toNanos();
     }
 
     private ThriftMetastoreClient createMetastoreClient()
@@ -67,27 +75,51 @@ public class TokenFetchingMetastoreClientFactory
             return createMetastoreClient();
         }
 
-        String username = identity.map(ConnectorIdentity::getUser)
+        String username = identity.map(userNameProvider::get)
                 .orElseThrow(() -> new IllegalStateException("End-user name should exist when metastore impersonation is enabled"));
 
-        String delegationToken;
+        DelegationToken cachedDelegationToken = getDelegationToken(username);
         try {
-            delegationToken = delegationTokenCache.getUnchecked(username);
+            return clientProvider.createMetastoreClient(Optional.of(cachedDelegationToken.delegationToken()));
+        }
+        catch (TException e) {
+            // Since the cached token may expire due to reasons such as restarting the Hive Metastore, refresh a delegation token and try to connect again.
+            // Additionally, to avoid overloading the metastore, refreshes per user are executed at most once per minute.
+            if (System.nanoTime() - cachedDelegationToken.writeTimeNanos() >= this.refreshPeriod) {
+                DelegationToken refreshDelegationToken = loadDelegationToken(username);
+                delegationTokenCache.put(username, refreshDelegationToken);
+                return clientProvider.createMetastoreClient(Optional.of(refreshDelegationToken.delegationToken()));
+            }
+            throw e;
+        }
+    }
+
+    private DelegationToken getDelegationToken(String username)
+    {
+        try {
+            return delegationTokenCache.getUnchecked(username);
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
-        return clientProvider.createMetastoreClient(Optional.of(delegationToken));
     }
 
-    private String loadDelegationToken(String username)
+    private DelegationToken loadDelegationToken(String username)
     {
         try (ThriftMetastoreClient client = createMetastoreClient()) {
-            return client.getDelegationToken(username);
+            return new DelegationToken(System.nanoTime(), client.getDelegationToken(username));
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    private record DelegationToken(long writeTimeNanos, String delegationToken)
+    {
+        public DelegationToken
+        {
+            requireNonNull(delegationToken, "delegationToken is null");
         }
     }
 }

@@ -13,8 +13,9 @@
  */
 package io.trino.connector;
 
-import io.trino.connector.CatalogHandle.CatalogHandleType;
 import io.trino.metadata.Catalog;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 
 import java.util.Optional;
 
@@ -24,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public class CatalogConnector
 {
     private final CatalogHandle catalogHandle;
-    private final String connectorName;
+    private final ConnectorName connectorName;
     private final ConnectorServices catalogConnector;
     private final ConnectorServices informationSchemaConnector;
     private final ConnectorServices systemConnector;
@@ -33,7 +34,7 @@ public class CatalogConnector
 
     public CatalogConnector(
             CatalogHandle catalogHandle,
-            String connectorName,
+            ConnectorName connectorName,
             ConnectorServices catalogConnector,
             ConnectorServices informationSchemaConnector,
             ConnectorServices systemConnector,
@@ -60,7 +61,7 @@ public class CatalogConnector
         return catalogHandle;
     }
 
-    public String getConnectorName()
+    public ConnectorName getConnectorName()
     {
         return connectorName;
     }

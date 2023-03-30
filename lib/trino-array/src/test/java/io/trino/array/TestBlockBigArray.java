@@ -16,9 +16,9 @@ package io.trino.array;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlockBuilder;
-import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static org.testng.Assert.assertEquals;
 
 public class TestBlockBigArray
@@ -44,10 +44,10 @@ public class TestBlockBigArray
 
         ReferenceCountMap referenceCountMap = new ReferenceCountMap();
         referenceCountMap.incrementAndGet(block);
-        long expectedSize = ClassLayout.parseClass(BlockBigArray.class).instanceSize()
+        long expectedSize = instanceSize(BlockBigArray.class)
                 + referenceCountMap.sizeOf()
                 + (new ObjectBigArray<>()).sizeOf()
-                + block.getRetainedSizeInBytes() + (arraySize - 1) * ClassLayout.parseClass(block.getClass()).instanceSize();
+                + block.getRetainedSizeInBytes() + (arraySize - 1) * instanceSize(block.getClass());
         assertEquals(blockBigArray.sizeOf(), expectedSize);
     }
 }

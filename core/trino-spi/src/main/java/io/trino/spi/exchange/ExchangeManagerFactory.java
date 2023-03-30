@@ -23,6 +23,4 @@ public interface ExchangeManagerFactory
     String getName();
 
     ExchangeManager create(Map<String, String> config);
-
-    ExchangeManagerHandleResolver getHandleResolver();
 }

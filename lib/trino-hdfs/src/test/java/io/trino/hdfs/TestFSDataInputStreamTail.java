@@ -70,6 +70,7 @@ public class TestFSDataInputStreamTail
         closeAll(
                 () -> fs.delete(new Path(tempRoot.toURI()), true),
                 fs);
+        fs = null;
     }
 
     @Test

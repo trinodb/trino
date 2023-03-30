@@ -16,9 +16,9 @@ package io.trino.plugin.deltalake.transactionlog;
 
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -32,10 +32,10 @@ public class TestTransactionLogParser
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
 
-        Path basePath = new Path(getClass().getClassLoader().getResource("databricks").toURI());
+        String basePath = getClass().getClassLoader().getResource("databricks").toURI().toString();
 
-        assertEquals(getMandatoryCurrentVersion(fileSystem, new Path(basePath, "simple_table_without_checkpoint")), 9);
-        assertEquals(getMandatoryCurrentVersion(fileSystem, new Path(basePath, "simple_table_ending_on_checkpoint")), 10);
-        assertEquals(getMandatoryCurrentVersion(fileSystem, new Path(basePath, "simple_table_past_checkpoint")), 11);
+        assertEquals(getMandatoryCurrentVersion(fileSystem, appendPath(basePath, "simple_table_without_checkpoint")), 9);
+        assertEquals(getMandatoryCurrentVersion(fileSystem, appendPath(basePath, "simple_table_ending_on_checkpoint")), 10);
+        assertEquals(getMandatoryCurrentVersion(fileSystem, appendPath(basePath, "simple_table_past_checkpoint")), 11);
     }
 }

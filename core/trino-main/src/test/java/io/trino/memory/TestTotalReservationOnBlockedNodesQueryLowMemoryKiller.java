@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
 {
@@ -34,9 +34,9 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
     public void testMemoryPoolHasNoReservation()
     {
         int memoryPool = 12;
-        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
-                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L))
-                .buildOrThrow();
+        Map<String, Map<String, Long>> queries = ImmutableMap.of(
+                "q_1",
+                ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
 
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
@@ -88,14 +88,14 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
                 .put("q_3", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 3L, "n4", 0L, "n5", 0L))
                 .buildOrThrow();
 
-        Map<String, Map<String, Map<Integer, Long>>> tasks = ImmutableMap.<String, Map<String, Map<Integer, Long>>>builder()
-                .put("q_2", ImmutableMap.of(
+        Map<String, Map<String, Map<Integer, Long>>> tasks = ImmutableMap.of(
+                "q_2",
+                ImmutableMap.of(
                         "n1", ImmutableMap.of(1, 1L, 2, 3L),
                         "n2", ImmutableMap.of(), // no tasks reported for q_2 here even though based on per-query reservation it uses 8 here (and is biggest query)
                         "n3", ImmutableMap.of(6, 2L),
                         "n4", ImmutableMap.of(7, 2L, 8, 2L),
-                        "n5", ImmutableMap.of())
-                ).buildOrThrow();
+                        "n5", ImmutableMap.of()));
 
         // we expect "q_1" to be killed even though "q_2" is the biggest query here. We won't kill whole query if it has task retries enabled.
 

@@ -25,7 +25,6 @@ import io.airlift.units.DataSize;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeManagerFactory;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -64,7 +63,7 @@ public class TestDeduplicatingDirectExchangeBuffer
     @BeforeClass
     public void beforeClass()
     {
-        exchangeManagerRegistry = new ExchangeManagerRegistry(new ExchangeHandleResolver());
+        exchangeManagerRegistry = new ExchangeManagerRegistry();
         exchangeManagerRegistry.addExchangeManagerFactory(new FileSystemExchangeManagerFactory());
         exchangeManagerRegistry.loadExchangeManager("filesystem", ImmutableMap.of(
                 "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
@@ -188,9 +187,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         // single page, no spilling
         testPollPages(
                 RetryPolicy.QUERY,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(10, BYTE)))
-                        .build(),
+                ImmutableListMultimap.of(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(10, BYTE))),
                 ImmutableMap.of(),
                 DataSize.of(1, KILOBYTE),
                 0,
@@ -199,9 +196,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         // single page, with spilling
         testPollPages(
                 RetryPolicy.QUERY,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE)))
-                        .build(),
+                ImmutableListMultimap.of(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE))),
                 ImmutableMap.of(),
                 DataSize.of(1, KILOBYTE),
                 1,
@@ -215,9 +210,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(0, 0), new RuntimeException("error"))
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(0, 0), new RuntimeException("error")),
                 DataSize.of(5, KILOBYTE),
                 0,
                 ImmutableList.of(
@@ -244,9 +237,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(6, KILOBYTE)))
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(3, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(0, 0), new RuntimeException("error"))
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(0, 0), new RuntimeException("error")),
                 DataSize.of(5, KILOBYTE),
                 2,
                 ImmutableList.of(
@@ -260,9 +251,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(4, KILOBYTE)))
                         .put(createTaskId(1, 1), createPage("p1a1v0", DataSize.of(4, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(0, 0), new RuntimeException("error"))
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(0, 0), new RuntimeException("error")),
                 DataSize.of(5, KILOBYTE),
                 2,
                 ImmutableList.of(
@@ -277,9 +266,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(2, 0), new RuntimeException("error"))
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(2, 0), new RuntimeException("error")),
                 DataSize.of(5, KILOBYTE),
                 0,
                 ImmutableList.of(
@@ -293,9 +280,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(3, KILOBYTE)))
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(2, 0), new RuntimeException("error"))
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(2, 0), new RuntimeException("error")),
                 DataSize.of(4, KILOBYTE),
                 3,
                 ImmutableList.of(
@@ -311,9 +296,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(2, 2), error)
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(2, 2), error),
                 DataSize.of(4, KILOBYTE),
                 0,
                 error);
@@ -326,9 +309,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(0, 1), error)
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(0, 1), error),
                 DataSize.of(4, KILOBYTE),
                 0,
                 error);
@@ -341,9 +322,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(3, KILOBYTE)))
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(2, 2), error)
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(2, 2), error),
                 DataSize.of(3, KILOBYTE),
                 3,
                 error);
@@ -356,9 +335,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(3, KILOBYTE)))
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(0, 1), error)
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(0, 1), error),
                 DataSize.of(3, KILOBYTE),
                 3,
                 error);
@@ -379,9 +356,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         // single page, no spilling
         testPollPages(
                 RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(10, BYTE)))
-                        .build(),
+                ImmutableListMultimap.of(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(10, BYTE))),
                 ImmutableMap.of(),
                 DataSize.of(1, KILOBYTE),
                 0,
@@ -390,9 +365,7 @@ public class TestDeduplicatingDirectExchangeBuffer
         // single page, with spilling
         testPollPages(
                 RetryPolicy.TASK,
-                ImmutableListMultimap.<TaskId, Slice>builder()
-                        .put(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE)))
-                        .build(),
+                ImmutableListMultimap.of(createTaskId(0, 0), createPage("p0a0v0", DataSize.of(2, KILOBYTE))),
                 ImmutableMap.of(),
                 DataSize.of(1, KILOBYTE),
                 1,
@@ -462,9 +435,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
                         .put(createTaskId(1, 1), createPage("p1a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(1, 0), new RuntimeException("error"))
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(1, 0), new RuntimeException("error")),
                 DataSize.of(10, KILOBYTE),
                 0,
                 ImmutableList.of(
@@ -479,9 +450,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
                         .put(createTaskId(1, 1), createPage("p1a1v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(1, 0), new RuntimeException("error"))
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(1, 0), new RuntimeException("error")),
                 DataSize.of(2, KILOBYTE),
                 3,
                 ImmutableList.of(
@@ -498,9 +467,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(2, 2), error)
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(2, 2), error),
                 DataSize.of(5, KILOBYTE),
                 0,
                 error);
@@ -512,9 +479,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(0, 1), error)
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(0, 1), error),
                 DataSize.of(5, KILOBYTE),
                 0,
                 error);
@@ -527,9 +492,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(2, KILOBYTE)))
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(2, 2), error)
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(2, 2), error),
                 DataSize.of(2, KILOBYTE),
                 3,
                 error);
@@ -541,9 +504,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                         .put(createTaskId(0, 1), createPage("p0a1v0", DataSize.of(1, KILOBYTE)))
                         .put(createTaskId(1, 0), createPage("p1a0v0", DataSize.of(1, KILOBYTE)))
                         .build(),
-                ImmutableMap.<TaskId, RuntimeException>builder()
-                        .put(createTaskId(0, 1), error)
-                        .buildOrThrow(),
+                ImmutableMap.of(createTaskId(0, 1), error),
                 DataSize.of(1, KILOBYTE),
                 2,
                 error);
@@ -652,7 +613,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                new ExchangeManagerRegistry(),
                 new QueryId("query"),
                 createRandomExchangeId())) {
             TaskId task = createTaskId(0, 0);
@@ -675,7 +636,7 @@ public class TestDeduplicatingDirectExchangeBuffer
                 directExecutor(),
                 DataSize.of(100, BYTE),
                 RetryPolicy.QUERY,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                new ExchangeManagerRegistry(),
                 new QueryId("query"),
                 createRandomExchangeId())) {
             TaskId task = createTaskId(0, 0);

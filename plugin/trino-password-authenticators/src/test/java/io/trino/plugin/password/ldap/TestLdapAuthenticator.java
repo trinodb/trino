@@ -31,7 +31,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestLdapAuthenticator
 {
-    private final Closer closer = Closer.create();
+    private Closer closer;
 
     private TestingOpenLdapServer openLdapServer;
     private LdapAuthenticatorClient client;
@@ -40,11 +40,11 @@ public class TestLdapAuthenticator
     public void setup()
             throws Exception
     {
+        closer = Closer.create();
         Network network = Network.newNetwork();
         closer.register(network::close);
 
-        openLdapServer = new TestingOpenLdapServer(network);
-        closer.register(openLdapServer);
+        openLdapServer = closer.register(new TestingOpenLdapServer(network));
         openLdapServer.start();
 
         client = new LdapAuthenticatorClient(
@@ -57,6 +57,9 @@ public class TestLdapAuthenticator
             throws Exception
     {
         closer.close();
+        closer = null;
+        openLdapServer = null;
+        client = null;
     }
 
     @Test

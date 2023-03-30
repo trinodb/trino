@@ -14,28 +14,23 @@
 package io.trino.parquet.dictionary;
 
 import io.trino.parquet.DictionaryPage;
-import org.apache.parquet.column.values.plain.PlainValuesReader.LongPlainValuesReader;
-
-import java.io.IOException;
+import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.decoders.ValueDecoder;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.trino.parquet.ParquetReaderUtils.toInputStream;
+import static io.trino.parquet.reader.decoders.PlainValueDecoders.LongPlainValueDecoder;
 
 public class LongDictionary
-        extends Dictionary
+        implements Dictionary
 {
     private final long[] content;
 
     public LongDictionary(DictionaryPage dictionaryPage)
-            throws IOException
     {
-        super(dictionaryPage.getEncoding());
         content = new long[dictionaryPage.getDictionarySize()];
-        LongPlainValuesReader longReader = new LongPlainValuesReader();
-        longReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));
-        for (int i = 0; i < content.length; i++) {
-            content[i] = longReader.readLong();
-        }
+        ValueDecoder<long[]> longReader = new LongPlainValueDecoder();
+        longReader.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
+        longReader.read(content, 0, dictionaryPage.getDictionarySize());
     }
 
     @Override

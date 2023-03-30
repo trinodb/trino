@@ -71,7 +71,7 @@ public class KerberosConfig
         return keytab;
     }
 
-    @Config(HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB)
+    @Config("http-server.authentication.krb5.keytab")
     @LegacyConfig("http.server.authentication.krb5.keytab")
     public KerberosConfig setKeytab(File keytab)
     {

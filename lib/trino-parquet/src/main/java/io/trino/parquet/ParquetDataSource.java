@@ -15,9 +15,12 @@ package io.trino.parquet;
 
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slice;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.parquet.reader.ChunkedInputStream;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Map;
 
 public interface ParquetDataSource
         extends Closeable
@@ -36,7 +39,7 @@ public interface ParquetDataSource
     Slice readFully(long position, int length)
             throws IOException;
 
-    <K> ListMultimap<K, ChunkReader> planRead(ListMultimap<K, DiskRange> diskRanges);
+    <K> Map<K, ChunkedInputStream> planRead(ListMultimap<K, DiskRange> diskRanges, AggregatedMemoryContext memoryContext);
 
     @Override
     default void close()

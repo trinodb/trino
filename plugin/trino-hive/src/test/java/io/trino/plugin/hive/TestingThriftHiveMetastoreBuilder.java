@@ -39,7 +39,9 @@ import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 
 public final class TestingThriftHiveMetastoreBuilder
 {
@@ -115,11 +117,12 @@ public final class TestingThriftHiveMetastoreBuilder
     {
         checkState(tokenAwareMetastoreClientFactory != null, "metastore client not set");
         ThriftHiveMetastoreFactory metastoreFactory = new ThriftHiveMetastoreFactory(
-                new UgiBasedMetastoreClientFactory(tokenAwareMetastoreClientFactory, thriftMetastoreConfig),
+                new UgiBasedMetastoreClientFactory(tokenAwareMetastoreClientFactory, SIMPLE_USER_NAME_PROVIDER, thriftMetastoreConfig),
                 new HiveMetastoreConfig().isHideDeltaLakeTables(),
                 hiveConfig.isTranslateHiveViews(),
                 thriftMetastoreConfig,
-                hdfsEnvironment);
+                hdfsEnvironment,
+                newFixedThreadPool(thriftMetastoreConfig.getWriteStatisticsThreads()));
         return metastoreFactory.createMetastore(Optional.empty());
     }
 }

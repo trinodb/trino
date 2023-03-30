@@ -21,11 +21,13 @@ import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.type.TypeId;
 
+import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
@@ -46,6 +48,7 @@ public class IcebergMaterializedViewDefinition
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final List<Column> columns;
+    private final Optional<Duration> gracePeriod;
     private final Optional<String> comment;
 
     public static String encodeMaterializedViewData(IcebergMaterializedViewDefinition definition)
@@ -74,6 +77,7 @@ public class IcebergMaterializedViewDefinition
                 definition.getColumns().stream()
                         .map(column -> new Column(column.getName(), column.getType()))
                         .collect(toImmutableList()),
+                definition.getGracePeriod(),
                 definition.getComment());
     }
 
@@ -83,12 +87,15 @@ public class IcebergMaterializedViewDefinition
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<Column> columns,
+            @JsonProperty("gracePeriod") Optional<Duration> gracePeriod,
             @JsonProperty("comment") Optional<String> comment)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = List.copyOf(requireNonNull(columns, "columns is null"));
+        checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
+        this.gracePeriod = gracePeriod;
         this.comment = requireNonNull(comment, "comment is null");
 
         if (catalog.isEmpty() && schema.isPresent()) {
@@ -124,6 +131,12 @@ public class IcebergMaterializedViewDefinition
     }
 
     @JsonProperty
+    public Optional<Duration> getGracePeriod()
+    {
+        return gracePeriod;
+    }
+
+    @JsonProperty
     public Optional<String> getComment()
     {
         return comment;
@@ -137,6 +150,7 @@ public class IcebergMaterializedViewDefinition
         catalog.ifPresent(value -> joiner.add("catalog=" + value));
         schema.ifPresent(value -> joiner.add("schema=" + value));
         joiner.add("columns=" + columns);
+        gracePeriod.ifPresent(value -> joiner.add("gracePeriod≥=" + value));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         return getClass().getSimpleName() + joiner;
     }

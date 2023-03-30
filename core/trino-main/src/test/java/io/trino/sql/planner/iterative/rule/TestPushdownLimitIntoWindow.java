@@ -20,6 +20,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
@@ -55,7 +56,7 @@ public class TestPushdownLimitIntoWindow
                     return p.limit(
                             3,
                             p.window(
-                                    new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                                    new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(a)));
                 })
@@ -82,7 +83,7 @@ public class TestPushdownLimitIntoWindow
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.limit(3, p.window(
-                            new WindowNode.Specification(ImmutableList.of(), Optional.of(orderingScheme)),
+                            new DataOrganizationSpecification(ImmutableList.of(), Optional.of(orderingScheme)),
                             ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                             p.values(a)));
                 })
@@ -114,7 +115,7 @@ public class TestPushdownLimitIntoWindow
                             false,
                             ImmutableList.of(a),
                             p.window(
-                                    new WindowNode.Specification(ImmutableList.of(), Optional.of(orderingScheme)),
+                                    new DataOrganizationSpecification(ImmutableList.of(), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(a)));
                 })
@@ -141,7 +142,7 @@ public class TestPushdownLimitIntoWindow
                     return p.limit(
                             0,
                             p.window(
-                                    new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
+                                    new DataOrganizationSpecification(ImmutableList.of(a), Optional.of(orderingScheme)),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(a)));
                 })
@@ -165,7 +166,7 @@ public class TestPushdownLimitIntoWindow
                     return p.limit(
                             3,
                             p.window(
-                                    new WindowNode.Specification(ImmutableList.of(a), Optional.empty()),
+                                    new DataOrganizationSpecification(ImmutableList.of(a), Optional.empty()),
                                     ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(a)));
                 })
@@ -185,7 +186,7 @@ public class TestPushdownLimitIntoWindow
                     return p.limit(
                             3,
                             p.window(
-                                    new WindowNode.Specification(ImmutableList.of(a), Optional.empty()),
+                                    new DataOrganizationSpecification(ImmutableList.of(a), Optional.empty()),
                                     ImmutableMap.of(
                                             rowNumberSymbol,
                                             newWindowNodeFunction(rowNumberFunction, a),

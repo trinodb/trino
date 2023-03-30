@@ -34,7 +34,8 @@ Configuration
 To use the access control plugin, add an ``etc/access-control.properties`` file
 containing two required properties: ``access-control.name``, which must be set
 to ``file``, and ``security.config-file``, which must be set to the location
-of the config file. For example, if a config file named ``rules.json`` resides
+of the config file. The configuration file location can either point to the local
+disc or to a http endpoint. For example, if a config file named ``rules.json`` resides
 in ``etc``, add an ``etc/access-control.properties`` with the following
 contents:
 
@@ -43,9 +44,23 @@ contents:
    access-control.name=file
    security.config-file=etc/rules.json
 
+If the config should be loaded via the http endpoint ``http://trino-test/config`` and
+is wrapped into a JSON object and available via the ``data`` key ``etc/access-control.properties``
+should look like this:
+
+.. code-block:: text
+
+   access-control.name=file
+   security.config-file=http://trino-test/config
+   security.json-pointer=/data
+
 The config file is specified in JSON format. It contains rules that define which
 users have access to which resources. The rules are read from top to bottom and
-the first matching rule is applied. If no rule matches, access is denied.
+the first matching rule is applied. If no rule matches, access is denied. A JSON
+pointer (RFC 6901) can be specified using the ``security.json-pointer`` property
+to specify a nested object inside the JSON content containing the rules. Per default,
+the file is assumed to contain a single object defining the rules rendering
+the specification of ``security.json-pointer`` unnecessary in that case.
 
 Refresh
 --------
@@ -448,6 +463,34 @@ function from any catalog:
       ]
     }
 
+.. _verify_rules:
+
+Verify configuration
+^^^^^^^^^^^^^^^^^^^^
+
+To verify the system-access control file is configured properly, set the
+rules to completely block access to all users of the system:
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "catalog": "system",
+          "allow": "none"
+        }
+      ]
+    }
+
+Restart your cluster to activate the rules for your cluster. With the
+Trino :doc:`CLI </client/cli>` run a query to test authorization:
+
+.. code-block:: text
+
+  trino> SELECT * FROM system.runtime.nodes;
+  Query 20200824_183358_00000_c62aw failed: Access Denied: Cannot access catalog system
+
+Remove these rules and restart the Trino cluster.
 
 .. _system-file-auth-session-property:
 
@@ -543,8 +586,10 @@ Each impersonation rule is composed of the following fields:
   impersonation. Defaults to ``.*``.
 * ``original_role`` (optional): regex to match against role names of the
   requesting impersonation. Defaults to ``.*``.
-* ``new_user`` (required): regex to match against the user that will be
-  impersonated.
+* ``new_user`` (required): regex to match against the user to impersonate. Can
+  contain references to subsequences captured during the match against
+  *original_user*, and each reference is replaced by the result of evaluating
+  the corresponding group respectively.
 * ``allow`` (optional): boolean indicating if the authentication should be
   allowed. Defaults to ``true``.
 
@@ -553,7 +598,9 @@ The impersonation rules are a bit different than the other rules: The attribute
 Doing so it was possible to make the attribute ``allow`` optional.
 
 The following example allows the ``admin`` role, to impersonate any user, except
-for ``bob``. It also allows any user to impersonate the ``test`` user:
+for ``bob``. It also allows any user to impersonate the ``test`` user. It also
+allows a user in the form ``team_backend`` to impersonate the
+``team_backend_sandbox`` user, but not arbitrary users:
 
 .. literalinclude:: user-impersonation.json
     :language: json

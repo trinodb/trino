@@ -14,15 +14,16 @@
 package io.trino.transaction;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.CatalogMetadata;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 
@@ -38,6 +39,8 @@ public interface TransactionManager
     Optional<TransactionInfo> getTransactionInfoIfExist(TransactionId transactionId);
 
     List<TransactionInfo> getAllTransactionInfos();
+
+    Set<TransactionId> getTransactionsUsingCatalog(CatalogHandle catalogHandle);
 
     TransactionId beginTransaction(boolean autoCommitContext);
 
@@ -76,6 +79,8 @@ public interface TransactionManager
     ListenableFuture<Void> asyncCommit(TransactionId transactionId);
 
     ListenableFuture<Void> asyncAbort(TransactionId transactionId);
+
+    void blockCommit(TransactionId transactionId, String reason);
 
     void fail(TransactionId transactionId);
 }

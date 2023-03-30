@@ -68,12 +68,15 @@ public class DeltaLakeConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
+    private boolean collectExtendedStatisticsOnWrite = true;
     private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean deleteSchemaLocationsFallback;
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private boolean uniqueTableLocation = true;
+    private boolean legacyCreateTableWithExistingLocationEnabled;
+    private boolean registerTableProcedureEnabled;
 
     public Duration getMetadataCacheTtl()
     {
@@ -337,10 +340,23 @@ public class DeltaLakeConfig
     }
 
     @Config(EXTENDED_STATISTICS_ENABLED)
-    @ConfigDescription("Use extended statistics collected by ANALYZE")
+    @ConfigDescription("Enable collection (ANALYZE) and use of extended statistics.")
     public DeltaLakeConfig setExtendedStatisticsEnabled(boolean extendedStatisticsEnabled)
     {
         this.extendedStatisticsEnabled = extendedStatisticsEnabled;
+        return this;
+    }
+
+    public boolean isCollectExtendedStatisticsOnWrite()
+    {
+        return collectExtendedStatisticsOnWrite;
+    }
+
+    @Config("delta.extended-statistics.collect-on-write")
+    @ConfigDescription("Enables automatic column level extended statistics collection on write")
+    public DeltaLakeConfig setCollectExtendedStatisticsOnWrite(boolean collectExtendedStatisticsOnWrite)
+    {
+        this.collectExtendedStatisticsOnWrite = collectExtendedStatisticsOnWrite;
         return this;
     }
 
@@ -429,6 +445,34 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setUniqueTableLocation(boolean uniqueTableLocation)
     {
         this.uniqueTableLocation = uniqueTableLocation;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacyCreateTableWithExistingLocationEnabled()
+    {
+        return legacyCreateTableWithExistingLocationEnabled;
+    }
+
+    @Deprecated
+    @Config("delta.legacy-create-table-with-existing-location.enabled")
+    @ConfigDescription("Enable using the CREATE TABLE statement to register an existing table")
+    public DeltaLakeConfig setLegacyCreateTableWithExistingLocationEnabled(boolean legacyCreateTableWithExistingLocationEnabled)
+    {
+        this.legacyCreateTableWithExistingLocationEnabled = legacyCreateTableWithExistingLocationEnabled;
+        return this;
+    }
+
+    public boolean isRegisterTableProcedureEnabled()
+    {
+        return registerTableProcedureEnabled;
+    }
+
+    @Config("delta.register-table-procedure.enabled")
+    @ConfigDescription("Allow users to call the register_table procedure")
+    public DeltaLakeConfig setRegisterTableProcedureEnabled(boolean registerTableProcedureEnabled)
+    {
+        this.registerTableProcedureEnabled = registerTableProcedureEnabled;
         return this;
     }
 }

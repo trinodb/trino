@@ -62,7 +62,7 @@ public final class SqlTime
 
     public SqlTime roundTo(int precision)
     {
-        return new SqlTime(precision, round(picos, 12 - precision));
+        return new SqlTime(precision, round(picos, 12 - precision) % PICOSECONDS_PER_DAY);
     }
 
     @Override
@@ -89,18 +89,33 @@ public final class SqlTime
     @Override
     public String toString()
     {
-        StringBuilder builder = new StringBuilder();
-        builder.append(format(
-                "%02d:%02d:%02d",
-                picos / PICOSECONDS_PER_HOUR,
-                (picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR,
-                (picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE));
+        StringBuilder builder = new StringBuilder(8 + (precision == 0 ? 0 : 1 + precision));
+        appendTwoDigits((int) (picos / PICOSECONDS_PER_HOUR), builder);
+        builder.append(':');
+        appendTwoDigits((int) ((picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR), builder);
+        builder.append(':');
+        appendTwoDigits((int) ((picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE), builder);
 
         if (precision > 0) {
             long scaledFraction = (picos % PICOSECONDS_PER_SECOND) / POWERS_OF_TEN[MAX_PRECISION - precision];
-            builder.append(".");
-            builder.append(format("%0" + precision + "d", scaledFraction));
+            builder.append('.');
+            builder.setLength(builder.length() + precision);
+
+            for (int index = builder.length() - 1; index > 8; index--) {
+                long temp = scaledFraction / 10;
+                int digit = (int) (scaledFraction - (temp * 10));
+                scaledFraction = temp;
+                builder.setCharAt(index, (char) ('0' + digit));
+            }
         }
         return builder.toString();
+    }
+
+    private static void appendTwoDigits(int value, StringBuilder builder)
+    {
+        if (value < 10) {
+            builder.append('0');
+        }
+        builder.append(value);
     }
 }

@@ -1,3 +1,5 @@
+io.trino.testng.services.ManageTestResources
+io.trino.testng.services.ReportAfterMethodNotAlwaysRun
 io.trino.testng.services.ReportOrphanedExecutors
 io.trino.testng.services.ReportPrivateMethods
 io.trino.testng.services.ReportUnannotatedMethods

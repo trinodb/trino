@@ -11,15 +11,14 @@ The Google Sheets connector allows reading `Google Sheets <https://www.google.co
 Configuration
 -------------
 
-Create ``etc/catalog/sheets.properties``
-to mount the Google Sheets connector as the ``sheets`` catalog,
-replacing the properties as appropriate:
+Create ``etc/catalog/example.properties`` to mount the Google Sheets connector
+as the ``example`` catalog, with the following contents:
 
 .. code-block:: text
 
     connector.name=gsheets
-    credentials-path=/path/to/google-sheets-credentials.json
-    metadata-sheet-id=exampleId
+    gsheets.credentials-path=/path/to/google-sheets-credentials.json
+    gsheets.metadata-sheet-id=exampleId
 
 Configuration properties
 ------------------------
@@ -29,10 +28,12 @@ The following configuration properties are available:
 =================================== =====================================================================
 Property name                       Description
 =================================== =====================================================================
-``credentials-path``                Path to the Google API JSON key file
-``metadata-sheet-id``               Sheet ID of the spreadsheet, that contains the table mapping
-``sheets-data-max-cache-size``      Maximum number of spreadsheets to cache, defaults to ``1000``
-``sheets-data-expire-after-write``  How long to cache spreadsheet data or metadata, defaults to ``5m``
+``gsheets.credentials-path``        Path to the Google API JSON key file
+``gsheets.credentials-key``         The base64 encoded credentials key
+``gsheets.metadata-sheet-id``       Sheet ID of the spreadsheet, that contains the table mapping
+``gsheets.max-data-cache-size``     Maximum number of spreadsheets to cache, defaults to ``1000``
+``gsheets.data-cache-ttl``          How long to cache spreadsheet data or metadata, defaults to ``5m``
+``gsheets.read-timeout``            Timeout to read data from spreadsheet, defaults to ``20s``
 =================================== =====================================================================
 
 Credentials
@@ -52,8 +53,11 @@ The connector requires credentials in order to access the Google Sheets API.
    On the *Create key* step, create and download a key in JSON format.
 
 The key file needs to be available on the Trino coordinator and workers.
-Set the ``credentials-path`` configuration property to point to this file.
+Set the ``gsheets.credentials-path`` configuration property to point to this file.
 The exact name of the file does not matter -- it can be named anything.
+
+Alternatively, set the ``gsheets.credentials-key`` configuration property.
+It should contain the contents of the JSON file, encoded using base64.
 
 Metadata sheet
 --------------
@@ -64,8 +68,8 @@ containing the following columns in this order:
 
 * Table Name
 * Sheet ID
-* Owner
-* Notes
+* Owner (optional)
+* Notes (optional)
 
 See this `example sheet <https://docs.google.com/spreadsheets/d/1Es4HhWALUQjoa-bQh4a8B5HROz7dpGMfq_HbfoaW5LM>`_
 as a reference.
@@ -74,7 +78,7 @@ The metadata sheet must be shared with the service account user,
 the one for which the key credentials file was created. Click the *Share*
 button to share the sheet with the email address of the service account.
 
-Set the ``metadata-sheet-id`` configuration property to the ID of this sheet.
+Set the ``gsheets.metadata-sheet-id`` configuration property to the ID of this sheet.
 
 Querying sheets
 ---------------
@@ -85,9 +89,13 @@ address of the service account.
 
 The sheet needs to be mapped to a Trino table name. Specify a table name
 (column A) and the sheet ID (column B) in the metadata sheet. To refer
-to a specific tab in the sheet, add the tab name after the sheet ID, separated
-with ``#``. If tab name is not provided, connector loads only 10,000 rows by default from
+to a specific range in the sheet, add the range after the sheet ID, separated
+with ``#``. If a range is not provided, the connector loads only 10,000 rows by default from
 the first tab in the sheet.
+
+The first row of the provided sheet range is used as the header and will determine the column
+names of the Trino table.
+For more details on sheet range syntax see the `google sheets docs <https://developers.google.com/sheets/api/guides/concepts>`_.
 
 API usage limits
 ----------------
@@ -129,3 +137,33 @@ SQL support
 The connector provides :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements to access data and
 metadata in Google Sheets.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Google Sheets.
+
+.. _google-sheets-sheet-function:
+
+``sheet(id, range) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``sheet`` function allows you to query a Google Sheet directly without
+specifying it as a named table in the metadata sheet.
+
+For example, for a catalog named 'example'::
+
+    SELECT *
+    FROM
+      TABLE(example.system.sheet(
+          id => 'googleSheetIdHere'));
+
+A sheet range or named range can be provided as an optional ``range`` argument.
+The default sheet range is ``$1:$10000`` if one is not provided::
+
+    SELECT *
+    FROM
+      TABLE(example.system.sheet(
+          id => 'googleSheetIdHere',
+          range => 'TabName!A1:B4'));

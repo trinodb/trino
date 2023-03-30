@@ -21,6 +21,7 @@ import com.google.inject.Singleton;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosConfiguration;
+import io.trino.plugin.base.security.UserNameProvider;
 
 import javax.inject.Inject;
 
@@ -28,6 +29,7 @@ import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.hdfs.authentication.KerberosHadoopAuthentication.createKerberosHadoopAuthentication;
+import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 
 public final class AuthenticationModules
 {
@@ -45,7 +47,7 @@ public final class AuthenticationModules
     {
         return binder -> {
             binder.bind(HadoopAuthentication.class).annotatedWith(ForHdfs.class).to(SimpleHadoopAuthentication.class);
-            newOptionalBinder(binder, Key.get(UserNameProvider.class, ForHdfs.class)).setDefault().to(SimpleUserNameProvider.class).in(SINGLETON);
+            newOptionalBinder(binder, Key.get(UserNameProvider.class, ForHdfs.class)).setDefault().toInstance(SIMPLE_USER_NAME_PROVIDER);
             binder.bind(HdfsAuthentication.class).to(ImpersonatingHdfsAuthentication.class).in(SINGLETON);
         };
     }
@@ -88,8 +90,7 @@ public final class AuthenticationModules
             {
                 newOptionalBinder(binder, Key.get(UserNameProvider.class, ForHdfs.class))
                         .setDefault()
-                        .to(SimpleUserNameProvider.class)
-                        .in(SINGLETON);
+                        .toInstance(SIMPLE_USER_NAME_PROVIDER);
                 binder.bind(HdfsAuthentication.class)
                         .to(ImpersonatingHdfsAuthentication.class)
                         .in(SINGLETON);

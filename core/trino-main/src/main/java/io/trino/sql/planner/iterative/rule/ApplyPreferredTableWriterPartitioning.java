@@ -16,12 +16,15 @@ package io.trino.sql.planner.iterative.rule;
 import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TableWriterNode;
 
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.getPreferredWritePartitioningMinNumberOfPartitions;
+import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isFaultTolerantExecutionForcePreferredWritePartitioningEnabled;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.cost.AggregationStatsRule.getRowsCount;
 import static io.trino.sql.planner.plan.Patterns.tableWriterNode;
@@ -57,25 +60,25 @@ public class ApplyPreferredTableWriterPartitioning
     @Override
     public Result apply(TableWriterNode node, Captures captures, Context context)
     {
+        if (getRetryPolicy(context.getSession()) == RetryPolicy.TASK && isFaultTolerantExecutionForcePreferredWritePartitioningEnabled(context.getSession())) {
+            // Choosing preferred partitioning introduces a risk of running into a skew (for example when writing to only a single partition).
+            // Fault tolerant execution can detect a potential skew automatically (based on runtime statistics) and mitigate it by splitting skewed partitions.
+            return enable(node);
+        }
+
         int minimumNumberOfPartitions = getPreferredWritePartitioningMinNumberOfPartitions(context.getSession());
         if (minimumNumberOfPartitions <= 1) {
-            // Force 'preferred write partitioning' even if stats are missing or broken
             return enable(node);
         }
 
         double expectedNumberOfPartitions = getRowsCount(
                 context.getStatsProvider().getStats(node.getSource()),
                 node.getPreferredPartitioningScheme().get().getPartitioning().getColumns());
-
-        if (isNaN(expectedNumberOfPartitions)) {
-            // Force 'preferred write partitioning' when stats are missing. This is essential because query could write
-            // to huge amount of partition using unpartitioned writing route. Therefore, it can lead to out of memory
-            // error since each writer thread could write to all partitions while each partition per writer allocates
-            // a certain amount of memory for buffering.
-            return enable(node);
-        }
-
-        if (expectedNumberOfPartitions < minimumNumberOfPartitions) {
+        // Disable preferred partitioning at remote exchange level if stats are absent or estimated number of partitions
+        // are less than minimumNumberOfPartitions. This is because at remote exchange we don't have scaling to
+        // mitigate skewness.
+        // TODO - Remove this check after implementing skewness mitigation at remote exchange - https://github.com/trinodb/trino/issues/16178
+        if (isNaN(expectedNumberOfPartitions) || (expectedNumberOfPartitions < minimumNumberOfPartitions)) {
             return Result.empty();
         }
 

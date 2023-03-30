@@ -19,10 +19,10 @@ import com.google.common.collect.Multiset;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -69,6 +69,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -262,9 +263,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName)
+    public void renameTable(Session session, TableHandle tableHandle, CatalogSchemaTableName currentTableName, QualifiedObjectName newTableName)
     {
-        delegate.renameTable(session, tableHandle, newTableName);
+        delegate.renameTable(session, tableHandle, currentTableName, newTableName);
     }
 
     @Override
@@ -298,6 +299,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        delegate.setColumnType(session, tableHandle, column, type);
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         delegate.renameColumn(session, tableHandle, source, target);
@@ -322,9 +329,15 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public void dropTable(Session session, TableHandle tableHandle)
+    public void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
     {
-        delegate.dropTable(session, tableHandle);
+        delegate.dropField(session, tableHandle, column, fieldPath);
+    }
+
+    @Override
+    public void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName)
+    {
+        delegate.dropTable(session, tableHandle, tableName);
     }
 
     @Override
@@ -430,18 +443,6 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle)
-    {
-        return delegate.getDeleteRowIdColumnHandle(session, tableHandle);
-    }
-
-    @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        return delegate.getUpdateRowIdColumnHandle(session, tableHandle, updatedColumns);
-    }
-
-    @Override
     public Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle)
     {
         return delegate.applyDelete(session, tableHandle);
@@ -451,30 +452,6 @@ public class CountingAccessMetadata
     public OptionalLong executeDelete(Session session, TableHandle tableHandle)
     {
         return delegate.executeDelete(session, tableHandle);
-    }
-
-    @Override
-    public TableHandle beginDelete(Session session, TableHandle tableHandle)
-    {
-        return delegate.beginDelete(session, tableHandle);
-    }
-
-    @Override
-    public void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments)
-    {
-        delegate.finishDelete(session, tableHandle, fragments);
-    }
-
-    @Override
-    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        return delegate.beginUpdate(session, tableHandle, updatedColumns);
-    }
-
-    @Override
-    public void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments)
-    {
-        delegate.finishUpdate(session, tableHandle, fragments);
     }
 
     @Override
@@ -896,5 +873,11 @@ public class CountingAccessMetadata
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
     {
         return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    @Override
+    public OptionalInt getMaxWriterTasks(Session session, String catalogName)
+    {
+        return delegate.getMaxWriterTasks(session, catalogName);
     }
 }

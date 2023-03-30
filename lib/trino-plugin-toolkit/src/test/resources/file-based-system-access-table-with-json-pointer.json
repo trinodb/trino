@@ -1,0 +1,111 @@
+{
+  "data": {
+      "tables": [
+          {
+              "catalog": "unknown",
+              "privileges": []
+          },
+          {
+              "catalog": "secret",
+              "schema": "secret",
+              "privileges": []
+          },
+          {
+              "role": "admin",
+              "privileges": [
+                  "SELECT",
+                  "INSERT",
+                  "UPDATE",
+                  "DELETE",
+                  "OWNERSHIP"
+              ]
+          },
+          {
+              "user": "alice",
+              "catalog": "some-catalog",
+              "schema": "aliceschema",
+              "privileges": [
+                  "SELECT",
+                  "INSERT",
+                  "DELETE",
+                  "OWNERSHIP"
+              ]
+          },
+          {
+              "user": "bob",
+              "catalog": "some-catalog",
+              "schema": "bobschema",
+              "table": "bob.*",
+              "privileges": [
+                  "SELECT",
+                  "INSERT",
+                  "DELETE",
+                  "GRANT_SELECT"
+              ]
+          },
+          {
+              "group": "guests",
+              "catalog": "some-catalog",
+              "schema": "bobschema",
+              "table": "bobtable",
+              "privileges": [
+                  "SELECT",
+                  "INSERT"
+              ]
+          },
+          {
+              "group": "guests",
+              "schema": "bobschema",
+              "table": "bobcolumns",
+              "privileges": [
+                  "SELECT"
+              ],
+              "columns": [
+                  {
+                      "name": "private",
+                      "allow": false
+                  },
+                  {
+                      "name": "restricted",
+                      "allow": false
+                  },
+                  {
+                      "name": "masked",
+                      "mask": "'mask'"
+                  },
+                  {
+                      "name": "masked_with_user",
+                      "mask": "'mask-with-user'",
+                      "mask_environment": {
+                          "user": "mask-user"
+                      }
+                  }
+              ],
+              "filter": "starts_with(value, 'filter')"
+          },
+          {
+              "group": "guests",
+              "schema": "bobschema",
+              "table": "bobcolumns_with_grant",
+              "privileges": [
+                  "GRANT_SELECT"
+              ],
+              "columns": [
+                  {
+                      "name": "private",
+                      "allow": false
+                  }
+              ],
+              "filter": "starts_with(value, 'filter-with-user')",
+              "filter_environment": {
+                  "user": "filter-user"
+              }
+          },
+          {
+              "privileges": [
+                  "SELECT"
+              ]
+          }
+      ]
+  }
+}

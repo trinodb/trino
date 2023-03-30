@@ -68,6 +68,7 @@ public abstract class KafkaQueryRunnerBuilder
             testingKafka.start();
             preInit(queryRunner);
             queryRunner.installPlugin(new KafkaPlugin(extension));
+            // note: additional copy via ImmutableList so that if fails on nulls
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
             kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");

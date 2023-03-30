@@ -41,7 +41,7 @@ public class TestQueryTracker
     private final CountDownLatch freeze = new CountDownLatch(1);
     private final CountDownLatch interrupted = new CountDownLatch(1);
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void unfreeze()
     {
         freeze.countDown();

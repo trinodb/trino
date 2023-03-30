@@ -30,6 +30,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_METADATA_ERROR;
 import static io.trino.plugin.cassandra.TokenRing.createForPartitioner;
 import static java.lang.Math.max;
@@ -38,7 +39,6 @@ import static java.lang.StrictMath.toIntExact;
 import static java.util.Collections.shuffle;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class CassandraTokenSplitManager
 {
@@ -137,9 +137,9 @@ public class CassandraTokenSplitManager
     {
         Set<Node> endpoints = session.getReplicas(keyspace, tokenRange);
 
-        return unmodifiableList(endpoints.stream()
+        return endpoints.stream()
                 .map(endpoint -> endpoint.getEndPoint().resolve().toString())
-                .collect(toList()));
+                .collect(toImmutableList());
     }
 
     private static TokenSplit createSplit(TokenRange range, List<String> endpoints)

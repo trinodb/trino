@@ -33,7 +33,7 @@ import static java.util.regex.Pattern.CASE_INSENSITIVE;
 
 public final class PartitionFields
 {
-    private static final String UNQUOTED_IDENTIFIER = "[a-z_][a-z0-9_]*";
+    private static final String UNQUOTED_IDENTIFIER = "[a-zA-Z_][a-zA-Z0-9_]*";
     private static final String QUOTED_IDENTIFIER = "\"(?:\"\"|[^\"])*\"";
     public static final String IDENTIFIER = "(" + UNQUOTED_IDENTIFIER + "|" + QUOTED_IDENTIFIER + ")";
     private static final Pattern UNQUOTED_IDENTIFIER_PATTERN = Pattern.compile(UNQUOTED_IDENTIFIER);
@@ -88,7 +88,7 @@ public final class PartitionFields
         }
     }
 
-    private static String fromIdentifierToColumn(String identifier)
+    public static String fromIdentifierToColumn(String identifier)
     {
         if (QUOTED_IDENTIFIER_PATTERN.matcher(identifier).matches()) {
             // We only support lowercase quoted identifiers for now.
@@ -157,7 +157,7 @@ public final class PartitionFields
         return quotedName(column);
     }
 
-    private static String quotedName(String name)
+    public static String quotedName(String name)
     {
         if (UNQUOTED_IDENTIFIER_PATTERN.matcher(name).matches()) {
             return name;

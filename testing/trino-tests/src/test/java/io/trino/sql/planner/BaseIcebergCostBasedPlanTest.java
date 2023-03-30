@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
+import io.trino.testng.services.ManageTestResources;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterSuite;
@@ -79,6 +80,7 @@ public abstract class BaseIcebergCostBasedPlanTest
     // The container needs to be shared, since bucket name cannot be reused between tests.
     // The bucket name is used as a key in TrinoFileSystemCache which is managed in static manner.
     @GuardedBy("sharedMinioLock")
+    @ManageTestResources.Suppress(because = "This resource is leaked, but consciously -- there is no known way to avoid that")
     private static Minio sharedMinio;
     private static final Object sharedMinioLock = new Object();
 
@@ -86,6 +88,16 @@ public abstract class BaseIcebergCostBasedPlanTest
     private Path temporaryMetastoreDirectory;
     private FileHiveMetastore fileMetastore;
     private Map<String, String> connectorConfiguration;
+
+    protected BaseIcebergCostBasedPlanTest(String schemaName, String fileFormatName, boolean partitioned)
+    {
+        super(schemaName, Optional.of(fileFormatName), partitioned);
+    }
+
+    protected BaseIcebergCostBasedPlanTest(String schemaName, String fileFormatName, boolean partitioned, boolean smallFiles)
+    {
+        super(schemaName, Optional.of(fileFormatName), partitioned, smallFiles);
+    }
 
     @Override
     protected ConnectorFactory createConnectorFactory()
@@ -153,9 +165,10 @@ public abstract class BaseIcebergCostBasedPlanTest
     @BeforeClass
     public void prepareTables()
     {
+        String schema = getQueryRunner().getDefaultSession().getSchema().orElseThrow();
         fileMetastore.createDatabase(
                 Database.builder()
-                        .setDatabaseName(getSchema())
+                        .setDatabaseName(schema)
                         .setOwnerName(Optional.empty())
                         .setOwnerType(Optional.empty())
                         .build());
@@ -167,6 +180,8 @@ public abstract class BaseIcebergCostBasedPlanTest
     // Iceberg metadata files are linked using absolute paths, so the path within the bucket name must match where the metadata was exported from.
     protected void populateTableFromResource(String tableName, String resourcePath, String targetPath)
     {
+        String schema = getQueryRunner().getDefaultSession().getSchema().orElseThrow();
+
         log.info("Copying resources for %s unpartitioned table from %s to %s in the container", tableName, resourcePath, targetPath);
         minio.copyResources(resourcePath, BUCKET_NAME, targetPath);
 
@@ -182,7 +197,7 @@ public abstract class BaseIcebergCostBasedPlanTest
         log.info("Registering table %s using metadata location %s", tableName, metadataLocation);
         fileMetastore.createTable(
                 Table.builder()
-                        .setDatabaseName(getSchema())
+                        .setDatabaseName(schema)
                         .setTableName(tableName)
                         .setOwner(Optional.empty())
                         .setTableType(TableType.EXTERNAL_TABLE.name())

@@ -16,32 +16,12 @@ package io.trino.plugin.hive;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.type.Category;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.PrimitiveCategory;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
-import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
-import org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat;
-import org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat;
-import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
-import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
-import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
-import org.apache.hadoop.hive.serde2.OpenCSVSerde;
-import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
-import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
-import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
-import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
-import org.apache.hadoop.mapred.TextInputFormat;
-import org.apache.hive.hcatalog.data.JsonSerDe;
 
 import java.util.Arrays;
 import java.util.List;
@@ -51,6 +31,28 @@ import java.util.Optional;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_INPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.AVRO_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.COLUMNAR_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.JSON_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_INPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.OPENCSV_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.OPENX_JSON_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.ORC_INPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.ORC_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_INPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.REGEX_HIVE_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -58,49 +60,59 @@ import static java.util.Objects.requireNonNull;
 public enum HiveStorageFormat
 {
     ORC(
-            OrcSerde.class.getName(),
-            OrcInputFormat.class.getName(),
-            OrcOutputFormat.class.getName(),
+            ORC_SERDE_CLASS,
+            ORC_INPUT_FORMAT_CLASS,
+            ORC_OUTPUT_FORMAT_CLASS,
             DataSize.of(64, Unit.MEGABYTE)),
     PARQUET(
-            ParquetHiveSerDe.class.getName(),
-            MapredParquetInputFormat.class.getName(),
-            MapredParquetOutputFormat.class.getName(),
+            PARQUET_HIVE_SERDE_CLASS,
+            MAPRED_PARQUET_INPUT_FORMAT_CLASS,
+            MAPRED_PARQUET_OUTPUT_FORMAT_CLASS,
             DataSize.of(64, Unit.MEGABYTE)),
     AVRO(
-            AvroSerDe.class.getName(),
-            AvroContainerInputFormat.class.getName(),
-            AvroContainerOutputFormat.class.getName(),
+            AVRO_SERDE_CLASS,
+            AVRO_CONTAINER_INPUT_FORMAT_CLASS,
+            AVRO_CONTAINER_OUTPUT_FORMAT_CLASS,
             DataSize.of(64, Unit.MEGABYTE)),
     RCBINARY(
-            LazyBinaryColumnarSerDe.class.getName(),
-            RCFileInputFormat.class.getName(),
-            RCFileOutputFormat.class.getName(),
+            LAZY_BINARY_COLUMNAR_SERDE_CLASS,
+            RCFILE_INPUT_FORMAT_CLASS,
+            RCFILE_OUTPUT_FORMAT_CLASS,
             DataSize.of(8, Unit.MEGABYTE)),
     RCTEXT(
-            ColumnarSerDe.class.getName(),
-            RCFileInputFormat.class.getName(),
-            RCFileOutputFormat.class.getName(),
+            COLUMNAR_SERDE_CLASS,
+            RCFILE_INPUT_FORMAT_CLASS,
+            RCFILE_OUTPUT_FORMAT_CLASS,
             DataSize.of(8, Unit.MEGABYTE)),
     SEQUENCEFILE(
-            LazySimpleSerDe.class.getName(),
-            SequenceFileInputFormat.class.getName(),
-            HiveSequenceFileOutputFormat.class.getName(),
+            LAZY_SIMPLE_SERDE_CLASS,
+            SEQUENCEFILE_INPUT_FORMAT_CLASS,
+            HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS,
             DataSize.of(8, Unit.MEGABYTE)),
     JSON(
-            JsonSerDe.class.getName(),
-            TextInputFormat.class.getName(),
-            HiveIgnoreKeyTextOutputFormat.class.getName(),
+            JSON_SERDE_CLASS,
+            TEXT_INPUT_FORMAT_CLASS,
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
+            DataSize.of(8, Unit.MEGABYTE)),
+    OPENX_JSON(
+            OPENX_JSON_SERDE_CLASS,
+            TEXT_INPUT_FORMAT_CLASS,
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
             DataSize.of(8, Unit.MEGABYTE)),
     TEXTFILE(
-            LazySimpleSerDe.class.getName(),
-            TextInputFormat.class.getName(),
-            HiveIgnoreKeyTextOutputFormat.class.getName(),
+            LAZY_SIMPLE_SERDE_CLASS,
+            TEXT_INPUT_FORMAT_CLASS,
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
             DataSize.of(8, Unit.MEGABYTE)),
     CSV(
-            OpenCSVSerde.class.getName(),
-            TextInputFormat.class.getName(),
-            HiveIgnoreKeyTextOutputFormat.class.getName(),
+            OPENCSV_SERDE_CLASS,
+            TEXT_INPUT_FORMAT_CLASS,
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
+            DataSize.of(8, Unit.MEGABYTE)),
+    REGEX(
+            REGEX_HIVE_SERDE_CLASS,
+            TEXT_INPUT_FORMAT_CLASS,
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS,
             DataSize.of(8, Unit.MEGABYTE));
 
     private final String serde;

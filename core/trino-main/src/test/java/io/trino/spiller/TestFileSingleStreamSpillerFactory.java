@@ -76,6 +76,7 @@ public class TestFileSingleStreamSpillerFactory
             throws Exception
     {
         closer.close();
+        closer = null;
     }
 
     @Test

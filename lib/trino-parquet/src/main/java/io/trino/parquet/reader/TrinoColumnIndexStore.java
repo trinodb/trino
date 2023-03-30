@@ -16,9 +16,6 @@ package io.trino.parquet.reader;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimap;
-import io.airlift.slice.Slice;
-import io.trino.parquet.ChunkReader;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.ParquetDataSource;
 import org.apache.parquet.format.Util;
@@ -35,13 +32,14 @@ import org.apache.parquet.schema.PrimitiveType;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -102,9 +100,9 @@ public class TrinoColumnIndexStore
     public ColumnIndex getColumnIndex(ColumnPath column)
     {
         if (columnIndexStore == null) {
-            columnIndexStore = loadIndexes(dataSource, columnIndexReferences, (buffer, columnMetadata) -> {
+            columnIndexStore = loadIndexes(dataSource, columnIndexReferences, (inputStream, columnMetadata) -> {
                 try {
-                    return ParquetMetadataConverter.fromParquetColumnIndex(columnMetadata.getPrimitiveType(), Util.readColumnIndex(buffer.getInput()));
+                    return ParquetMetadataConverter.fromParquetColumnIndex(columnMetadata.getPrimitiveType(), Util.readColumnIndex(inputStream));
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
@@ -119,9 +117,9 @@ public class TrinoColumnIndexStore
     public OffsetIndex getOffsetIndex(ColumnPath column)
     {
         if (offsetIndexStore == null) {
-            offsetIndexStore = loadIndexes(dataSource, offsetIndexReferences, (buffer, columnMetadata) -> {
+            offsetIndexStore = loadIndexes(dataSource, offsetIndexReferences, (inputStream, columnMetadata) -> {
                 try {
-                    return ParquetMetadataConverter.fromParquetOffsetIndex(Util.readOffsetIndex(buffer.getInput()));
+                    return ParquetMetadataConverter.fromParquetOffsetIndex(Util.readOffsetIndex(inputStream));
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
@@ -135,7 +133,7 @@ public class TrinoColumnIndexStore
     private static <T> Map<ColumnPath, T> loadIndexes(
             ParquetDataSource dataSource,
             List<ColumnIndexMetadata> indexMetadata,
-            BiFunction<Slice, ColumnIndexMetadata, T> deserializer)
+            BiFunction<InputStream, ColumnIndexMetadata, T> deserializer)
     {
         // Merge multiple small reads of the file for indexes stored close to each other
         ListMultimap<ColumnPath, DiskRange> ranges = ArrayListMultimap.create(indexMetadata.size(), 1);
@@ -143,15 +141,15 @@ public class TrinoColumnIndexStore
             ranges.put(column.getPath(), column.getDiskRange());
         }
 
-        Multimap<ColumnPath, ChunkReader> chunkReaders = dataSource.planRead(ranges);
+        Map<ColumnPath, ChunkedInputStream> columnInputStreams = dataSource.planRead(ranges, newSimpleAggregatedMemoryContext());
         try {
             return indexMetadata.stream()
                     .collect(toImmutableMap(
                             ColumnIndexMetadata::getPath,
-                            column -> deserializer.apply(getOnlyElement(chunkReaders.get(column.getPath())).readUnchecked(), column)));
+                            column -> deserializer.apply(columnInputStreams.get(column.getPath()), column)));
         }
         finally {
-            chunkReaders.values().forEach(ChunkReader::free);
+            columnInputStreams.values().forEach(ChunkedInputStream::close);
         }
     }
 

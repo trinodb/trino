@@ -17,6 +17,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
@@ -31,13 +32,13 @@ import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.QueryContext;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -63,7 +64,7 @@ import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static io.trino.execution.TaskTestUtils.updateTask;
-import static io.trino.execution.buffer.PagesSerde.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -82,14 +83,16 @@ import static org.testng.Assert.assertTrue;
 public class TestSqlTask
 {
     public static final OutputBufferId OUT = new OutputBufferId(0);
-    private final TaskExecutor taskExecutor;
-    private final ScheduledExecutorService taskNotificationExecutor;
-    private final ScheduledExecutorService driverYieldExecutor;
-    private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
+
+    private TaskExecutor taskExecutor;
+    private ScheduledExecutorService taskNotificationExecutor;
+    private ScheduledExecutorService driverYieldExecutor;
+    private SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
 
-    public TestSqlTask()
+    @BeforeClass
+    public void setUp()
     {
         taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
@@ -111,8 +114,10 @@ public class TestSqlTask
     public void destroy()
     {
         taskExecutor.stop();
+        taskExecutor = null;
         taskNotificationExecutor.shutdownNow();
         driverYieldExecutor.shutdown();
+        sqlTaskExecutionFactory = null;
     }
 
     @Test(timeOut = 30_000)
@@ -211,7 +216,15 @@ public class TestSqlTask
         assertNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTask.cancel();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
+        // This call can race and report either cancelling or cancelled
+        assertTrue(taskInfo.getTaskStatus().getState().isTerminatingOrDone());
+        // Task cancellation can race with output buffer state updates, but should transition to cancelled quickly
+        int attempts = 1;
+        while (!taskInfo.getTaskStatus().getState().isDone() && attempts < 3) {
+            taskInfo = Futures.getUnchecked(sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()));
+            attempts++;
+        }
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED, "Failed to see CANCELED after " + attempts + " attempts");
         assertNotNull(taskInfo.getStats().getEndTime());
 
         taskInfo = sqlTask.getTaskInfo();
@@ -285,7 +298,7 @@ public class TestSqlTask
         assertFalse(bufferResult.isDone());
 
         sqlTask.cancel();
-        assertEquals(sqlTask.getTaskInfo().getTaskStatus().getState(), TaskState.CANCELED);
+        assertTrue(sqlTask.getTaskInfo().getTaskStatus().getState().isTerminatingOrDone());
 
         // buffer future will complete, the event is async so wait a bit for event to propagate
         bufferResult.get(1, SECONDS);
@@ -308,6 +321,12 @@ public class TestSqlTask
 
         long taskStatusVersion = sqlTask.getTaskInfo().getTaskStatus().getVersion();
         sqlTask.failed(new Exception("test"));
+        // This call can race and return either FAILED or FAILING
+        TaskInfo taskInfo = sqlTask.getTaskInfo(taskStatusVersion).get();
+        assertTrue(taskInfo.getTaskStatus().getState().isTerminatingOrDone());
+
+        // This call should resolve to FAILED if the prior call did not
+        taskStatusVersion = taskInfo.getTaskStatus().getVersion();
         assertEquals(sqlTask.getTaskInfo(taskStatusVersion).get().getTaskStatus().getState(), TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
@@ -405,7 +424,7 @@ public class TestSqlTask
                 sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()),
+                new ExchangeManagerRegistry(),
                 new CounterStat());
     }
 }

@@ -22,13 +22,22 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import io.trino.plugin.mongodb.ptf.Query;
+import io.trino.spi.TrinoException;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Singleton;
+import javax.net.ssl.SSLContext;
+
+import java.io.File;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.util.Optional;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MongoClientModule
@@ -60,22 +69,20 @@ public class MongoClientModule
                         .maxSize(config.getConnectionsPerHost()))
                 .applyToSocketSettings(builder -> builder
                         .connectTimeout(config.getConnectionTimeout(), MILLISECONDS)
-                        .readTimeout(config.getSocketTimeout(), MILLISECONDS))
-                .applyToSslSettings(builder -> builder.enabled(config.getSslEnabled()));
+                        .readTimeout(config.getSocketTimeout(), MILLISECONDS));
 
         if (config.getRequiredReplicaSetName() != null) {
             options.applyToClusterSettings(builder -> builder.requiredReplicaSetName(config.getRequiredReplicaSetName()));
         }
+        if (config.getTlsEnabled()) {
+            options.applyToSslSettings(builder -> {
+                builder.enabled(true);
+                buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
+                        .ifPresent(builder::context);
+            });
+        }
 
-        if (config.getConnectionUrl().isPresent()) {
-            options.applyConnectionString(new ConnectionString(config.getConnectionUrl().get()));
-        }
-        else {
-            options.applyToClusterSettings(builder -> builder.hosts(config.getSeeds()));
-            if (!config.getCredentials().isEmpty()) {
-                options.credential(config.getCredentials().get(0));
-            }
-        }
+        options.applyConnectionString(new ConnectionString(config.getConnectionUrl()));
 
         MongoClient client = MongoClients.create(options.build());
 
@@ -83,5 +90,24 @@ public class MongoClientModule
                 typeManager,
                 client,
                 config);
+    }
+
+    // TODO https://github.com/trinodb/trino/issues/15247 Add test for x.509 certificates
+    private static Optional<SSLContext> buildSslContext(
+            Optional<File> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<File> truststorePath,
+            Optional<String> truststorePassword)
+    {
+        if (keystorePath.isEmpty() && truststorePath.isEmpty()) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(createSSLContext(keystorePath, keystorePassword, truststorePath, truststorePassword));
+        }
+        catch (GeneralSecurityException | IOException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+        }
     }
 }

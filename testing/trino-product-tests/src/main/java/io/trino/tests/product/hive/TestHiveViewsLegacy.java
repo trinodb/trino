@@ -13,14 +13,17 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.Requires;
+import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableOrdersTable;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -133,6 +136,18 @@ public class TestHiveViewsLegacy
     {
         assertThatThrownBy(super::testPmodFunction)
                 .hasMessageContaining("Function 'pmod' not registered");
+    }
+
+    // When doing legacy Hive View translation, Trino columns type signature corresponds one to one with the Hive view columns type
+    @Override
+    protected List<QueryAssert.Row> getExpectedHiveViewTextualColumnsTypes()
+    {
+        return ImmutableList.of(
+                row("a_char_1", "char(1)"),
+                row("a_char_255", "char(255)"),
+                row("a_varchar_1", "varchar(1)"),
+                row("a_varchar_65535", "varchar(65535)"),
+                row("a_string", "varchar"));
     }
 
     @Override

@@ -26,6 +26,11 @@ import static java.util.Objects.requireNonNull;
 public class Join
         extends Relation
 {
+    public enum Type
+    {
+        CROSS, INNER, LEFT, RIGHT, FULL, IMPLICIT
+    }
+
     public Join(Type type, Relation left, Relation right, Optional<JoinCriteria> criteria)
     {
         this(Optional.empty(), type, left, right, criteria);
@@ -52,11 +57,6 @@ public class Join
         this.left = left;
         this.right = right;
         this.criteria = criteria;
-    }
-
-    public enum Type
-    {
-        CROSS, INNER, LEFT, RIGHT, FULL, IMPLICIT
     }
 
     private final Type type;

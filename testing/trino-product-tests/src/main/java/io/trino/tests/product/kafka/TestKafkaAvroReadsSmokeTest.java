@@ -356,9 +356,9 @@ public class TestKafkaAvroReadsSmokeTest
         }
 
         @Override
-        public boolean isBackwardCompatible(ParsedSchema parsedSchema)
+        public List<String> isBackwardCompatible(ParsedSchema parsedSchema)
         {
-            return false;
+            return ImmutableList.of("Is not backward compatible");
         }
 
         @Override

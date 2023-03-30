@@ -18,19 +18,18 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import org.apache.accumulo.core.data.Range;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.DataInput;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class SerializedRange
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SerializedRange.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SerializedRange.class);
 
     private final byte[] bytes;
 

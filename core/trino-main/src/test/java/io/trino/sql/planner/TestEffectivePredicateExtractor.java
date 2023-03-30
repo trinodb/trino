@@ -44,6 +44,7 @@ import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -112,6 +113,7 @@ import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertEquals;
@@ -445,7 +447,7 @@ public class TestEffectivePredicateExtractor
                                 equals(AE, BE),
                                 equals(BE, CE),
                                 lessThan(CE, bigintLiteral(10)))),
-                new WindowNode.Specification(
+                new DataOrganizationSpecification(
                         ImmutableList.of(A),
                         Optional.of(new OrderingScheme(
                                 ImmutableList.of(A),
@@ -567,6 +569,7 @@ public class TestEffectivePredicateExtractor
                 .put(A, BIGINT)
                 .put(B, BIGINT)
                 .put(D, DOUBLE)
+                .put(G, BOGUS)
                 .put(R, RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))
                 .buildOrThrow());
 
@@ -744,6 +747,20 @@ public class TestEffectivePredicateExtractor
                                 ImmutableList.of(
                                         new Row(ImmutableList.of(bigintLiteral(1))),
                                         new Row(ImmutableList.of(BE)))),
+                        types,
+                        typeAnalyzer),
+                TRUE_LITERAL);
+
+        // non-comparable and non-orderable
+        assertEquals(
+                effectivePredicateExtractor.extract(
+                        SESSION,
+                        new ValuesNode(
+                                newId(),
+                                ImmutableList.of(G),
+                                ImmutableList.of(
+                                        new Row(ImmutableList.of(bigintLiteral(1))),
+                                        new Row(ImmutableList.of(bigintLiteral(2))))),
                         types,
                         typeAnalyzer),
                 TRUE_LITERAL);

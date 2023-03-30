@@ -36,6 +36,7 @@ import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
+import java.net.URI;
 import java.net.URLDecoder;
 import java.time.Instant;
 import java.util.List;
@@ -58,6 +59,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxInitial
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -103,7 +105,7 @@ public class DeltaLakeSplitManager
             if (deltaLakeTableHandle.isRecordScannedFiles()) {
                 return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());
             }
-            return new FixedSplitSource(ImmutableList.of());
+            return emptySplitSource();
         }
 
         DeltaLakeSplitSource splitSource = new DeltaLakeSplitSource(
@@ -128,7 +130,7 @@ public class DeltaLakeSplitManager
             Constraint constraint)
     {
         DeltaLakeMetastore metastore = getMetastore(session, transaction);
-        String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
+        String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName());
         List<AddFileEntry> validDataFiles = metastore.getValidDataFiles(tableHandle.getSchemaTableName(), session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
@@ -215,7 +217,7 @@ public class DeltaLakeSplitManager
         for (Map.Entry<DeltaLakeColumnHandle, Domain> enforcedDomainsEntry : domains.entrySet()) {
             DeltaLakeColumnHandle partitionColumn = enforcedDomainsEntry.getKey();
             Domain partitionDomain = enforcedDomainsEntry.getValue();
-            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.getName())))) {
+            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.getPhysicalName())))) {
                 return false;
             }
         }
@@ -226,7 +228,7 @@ public class DeltaLakeSplitManager
     {
         return effectivePredicate.getDomains()
                 .flatMap(domains -> Optional.ofNullable(domains.get(pathColumnHandle())))
-                .orElse(Domain.all(pathColumnHandle().getType()));
+                .orElseGet(() -> Domain.all(pathColumnHandle().getType()));
     }
 
     private static boolean pathMatchesPredicate(Domain pathDomain, String path)
@@ -290,8 +292,17 @@ public class DeltaLakeSplitManager
 
     private static String buildSplitPath(String tableLocation, AddFileEntry addAction)
     {
-        // paths are relative to the table location and URL encoded
-        String path = URLDecoder.decode(addAction.getPath(), UTF_8);
+        // paths are relative to the table location and are RFC 2396 URIs
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+        URI uri = URI.create(addAction.getPath());
+        String path = uri.getPath();
+
+        // org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem encodes the path as URL when opening files
+        // https://issues.apache.org/jira/browse/HADOOP-18580
+        if (tableLocation.startsWith("abfs://") || tableLocation.startsWith("abfss://")) {
+            // Replace '+' with '%2B' beforehand. Otherwise, the character becomes a space ' ' by URL decode.
+            path = URLDecoder.decode(path.replace("+", "%2B"), UTF_8);
+        }
         if (tableLocation.endsWith("/")) {
             return tableLocation + path;
         }

@@ -26,8 +26,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_PARTITION_COUNT;
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestHiveFaultTolerantExecutionConnectorTest
         extends BaseHiveConnectorTest
@@ -38,7 +37,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
+        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
         return BaseHiveConnectorTest.createHiveQueryRunner(
@@ -65,49 +64,27 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     }
 
     @Override
-    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
+    public void testWriterTasksCountLimitUnpartitioned(boolean scaleWriters, boolean redistributeWrites, int expectedFilesCount)
     {
         // Not applicable for fault-tolerant mode.
     }
 
     @Override
-    public void testTargetMaxFileSize()
+    public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
     {
-        testTargetMaxFileSize(9);
+        // Not applicable for fault-tolerant mode.
     }
 
     @Override
-    public void testTargetMaxFileSizePartitioned()
+    public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
     {
-        testTargetMaxFileSizePartitioned(9);
+        // Not applicable for fault-tolerant mode.
     }
 
     @Override
-    public void testOptimize()
+    public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
     {
-        assertThatThrownBy(super::testOptimize)
-                .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
-    }
-
-    @Override
-    public void testOptimizeWithWriterScaling()
-    {
-        assertThatThrownBy(super::testOptimizeWithWriterScaling)
-                .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
-    }
-
-    @Override
-    public void testOptimizeWithPartitioning()
-    {
-        assertThatThrownBy(super::testOptimizeWithPartitioning)
-                .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
-    }
-
-    @Override
-    public void testOptimizeWithBucketing()
-    {
-        assertThatThrownBy(super::testOptimizeWithBucketing)
-                .hasMessageContaining("OPTIMIZE procedure is not supported with query retries enabled");
+        // Not applicable for fault-tolerant mode.
     }
 
     @Test

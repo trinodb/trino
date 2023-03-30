@@ -177,7 +177,6 @@ Dynamic filters are reported as a part of the
         │   CPU: 78.00ms (30.00%), Scheduled: 295.00ms (47.05%), Output: 296 rows (0B)
         │   Left (probe) Input avg.: 120527.00 rows, Input std.dev.: 0.00%
         │   Right (build) Input avg.: 0.19 rows, Input std.dev.: 208.17%
-        │   Collisions avg.: 0.00 (0.00% est.), Collisions std.dev.: ?%
         │   Distribution: REPLICATED
         │   dynamicFilterAssignments = {d_date_sk -> #df_370}
         ├─ ScanFilterProject[table = hive:default:store_sales, grouped = false, filterPredicate = true, dynamicFilters = {"ss_sold_date_sk" = #df_370}]

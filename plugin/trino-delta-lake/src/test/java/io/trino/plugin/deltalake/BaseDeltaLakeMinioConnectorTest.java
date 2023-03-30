@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -47,14 +48,15 @@ import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public abstract class BaseDeltaLakeMinioConnectorTest
         extends BaseConnectorTest
@@ -80,17 +82,16 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
-                ImmutableMap.<String, String>builder()
-                        .put("delta.enable-non-concurrent-writes", "true")
-                        .buildOrThrow(),
-                hiveMinioDataLake.getMinioAddress(),
+                ImmutableMap.of(
+                        "delta.enable-non-concurrent-writes", "true",
+                        "delta.register-table-procedure.enabled", "true"),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
         queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
         TpchTable.getTables().forEach(table -> {
             String tableName = table.getTableName();
             hiveMinioDataLake.copyResources(resourcePath + tableName, SCHEMA + "/" + tableName);
-            queryRunner.execute(format("CREATE TABLE %1$s.%2$s.%3$s (dummy int) WITH (location = 's3://%4$s/%2$s/%3$s')",
-                    DELTA_CATALOG,
+            queryRunner.execute(format("CALL system.register_table('%1$s', '%2$s', 's3://%3$s/%1$s/%2$s')",
                     SCHEMA,
                     tableName,
                     bucketName));
@@ -114,11 +115,13 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 
             case SUPPORTS_DROP_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_DELETE:
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
+            case SUPPORTS_CREATE_VIEW:
                 return true;
 
             default:
@@ -137,7 +140,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         assertThat(e)
                 .hasMessage("Failed to write Delta Lake transaction log entry")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "Transaction log locked.*" +
                                 "|.*/_delta_log/\\d+.json already exists" +
@@ -151,7 +154,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         assertThat(e)
                 .hasMessage("Failed to write Delta Lake transaction log entry")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "Transaction log locked.*" +
                                 "|.*/_delta_log/\\d+.json already exists" +
@@ -165,7 +168,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         assertThat(e)
                 .hasMessageMatching("Unable to add '.*' column for: .*")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "Transaction log locked.*" +
                                 "|.*/_delta_log/\\d+.json already exists" +
@@ -222,11 +225,10 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         throw new SkipException("Delta Lake does not support columns with a default value");
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -237,8 +239,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test
@@ -267,7 +267,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testQueryNullPartitionWithNotPushdownablePredicate()
     {
-        String tableName = "test_null_partitions_" + randomTableSuffix();
+        String tableName = "test_null_partitions_" + randomNameSuffix();
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
                         "AS VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3), (null, null, null), (4, 4, 4)",
@@ -278,7 +278,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testPartitionColumnOrderIsDifferentFromTableDefinition()
     {
-        String tableName = "test_partition_order_is_different_from_table_definition_" + randomTableSuffix();
+        String tableName = "test_partition_order_is_different_from_table_definition_" + randomNameSuffix();
         assertUpdate("" +
                 "CREATE TABLE " + tableName + "(data int, first varchar, second varchar) " +
                 "WITH (" +
@@ -350,7 +350,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Override
     public void testDropNonEmptySchemaWithTable()
     {
-        String schemaName = "test_drop_non_empty_schema_" + randomTableSuffix();
+        String schemaName = "test_drop_non_empty_schema_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
             return;
         }
@@ -373,7 +373,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test(dataProvider = "timestampValues")
     public void testTimestampPredicatePushdown(String value)
     {
-        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomTableSuffix();
+        String tableName = "test_parquet_timestamp_predicate_pushdown_" + randomNameSuffix();
 
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP WITH TIME ZONE)");
@@ -486,7 +486,10 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             assertUpdate("UPDATE " + table.getName() + " SET a = 'new column'", 2);
             Stopwatch timeSinceUpdate = Stopwatch.createStarted();
             Set<String> updatedFiles = getActiveFiles(table.getName());
-            assertThat(updatedFiles).hasSize(2).doesNotContainAnyElementsOf(initialFiles);
+            assertThat(updatedFiles)
+                    .hasSizeGreaterThanOrEqualTo(1)
+                    .hasSizeLessThanOrEqualTo(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
             assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(union(initialFiles, updatedFiles));
 
             assertQuery(
@@ -507,14 +510,13 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testTargetMaxFileSize()
     {
-        String tableName = "test_default_max_file_size" + randomTableSuffix();
+        String tableName = "test_default_max_file_size" + randomNameSuffix();
         @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "parquet_optimized_writer_enabled", "true")
                 .build();
         assertUpdate(session, createTableSql, 100000);
         Set<String> initialFiles = getActiveFiles(tableName);
@@ -526,7 +528,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "parquet_optimized_writer_enabled", "true")
                 .setCatalogSessionProperty("delta_lake", "target_max_file_size", maxSize.toString())
                 .build();
 
@@ -561,6 +562,19 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     }
 
     @Test
+    public void testTableLocationTrailingSpace()
+    {
+        String tableName = "table_with_space_" + randomNameSuffix();
+        String tableLocationWithTrailingSpace = "s3://" + bucketName + "/" + tableName + " ";
+
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = '%s')", tableName, tableLocationWithTrailingSpace));
+        assertUpdate("INSERT INTO " + tableName + " (customer) VALUES ('Aaron'), ('Bill')", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Aaron'), ('Bill')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testTableLocationTrailingSlash()
     {
         String tableWithSlash = "table_with_slash";
@@ -581,8 +595,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testMergeSimpleSelectPartitioned()
     {
-        String targetTable = "merge_simple_target_" + randomTableSuffix();
-        String sourceTable = "merge_simple_source_" + randomTableSuffix();
+        String targetTable = "merge_simple_target_" + randomNameSuffix();
+        String sourceTable = "merge_simple_source_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, bucketName, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
@@ -607,8 +621,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test(dataProvider = "partitionedProvider")
     public void testMergeUpdateWithVariousLayouts(String partitionPhase)
     {
-        String targetTable = "merge_formats_target_" + randomTableSuffix();
-        String sourceTable = "merge_formats_source_" + randomTableSuffix();
+        String targetTable = "merge_formats_target_" + randomNameSuffix();
+        String sourceTable = "merge_formats_source_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, bucketName, targetTable, partitionPhase));
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
@@ -644,7 +658,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testMergeMultipleOperations(String partitioning)
     {
         int targetCustomerCount = 32;
-        String targetTable = "merge_multiple_" + randomTableSuffix();
+        String targetTable = "merge_multiple_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, bucketName, targetTable, partitioning));
         String originalInsertFirstHalf = IntStream.range(1, targetCustomerCount / 2)
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
@@ -706,7 +720,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testMergeSimpleQueryPartitioned()
     {
-        String targetTable = "merge_simple_" + randomTableSuffix();
+        String targetTable = "merge_simple_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, bucketName, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
@@ -728,8 +742,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test(dataProvider = "targetWithDifferentPartitioning")
     public void testMergeMultipleRowsMatchFails(String createTableSql)
     {
-        String targetTable = "merge_multiple_target_" + randomTableSuffix();
-        String sourceTable = "merge_multiple_source_" + randomTableSuffix();
+        String targetTable = "merge_multiple_target_" + randomNameSuffix();
+        String sourceTable = "merge_multiple_source_" + randomNameSuffix();
         assertUpdate(format(createTableSql, targetTable, bucketName, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
@@ -765,8 +779,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test(dataProvider = "targetAndSourceWithDifferentPartitioning")
     public void testMergeWithDifferentPartitioning(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
-        String targetTable = format("%s_target_%s", testDescription, randomTableSuffix());
-        String sourceTable = format("%s_source_%s", testDescription, randomTableSuffix());
+        String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
+        String sourceTable = format("%s_source_%s", testDescription, randomNameSuffix());
 
         assertUpdate(format(createTargetTableSql, targetTable, bucketName, targetTable));
 
@@ -833,7 +847,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Test
     public void testTableWithNonNullableColumns()
     {
-        String tableName = "test_table_with_non_nullable_columns_" + randomTableSuffix();
+        String tableName = "test_table_with_non_nullable_columns_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 10, 100)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20, 200)", 1);
@@ -847,6 +861,53 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertUpdate("UPDATE " + tableName + " SET col2 = TRY(5/0) where col3 = 200", 1);
 
         assertQuery("SELECT * FROM " + tableName, "VALUES(1, null, 100), (2, null, 200)");
+    }
+
+    @Test
+    public void testThatEnableCdfTablePropertyIsShownForCtasTables()
+    {
+        String tableName = "test_show_create_show_property_for_table_created_with_ctas_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(page_url, views)" +
+                "WITH (change_data_feed_enabled = true) " +
+                "AS VALUES ('url1', 1), ('url2', 2)", 2);
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = true");
+    }
+
+    @Test
+    public void testAlterTableWithUnsupportedProperties()
+    {
+        String tableName = "test_alter_table_with_unsupported_properties_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a_number INT)");
+
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true, checkpoint_interval = 10",
+                "The following properties cannot be updated: checkpoint_interval");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES partitioned_by = ARRAY['a']",
+                "The following properties cannot be updated: partitioned_by");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSettingChangeDataFeedEnabledProperty()
+    {
+        String tableName = "test_enable_and_disable_cdf_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = false");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = true");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("change_data_feed_enabled = false");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .contains("change_data_feed_enabled = true");
     }
 
     @Override
@@ -909,5 +970,11 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
+    }
+
+    private void assertThatShowCreateTable(String tableName, String expectedRegex)
+    {
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
+                .matches(Pattern.compile(expectedRegex, Pattern.DOTALL));
     }
 }

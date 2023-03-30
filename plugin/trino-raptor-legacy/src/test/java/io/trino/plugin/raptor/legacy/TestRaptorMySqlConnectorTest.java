@@ -45,6 +45,7 @@ public class TestRaptorMySqlConnectorTest
     public final void destroy()
     {
         mysqlContainer.close();
+        mysqlContainer = null;
     }
 
     private static String getJdbcUrl(MySQLContainer<?> container)
@@ -74,7 +75,7 @@ public class TestRaptorMySqlConnectorTest
                 .put("backup.directory", new File(baseDir, "backup").getAbsolutePath())
                 .buildOrThrow();
 
-        queryRunner.createCatalog("raptor", "raptor-legacy", raptorProperties);
+        queryRunner.createCatalog("raptor", "raptor_legacy", raptorProperties);
 
         copyTables(queryRunner, "tpch", createSession(), false, REQUIRED_TPCH_TABLES);
 

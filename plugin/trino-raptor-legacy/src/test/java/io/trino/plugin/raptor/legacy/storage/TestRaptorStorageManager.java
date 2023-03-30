@@ -91,12 +91,12 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -165,6 +165,7 @@ public class TestRaptorStorageManager
     {
         if (dummyHandle != null) {
             dummyHandle.close();
+            dummyHandle = null;
         }
         deleteRecursively(temporary, ALLOW_INSECURE);
     }
@@ -293,13 +294,11 @@ public class TestRaptorStorageManager
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
             assertEquals(result.getRowCount(), expected.getRowCount());
-            assertEquals(result, expected);
+            assertThat(result).containsExactlyElementsOf(expected);
         }
 
         // tuple domain within the column range
-        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.<RaptorColumnHandle, NullableValue>builder()
-                .put(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 124L))
-                .buildOrThrow());
+        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 124L)));
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);
@@ -307,9 +306,7 @@ public class TestRaptorStorageManager
         }
 
         // tuple domain outside the column range
-        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.<RaptorColumnHandle, NullableValue>builder()
-                .put(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 122L))
-                .buildOrThrow());
+        tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(new RaptorColumnHandle("c1", 2, BIGINT), NullableValue.of(BIGINT, 122L)));
 
         try (ConnectorPageSource pageSource = getPageSource(manager, columnIds, columnTypes, uuid, tupleDomain)) {
             MaterializedResult result = materializeSourceDataStream(SESSION, pageSource, columnTypes);

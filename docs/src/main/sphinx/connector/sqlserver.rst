@@ -23,25 +23,25 @@ To connect to SQL Server, you need:
 Configuration
 -------------
 
-The connector can query a single database on an SQL server instance. Create a
-catalog properties file that specifies the SQL server connector by setting the
+The connector can query a single database on a given SQL Server instance. Create
+a catalog properties file that specifies the SQL server connector by setting the
 ``connector.name`` to ``sqlserver``.
 
-For example, to access a database as ``sqlserver``, create the file
-``etc/catalog/sqlserver.properties``. Replace the connection properties as
+For example, to access a database as ``example``, create the file
+``etc/catalog/example.properties``. Replace the connection properties as
 appropriate for your setup:
 
 .. code-block:: properties
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=false
     connection-user=root
     connection-password=secret
 
 The ``connection-url`` defines the connection information and parameters to pass
 to the SQL Server JDBC driver. The supported parameters for the URL are
 available in the `SQL Server JDBC driver documentation
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/building-the-connection-url>`_.
+<https://docs.microsoft.com/sql/connect/jdbc/building-the-connection-url>`_.
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -62,12 +62,14 @@ encryption in the connection string with the ``encrypt`` property:
 
 .. code-block:: properties
 
-  connection-url=jdbc:sqlserver://<host>:<port>;database=<database>;encrypt=false
+  connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=false
 
 Further parameters like ``trustServerCertificate``, ``hostNameInCertificate``,
 ``trustStore``, and ``trustStorePassword`` are details in the `TLS section of
 SQL Server JDBC driver documentation
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/using-ssl-encryption>`_.
+<https://docs.microsoft.com/sql/connect/jdbc/using-ssl-encryption>`_.
+
+.. include:: jdbc-authentication.fragment
 
 Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -113,30 +115,31 @@ behavior of the connector and the issues queries to the database.
 Querying SQL Server
 -------------------
 
-The SQL Server connector provides access to all schemas visible to the specified user in the configured database.
-For the following examples, assume the SQL Server catalog is ``sqlserver``.
+The SQL Server connector provides access to all schemas visible to the specified
+user in the configured database. For the following examples, assume the SQL
+Server catalog is ``example``.
 
 You can see the available schemas by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM sqlserver;
+    SHOW SCHEMAS FROM example;
 
 If you have a schema named ``web``, you can view the tables
 in this schema by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM sqlserver.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE sqlserver.web.clicks;
-    SHOW COLUMNS FROM sqlserver.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can query the ``clicks`` table in the ``web`` schema::
 
-    SELECT * FROM sqlserver.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``sqlserver`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _sqlserver-type-mapping:
 
@@ -152,7 +155,7 @@ each direction.
 SQL Server type to Trino type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The connector maps SQL server types to the corresponding Trino types following this table:
+The connector maps SQL Server types to the corresponding Trino types following this table:
 
 .. list-table:: SQL Server type to Trino type mapping
   :widths: 30, 20, 50
@@ -278,7 +281,7 @@ The connector maps Trino types to the corresponding SQL Server types following t
     - ``0 <= n <= 7``
 
 Complete list of `SQL Server data types
-<https://msdn.microsoft.com/en-us/library/ms187752.aspx>`_.
+<https://msdn.microsoft.com/library/ms187752.aspx>`_.
 
 .. _sqlserver-numeric-mapping:
 
@@ -347,15 +350,16 @@ where running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-For example, select the top 10 percent of nations by population::
+For example, query the ``example`` catalog and select the top 10 percent of
+nations by population::
 
     SELECT
       *
     FROM
       TABLE(
-        sqlserver.system.query(
+        example.system.query(
           query => 'SELECT
-            TOP(10) PERCENT
+            TOP(10) PERCENT *
           FROM
             tpch.nation
           ORDER BY
@@ -363,6 +367,50 @@ For example, select the top 10 percent of nations by population::
         )
       );
 
+.. _sqlserver-procedure-function:
+
+``procedure(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``procedure`` function allows you to run stored procedures on the underlying
+database directly. It requires syntax native to SQL Server, because the full query
+is pushed down and processed in SQL Server. In order to use this table function set
+``sqlserver.experimental.stored-procedure-table-function-enabled`` to ``true``.
+
+.. note::
+
+    The ``procedure`` function does not support running StoredProcedures that return multiple statements,
+    use a non-select statement, use output parameters, or use conditional statements.
+
+.. warning::
+
+    This feature is experimental only. The function has security implication and syntax might change and
+    be backward incompatible.
+
+
+The follow example runs the stored procedure ``employee_sp`` in the ``example`` catalog and the
+``example_schema`` schema in the underlying SQL Server database::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.procedure(
+          query => 'EXECUTE example_schema.employee_sp'
+        )
+      );
+
+If the stored procedure ``employee_sp`` requires any input
+append the parameter value to the procedure statement::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.procedure(
+          query => 'EXECUTE example_schema.employee_sp 0'
+        )
+      );
 
 Performance
 -----------
@@ -389,7 +437,7 @@ create them by executing the following statement in SQL Server Database.
 
 .. code-block:: sql
 
-    CREATE STATISTICS my_statistics_name ON table_schema.table_name (column_name);
+    CREATE STATISTICS example_statistics_name ON table_schema.table_name (column_name);
 
 SQL Server Database routinely updates the statistics. In some cases, you may
 want to force statistics update (e.g. after defining new column statistics or
@@ -428,6 +476,8 @@ The connector supports pushdown for a number of operations:
 * :func:`var_pop`
 * :func:`var_samp`
 
+.. include:: pushdown-correctness-behavior.fragment
+
 .. include:: join-pushdown-enabled-true.fragment
 
 .. include:: no-pushdown-text-type.fragment
@@ -438,12 +488,12 @@ Bulk insert
 ^^^^^^^^^^^
 
 You can optionally use the `bulk copy API
-<https://docs.microsoft.com/en-us/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
+<https://docs.microsoft.com/sql/connect/jdbc/use-bulk-copy-api-batch-insert-operation>`_
 to drastically speed up write operations.
 
 Enable bulk copying and a lock on the destination table to meet `minimal
 logging requirements
-<https://docs.microsoft.com/en-us/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
+<https://docs.microsoft.com/sql/relational-databases/import-export/prerequisites-for-minimal-logging-in-bulk-import>`_.
 
 The following table shows the relevant catalog configuration properties and
 their default values:
@@ -475,12 +525,12 @@ Data compression
 ----------------
 
 You can specify the `data compression policy for SQL Server tables
-<https://docs.microsoft.com/en-us/sql/relational-databases/data-compression/data-compression>`_
+<https://docs.microsoft.com/sql/relational-databases/data-compression/data-compression>`_
 with the ``data_compression`` table property. Valid policies are ``NONE``, ``ROW`` or ``PAGE``.
 
 Example::
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,

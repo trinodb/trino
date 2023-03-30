@@ -29,6 +29,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class OracleConfig
 {
+    private boolean disableAutomaticFetchSize;
     private boolean synonymsEnabled;
     private boolean remarksReportingEnabled;
     private Integer defaultNumberScale;
@@ -37,6 +38,20 @@ public class OracleConfig
     private int connectionPoolMinSize = 1;
     private int connectionPoolMaxSize = 30;
     private Duration inactiveConnectionTimeout = new Duration(20, MINUTES);
+
+    @Deprecated
+    public boolean isDisableAutomaticFetchSize()
+    {
+        return disableAutomaticFetchSize;
+    }
+
+    @Deprecated // TODO temporary kill-switch, to be removed
+    @Config("oracle.disable-automatic-fetch-size")
+    public OracleConfig setDisableAutomaticFetchSize(boolean disableAutomaticFetchSize)
+    {
+        this.disableAutomaticFetchSize = disableAutomaticFetchSize;
+        return this;
+    }
 
     @NotNull
     public boolean isSynonymsEnabled()

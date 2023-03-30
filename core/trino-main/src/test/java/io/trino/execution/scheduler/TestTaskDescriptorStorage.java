@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import io.trino.connector.CatalogHandle;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.StageId;
 import io.trino.metadata.Split;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -94,8 +94,8 @@ public class TestTaskDescriptorStorage
                 .hasMessageContaining("descriptor not found for key");
 
         assertThat(manager.getReservedBytes())
-                .isGreaterThanOrEqualTo(toBytes(5, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(7, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(6, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(8, KILOBYTE));
     }
 
     @Test
@@ -140,8 +140,8 @@ public class TestTaskDescriptorStorage
 
         // assert that the memory has been released
         assertThat(manager.getReservedBytes())
-                .isGreaterThanOrEqualTo(toBytes(3, KILOBYTE))
-                .isLessThanOrEqualTo(toBytes(4, KILOBYTE));
+                .isGreaterThanOrEqualTo(toBytes(4, KILOBYTE))
+                .isLessThanOrEqualTo(toBytes(5, KILOBYTE));
 
         // check that the any future operations for QUERY_1 will fail
         assertThatThrownBy(() -> manager.put(QUERY_1_STAGE_1, createTaskDescriptor(0, DataSize.of(1, KILOBYTE))))
@@ -213,11 +213,10 @@ public class TestTaskDescriptorStorage
 
     private static boolean isStorageCapacityExceededFailure(Throwable t)
     {
-        if (!(t instanceof TrinoException)) {
+        if (!(t instanceof TrinoException trinoException)) {
             return false;
         }
-        TrinoException e = (TrinoException) t;
-        return e.getErrorCode().getCode() == EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY.toErrorCode().getCode();
+        return trinoException.getErrorCode().getCode() == EXCEEDED_TASK_DESCRIPTOR_STORAGE_CAPACITY.toErrorCode().getCode();
     }
 
     private static long toBytes(int size, DataSize.Unit unit)

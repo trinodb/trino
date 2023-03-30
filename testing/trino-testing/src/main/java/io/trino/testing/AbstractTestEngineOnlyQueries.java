@@ -27,7 +27,6 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.testing.assertions.Assert;
 import io.trino.tests.QueryTemplate;
 import io.trino.tpch.TpchTable;
 import io.trino.type.SqlIntervalDayTime;
@@ -371,7 +370,9 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS char(3)), " +
                 "   CAST('   ' AS char(3))) t(x) " +
-                "WHERE x = CAST('  ' AS varchar(2))");
+                "WHERE x = CAST('  ' AS varchar(2))",
+                // H2 returns '' on CAST char(3) to varchar(2)
+                "SELECT '   '");
 
         // with explicit casts
         assertQuery(
@@ -387,13 +388,14 @@ public abstract class AbstractTestEngineOnlyQueries
     public void testVarcharCharComparison()
     {
         // with implicit coercions
-        assertQuery("SELECT * FROM (VALUES" +
+        assertThat(query("SELECT * FROM (VALUES" +
                 "   CAST(NULL AS varchar(3)), " +
                 "   CAST('' AS varchar(3))," +
                 "   CAST(' ' AS varchar(3)), " +
                 "   CAST('  ' AS varchar(3)), " +
                 "   CAST('   ' AS varchar(3))) t(x) " +
-                "WHERE x = CAST('  ' AS char(2))");
+                "WHERE x = CAST('  ' AS char(2))"))
+                .matches("VALUES '', ' ', '  ', '   '");
 
         // with explicit casts
         assertQuery("SELECT * FROM (VALUES" +
@@ -1367,6 +1369,31 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testDescribeInputWithClause()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", """
+                        WITH t2 AS (
+                            SELECT * FROM (VALUES 1) AS t2(b)
+                            WHERE b = ?)
+                        SELECT *
+                        FROM
+                          (VALUES ('', 1)) AS t1(a, b)
+                        JOIN t2 ON t2.b = t1.b
+                        WHERE t1.a = ?
+                        """)
+                .build();
+
+        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
+        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "integer")
+                .row(1, "varchar(0)")
+                .build();
+
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testDescribeInputWithAggregation()
     {
         Session session = Session.builder(getSession())
@@ -1385,9 +1412,9 @@ public abstract class AbstractTestEngineOnlyQueries
         Session session = Session.builder(getSession())
                 .addPreparedStatement("my_query", "SELECT * FROM nation")
                 .build();
-        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
-        MaterializedResult expected = resultBuilder(session, UNKNOWN, UNKNOWN).build();
-        Assert.assertEquals(actual, expected);
+        assertThat(query(session, "DESCRIBE INPUT my_query"))
+                .hasOutputTypes(List.of(UNKNOWN, UNKNOWN))
+                .returnsEmptyResult();
     }
 
     @Test
@@ -1645,7 +1672,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testArrayShuffle()
     {
-        List<Integer> expected = IntStream.rangeClosed(1, 500).boxed().collect(toList());
+        List<Integer> expected = IntStream.rangeClosed(1, 200).boxed().collect(toList());
         Set<List<Integer>> distinctResults = new HashSet<>();
 
         distinctResults.add(expected);
@@ -1703,7 +1730,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 ")\n" +
                 "ORDER BY orderstatus, clerk";
 
-        Assert.assertEquals(computeActual(sql), computeActual(sql.replace("custom_rank", "rank")));
+        assertQuery(sql, sql.replace("custom_rank", "rank"));
     }
 
     @Test
@@ -2650,7 +2677,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 ") WHERE rn <= 5");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
-        Assert.assertEquals(actual, expected);
+        assertEqualsIgnoreOrder(actual, expected);
     }
 
     @Test
@@ -5332,7 +5359,8 @@ public abstract class AbstractTestEngineOnlyQueries
                         .buildOrThrow()),
                 getQueryRunner().getSessionPropertyManager(),
                 getSession().getPreparedStatements(),
-                getSession().getProtocolHeaders());
+                getSession().getProtocolHeaders(),
+                getSession().getExchangeEncryptionKey());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
         ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
@@ -6566,6 +6594,34 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(query("SELECT json_array(name, regionkey RETURNING varchar(100) FORMAT JSON) result " +
                 "              FROM region"))
                 .matches("VALUES (CAST('[\"AFRICA\",0]' AS varchar(100))), ('[\"AMERICA\",1]'), ('[\"ASIA\",2]'), ('[\"EUROPE\",3]'), ('[\"MIDDLE EAST\",4]')");
+    }
+
+    @Test
+    public void testColumnNames()
+    {
+        MaterializedResult showFunctionsResult = computeActual("SHOW FUNCTIONS");
+        assertEquals(showFunctionsResult.getColumnNames(), ImmutableList.of("Function", "Return Type", "Argument Types", "Function Type", "Deterministic", "Description"));
+
+        MaterializedResult showCatalogsResult = computeActual("SHOW CATALOGS");
+        assertEquals(showCatalogsResult.getColumnNames(), ImmutableList.of("Catalog"));
+
+        MaterializedResult selectAllResult = computeActual("SELECT * FROM nation");
+        assertEquals(selectAllResult.getColumnNames(), ImmutableList.of("nationkey", "name", "regionkey", "comment"));
+
+        MaterializedResult selectResult = computeActual("SELECT nationkey, regionkey FROM nation");
+        assertEquals(selectResult.getColumnNames(), ImmutableList.of("nationkey", "regionkey"));
+
+        MaterializedResult selectJsonArrayResult = computeActual("SELECT json_array(name, regionkey) from nation");
+        assertEquals(selectJsonArrayResult.getColumnNames(), ImmutableList.of("_col0"));
+
+        MaterializedResult selectJsonArrayAsResult = computeActual("SELECT json_array(name, regionkey) result from nation");
+        assertEquals(selectJsonArrayAsResult.getColumnNames(), ImmutableList.of("result"));
+
+        MaterializedResult showColumnResult = computeActual("SHOW COLUMNS FROM nation");
+        assertEquals(showColumnResult.getColumnNames(), ImmutableList.of("Column", "Type", "Extra", "Comment"));
+
+        MaterializedResult showCreateTableResult = computeActual("SHOW CREATE TABLE nation");
+        assertEquals(showCreateTableResult.getColumnNames(), ImmutableList.of("Create Table"));
     }
 
     private static ZonedDateTime zonedDateTime(String value)

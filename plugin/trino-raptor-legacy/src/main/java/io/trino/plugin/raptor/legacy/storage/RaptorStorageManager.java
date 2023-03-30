@@ -75,7 +75,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -230,8 +229,7 @@ public class RaptorStorageManager
             List<Long> columnIds,
             List<Type> columnTypes,
             TupleDomain<RaptorColumnHandle> effectivePredicate,
-            OrcReaderOptions orcReaderOptions,
-            OptionalLong transactionId)
+            OrcReaderOptions orcReaderOptions)
     {
         orcReaderOptions = orcReaderOptions.withMaxReadBlockSize(HUGE_MAX_READ_BLOCK_SIZE);
         OrcDataSource dataSource = openShard(shardUuid, orcReaderOptions);
@@ -278,12 +276,7 @@ public class RaptorStorageManager
                     INITIAL_BATCH_SIZE,
                     RaptorPageSource::handleException);
 
-            Optional<ShardRewriter> shardRewriter = Optional.empty();
-            if (transactionId.isPresent()) {
-                shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
-            }
-
-            return new RaptorPageSource(shardRewriter, recordReader, columnAdaptations, dataSource, memoryUsage);
+            return new RaptorPageSource(recordReader, columnAdaptations, dataSource, memoryUsage);
         }
         catch (IOException | RuntimeException e) {
             closeQuietly(dataSource);

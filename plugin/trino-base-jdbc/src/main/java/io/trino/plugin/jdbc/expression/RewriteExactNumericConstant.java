@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
@@ -32,7 +32,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 
 public class RewriteExactNumericConstant
-        implements ConnectorExpressionRule<Constant, String>
+        implements ConnectorExpressionRule<Constant, ParameterizedExpression>
 {
     private static final Pattern<Constant> PATTERN = constant().with(type().matching(type ->
             type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type instanceof DecimalType));
@@ -44,26 +44,16 @@ public class RewriteExactNumericConstant
     }
 
     @Override
-    public Optional<String> rewrite(Constant constant, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(Constant constant, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
-        if (constant.getValue() == null) {
-            return Optional.empty();
-        }
-
         Type type = constant.getType();
-        if (constant.getValue() == null) {
+        Object value = constant.getValue();
+        if (value == null) {
+            // TODO we could handle NULL values too
             return Optional.empty();
         }
-        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT) {
-            return Optional.of(Long.toString((long) constant.getValue()));
-        }
-
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
-            if (decimalType.isShort()) {
-                return Optional.of(Decimals.toString((long) constant.getValue(), decimalType.getScale()));
-            }
-            return Optional.of(Decimals.toString((Int128) constant.getValue(), decimalType.getScale()));
+        if (type == TINYINT || type == SMALLINT || type == INTEGER || type == BIGINT || type instanceof DecimalType) {
+            return Optional.of(new ParameterizedExpression("?", ImmutableList.of(new QueryParameter(type, Optional.of(value)))));
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);

@@ -79,7 +79,10 @@ public class TestSqlCancel
     public void cleanUp()
             throws IOException
     {
+        queryCanceller = null; // closed via closer
+        executor = null; // closed via closer
         closer.close();
+        closer = null;
     }
 
     @Test(groups = CANCEL_QUERY, timeOut = 60_000L)

@@ -164,7 +164,7 @@ public class OAuth2WebUiAuthenticationFilter
     {
         OAuth2Client.Response response = client.refreshTokens(refreshToken);
         String serializedToken = tokenPairSerializer.serialize(TokenPair.fromOAuth2Response(response));
-        request.abortWith(Response.seeOther(request.getUriInfo().getRequestUri())
+        request.abortWith(Response.temporaryRedirect(request.getUriInfo().getRequestUri())
                 .cookie(OAuthWebUiCookie.create(serializedToken, tokenExpiration.map(expiration -> Instant.now().plus(expiration)).orElse(response.getExpiration())))
                 .build());
     }

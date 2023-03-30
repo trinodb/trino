@@ -22,9 +22,9 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.ICEBERG_FORMAT_VERSION_COMPATIBILITY;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onCompatibilityTestServer;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -36,7 +36,7 @@ public class TestIcebergFormatVersionCompatibility
     @Test(groups = {ICEBERG_FORMAT_VERSION_COMPATIBILITY, PROFILE_SPECIFIC_TESTS})
     public void testTrinoTimeTravelReadTableCreatedByEarlyVersionTrino()
     {
-        String baseTableName = "test_trino_time_travel_read_table_created_by_early_version_trino_" + randomTableSuffix();
+        String baseTableName = "test_trino_time_travel_read_table_created_by_early_version_trino_" + randomNameSuffix();
         String tableName = format("iceberg.default.%s", baseTableName);
         String snapshotsTableName = format("iceberg.default.\"%s$snapshots\"", baseTableName);
 

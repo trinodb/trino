@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -57,7 +58,7 @@ public class JdbcPageSink
     private final LongWriteFunction pageSinkIdWriteFunction;
     private final boolean includePageSinkIdColumn;
 
-    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, ConnectorPageSinkId pageSinkId)
+    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, ConnectorPageSinkId pageSinkId, RemoteQueryModifier remoteQueryModifier)
     {
         try {
             connection = jdbcClient.getConnection(session, handle);
@@ -110,8 +111,13 @@ public class JdbcPageSink
                     .collect(toImmutableList());
         }
 
+        String insertSql = jdbcClient.buildInsertSql(handle, columnWriters);
         try {
-            statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle, columnWriters));
+            insertSql = remoteQueryModifier.apply(session, insertSql);
+            statement = connection.prepareStatement(insertSql);
+        }
+        catch (TrinoException e) {
+            throw closeAllSuppress(e, connection);
         }
         catch (SQLException e) {
             closeAllSuppress(e, connection);
@@ -128,7 +134,7 @@ public class JdbcPageSink
         try {
             for (int position = 0; position < page.getPositionCount(); position++) {
                 if (includePageSinkIdColumn) {
-                    pageSinkIdWriteFunction.set(statement, 1, pageSinkId.getId());
+                    pageSinkIdWriteFunction.set(statement, page.getChannelCount() + 1, pageSinkId.getId());
                 }
 
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
@@ -156,7 +162,7 @@ public class JdbcPageSink
             throws SQLException
     {
         Block block = page.getBlock(channel);
-        int parameterIndex = channel + (includePageSinkIdColumn ? 2 : 1);
+        int parameterIndex = channel + 1;
 
         WriteFunction writeFunction = columnWriters.get(channel);
         if (block.isNull(position)) {

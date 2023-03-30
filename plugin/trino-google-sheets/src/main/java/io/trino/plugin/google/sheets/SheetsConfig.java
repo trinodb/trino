@@ -15,48 +15,76 @@ package io.trino.plugin.google.sheets;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class SheetsConfig
 {
-    private String credentialsFilePath;
-    private String metadataSheetId;
+    private Optional<String> credentialsFilePath = Optional.empty();
+    private Optional<String> credentialsKey = Optional.empty();
+    private Optional<String> metadataSheetId = Optional.empty();
     private int sheetsDataMaxCacheSize = 1000;
     private Duration sheetsDataExpireAfterWrite = new Duration(5, TimeUnit.MINUTES);
+    private Duration readTimeout = new Duration(20, TimeUnit.SECONDS); // 20s is the default timeout of com.google.api.client.http.HttpRequest
+
+    @AssertTrue(message = "Exactly one of 'gsheets.credentials-key' or 'gsheets.credentials-path' must be specified")
+    public boolean isCredentialsConfigurationValid()
+    {
+        return credentialsKey.isPresent() ^ credentialsFilePath.isPresent();
+    }
 
     @NotNull
-    @FileExists
-    public String getCredentialsFilePath()
+    public Optional<@FileExists String> getCredentialsFilePath()
     {
         return credentialsFilePath;
     }
 
-    @Config("credentials-path")
+    @Config("gsheets.credentials-path")
+    @LegacyConfig("credentials-path")
     @ConfigDescription("Credential file path to google service account")
     public SheetsConfig setCredentialsFilePath(String credentialsFilePath)
     {
-        this.credentialsFilePath = credentialsFilePath;
+        this.credentialsFilePath = Optional.ofNullable(credentialsFilePath);
         return this;
     }
 
     @NotNull
-    public String getMetadataSheetId()
+    public Optional<String> getCredentialsKey()
+    {
+        return credentialsKey;
+    }
+
+    @Config("gsheets.credentials-key")
+    @ConfigDescription("The base64 encoded credentials key")
+    @ConfigSecuritySensitive
+    public SheetsConfig setCredentialsKey(String credentialsKey)
+    {
+        this.credentialsKey = Optional.ofNullable(credentialsKey);
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getMetadataSheetId()
     {
         return metadataSheetId;
     }
 
-    @Config("metadata-sheet-id")
+    @Config("gsheets.metadata-sheet-id")
+    @LegacyConfig("metadata-sheet-id")
     @ConfigDescription("Metadata sheet id containing table sheet mapping")
     public SheetsConfig setMetadataSheetId(String metadataSheetId)
     {
-        this.metadataSheetId = metadataSheetId;
+        this.metadataSheetId = Optional.ofNullable(metadataSheetId);
         return this;
     }
 
@@ -66,7 +94,8 @@ public class SheetsConfig
         return sheetsDataMaxCacheSize;
     }
 
-    @Config("sheets-data-max-cache-size")
+    @Config("gsheets.max-data-cache-size")
+    @LegacyConfig("sheets-data-max-cache-size")
     @ConfigDescription("Sheet data max cache size")
     public SheetsConfig setSheetsDataMaxCacheSize(int sheetsDataMaxCacheSize)
     {
@@ -80,11 +109,25 @@ public class SheetsConfig
         return sheetsDataExpireAfterWrite;
     }
 
-    @Config("sheets-data-expire-after-write")
+    @Config("gsheets.data-cache-ttl")
+    @LegacyConfig("sheets-data-expire-after-write")
     @ConfigDescription("Sheets data expire after write duration")
     public SheetsConfig setSheetsDataExpireAfterWrite(Duration sheetsDataExpireAfterWriteMinutes)
     {
         this.sheetsDataExpireAfterWrite = sheetsDataExpireAfterWriteMinutes;
+        return this;
+    }
+
+    @MinDuration("0ms")
+    public Duration getReadTimeout()
+    {
+        return readTimeout;
+    }
+
+    @Config("gsheets.read-timeout")
+    public SheetsConfig setReadTimeout(Duration readTimeout)
+    {
+        this.readTimeout = readTimeout;
         return this;
     }
 }

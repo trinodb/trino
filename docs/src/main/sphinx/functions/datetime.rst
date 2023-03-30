@@ -228,7 +228,16 @@ The above examples use the timestamp ``2001-08-22 03:04:05.321`` as the input.
 
 .. function:: date_trunc(unit, x) -> [same as input]
 
-    Returns ``x`` truncated to ``unit``.
+    Returns ``x`` truncated to ``unit``::
+
+        SELECT date_trunc('day' , TIMESTAMP '2022-10-20 05:10:00');
+        -- 2022-10-20 00:00:00.000
+
+        SELECT date_trunc('month' , TIMESTAMP '2022-10-20 05:10:00');
+        -- 2022-10-01 00:00:00.000
+
+        SELECT date_trunc('year', TIMESTAMP '2022-10-20 05:10:00');
+        -- 2022-01-01 00:00:00.000
 
 .. _datetime-interval-functions:
 
@@ -383,11 +392,17 @@ Specifier Description
 
 .. function:: date_format(timestamp, format) -> varchar
 
-    Formats ``timestamp`` as a string using ``format``.
+    Formats ``timestamp`` as a string using ``format``::
+
+        SELECT date_format(TIMESTAMP '2022-10-20 05:10:00', '%m-%d-%Y %H');
+        -- 10-20-2022 05
 
 .. function:: date_parse(string, format) -> timestamp(3)
 
-    Parses ``string`` into a timestamp using ``format``.
+    Parses ``string`` into a timestamp using ``format``::
+
+        SELECT date_parse('2022/10/20/05', '%Y/%m/%d/%H');
+        -- 2022-10-20 05:00:00.000
 
 Java date functions
 -------------------
@@ -437,7 +452,10 @@ field to be extracted. Most fields support all date and time types.
 
 .. function:: extract(field FROM x) -> bigint
 
-    Returns ``field`` from ``x``.
+    Returns ``field`` from ``x``::
+
+        SELECT extract(YEAR FROM TIMESTAMP '2022-10-20 05:10:00');
+        -- 2022
 
     .. note:: This SQL-standard function uses special syntax for specifying the arguments.
 
@@ -509,7 +527,7 @@ Convenience extraction functions
     Returns the `ISO week`_ of the year from ``x``.
     The value ranges from ``1`` to ``53``.
 
-    .. _ISO week: https://en.wikipedia.org/wiki/ISO_week_date
+    .. _ISO week: https://wikipedia.org/wiki/ISO_week_date
 
 .. function:: week_of_year(x) -> bigint
 

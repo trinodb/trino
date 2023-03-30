@@ -40,6 +40,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 
 import java.util.Collections;
@@ -52,9 +53,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType.SELECT;
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
+import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -73,12 +78,20 @@ public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
 
+    static final Set<TableDefinition.Type> TABLE_TYPES = ImmutableSet.of(TABLE, VIEW, MATERIALIZED_VIEW, EXTERNAL, SNAPSHOT);
+
     private final BigQuery bigQuery;
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
     private final LoadingCache<String, List<Dataset>> remoteDatasetCache;
+    private final Optional<String> configProjectId;
 
-    public BigQueryClient(BigQuery bigQuery, boolean caseInsensitiveNameMatching, ViewMaterializationCache materializationCache, Duration metadataCacheTtl)
+    public BigQueryClient(
+            BigQuery bigQuery,
+            boolean caseInsensitiveNameMatching,
+            ViewMaterializationCache materializationCache,
+            Duration metadataCacheTtl,
+            Optional<String> configProjectId)
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
         this.materializationCache = requireNonNull(materializationCache, "materializationCache is null");
@@ -87,6 +100,7 @@ public class BigQueryClient
                 .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build(CacheLoader.from(this::listDatasetsFromBigQuery));
+        this.configProjectId = requireNonNull(configProjectId, "projectId is null");
     }
 
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
@@ -117,7 +131,7 @@ public class BigQueryClient
 
     public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName)
     {
-        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> listTables(DatasetId.of(projectId, remoteDatasetName), TABLE, VIEW));
+        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> listTables(DatasetId.of(projectId, remoteDatasetName)));
     }
 
     public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<Table> tables)
@@ -179,9 +193,23 @@ public class BigQueryClient
         return materializationCache.getCachedTable(this, query, viewExpiration, remoteTableId);
     }
 
-    public String getProjectId()
+    /**
+     * The Google Cloud Project ID that will be used to create the underlying BigQuery read session.
+     * Effectively, this is the project that will be used for billing attribution.
+     */
+    public String getParentProjectId()
     {
         return bigQuery.getOptions().getProjectId();
+    }
+
+    /**
+     * The Google Cloud Project ID where the data resides.
+     */
+    public String getProjectId()
+    {
+        String projectId = configProjectId.orElseGet(() -> bigQuery.getOptions().getProjectId());
+        checkState(projectId.toLowerCase(ENGLISH).equals(projectId), "projectId must be lowercase but it's " + projectId);
+        return projectId;
     }
 
     public Iterable<Dataset> listDatasets(String projectId)
@@ -200,12 +228,11 @@ public class BigQueryClient
                 .collect(toImmutableList());
     }
 
-    public Iterable<Table> listTables(DatasetId remoteDatasetId, TableDefinition.Type... types)
+    public Iterable<Table> listTables(DatasetId remoteDatasetId)
     {
-        Set<TableDefinition.Type> allowedTypes = ImmutableSet.copyOf(types);
         Iterable<Table> allTables = bigQuery.listTables(remoteDatasetId).iterateAll();
         return stream(allTables)
-                .filter(table -> allowedTypes.contains(table.getDefinition().getType()))
+                .filter(table -> TABLE_TYPES.contains(table.getDefinition().getType()))
                 .collect(toImmutableList());
     }
 
@@ -338,19 +365,21 @@ public class BigQueryClient
     public List<BigQueryColumnHandle> getColumns(BigQueryTableHandle tableHandle)
     {
         if (tableHandle.getProjectedColumns().isPresent()) {
-            return tableHandle.getProjectedColumns().get().stream()
-                    .map(column -> (BigQueryColumnHandle) column)
-                    .collect(toImmutableList());
+            return tableHandle.getProjectedColumns().get();
         }
         checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
 
         TableInfo tableInfo = getTable(tableHandle.asPlainTable().getRemoteTableName().toTableId())
                 .orElseThrow(() -> new TableNotFoundException(tableHandle.asPlainTable().getSchemaTableName()));
+        return buildColumnHandles(tableInfo);
+    }
+
+    public static List<BigQueryColumnHandle> buildColumnHandles(TableInfo tableInfo)
+    {
         Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
-            throw new TableNotFoundException(
-                    tableHandle.asPlainTable().getSchemaTableName(),
-                    format("Table '%s' has no schema", tableHandle.asPlainTable().getSchemaTableName()));
+            SchemaTableName schemaTableName = new SchemaTableName(tableInfo.getTableId().getDataset(), tableInfo.getTableId().getTable());
+            throw new TableNotFoundException(schemaTableName, format("Table '%s' has no schema", schemaTableName));
         }
         return schema.getFields()
                 .stream()

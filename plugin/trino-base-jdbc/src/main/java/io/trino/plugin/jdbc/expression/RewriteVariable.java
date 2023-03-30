@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
@@ -26,7 +27,7 @@ import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.variab
 import static java.util.Objects.requireNonNull;
 
 public class RewriteVariable
-        implements ConnectorExpressionRule<Variable, String>
+        implements ConnectorExpressionRule<Variable, ParameterizedExpression>
 {
     private final Function<String, String> identifierQuote;
 
@@ -42,9 +43,9 @@ public class RewriteVariable
     }
 
     @Override
-    public Optional<String> rewrite(Variable variable, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(Variable variable, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(variable.getName());
-        return Optional.of(identifierQuote.apply(columnHandle.getColumnName()));
+        return Optional.of(new ParameterizedExpression(identifierQuote.apply(columnHandle.getColumnName()), ImmutableList.of()));
     }
 }

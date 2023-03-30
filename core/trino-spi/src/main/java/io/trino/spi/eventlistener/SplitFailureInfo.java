@@ -15,6 +15,7 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,6 +28,7 @@ public class SplitFailureInfo
     private final String failureMessage;
 
     @JsonCreator
+    @Unstable
     public SplitFailureInfo(String failureType, String failureMessage)
     {
         this.failureType = requireNonNull(failureType, "failureType is null");

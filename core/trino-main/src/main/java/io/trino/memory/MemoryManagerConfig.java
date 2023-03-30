@@ -34,8 +34,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "resources.reserved-system-memory"})
 public class MemoryManagerConfig
 {
-    public static final String FAULT_TOLERANT_TASK_MEMORY_CONFIG = "fault-tolerant-execution-task-memory";
-
     // enforced against user memory allocations
     private DataSize maxQueryMemory = DataSize.of(20, GIGABYTE);
     // enforced against user + system memory allocations (default is maxQueryMemory * 2)
@@ -47,6 +45,11 @@ public class MemoryManagerConfig
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
+    private boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled = true;
+
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
+     */
     private Duration killOnOutOfMemoryDelay = new Duration(5, MINUTES);
 
     public LowMemoryQueryKillerPolicy getLowMemoryQueryKillerPolicy()
@@ -136,7 +139,7 @@ public class MemoryManagerConfig
         return faultTolerantExecutionTaskMemory;
     }
 
-    @Config(FAULT_TOLERANT_TASK_MEMORY_CONFIG)
+    @Config("fault-tolerant-execution-task-memory")
     @ConfigDescription("Estimated amount of memory a single task will use when task level retries are used; value is used when allocating nodes for tasks execution")
     public MemoryManagerConfig setFaultTolerantExecutionTaskMemory(DataSize faultTolerantExecutionTaskMemory)
     {
@@ -187,6 +190,24 @@ public class MemoryManagerConfig
                 "fault-tolerant-execution-task-memory-estimation-quantile must not be in [0.0, 1.0] range");
         this.faultTolerantExecutionTaskMemoryEstimationQuantile = faultTolerantExecutionTaskMemoryEstimationQuantile;
         return this;
+    }
+
+    public boolean isFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled()
+    {
+        return faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled;
+    }
+
+    @Config("fault-tolerant-execution.memory-requirement-increase-on-worker-crash-enabled")
+    @ConfigDescription("Increase memory requirement for tasks failed due to a suspected worker crash")
+    public MemoryManagerConfig setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled)
+    {
+        this.faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled = faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled;
+        return this;
+    }
+
+    public void applyFaultTolerantExecutionDefaults()
+    {
+        killOnOutOfMemoryDelay = new Duration(0, MINUTES);
     }
 
     public enum LowMemoryQueryKillerPolicy

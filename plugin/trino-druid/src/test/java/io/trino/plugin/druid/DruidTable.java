@@ -15,7 +15,7 @@ package io.trino.plugin.druid;
 
 import io.trino.testing.sql.TemporaryRelation;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Objects.requireNonNull;
 
 public class DruidTable
@@ -26,7 +26,7 @@ public class DruidTable
     public DruidTable(String namePrefix)
     {
         requireNonNull(namePrefix, "namePrefix is null");
-        this.tableName = namePrefix + randomTableSuffix();
+        this.tableName = namePrefix + randomNameSuffix();
     }
 
     @Override

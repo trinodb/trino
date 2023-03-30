@@ -20,6 +20,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.trino.execution.buffer.PageCodecMarker.MarkerSet;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -31,16 +32,28 @@ import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.ByteStreams.readFully;
+import static io.airlift.slice.UnsafeSlice.getIntUnchecked;
 import static io.trino.block.BlockSerdeUtil.readBlock;
 import static io.trino.block.BlockSerdeUtil.writeBlock;
-import static io.trino.execution.buffer.PagesSerde.SERIALIZED_PAGE_HEADER_SIZE;
-import static io.trino.execution.buffer.PagesSerde.readSerializedPage;
+import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
+import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 public final class PagesSerdeUtil
 {
     private PagesSerdeUtil() {}
+
+    static final int SERIALIZED_PAGE_POSITION_COUNT_OFFSET = 0;
+    static final int SERIALIZED_PAGE_CODEC_MARKERS_OFFSET = SERIALIZED_PAGE_POSITION_COUNT_OFFSET + Integer.BYTES;
+    static final int SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_CODEC_MARKERS_OFFSET + Byte.BYTES;
+    static final int SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET = SERIALIZED_PAGE_UNCOMPRESSED_SIZE_OFFSET + Integer.BYTES;
+    static final int SERIALIZED_PAGE_HEADER_SIZE = SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET + Integer.BYTES;
+    static final String SERIALIZED_PAGE_CIPHER_NAME = "AES/CBC/PKCS5Padding";
+    static final int SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK = 1 << (Integer.SIZE - 1);
+    static final int ESTIMATED_AES_CIPHER_RETAINED_SIZE = 1024;
 
     /**
      * Special checksum value used to verify configuration consistency across nodes (all nodes need to have data integrity configured the same way).
@@ -82,43 +95,59 @@ public final class PagesSerdeUtil
         return checksum;
     }
 
-    public static long writePages(PagesSerde serde, SliceOutput sliceOutput, Page... pages)
+    public static long writePages(PageSerializer serializer, SliceOutput sliceOutput, Page... pages)
     {
-        return writePages(serde, sliceOutput, asList(pages).iterator());
+        return writePages(serializer, sliceOutput, asList(pages).iterator());
     }
 
-    public static long writePages(PagesSerde serde, SliceOutput sliceOutput, Iterator<Page> pages)
+    public static long writePages(PageSerializer serializer, SliceOutput sliceOutput, Iterator<Page> pages)
     {
         long size = 0;
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
-            while (pages.hasNext()) {
-                Page page = pages.next();
-                sliceOutput.writeBytes(serde.serialize(context, page));
-                size += page.getSizeInBytes();
-            }
+        while (pages.hasNext()) {
+            Page page = pages.next();
+            sliceOutput.writeBytes(serializer.serialize(page));
+            size += page.getSizeInBytes();
         }
         return size;
     }
 
-    public static Iterator<Page> readPages(PagesSerde serde, InputStream inputStream)
+    public static Iterator<Page> readPages(PageDeserializer deserializer, InputStream inputStream)
     {
-        return new PageReader(serde, inputStream);
+        return new PageReader(deserializer, inputStream);
+    }
+
+    public static int getSerializedPagePositionCount(Slice serializedPage)
+    {
+        return serializedPage.getInt(SERIALIZED_PAGE_POSITION_COUNT_OFFSET);
+    }
+
+    public static boolean isSerializedPageEncrypted(Slice serializedPage)
+    {
+        return getSerializedPageMarkerSet(serializedPage).contains(ENCRYPTED);
+    }
+
+    public static boolean isSerializedPageCompressed(Slice serializedPage)
+    {
+        return getSerializedPageMarkerSet(serializedPage).contains(COMPRESSED);
+    }
+
+    private static MarkerSet getSerializedPageMarkerSet(Slice serializedPage)
+    {
+        return MarkerSet.fromByteValue(serializedPage.getByte(Integer.BYTES));
     }
 
     private static class PageReader
             extends AbstractIterator<Page>
     {
-        private final PagesSerde serde;
-        private final PagesSerde.PagesSerdeContext context;
+        private final PageDeserializer deserializer;
         private final InputStream inputStream;
         private final byte[] headerBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE];
         private final Slice headerSlice = Slices.wrappedBuffer(headerBuffer);
 
-        PageReader(PagesSerde serde, InputStream inputStream)
+        PageReader(PageDeserializer deserializer, InputStream inputStream)
         {
-            this.serde = requireNonNull(serde, "serde is null");
+            this.deserializer = requireNonNull(deserializer, "deserializer is null");
             this.inputStream = requireNonNull(inputStream, "inputStream is null");
-            this.context = serde.newContext();
         }
 
         @Override
@@ -127,14 +156,13 @@ public final class PagesSerdeUtil
             try {
                 int read = ByteStreams.read(inputStream, headerBuffer, 0, headerBuffer.length);
                 if (read <= 0) {
-                    context.close(); // Release context buffers
                     return endOfData();
                 }
                 if (read != headerBuffer.length) {
                     throw new EOFException();
                 }
 
-                return serde.deserialize(context, readSerializedPage(headerSlice, inputStream));
+                return deserializer.deserialize(readSerializedPage(headerSlice, inputStream));
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -177,5 +205,17 @@ public final class PagesSerdeUtil
                 throw new UncheckedIOException(e);
             }
         }
+    }
+
+    public static Slice readSerializedPage(Slice headerSlice, InputStream inputStream)
+            throws IOException
+    {
+        checkArgument(headerSlice.length() == SERIALIZED_PAGE_HEADER_SIZE, "headerSlice length should equal to %s", SERIALIZED_PAGE_HEADER_SIZE);
+
+        int compressedSize = getIntUnchecked(headerSlice, SERIALIZED_PAGE_COMPRESSED_SIZE_OFFSET);
+        byte[] outputBuffer = new byte[SERIALIZED_PAGE_HEADER_SIZE + compressedSize];
+        headerSlice.getBytes(0, outputBuffer, 0, SERIALIZED_PAGE_HEADER_SIZE);
+        readFully(inputStream, outputBuffer, SERIALIZED_PAGE_HEADER_SIZE, compressedSize);
+        return Slices.wrappedBuffer(outputBuffer);
     }
 }

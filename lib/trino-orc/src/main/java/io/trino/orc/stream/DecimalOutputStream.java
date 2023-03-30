@@ -20,13 +20,13 @@ import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.Stream;
 import io.trino.spi.type.Int128;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static io.trino.orc.stream.LongDecode.writeVLong;
 import static java.lang.Math.toIntExact;
@@ -37,7 +37,7 @@ import static java.lang.Math.toIntExact;
 public class DecimalOutputStream
         implements ValueOutputStream<DecimalStreamCheckpoint>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DecimalOutputStream.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(DecimalOutputStream.class);
     private final OrcOutputBuffer buffer;
     private final List<DecimalStreamCheckpoint> checkpoints = new ArrayList<>();
 

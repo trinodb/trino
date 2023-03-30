@@ -9,7 +9,7 @@ using tools like `kind <https://kind.sigs.k8s.io>`_, to running on a managed
 Kubernetes service on cloud services like
 `Amazon Elastic Kubernetes Service <https://aws.amazon.com/eks>`_,
 `Google Kubernetes Engine <https://cloud.google.com/kubernetes-engine>`_,
-`Azure Kubernetes Service <https://azure.microsoft.com/en-us/services/kubernetes-service>`_,
+`Azure Kubernetes Service <https://azure.microsoft.com/services/kubernetes-service>`_,
 and others.
 
 The fastest way to run Trino on Kubernetes is to use the
@@ -166,7 +166,7 @@ this by running the commands generated upon installation.
 
    .. code-block:: text
 
-       POD_NAME=$(kubectl get pods -l "app=trino,release=my-trino-cluster,component=coordinator" -o name)
+       POD_NAME=$(kubectl get pods -l "app=trino,release=example-trino-cluster,component=coordinator" -o name)
 
 #. Create the tunnel from the coordinator pod to the client.
 
@@ -177,7 +177,7 @@ this by running the commands generated upon installation.
    Now you can connect to the Trino coordinator at ``http://localhost:8080``.
 
 #. To connect to Trino, you can use the
-   :doc:`commond-line interface </client/cli>`, a
+   :doc:`command-line interface </client/cli>`, a
    :doc:`JDBC client </client/jdbc>`, or any of the
    :doc:`other clients </client>`. For this example,
    :ref:`install the command-line interface <cli-installation>`, and connect to

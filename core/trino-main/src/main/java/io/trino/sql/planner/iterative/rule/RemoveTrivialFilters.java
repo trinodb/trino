@@ -18,9 +18,11 @@ import io.trino.matching.Pattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NullLiteral;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.sql.planner.plan.Patterns.filter;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -41,12 +43,14 @@ public class RemoveTrivialFilters
     public Result apply(FilterNode filterNode, Captures captures, Context context)
     {
         Expression predicate = filterNode.getPredicate();
+        checkArgument(!(predicate instanceof NullLiteral), "Unexpected null literal without a cast to boolean");
 
         if (predicate.equals(TRUE_LITERAL)) {
             return Result.ofPlanNode(filterNode.getSource());
         }
 
-        if (predicate.equals(FALSE_LITERAL) || predicate instanceof NullLiteral) {
+        if (predicate.equals(FALSE_LITERAL) ||
+                (predicate instanceof Cast cast && cast.getExpression() instanceof NullLiteral)) {
             return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), filterNode.getOutputSymbols(), emptyList()));
         }
 

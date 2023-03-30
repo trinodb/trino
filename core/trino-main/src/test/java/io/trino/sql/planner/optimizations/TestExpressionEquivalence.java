@@ -126,10 +126,6 @@ public class TestExpressionEquivalence
         assertEquivalent(
                 "(a_boolean and b_boolean and c_boolean) or (d_boolean and e_boolean) or (f_boolean and g_boolean and h_boolean)",
                 "(h_boolean and g_boolean and f_boolean) or (b_boolean and a_boolean and c_boolean) or (e_boolean and d_boolean)");
-
-        assertEquivalent(
-                "reduce(ARRAY [b_boolean], false, (s, x) -> s AND x, s -> s)",
-                "reduce(ARRAY [b_boolean], false, (s, x) -> x AND s, s -> s)");
     }
 
     private static void assertEquivalent(@Language("SQL") String left, @Language("SQL") String right)
@@ -204,10 +200,6 @@ public class TestExpressionEquivalence
         assertNotEquivalent(
                 "CAST(TIMESTAMP '2020-05-10 12:34:56.123456789012 Europe/Warsaw' AS varchar)",
                 "CAST(TIMESTAMP '2020-05-10 12:34:56.123456789012 Europe/Paris' AS varchar)");
-
-        assertNotEquivalent(
-                "reduce(ARRAY [b_boolean], false, (s, x) -> s AND x, s -> s)",
-                "reduce(ARRAY [b_boolean], false, (s, x) -> s OR x, s -> s)");
     }
 
     private static void assertNotEquivalent(@Language("SQL") String left, @Language("SQL") String right)

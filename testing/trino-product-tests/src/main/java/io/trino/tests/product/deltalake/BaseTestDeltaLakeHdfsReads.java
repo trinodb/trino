@@ -69,12 +69,9 @@ public abstract class BaseTestDeltaLakeHdfsReads
     @Test(groups = {DELTA_LAKE_HDFS, PROFILE_SPECIFIC_TESTS})
     public void testReads()
     {
-        onTrino().executeQuery("CREATE TABLE IF NOT EXISTS delta.default.region (" +
-                "  regionkey bigint, " +
-                "  name varchar, " +
-                "  comment varchar) " +
-                "WITH (location = 'hdfs://hadoop-master:9000/tmp/region')");
+        onTrino().executeQuery("CALL delta.system.register_table('default', 'region', 'hdfs://hadoop-master:9000/tmp/region')");
 
         assertThat(onTrino().executeQuery("SELECT count(*) FROM delta.default.region")).containsOnly(row(5L));
+        onTrino().executeQuery("DROP TABLE delta.default.region");
     }
 }

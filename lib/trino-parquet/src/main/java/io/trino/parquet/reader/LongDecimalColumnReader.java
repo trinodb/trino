@@ -40,11 +40,9 @@ public class LongDecimalColumnReader
     @Override
     protected void readValue(BlockBuilder blockBuilder, Type trinoType)
     {
-        if (!(trinoType instanceof DecimalType)) {
+        if (!(trinoType instanceof DecimalType trinoDecimalType)) {
             throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, field.getDescriptor()));
         }
-
-        DecimalType trinoDecimalType = (DecimalType) trinoType;
 
         Binary binary = valuesReader.readBytes();
         Int128 value = Int128.fromBigEndian(binary.getBytes());

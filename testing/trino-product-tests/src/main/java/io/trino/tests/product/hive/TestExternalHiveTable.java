@@ -22,6 +22,7 @@ import io.trino.tempto.fulfillment.table.TableInstance;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
+import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
@@ -70,6 +71,7 @@ public class TestExternalHiveTable
                 row(null, null, null, null, 5.0, null, null));
 
         onHive().executeQuery("ANALYZE TABLE " + EXTERNAL_TABLE_NAME + " PARTITION (p_regionkey) COMPUTE STATISTICS FOR COLUMNS");
+        onTrino().executeQuery("CALL system.flush_metadata_cache()");
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + EXTERNAL_TABLE_NAME)).containsOnly(
                 row("p_nationkey", null, 5.0, 0.0, null, "1", "24"),
                 row("p_name", 38.0, 5.0, 0.0, null, null, null),
@@ -124,7 +126,7 @@ public class TestExternalHiveTable
                 .hasRowsCount(3 * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT);
 
         assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_name IS NOT NULL"))
-                .hasMessageContaining("Deletes must match whole partitions for non-transactional tables");
+                .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
 
         onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_regionkey = 1");
         assertThat(onTrino().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))

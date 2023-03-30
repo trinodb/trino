@@ -21,6 +21,7 @@ public class SqlServerConfig
     private boolean snapshotIsolationDisabled;
     private boolean bulkCopyForWrite;
     private boolean bulkCopyForWriteLockDestinationTable;
+    private boolean storedProcedureTableFunctionEnabled;
 
     public boolean isBulkCopyForWrite()
     {
@@ -58,6 +59,19 @@ public class SqlServerConfig
     public SqlServerConfig setSnapshotIsolationDisabled(boolean snapshotIsolationDisabled)
     {
         this.snapshotIsolationDisabled = snapshotIsolationDisabled;
+        return this;
+    }
+
+    public boolean isStoredProcedureTableFunctionEnabled()
+    {
+        return storedProcedureTableFunctionEnabled;
+    }
+
+    @Config("sqlserver.experimental.stored-procedure-table-function-enabled")
+    @ConfigDescription("Allows accessing Stored procedure as a table function")
+    public SqlServerConfig setStoredProcedureTableFunctionEnabled(boolean storedProcedureTableFunctionEnabled)
+    {
+        this.storedProcedureTableFunctionEnabled = storedProcedureTableFunctionEnabled;
         return this;
     }
 }

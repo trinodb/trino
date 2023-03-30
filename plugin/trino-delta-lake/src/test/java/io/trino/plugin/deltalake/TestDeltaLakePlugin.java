@@ -26,7 +26,6 @@ import java.io.File;
 import java.nio.file.Files;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDeltaLakePlugin
@@ -197,7 +196,7 @@ public class TestDeltaLakePlugin
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         File tempFile = File.createTempFile("test-delta-lake-plugin-access-control", ".json");
         tempFile.deleteOnExit();
-        Files.write(tempFile.toPath(), "{}".getBytes(UTF_8));
+        Files.writeString(tempFile.toPath(), "{}");
 
         factory.create(
                         "test",

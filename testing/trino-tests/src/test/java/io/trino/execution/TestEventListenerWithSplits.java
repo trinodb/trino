@@ -26,7 +26,6 @@ import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryStatistics;
@@ -82,7 +81,7 @@ public class TestEventListenerWithSplits
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "test_table")))
+                        .withListTables((session, s) -> ImmutableList.of("test_table"))
                         .withApplyProjection((session, handle, projections, assignments) -> {
                             throw new RuntimeException("Throw from apply projection");
                         })
@@ -165,7 +164,7 @@ public class TestEventListenerWithSplits
         assertEquals(statistics.getPhysicalInputRows(), expectedCompletedPositions);
         assertEquals(statistics.getProcessedInputBytes(), 0);
         assertEquals(statistics.getProcessedInputRows(), expectedCompletedPositions);
-        assertEquals(statistics.getInternalNetworkBytes(), 381);
+        assertEquals(statistics.getInternalNetworkBytes(), 261);
         assertEquals(statistics.getInternalNetworkRows(), 3);
         assertEquals(statistics.getTotalBytes(), 0);
         assertEquals(statistics.getOutputBytes(), 9);

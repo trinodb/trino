@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -37,6 +37,7 @@ import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -89,7 +90,6 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -117,6 +117,7 @@ public class TestCreateMaterializedViewTask
     private AnalyzerFactory analyzerFactory;
     private MaterializedViewPropertyManager materializedViewPropertyManager;
     private LocalQueryRunner queryRunner;
+    private CatalogHandle testCatalogHandle;
 
     @BeforeMethod
     public void setUp()
@@ -135,6 +136,7 @@ public class TestCreateMaterializedViewTask
                                 .build())
                         .build(),
                 ImmutableMap.of());
+        testCatalogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
 
         materializedViewPropertyManager = queryRunner.getMaterializedViewPropertyManager();
 
@@ -155,6 +157,15 @@ public class TestCreateMaterializedViewTask
         if (queryRunner != null) {
             queryRunner.close();
         }
+        testSession = null;
+        metadata = null;
+        plannerContext = null;
+        transactionManager = null;
+        parser = null;
+        queryStateMachine = null;
+        analyzerFactory = null;
+        materializedViewPropertyManager = null;
+        queryRunner = null;
     }
 
     @Test
@@ -166,6 +177,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -183,6 +195,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 false,
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
 
@@ -203,6 +216,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 ImmutableList.of(new Property(new Identifier("baz"), new StringLiteral("abc"))),
                 Optional.empty());
 
@@ -224,6 +238,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 ImmutableList.of(
                         new Property(new Identifier("foo")),    // set foo to DEFAULT
                         new Property(new Identifier("bar"))),   // set bar to DEFAULT
@@ -248,6 +263,7 @@ public class TestCreateMaterializedViewTask
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of(TEST_CATALOG_NAME, "schema", "mock_table"))),
                 false,
                 true,
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty());
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, emptyEventListenerManager());
@@ -281,10 +297,12 @@ public class TestCreateMaterializedViewTask
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                true,
+                new NodeVersion("test"));
     }
 
-    private static class MockMetadata
+    private class MockMetadata
             extends AbstractMockMetadata
     {
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
@@ -302,7 +320,7 @@ public class TestCreateMaterializedViewTask
         public Optional<CatalogHandle> getCatalogHandle(Session session, String catalogName)
         {
             if (TEST_CATALOG_NAME.equals(catalogName)) {
-                return Optional.of(TEST_CATALOG_HANDLE);
+                return Optional.of(testCatalogHandle);
             }
             return Optional.empty();
         }
@@ -319,7 +337,7 @@ public class TestCreateMaterializedViewTask
             if (tableName.asSchemaTableName().equals(MOCK_TABLE.getTable())) {
                 return Optional.of(
                         new TableHandle(
-                                TEST_CATALOG_HANDLE,
+                                testCatalogHandle,
                                 new TestingTableHandle(tableName.asSchemaTableName()),
                                 TestingConnectorTransactionHandle.INSTANCE));
             }

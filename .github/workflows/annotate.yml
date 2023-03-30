@@ -50,7 +50,7 @@ jobs:
             (cd "$name" && unzip ../"$archive")
           done
       # Process unit and integration test reports
-      - uses: scacap/action-surefire-report@v1
+      - uses: scacap/action-surefire-report@v1.6.2
         with:
           # this workflow should never fail, as it is not a quality gateway
           fail_if_no_tests: false

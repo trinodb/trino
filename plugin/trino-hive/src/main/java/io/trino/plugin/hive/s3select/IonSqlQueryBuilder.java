@@ -238,11 +238,11 @@ public class IonSqlQueryBuilder
         if (type.equals(VarcharType.VARCHAR)) {
             return "'" + ((Slice) value).toStringUtf8() + "'";
         }
-        if (type instanceof DecimalType) {
-            if (Decimals.isLongDecimal(type)) {
-                return Decimals.toString((Int128) value, ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType) {
+            if (!decimalType.isShort()) {
+                return Decimals.toString((Int128) value, decimalType.getScale());
             }
-            return Decimals.toString((long) value, ((DecimalType) type).getScale());
+            return Decimals.toString((long) value, decimalType.getScale());
         }
         return "'" + ((Slice) value).toStringUtf8() + "'";
     }
@@ -260,8 +260,7 @@ public class IonSqlQueryBuilder
         if (type.equals(DATE)) {
             return formatPredicate(column, "TIMESTAMP");
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return formatPredicate(column, format("DECIMAL(%s,%s)", decimalType.getPrecision(), decimalType.getScale()));
         }
         return column;

@@ -33,11 +33,12 @@ import static io.trino.util.Failures.checkCondition;
 
 public final class LikeFunctions
 {
+    public static final String LIKE_FUNCTION_NAME = "$like";
     public static final String LIKE_PATTERN_FUNCTION_NAME = "$like_pattern";
 
     private LikeFunctions() {}
 
-    @ScalarFunction(value = "like", hidden = true)
+    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true)
     @LiteralParameters("x")
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean likeChar(@LiteralParameter("x") Long x, @SqlType("char(x)") Slice value, @SqlType(LikePatternType.NAME) LikeMatcher pattern)
@@ -46,10 +47,9 @@ public final class LikeFunctions
     }
 
     // TODO: this should not be callable from SQL
-    @ScalarFunction(value = "like", hidden = true)
-    @LiteralParameters("x")
+    @ScalarFunction(value = LIKE_FUNCTION_NAME, hidden = true)
     @SqlType(StandardTypes.BOOLEAN)
-    public static boolean likeVarchar(@SqlType("varchar(x)") Slice value, @SqlType(LikePatternType.NAME) LikeMatcher matcher)
+    public static boolean likeVarchar(@SqlType("varchar") Slice value, @SqlType(LikePatternType.NAME) LikeMatcher matcher)
     {
         if (value.hasByteArray()) {
             return matcher.match(value.byteArray(), value.byteArrayOffset(), value.length());
@@ -58,20 +58,18 @@ public final class LikeFunctions
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
-    @LiteralParameters("x")
     @SqlType(LikePatternType.NAME)
-    public static LikeMatcher likePattern(@SqlType("varchar(x)") Slice pattern)
+    public static LikeMatcher likePattern(@SqlType("varchar") Slice pattern)
     {
-        return LikeMatcher.compile(pattern.toStringUtf8(), Optional.empty());
+        return LikeMatcher.compile(pattern.toStringUtf8(), Optional.empty(), false);
     }
 
     @ScalarFunction(value = LIKE_PATTERN_FUNCTION_NAME, hidden = true)
-    @LiteralParameters({"x", "y"})
     @SqlType(LikePatternType.NAME)
-    public static LikeMatcher likePattern(@SqlType("varchar(x)") Slice pattern, @SqlType("varchar(y)") Slice escape)
+    public static LikeMatcher likePattern(@SqlType("varchar") Slice pattern, @SqlType("varchar") Slice escape)
     {
         try {
-            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)));
+            return LikeMatcher.compile(pattern.toStringUtf8(), getEscapeCharacter(Optional.of(escape)), false);
         }
         catch (RuntimeException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);

@@ -22,7 +22,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
-import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.BigintType;
 import io.trino.sql.ExpressionUtils;
@@ -39,12 +38,10 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.Expression;
 import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -54,7 +51,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 
 public class TestUnaliasSymbolReferences
         extends BasePlanTest
@@ -146,12 +143,9 @@ public class TestUnaliasSymbolReferences
         return createDynamicFilterExpression(session, metadata, id, BigintType.BIGINT, symbol.toSymbolReference());
     }
 
-    private static TableHandle tableHandle(String tableName)
+    private TableHandle tableHandle(String tableName)
     {
-        return new TableHandle(
-                TEST_CATALOG_HANDLE,
-                new TpchTableHandle(TINY_SCHEMA_NAME, tableName, TINY_SCALE_FACTOR),
-                TestingTransactionHandle.create());
+        return getQueryRunner().getTableHandle(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, tableName);
     }
 
     interface PlanCreator

@@ -33,8 +33,8 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -173,7 +173,18 @@ public abstract class AbstractDistributedEngineOnlyQueries
         assertExplain(
                 "explain select name from nation where abs(nationkey) = 22",
                 Pattern.quote("abs(\"nationkey\")"),
-                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}");
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
+                "Trino version: .*");
+    }
+
+    @Test
+    public void testExplainDistributed()
+    {
+        assertExplain(
+                "explain (type distributed) select name from nation where abs(nationkey) = 22",
+                Pattern.quote("abs(\"nationkey\")"),
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
+                "Trino version: .*");
     }
 
     // explain analyze can only run on coordinator
@@ -182,24 +193,19 @@ public abstract class AbstractDistributedEngineOnlyQueries
     {
         assertExplainAnalyze(
                 noJoinReordering(BROADCAST),
-                "EXPLAIN ANALYZE SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey");
+                "EXPLAIN ANALYZE SELECT * FROM (SELECT nationkey, regionkey FROM nation GROUP BY nationkey, regionkey) a, nation b WHERE a.regionkey = b.regionkey",
+                "Trino version: .*");
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*");
         assertExplainAnalyze(
                 Session.builder(getSession())
                         .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                         .build(),
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
                 "Left \\(probe\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
-
-        assertExplainAnalyze(
-                "EXPLAIN ANALYZE SELECT nationkey FROM nation GROUP BY nationkey",
-                "Collisions avg\\.: .* \\(.* est\\.\\), Collisions std\\.dev\\.: .*");
+                "Right \\(build\\) Input avg\\.: .* rows, Input std\\.dev\\.: .*");
 
         assertExplainAnalyze(
                 "EXPLAIN ANALYZE SELECT * FROM nation a, nation b WHERE a.nationkey = b.nationkey",
@@ -226,14 +232,24 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 "'Input rows distribution' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
                 "'CPU time distribution \\(s\\)' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
                 "'Scheduled time distribution \\(s\\)' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
-                "'Blocked time distribution \\(s\\)' = \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, min=.*, max=.*}",
-                "Output buffer active time: .*, buffer utilization distribution \\(%\\): \\{p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, max=.*}");
+                "Output buffer active time: .*, buffer utilization distribution \\(%\\): \\{p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, max=.*}",
+                "Task output distribution: \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, max=.*}",
+                "Task input distribution: \\{count=.*, p01=.*, p05=.*, p10=.*, p25=.*, p50=.*, p75=.*, p90=.*, p95=.*, p99=.*, max=.*}",
+                "Trino version: .*");
+    }
+
+    @Test
+    public void testExplainAnalyzeTopLevelTimes()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT * FROM nation a",
+                "Queued: .*s, Analysis: .*s, Planning: .*s, Execution: .*s\n");
     }
 
     @Test
     public void testInsertWithCoercion()
     {
-        String tableName = "test_insert_with_coercion_" + randomTableSuffix();
+        String tableName = "test_insert_with_coercion_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (" +
                 "tinyint_column tinyint, " +
@@ -338,7 +354,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
         String query = format(
                 // use random marker in query for unique matching below
                 "SELECT count(*) c_%s FROM lineitem CROSS JOIN lineitem CROSS JOIN lineitem",
-                randomTableSuffix());
+                randomNameSuffix());
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         ListenableFuture<?> queryFuture = Futures.submit(
                 () -> queryRunner.execute(getSession(), query), executorService);

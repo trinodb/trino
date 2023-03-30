@@ -67,6 +67,8 @@ public class TestJdbcRecordSet
         closeAll(
                 database,
                 () -> executor.shutdownNow());
+        database = null;
+        executor = null;
     }
 
     @Test

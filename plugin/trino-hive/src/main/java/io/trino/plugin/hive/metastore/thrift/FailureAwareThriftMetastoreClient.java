@@ -14,27 +14,26 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
+import io.trino.hive.thrift.metastore.Database;
+import io.trino.hive.thrift.metastore.EnvironmentContext;
+import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.HiveObjectPrivilege;
+import io.trino.hive.thrift.metastore.HiveObjectRef;
+import io.trino.hive.thrift.metastore.LockRequest;
+import io.trino.hive.thrift.metastore.LockResponse;
+import io.trino.hive.thrift.metastore.Partition;
+import io.trino.hive.thrift.metastore.PrincipalType;
+import io.trino.hive.thrift.metastore.PrivilegeBag;
+import io.trino.hive.thrift.metastore.Role;
+import io.trino.hive.thrift.metastore.RolePrincipalGrant;
+import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.plugin.hive.acid.AcidOperation;
-import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
-import org.apache.hadoop.hive.metastore.api.Database;
-import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
-import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
-import org.apache.hadoop.hive.metastore.api.LockRequest;
-import org.apache.hadoop.hive.metastore.api.LockResponse;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.PrincipalType;
-import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
-import org.apache.hadoop.hive.metastore.api.Role;
-import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
-import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -410,13 +409,6 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         return runWithHandle(() -> delegate.allocateTableWriteIds(database, tableName, transactionIds));
-    }
-
-    @Override
-    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-            throws TException
-    {
-        runWithHandle(() -> delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange));
     }
 
     @Override

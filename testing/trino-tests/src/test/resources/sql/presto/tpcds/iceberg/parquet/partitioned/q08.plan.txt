@@ -1,0 +1,36 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (s_store_name)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["s_store_name"])
+                    partial aggregation over (s_store_name)
+                        join (INNER, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["substr_34"])
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        scan store_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan date_dim
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan store
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["substr_35"])
+                                    final aggregation over (ca_zip)
+                                        local exchange (REPARTITION, HASH, ["ca_zip"])
+                                            remote exchange (REPARTITION, HASH, ["ca_zip_26"])
+                                                partial aggregation over (ca_zip_26)
+                                                    scan customer_address
+                                            remote exchange (REPARTITION, HASH, ["ca_zip_29"])
+                                                partial aggregation over (ca_zip_29)
+                                                    final aggregation over (ca_zip_16)
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, ["ca_zip_16"])
+                                                                partial aggregation over (ca_zip_16)
+                                                                    join (INNER, PARTITIONED):
+                                                                        remote exchange (REPARTITION, HASH, ["ca_address_sk_7"])
+                                                                            scan customer_address
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPARTITION, HASH, ["c_current_addr_sk"])
+                                                                                scan customer

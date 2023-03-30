@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.client.ClientStandardTypes.ARRAY;
@@ -61,106 +62,216 @@ final class FixJsonDataUtils
         if (data == null) {
             return null;
         }
-        requireNonNull(columns, "columns is null");
-        ClientTypeSignature[] signatures = columns.stream()
-                .map(Column::getTypeSignature)
-                .toArray(ClientTypeSignature[]::new);
+        ColumnTypeHandler[] typeHandlers = createTypeHandlers(columns);
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builderWithExpectedSize(data.size());
         for (List<Object> row : data) {
-            checkArgument(row.size() == signatures.length, "row/column size mismatch");
-            List<Object> newRow = new ArrayList<>(row.size());
-            for (int i = 0; i < row.size(); i++) {
-                newRow.add(fixValue(signatures[i], row.get(i)));
+            if (row.size() != typeHandlers.length) {
+                throw new IllegalArgumentException("row/column size mismatch");
+            }
+            ArrayList<Object> newRow = new ArrayList<>(typeHandlers.length);
+            int column = 0;
+            for (Object value : row) {
+                if (value != null) {
+                    value = typeHandlers[column].fixValue(value);
+                }
+                newRow.add(value);
+                column++;
             }
             rows.add(unmodifiableList(newRow)); // allow nulls in list
         }
         return rows.build();
     }
 
-    /**
-     * Force values coming from Jackson to have the expected object type.
-     */
-    private static Object fixValue(ClientTypeSignature signature, Object value)
+    private static ColumnTypeHandler[] createTypeHandlers(List<Column> columns)
     {
-        if (value == null) {
-            return null;
+        requireNonNull(columns, "columns is null");
+        ColumnTypeHandler[] typeHandlers = new ColumnTypeHandler[columns.size()];
+        int index = 0;
+        for (Column column : columns) {
+            typeHandlers[index++] = createTypeHandler(column.getTypeSignature());
+        }
+        return typeHandlers;
+    }
+
+    private interface ColumnTypeHandler
+    {
+        Object fixValue(Object value);
+    }
+
+    private static final class ArrayClientTypeHandler
+            implements ColumnTypeHandler
+    {
+        private final ColumnTypeHandler elementHandler;
+
+        private ArrayClientTypeHandler(ClientTypeSignature signature)
+        {
+            requireNonNull(signature, "signature is null");
+            checkArgument(signature.getRawType().equals(ARRAY), "not an array type signature: %s", signature);
+            this.elementHandler = createTypeHandler(signature.getArgumentsAsTypeSignatures().get(0));
         }
 
-        if (signature.getRawType().equals(ARRAY)) {
-            List<?> listValue = ((List<?>) value);
-            List<Object> fixedValue = new ArrayList<>(listValue.size());
-            for (Object object : listValue) {
-                fixedValue.add(fixValue(signature.getArgumentsAsTypeSignatures().get(0), object));
+        @Override
+        public List<Object> fixValue(Object value)
+        {
+            List<?> listValue = (List<?>) value;
+            ArrayList<Object> fixedValues = new ArrayList<>(listValue.size());
+            for (Object element : listValue) {
+                if (element != null) {
+                    element = elementHandler.fixValue(element);
+                }
+                fixedValues.add(element);
             }
-            return fixedValue;
+            return fixedValues;
         }
-        if (signature.getRawType().equals(MAP)) {
-            ClientTypeSignature keySignature = signature.getArgumentsAsTypeSignatures().get(0);
-            ClientTypeSignature valueSignature = signature.getArgumentsAsTypeSignatures().get(1);
+    }
+
+    private static final class MapClientTypeHandler
+            implements ColumnTypeHandler
+    {
+        private final ColumnTypeHandler keyHandler;
+        private final ColumnTypeHandler valueHandler;
+
+        private MapClientTypeHandler(ClientTypeSignature signature)
+        {
+            requireNonNull(signature, "signature is null");
+            checkArgument(signature.getRawType().equals(MAP), "not a map type signature: %s", signature);
+            this.keyHandler = createTypeHandler(signature.getArgumentsAsTypeSignatures().get(0));
+            this.valueHandler = createTypeHandler(signature.getArgumentsAsTypeSignatures().get(1));
+        }
+
+        @Override
+        public Map<Object, Object> fixValue(Object value)
+        {
             Map<?, ?> mapValue = (Map<?, ?>) value;
-            Map<Object, Object> fixedValue = Maps.newHashMapWithExpectedSize(mapValue.size());
+            Map<Object, Object> fixedMap = Maps.newHashMapWithExpectedSize(mapValue.size());
             for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
-                fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
+                Object fixedKey = entry.getKey();
+                if (fixedKey != null) {
+                    fixedKey = keyHandler.fixValue(fixedKey);
+                }
+                Object fixedValue = entry.getValue();
+                if (fixedValue != null) {
+                    fixedValue = valueHandler.fixValue(fixedValue);
+                }
+                fixedMap.put(fixedKey, fixedValue);
             }
-            return fixedValue;
+            return fixedMap;
         }
-        if (signature.getRawType().equals(ROW)) {
-            List<?> listValue = ((List<?>) value);
-            checkArgument(listValue.size() == signature.getArguments().size(), "Mismatched data values and row type");
-            Row.Builder row = Row.builderWithExpectedSize(listValue.size());
-            for (int i = 0; i < listValue.size(); i++) {
-                ClientTypeSignatureParameter parameter = signature.getArguments().get(i);
+    }
+
+    private static final class RowClientTypeHandler
+            implements ColumnTypeHandler
+    {
+        private final ColumnTypeHandler[] fieldHandlers;
+        private final List<Optional<String>> fieldNames;
+
+        private RowClientTypeHandler(ClientTypeSignature signature)
+        {
+            requireNonNull(signature, "signature is null");
+            checkArgument(signature.getRawType().equals(ROW), "not a row type signature: %s", signature);
+            fieldHandlers = new ColumnTypeHandler[signature.getArguments().size()];
+            ImmutableList.Builder<Optional<String>> fieldNames = ImmutableList.builderWithExpectedSize(fieldHandlers.length);
+
+            int index = 0;
+            for (ClientTypeSignatureParameter parameter : signature.getArguments()) {
                 checkArgument(
                         parameter.getKind() == ParameterKind.NAMED_TYPE,
                         "Unexpected parameter [%s] for row type",
                         parameter);
                 NamedClientTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                Object fixedValue = fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i));
-                if (namedTypeSignature.getName().isPresent()) {
-                    row.addField(namedTypeSignature.getName().get(), fixedValue);
+                fieldHandlers[index] = createTypeHandler(namedTypeSignature.getTypeSignature());
+                fieldNames.add(namedTypeSignature.getName());
+                index++;
+            }
+            this.fieldNames = fieldNames.build();
+        }
+
+        @Override
+        public Row fixValue(Object value)
+        {
+            List<?> listValue = (List<?>) value;
+            checkArgument(listValue.size() == fieldHandlers.length, "Mismatched data values and row type");
+            Row.Builder row = Row.builderWithExpectedSize(fieldHandlers.length);
+            int field = 0;
+            for (Object fieldValue : listValue) {
+                if (fieldValue != null) {
+                    fieldValue = fieldHandlers[field].fixValue(fieldValue);
                 }
-                else {
-                    row.addUnnamedField(fixedValue);
-                }
+                row.addField(fieldNames.get(field), fieldValue);
+                field++;
             }
             return row.build();
         }
+    }
+
+    /**
+     * Force values coming from Jackson to have the expected object type.
+     */
+    private static ColumnTypeHandler createTypeHandler(ClientTypeSignature signature)
+    {
         switch (signature.getRawType()) {
+            case ARRAY:
+                return new ArrayClientTypeHandler(signature);
+            case MAP:
+                return new MapClientTypeHandler(signature);
+            case ROW:
+                return new RowClientTypeHandler(signature);
             case BIGINT:
-                if (value instanceof String) {
-                    return Long.parseLong((String) value);
-                }
-                return ((Number) value).longValue();
+                return (value) -> {
+                    if (value instanceof String) {
+                        return Long.parseLong((String) value);
+                    }
+                    return ((Number) value).longValue();
+                };
+
             case INTEGER:
-                if (value instanceof String) {
-                    return Integer.parseInt((String) value);
-                }
-                return ((Number) value).intValue();
+                return (value) -> {
+                    if (value instanceof String) {
+                        return Integer.parseInt((String) value);
+                    }
+                    return ((Number) value).intValue();
+                };
+
             case SMALLINT:
-                if (value instanceof String) {
-                    return Short.parseShort((String) value);
-                }
-                return ((Number) value).shortValue();
+                return (value) -> {
+                    if (value instanceof String) {
+                        return Short.parseShort((String) value);
+                    }
+                    return ((Number) value).shortValue();
+                };
+
             case TINYINT:
-                if (value instanceof String) {
-                    return Byte.parseByte((String) value);
-                }
-                return ((Number) value).byteValue();
+                return (value) -> {
+                    if (value instanceof String) {
+                        return Byte.parseByte((String) value);
+                    }
+                    return ((Number) value).byteValue();
+                };
+
             case DOUBLE:
-                if (value instanceof String) {
-                    return Double.parseDouble((String) value);
-                }
-                return ((Number) value).doubleValue();
+                return (value) -> {
+                    if (value instanceof String) {
+                        return Double.parseDouble((String) value);
+                    }
+                    return ((Number) value).doubleValue();
+                };
+
             case REAL:
-                if (value instanceof String) {
-                    return Float.parseFloat((String) value);
-                }
-                return ((Number) value).floatValue();
+                return (value) -> {
+                    if (value instanceof String) {
+                        return Float.parseFloat((String) value);
+                    }
+                    return ((Number) value).floatValue();
+                };
+
             case BOOLEAN:
-                if (value instanceof String) {
-                    return Boolean.parseBoolean((String) value);
-                }
-                return (Boolean) value;
+                return (value) -> {
+                    if (value instanceof String) {
+                        return Boolean.parseBoolean((String) value);
+                    }
+                    return (Boolean) value;
+                };
+
             case VARCHAR:
             case JSON:
             case TIME:
@@ -176,18 +287,20 @@ final class FixJsonDataUtils
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
-                return (String) value;
+                return (value) -> (String) value;
             case BING_TILE:
                 // Bing tiles are serialized as strings when used as map keys,
                 // they are serialized as json otherwise (value will be a LinkedHashMap).
-                return value;
+                return value -> value;
             default:
                 // for now we assume that only the explicit types above are passed
                 // as a plain text and everything else is base64 encoded binary
-                if (value instanceof String) {
-                    return Base64.getDecoder().decode((String) value);
-                }
-                return value;
+                return (value) -> {
+                    if (value instanceof String) {
+                        return Base64.getDecoder().decode((String) value);
+                    }
+                    return value;
+                };
         }
     }
 }

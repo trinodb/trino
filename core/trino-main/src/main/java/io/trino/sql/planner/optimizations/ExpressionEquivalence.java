@@ -22,8 +22,6 @@ import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.DesugarArrayConstructorRewriter;
-import io.trino.sql.planner.DesugarLikeRewriter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -92,9 +90,6 @@ public class ExpressionEquivalence
 
     private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, TypeProvider types)
     {
-        expression = DesugarLikeRewriter.rewrite(expression, session, metadata, typeAnalyzer, types);
-        expression = DesugarArrayConstructorRewriter.rewrite(expression, session, metadata, typeAnalyzer, types);
-
         return translate(
                 expression,
                 typeAnalyzer.getTypes(session, types, expression),
@@ -214,8 +209,7 @@ public class ExpressionEquivalence
                 return result;
             }
 
-            if (left instanceof CallExpression) {
-                CallExpression leftCall = (CallExpression) left;
+            if (left instanceof CallExpression leftCall) {
                 CallExpression rightCall = (CallExpression) right;
                 return ComparisonChain.start()
                         .compare(leftCall.getResolvedFunction().toString(), rightCall.getResolvedFunction().toString())
@@ -223,8 +217,7 @@ public class ExpressionEquivalence
                         .result();
             }
 
-            if (left instanceof SpecialForm) {
-                SpecialForm leftForm = (SpecialForm) left;
+            if (left instanceof SpecialForm leftForm) {
                 SpecialForm rightForm = (SpecialForm) right;
                 return ComparisonChain.start()
                         .compare(leftForm.getForm(), rightForm.getForm())
@@ -232,8 +225,7 @@ public class ExpressionEquivalence
                         .result();
             }
 
-            if (left instanceof ConstantExpression) {
-                ConstantExpression leftConstant = (ConstantExpression) left;
+            if (left instanceof ConstantExpression leftConstant) {
                 ConstantExpression rightConstant = (ConstantExpression) right;
 
                 result = leftConstant.getType().getTypeSignature().toString().compareTo(right.getType().getTypeSignature().toString());
@@ -278,12 +270,11 @@ public class ExpressionEquivalence
                 return -1;
             }
 
-            if (left instanceof InputReferenceExpression) {
-                return Integer.compare(((InputReferenceExpression) left).getField(), ((InputReferenceExpression) right).getField());
+            if (left instanceof InputReferenceExpression leftInputReferenceExpression) {
+                return Integer.compare(leftInputReferenceExpression.getField(), ((InputReferenceExpression) right).getField());
             }
 
-            if (left instanceof LambdaDefinitionExpression) {
-                LambdaDefinitionExpression leftLambda = (LambdaDefinitionExpression) left;
+            if (left instanceof LambdaDefinitionExpression leftLambda) {
                 LambdaDefinitionExpression rightLambda = (LambdaDefinitionExpression) right;
 
                 return ComparisonChain.start()
@@ -299,8 +290,7 @@ public class ExpressionEquivalence
                         .result();
             }
 
-            if (left instanceof VariableReferenceExpression) {
-                VariableReferenceExpression leftVariableReference = (VariableReferenceExpression) left;
+            if (left instanceof VariableReferenceExpression leftVariableReference) {
                 VariableReferenceExpression rightVariableReference = (VariableReferenceExpression) right;
 
                 return ComparisonChain.start()

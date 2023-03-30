@@ -22,9 +22,9 @@ Configuration
 -------------
 
 To configure the Cassandra connector, create a catalog properties file
-``etc/catalog/cassandra.properties`` with the following contents,
-replacing ``host1,host2`` with a comma-separated list of the Cassandra
-nodes, used to discovery the cluster topology:
+``etc/catalog/example.properties`` with the following contents, replacing
+``host1,host2`` with a comma-separated list of the Cassandra nodes, used to
+discovery the cluster topology:
 
 .. code-block:: text
 
@@ -165,17 +165,17 @@ Querying Cassandra tables
 -------------------------
 
 The ``users`` table is an example Cassandra table from the Cassandra
-`Getting Started`_ guide. It can be created along with the ``mykeyspace``
+`Getting Started`_ guide. It can be created along with the ``example_keyspace``
 keyspace using Cassandra's cqlsh (CQL interactive terminal):
 
 .. _Getting Started: https://cassandra.apache.org/doc/latest/cassandra/getting_started/index.html
 
 .. code-block:: text
 
-    cqlsh> CREATE KEYSPACE mykeyspace
+    cqlsh> CREATE KEYSPACE example_keyspace
        ... WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
-    cqlsh> USE mykeyspace;
-    cqlsh:mykeyspace> CREATE TABLE users (
+    cqlsh> USE example_keyspace;
+    cqlsh:example_keyspace> CREATE TABLE users (
                   ...   user_id int PRIMARY KEY,
                   ...   fname text,
                   ...   lname text
@@ -183,7 +183,7 @@ keyspace using Cassandra's cqlsh (CQL interactive terminal):
 
 This table can be described in Trino::
 
-    DESCRIBE cassandra.mykeyspace.users;
+    DESCRIBE example.example_keyspace.users;
 
 .. code-block:: text
 
@@ -196,7 +196,7 @@ This table can be described in Trino::
 
 This table can then be queried in Trino::
 
-    SELECT * FROM cassandra.mykeyspace.users;
+    SELECT * FROM example.example_keyspace.users;
 
 .. _cassandra-type-mapping:
 
@@ -263,6 +263,9 @@ the following table:
     -
   * - ``DATE``
     - ``DATE``
+    -
+  * - ``TIME``
+    - ``TIME(9)``
     -
   * - ``TIMESTAMP``
     - ``TIMESTAMP(3) WITH TIME ZONE``
@@ -392,6 +395,38 @@ statements, the connector supports the following features:
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Cassandra.
+.. _cassandra-query-function:
+
+``query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``query`` function allows you to query the underlying Cassandra directly. It
+requires syntax native to Cassandra, because the full query is pushed down and
+processed by Cassandra. This can be useful for accessing native features which are
+not available in Trino or for improving query performance in situations where
+running a query natively may be faster.
+
+.. include:: polymorphic-table-function-ordering.fragment
+
+As a simple example, to select an entire table::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.query(
+          query => 'SELECT
+            *
+          FROM
+            tpch.nation'
+        )
+      );
 
 DROP TABLE
 ^^^^^^^^^^

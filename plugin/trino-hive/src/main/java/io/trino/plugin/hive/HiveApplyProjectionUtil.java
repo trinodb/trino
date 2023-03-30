@@ -59,7 +59,7 @@ public final class HiveApplyProjectionUtil
     static boolean isPushDownSupported(ConnectorExpression expression)
     {
         return expression instanceof Variable ||
-                (expression instanceof FieldDereference && isPushDownSupported(((FieldDereference) expression).getTarget()));
+                (expression instanceof FieldDereference fieldDereference && isPushDownSupported(fieldDereference.getTarget()));
     }
 
     public static ProjectedColumnRepresentation createProjectedColumnRepresentation(ConnectorExpression expression)
@@ -68,12 +68,11 @@ public final class HiveApplyProjectionUtil
 
         Variable target;
         while (true) {
-            if (expression instanceof Variable) {
-                target = (Variable) expression;
+            if (expression instanceof Variable variable) {
+                target = variable;
                 break;
             }
-            if (expression instanceof FieldDereference) {
-                FieldDereference dereference = (FieldDereference) expression;
+            if (expression instanceof FieldDereference dereference) {
                 ordinals.add(dereference.getField());
                 expression = dereference.getTarget();
             }
@@ -99,13 +98,12 @@ public final class HiveApplyProjectionUtil
             return expression;
         }
 
-        if (expression instanceof FieldDereference) {
-            ConnectorExpression newTarget = replaceWithNewVariables(((FieldDereference) expression).getTarget(), expressionToVariableMappings);
-            return new FieldDereference(expression.getType(), newTarget, ((FieldDereference) expression).getField());
+        if (expression instanceof FieldDereference fieldDereference) {
+            ConnectorExpression newTarget = replaceWithNewVariables(fieldDereference.getTarget(), expressionToVariableMappings);
+            return new FieldDereference(expression.getType(), newTarget, fieldDereference.getField());
         }
 
-        if (expression instanceof Call) {
-            Call call = (Call) expression;
+        if (expression instanceof Call call) {
             return new Call(
                     call.getType(),
                     call.getFunctionName(),

@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.union;
-import static io.trino.parquet.predicate.PredicateUtils.isOnlyDictionaryEncodingPages;
+import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.IntegerType.INTEGER;

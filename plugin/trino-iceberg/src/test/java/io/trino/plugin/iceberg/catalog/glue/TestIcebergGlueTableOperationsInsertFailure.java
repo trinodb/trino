@@ -13,15 +13,14 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
+import io.trino.plugin.iceberg.IcebergPlugin;
 import io.trino.plugin.iceberg.TestingIcebergConnectorFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -36,11 +35,10 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -56,7 +54,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
 
     private static final String ICEBERG_CATALOG = "iceberg";
 
-    private final String schemaName = "test_iceberg_glue_" + randomTableSuffix();
+    private final String schemaName = "test_iceberg_glue_" + randomNameSuffix();
 
     private GlueHiveMetastore glueHiveMetastore;
 
@@ -84,6 +82,10 @@ public class TestIcebergGlueTableOperationsInsertFailure
             return result;
         });
 
+        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
+        new IcebergPlugin().getFunctions().forEach(functions::functions);
+        queryRunner.addFunctions(functions.build());
+
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
                 new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)), Optional.empty(), EMPTY_MODULE),
@@ -92,14 +94,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
 
-        glueHiveMetastore = new GlueHiveMetastore(
-                HDFS_ENVIRONMENT,
-                new GlueHiveMetastoreConfig(),
-                DefaultAWSCredentialsProviderChain.getInstance(),
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                Optional.empty(),
-                table -> true);
+        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory);
 
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
@@ -129,7 +124,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
     @Test
     public void testInsertFailureDoesNotCorruptTheTableMetadata()
     {
-        String tableName = "test_insert_failure" + randomTableSuffix();
+        String tableName = "test_insert_failure" + randomNameSuffix();
 
         getQueryRunner().execute(format("CREATE TABLE %s (a_varchar) AS VALUES ('Trino')", tableName));
         assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO " + tableName + " VALUES 'rocks'"))

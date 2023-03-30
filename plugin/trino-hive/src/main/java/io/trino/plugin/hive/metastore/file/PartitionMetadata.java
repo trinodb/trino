@@ -27,13 +27,13 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static java.util.Objects.requireNonNull;
@@ -85,7 +85,7 @@ public class PartitionMetadata
                 .filter(format -> tableFormat.equals(StorageFormat.fromHiveStorageFormat(format)))
                 .findFirst();
 
-        if (table.getTableType().equals(TableType.EXTERNAL_TABLE.name())) {
+        if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
             externalLocation = Optional.of(partition.getStorage().getLocation());
         }
         else {

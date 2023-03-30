@@ -27,12 +27,9 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordSet;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -118,7 +115,7 @@ public class IndexSourceOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public void addSplit(Split split)
     {
         requireNonNull(split, "split is null");
         checkState(source == null, "Index source split already set");
@@ -134,8 +131,6 @@ public class IndexSourceOperator
         if (splitInfo != null) {
             operatorContext.setInfoSupplier(Suppliers.ofInstance(new SplitOperatorInfo(split.getCatalogHandle(), splitInfo)));
         }
-
-        return Optional::empty;
     }
 
     @Override

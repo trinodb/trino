@@ -33,7 +33,6 @@ import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.metrics.Metrics;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -115,12 +114,10 @@ public class TestMockConnector
                                 .withProcedures(ImmutableSet.of(new TestProcedure().get()))
                                 .withTableProcedures(ImmutableSet.of(new TableProcedureMetadata("TESTING_TABLE_PROCEDURE", coordinatorOnly(), ImmutableList.of())))
                                 .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
-                                .withSchemaProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
-                                        .add(booleanProperty("boolean_schema_property", "description", false, false))
-                                        .build())
-                                .withTableProperties(() -> ImmutableList.<PropertyMetadata<?>>builder()
-                                        .add(integerProperty("integer_table_property", "description", 0, false))
-                                        .build())
+                                .withSchemaProperties(() -> ImmutableList.of(
+                                        booleanProperty("boolean_schema_property", "description", false, false)))
+                                .withTableProperties(() -> ImmutableList.of(
+                                        integerProperty("integer_table_property", "description", 0, false)))
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;
@@ -238,7 +235,7 @@ public class TestMockConnector
     public void testTableFunction()
     {
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.simple_table_function())"))
-                .hasMessage("execution by operator is not yet implemented for table function simple_table_function");
+                .hasMessage("missing ConnectorSplitSource for table function system.simple_table_function");
         assertThatThrownBy(() -> assertUpdate("SELECT * FROM TABLE(mock.system.non_existing_table_function())"))
                 .hasMessageContaining("Table function mock.system.non_existing_table_function not registered");
     }

@@ -19,9 +19,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;

@@ -14,31 +14,32 @@
 package io.trino.tests.product.deltalake;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.airlift.log.Logger;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_113;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertLastEntryIsCheckpointed;
 import static io.trino.tests.product.deltalake.TransactionLogAssertions.assertTransactionLogVersion;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.removeS3Directory;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -46,8 +47,6 @@ import static java.lang.String.format;
 public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    private static final Logger log = Logger.get(TestDeltaLakeDatabricksCreateTableAsSelectCompatibility.class);
-
     @Inject
     @Named("s3.server_type")
     private String s3ServerType;
@@ -62,9 +61,10 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoTypesWithDatabricks()
     {
-        String tableName = "test_dl_ctas_" + randomTableSuffix();
+        String tableName = "test_dl_ctas_" + randomNameSuffix();
 
         try {
             assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
@@ -86,14 +86,15 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
                     .collect(toImmutableList()));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoTimestampsWithDatabricks()
     {
-        String tableName = "test_dl_ctas_timestamps_" + randomTableSuffix();
+        String tableName = "test_dl_ctas_timestamps_" + randomNameSuffix();
 
         try {
             assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
@@ -112,15 +113,16 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
                     .collect(toImmutableList()));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoCacheInvalidatedOnCreateTable()
             throws URISyntaxException, IOException
     {
-        String tableName = "test_dl_ctas_caching_" + randomTableSuffix();
+        String tableName = "test_dl_ctas_caching_" + randomNameSuffix();
 
         try {
             assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
@@ -139,8 +141,8 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
                     .map(QueryAssert.Row::new)
                     .collect(toImmutableList()));
 
-            onDelta().executeQuery("DROP TABLE default." + tableName);
-            removeS3Directory(bucketName, "databricks-compatibility-test-" + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
+            removeS3Directory(s3, bucketName, "databricks-compatibility-test-" + tableName);
 
             assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
                     "(id, boolean, tinyint) " +
@@ -161,14 +163,15 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
                     .collect(toImmutableList()));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCreateFromTrinoWithDefaultPartitionValues()
     {
-        String tableName = "test_create_partitioned_table_default_as_" + randomTableSuffix();
+        String tableName = "test_create_partitioned_table_default_as_" + randomNameSuffix();
 
         try {
             assertThat(onTrino().executeQuery(
@@ -195,9 +198,10 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testReplaceTableWithSchemaChange()
     {
-        String tableName = "test_replace_table_with_schema_change_" + randomTableSuffix();
+        String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
 
         onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
@@ -214,14 +218,16 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
             assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    // Databricks 11.3 doesn't create a checkpoint file at 'CREATE OR REPLACE TABLE' statement
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_113, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testReplaceTableWithSchemaChangeOnCheckpoint()
     {
-        String tableName = "test_replace_table_with_schema_change_" + randomTableSuffix();
+        String tableName = "test_replace_table_with_schema_change_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE delta.default." + tableName + " (ts VARCHAR) " +
                 "with (location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "', checkpoint_interval = 10)");
         try {
@@ -241,20 +247,7 @@ public class TestDeltaLakeDatabricksCreateTableAsSelectCompatibility
             assertThat(onTrino().executeQuery("SELECT to_iso8601(ts) FROM delta.default." + tableName)).containsOnly(expected.build());
         }
         finally {
-            onDelta().executeQuery("DROP TABLE " + tableName);
+            dropDeltaTableWithRetry(tableName);
         }
-    }
-
-    private void removeS3Directory(String bucketName, String directoryPrefix)
-    {
-        ObjectListing listing = s3.listObjects(bucketName, directoryPrefix);
-        do {
-            List<String> objectKeys = listing.getObjectSummaries().stream().map(S3ObjectSummary::getKey).collect(Collectors.toUnmodifiableList());
-            DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys.toArray(new String[0]));
-            log.info("Deleting keys: %s", objectKeys);
-            s3.deleteObjects(deleteObjectsRequest);
-            listing = s3.listNextBatchOfObjects(listing);
-        }
-        while (listing.isTruncated());
     }
 }

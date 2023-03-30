@@ -36,7 +36,6 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -53,12 +52,12 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -66,7 +65,7 @@ public class OrcFileWriter
         implements FileWriter
 {
     private static final Logger log = Logger.get(OrcFileWriter.class);
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(OrcFileWriter.class);
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     protected final OrcWriter orcWriter;
@@ -256,24 +255,9 @@ public class OrcFileWriter
         return validationCpuNanos;
     }
 
-    public int getStripeRowCount()
-    {
-        return orcWriter.getStripeRowCount();
-    }
-
     public void setMaxWriteId(long maxWriteId)
     {
         this.maxWriteId = OptionalLong.of(maxWriteId);
-    }
-
-    public OptionalLong getMaxWriteId()
-    {
-        return maxWriteId;
-    }
-
-    public void updateUserMetadata(Map<String, String> userMetadata)
-    {
-        orcWriter.updateUserMetadata(userMetadata);
     }
 
     @Override
@@ -316,11 +300,6 @@ public class OrcFileWriter
             rowIds[i] = nextRowId++;
         }
         return new LongArrayBlock(positionCount, Optional.empty(), rowIds);
-    }
-
-    public static int extractBucketNumber(int bucketValue)
-    {
-        return (bucketValue >> 16) & 0xFFF;
     }
 
     public static int computeBucketValue(int bucketId, int statementId)

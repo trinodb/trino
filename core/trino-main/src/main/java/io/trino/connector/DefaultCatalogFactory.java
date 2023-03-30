@@ -29,6 +29,7 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
@@ -48,8 +49,8 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.connector.CatalogHandle.createInformationSchemaCatalogHandle;
-import static io.trino.connector.CatalogHandle.createSystemTablesCatalogHandle;
+import static io.trino.spi.connector.CatalogHandle.createInformationSchemaCatalogHandle;
+import static io.trino.spi.connector.CatalogHandle.createSystemTablesCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -70,7 +71,7 @@ public class DefaultCatalogFactory
 
     private final boolean schedulerIncludeCoordinator;
 
-    private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorName, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
     @Inject
     public DefaultCatalogFactory(
@@ -103,7 +104,7 @@ public class DefaultCatalogFactory
     public synchronized void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory)
     {
         InternalConnectorFactory existingConnectorFactory = connectorFactories.putIfAbsent(
-                connectorFactory.getName(),
+                new ConnectorName(connectorFactory.getName()),
                 new InternalConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory));
         checkArgument(existingConnectorFactory == null, "Connector '%s' is already registered", connectorFactory.getName());
     }
@@ -128,19 +129,19 @@ public class DefaultCatalogFactory
                 catalogProperties.getProperties());
         return createCatalog(
                 catalogProperties.getCatalogHandle(),
-                factory.getConnectorFactory().getName(),
+                catalogProperties.getConnectorName(),
                 connector,
                 duplicatePluginClassLoaderFactory::destroy,
                 Optional.of(catalogProperties));
     }
 
     @Override
-    public CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector)
+    public CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector)
     {
         return createCatalog(catalogHandle, connectorName, connector, () -> {}, Optional.empty());
     }
 
-    private CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
+    private CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
     {
         ConnectorServices catalogConnector = new ConnectorServices(
                 catalogHandle,
@@ -189,6 +190,7 @@ public class DefaultCatalogFactory
             Map<String, String> properties)
     {
         ConnectorContext context = new ConnectorContextInstance(
+                catalogHandle,
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogHandle, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,

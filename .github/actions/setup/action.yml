@@ -1,0 +1,57 @@
+name: setup
+description: "Verify checked out commits and setup Java"
+inputs:
+  java-version:
+    description: "Java version to setup"
+    default: 17
+  cache:
+    description: "Cache Maven repo"
+    default: true
+  download_dependencies:
+    description: "Download all Maven dependencies so Maven can work in offline mode"
+    default: true
+
+runs:
+  using: composite
+  steps:
+      - name: Verify args
+        shell: bash
+        if: github.event_name == 'repository_dispatch' && github.event.client_payload.slash_command.args.named.sha == ''
+        run: |
+          echo >&2 "Dispatched from a slash command but missing the 'sha' argument"
+          exit 1
+      - name: Verify commit
+        shell: bash
+        run: |
+          expected=${{ github.event_name == 'repository_dispatch' &&
+                github.event.client_payload.pull_request.head.sha || '' }}
+          actual=$(git log -1 --format='%H')
+          if [ -n "$expected" ] && [ "$actual" != "$expected" ]; then
+            echo >&2 "Expected to checkout $expected but got $actual"
+            exit 1
+          fi
+      - name: Fetch base ref to find merge-base for GIB
+        shell: bash
+        run: .github/bin/git-fetch-base-ref.sh
+      - uses: actions/setup-java@v3
+        if: ${{ inputs.java-version != '' }}
+        with:
+          distribution: 'zulu'
+          java-version: ${{ inputs.java-version }}
+      - name: Cache local Maven repo
+        id: cache
+        if: ${{ format('{0}', inputs.cache) == 'true' }}
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Fetch any missing dependencies
+        shell: bash
+        if: ${{ format('{0}', inputs.download_dependencies) == 'true' }}
+        run: ./.github/bin/download-maven-dependencies.sh
+      - name: Configure Problem Matchers
+        if: ${{ inputs.java-version != '' }}
+        shell: bash
+        run: echo "::add-matcher::.github/problem-matcher.json"

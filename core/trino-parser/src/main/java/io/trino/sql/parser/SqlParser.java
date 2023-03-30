@@ -65,7 +65,6 @@ public class SqlParser
             .specialRule(SqlBaseParser.RULE_query, "<query>")
             .specialRule(SqlBaseParser.RULE_type, "<type>")
             .specialToken(SqlBaseLexer.INTEGER_VALUE, "<integer>")
-            .ignoredRule(SqlBaseParser.RULE_nonReserved)
             .build();
 
     private final BiConsumer<SqlBaseLexer, SqlBaseParser> initializer;

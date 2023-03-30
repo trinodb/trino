@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message schema {
+  string a_varchar = 1;
+  uint32 b_integer = 2;
+  uint64 c_bigint = 3;
+  double d_double = 4;
+  float e_float = 5;
+  bool f_boolean = 6;
+  enum Number {
+    ZERO = 0;
+    ONE = 1;
+    TWO = 2;
+  };
+  Number g_enum = 7;
+  google.protobuf.Timestamp h_timestamp = 8;
+}

@@ -86,30 +86,13 @@ public class SnapshotsTable
             pagesBuilder.beginRow();
             pagesBuilder.appendTimestampTzMillis(snapshot.timestampMillis(), timeZoneKey);
             pagesBuilder.appendBigint(snapshot.snapshotId());
-            if (checkNonNull(snapshot.parentId(), pagesBuilder)) {
-                pagesBuilder.appendBigint(snapshot.parentId());
-            }
-            if (checkNonNull(snapshot.operation(), pagesBuilder)) {
-                pagesBuilder.appendVarchar(snapshot.operation());
-            }
-            if (checkNonNull(snapshot.manifestListLocation(), pagesBuilder)) {
-                pagesBuilder.appendVarchar(snapshot.manifestListLocation());
-            }
-            if (checkNonNull(snapshot.summary(), pagesBuilder)) {
-                pagesBuilder.appendVarcharVarcharMap(snapshot.summary());
-            }
+            pagesBuilder.appendBigint(snapshot.parentId());
+            pagesBuilder.appendVarchar(snapshot.operation());
+            pagesBuilder.appendVarchar(snapshot.manifestListLocation());
+            pagesBuilder.appendVarcharVarcharMap(snapshot.summary());
             pagesBuilder.endRow();
         });
 
         return pagesBuilder.build();
-    }
-
-    private static boolean checkNonNull(Object object, PageListBuilder pagesBuilder)
-    {
-        if (object == null) {
-            pagesBuilder.appendNull();
-            return false;
-        }
-        return true;
     }
 }

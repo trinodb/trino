@@ -38,7 +38,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
-import static io.trino.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -130,7 +130,7 @@ public class RewriteSpatialPartitioningAggregation
             partitionCount = getFaultTolerantExecutionPartitionCount(context.getSession());
         }
         else {
-            partitionCount = getHashPartitionCount(context.getSession());
+            partitionCount = getMaxHashPartitionCount(context.getSession());
         }
         return Result.ofPlanNode(
                 AggregationNode.builderFrom(node)
@@ -148,11 +148,10 @@ public class RewriteSpatialPartitioningAggregation
 
     private boolean isStEnvelopeFunctionCall(Expression expression, ResolvedFunction stEnvelopeFunction)
     {
-        if (!(expression instanceof FunctionCall)) {
+        if (!(expression instanceof FunctionCall functionCall)) {
             return false;
         }
 
-        FunctionCall functionCall = (FunctionCall) expression;
         return plannerContext.getMetadata().decodeFunction(functionCall.getName())
                 .getFunctionId()
                 .equals(stEnvelopeFunction.getFunctionId());

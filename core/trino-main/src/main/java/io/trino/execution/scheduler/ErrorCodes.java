@@ -18,6 +18,10 @@ import io.trino.spi.ErrorCode;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 
 public final class ErrorCodes
 {
@@ -28,5 +32,13 @@ public final class ErrorCodes
         return EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode().equals(errorCode)
                 || EXCEEDED_GLOBAL_MEMORY_LIMIT.toErrorCode().equals(errorCode)
                 || CLUSTER_OUT_OF_MEMORY.toErrorCode().equals(errorCode);
+    }
+
+    public static boolean isWorkerCrashAssociatedError(ErrorCode errorCode)
+    {
+        return TOO_MANY_REQUESTS_FAILED.toErrorCode().equals(errorCode)
+                || REMOTE_HOST_GONE.toErrorCode().equals(errorCode)
+                || REMOTE_TASK_MISMATCH.toErrorCode().equals(errorCode)
+                || REMOTE_TASK_ERROR.toErrorCode().equals(errorCode);
     }
 }

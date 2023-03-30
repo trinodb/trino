@@ -48,7 +48,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeSplitManager
 {
@@ -68,7 +68,7 @@ public class TestDeltaLakeSplitManager
             "schema",
             "table",
             "location",
-            Optional.of(metadataEntry),
+            metadataEntry,
             TupleDomain.all(),
             TupleDomain.all(),
             Optional.empty(),
@@ -261,7 +261,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean externalTable)
+        public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean deleteData)
         {
             throw new UnsupportedOperationException("Unimplemented");
         }
@@ -273,7 +273,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
+        public MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
         {
             throw new UnsupportedOperationException("Unimplemented");
         }
@@ -285,7 +285,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public String getTableLocation(SchemaTableName table, ConnectorSession session)
+        public String getTableLocation(SchemaTableName table)
         {
             return TABLE_PATH;
         }

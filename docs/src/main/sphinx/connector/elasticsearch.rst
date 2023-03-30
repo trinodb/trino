@@ -17,8 +17,8 @@ Configuration
 -------------
 
 To configure the Elasticsearch connector, create a catalog properties file
-``etc/catalog/elasticsearch.properties`` with the following contents,
-replacing the properties as appropriate:
+``etc/catalog/example.properties`` with the following contents, replacing the
+properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -38,8 +38,8 @@ Configuration properties
       - Description
       - Default
     * - ``elasticsearch.host``
-      - Hostname of the Elasticsearch node to connect to. This property is
-        required.
+      - The comma-separated list of host names for the Elasticsearch node to
+        connect to. This property is required.
       -
     * - ``elasticsearch.port``
       - Port of the Elasticsearch node to connect to.
@@ -83,9 +83,6 @@ Configuration properties
       - Disables using the address published by Elasticsearch to connect for
         queries.
       -
-    * - ``elasticsearch.legacy-pass-through-query.enabled``
-      - Enables legacy pass-through query
-      - false
 
 TLS security
 ------------
@@ -379,35 +376,6 @@ Elasticsearch Trino         Supports
 (all others)  (unsupported) (unsupported)
 ============= ============= =============
 
-Pass-through queries
---------------------
-
-.. note::
-
-    This feature is deprecated and disabled by default. It's recommended to use
-    ``raw_query`` :doc:`table function</functions/table>` instead.
-    To enable legacy pass-through query please use
-    ``elasticsearch.legacy-pass-through-query-enabled`` configuration property.
-
-The Elasticsearch connector allows you to embed any valid Elasticsearch query,
-that uses the `Elasticsearch Query DSL
-<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html>`_
-in your SQL query.
-
-The results can then be used in any SQL statement, wrapping the Elasticsearch
-query. The syntax extends the syntax of the enhanced Elasticsearch table names
-with the following::
-
-    SELECT * FROM es.default."<index>$query:<es-query>"
-
-The Elasticsearch query string ``es-query`` is base32-encoded to avoid having to
-deal with escaping quotes and case sensitivity issues in table identifiers.
-
-The result of these query tables is a table with a single row and a single
-column named ``result`` of type VARCHAR. It contains the JSON payload returned
-by Elasticsearch, and can be processed with the :doc:`built-in JSON functions
-</functions/json>`.
-
 AWS authorization
 -----------------
 
@@ -452,3 +420,54 @@ SQL support
 The connector provides :ref:`globally available <sql-globally-available>` and
 :ref:`read operation <sql-read-operations>` statements to access data and
 metadata in the Elasticsearch catalog.
+
+Table functions
+---------------
+
+The connector provides specific :doc:`table functions </functions/table>` to
+access Elasticsearch.
+
+.. _elasticsearch-raw-query-function:
+
+``raw_query(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``raw_query`` function allows you to query the underlying database directly.
+This function requires `Elastic Query DSL
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html>`_
+syntax, because the full query is pushed down and processed in Elasticsearch.
+This can be useful for accessing native features which are not available in
+Trino or for improving query performance in situations where running a query
+natively may be faster.
+
+.. include:: polymorphic-table-function-ordering.fragment
+
+The ``raw_query`` function requires three parameters:
+
+* ``schema``: The schema in the catalog that the query is to be executed on.
+* ``index``: The index in Elasticsearch to be searched.
+* ``query``: The query to be executed, written in Elastic Query DSL.
+
+Once executed, the query returns a single row containing the resulting JSON
+payload returned by Elasticsearch.
+
+For example, query the ``example`` catalog and use the ``raw_query`` table
+function to search for documents in the ``orders`` index where the country name
+is ``ALGERIA``::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.raw_query(
+          schema => 'sales',
+          index => 'orders',
+          query => '{
+            "query": {
+              "match": {
+                "name": "ALGERIA"
+              }
+            }
+          }'
+        )
+      );

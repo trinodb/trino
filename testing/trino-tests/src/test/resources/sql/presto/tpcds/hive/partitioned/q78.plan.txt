@@ -32,17 +32,19 @@ local exchange (GATHER, SINGLE, [])
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan date_dim
-                        final aggregation over (d_year_24, ws_bill_customer_sk, ws_item_sk)
-                            local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["d_year_24", "ws_bill_customer_sk", "ws_item_sk"])
-                                    partial aggregation over (d_year_24, ws_bill_customer_sk, ws_item_sk)
-                                        join (INNER, REPLICATED):
-                                            join (LEFT, PARTITIONED):
-                                                remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
-                                                    scan web_sales
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
-                                                        scan web_returns
-                                            local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan date_dim
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk", "ws_item_sk", NullableValue{type=integer, value=2000}])
+                                final aggregation over (d_year_24, ws_bill_customer_sk, ws_item_sk)
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk", "ws_item_sk"])
+                                            partial aggregation over (d_year_24, ws_bill_customer_sk, ws_item_sk)
+                                                join (INNER, REPLICATED):
+                                                    join (LEFT, PARTITIONED):
+                                                        remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
+                                                            scan web_sales
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
+                                                                scan web_returns
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            scan date_dim

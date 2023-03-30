@@ -29,9 +29,11 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
@@ -364,6 +366,10 @@ public class QueryResultRows
 
                 if (type instanceof TimeType) {
                     return ((SqlTime) value).roundTo(3);
+                }
+
+                if (type instanceof TimeWithTimeZoneType) {
+                    return ((SqlTimeWithTimeZone) value).roundTo(3);
                 }
             }
 

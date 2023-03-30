@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.metastore.Database;
@@ -53,8 +54,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -81,6 +82,10 @@ public class TestIcebergProjectionPushdownPlans
         }
         HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+
+        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
+        new IcebergPlugin().getFunctions().forEach(functions::functions);
+        queryRunner.addFunctions(functions.build());
 
         queryRunner.createCatalog(
                 CATALOG,
@@ -109,7 +114,7 @@ public class TestIcebergProjectionPushdownPlans
     @Test
     public void testPushdownDisabled()
     {
-        String testTable = "test_disabled_pushdown" + randomTableSuffix();
+        String testTable = "test_disabled_pushdown" + randomNameSuffix();
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(CATALOG, "projection_pushdown_enabled", "false")
@@ -131,7 +136,7 @@ public class TestIcebergProjectionPushdownPlans
     @Test
     public void testDereferencePushdown()
     {
-        String testTable = "test_simple_projection_pushdown" + randomTableSuffix();
+        String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
 
         getQueryRunner().execute(format(

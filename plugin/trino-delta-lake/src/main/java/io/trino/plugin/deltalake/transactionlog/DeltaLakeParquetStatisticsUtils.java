@@ -110,12 +110,20 @@ public class DeltaLakeParquetStatisticsUtils
             return (long) (int) jsonValue;
         }
         if (type == BIGINT) {
-            return (long) (int) jsonValue;
+            if (jsonValue instanceof Long) {
+                //noinspection RedundantCast
+                return (long) jsonValue;
+            }
+            if (jsonValue instanceof Integer) {
+                return (long) (int) jsonValue;
+            }
+            throw new IllegalArgumentException("Unexpected value for bigint type: " + jsonValue);
         }
         if (type == REAL) {
             return (long) floatToRawIntBits((float) (double) jsonValue);
         }
         if (type == DOUBLE) {
+            //noinspection RedundantCast
             return (double) jsonValue;
         }
         if (type instanceof DecimalType decimalType) {
@@ -184,8 +192,7 @@ public class DeltaLakeParquetStatisticsUtils
         if (type == DOUBLE) {
             return value;
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 return Decimals.toString((long) value, decimalType.getScale());
             }
@@ -290,7 +297,7 @@ public class DeltaLakeParquetStatisticsUtils
             }
             if (statistics instanceof BinaryStatistics) {
                 DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMin());
-                Instant ts = Instant.ofEpochSecond(decodedTimestamp.getEpochSeconds(), decodedTimestamp.getNanosOfSecond());
+                Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC).truncatedTo(MILLIS)));
             }
         }
@@ -367,7 +374,7 @@ public class DeltaLakeParquetStatisticsUtils
             }
             if (statistics instanceof BinaryStatistics) {
                 DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMax());
-                Instant ts = Instant.ofEpochSecond(decodedTimestamp.getEpochSeconds(), decodedTimestamp.getNanosOfSecond());
+                Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
                 ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(ts, UTC);
                 ZonedDateTime truncatedToMillis = zonedDateTime.truncatedTo(MILLIS);
                 if (truncatedToMillis.isBefore(zonedDateTime)) {

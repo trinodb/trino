@@ -52,8 +52,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
@@ -61,6 +60,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -84,6 +84,7 @@ public abstract class BaseRaptorConnectorTest
                 return false;
 
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -97,6 +98,7 @@ public abstract class BaseRaptorConnectorTest
                 return false;
 
             case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
                 return true;
 
@@ -114,6 +116,12 @@ public abstract class BaseRaptorConnectorTest
         throw new SkipException("Raptor connector does not support column default values");
     }
 
+    @Override
+    protected void verifyConcurrentUpdateFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessageContaining("Table was updated by a different transaction. Please retry the operation.");
+    }
+
     @Test
     @Override
     public void testCharVarcharComparison()
@@ -127,12 +135,12 @@ public abstract class BaseRaptorConnectorTest
     public void testRenameTableAcrossSchema()
     {
         // Raptor allows renaming to a schema it doesn't exist https://github.com/trinodb/trino/issues/11110
-        String tableName = "test_rename_old_" + randomTableSuffix();
+        String tableName = "test_rename_old_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
-        String schemaName = "test_schema_" + randomTableSuffix();
+        String schemaName = "test_schema_" + randomNameSuffix();
 
-        String renamedTable = "test_rename_new_" + randomTableSuffix();
+        String renamedTable = "test_rename_new_" + randomNameSuffix();
         assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
@@ -918,7 +926,7 @@ public abstract class BaseRaptorConnectorTest
     {
         assertThat(e)
                 .hasMessageContaining("Failed to perform metadata operation")
-                .getCause()
+                .cause()
                 .hasMessageMatching(
                         "(?s).*SQLIntegrityConstraintViolationException.*" +
                                 "|.*Unique index or primary key violation.*" +
@@ -952,7 +960,7 @@ public abstract class BaseRaptorConnectorTest
     @Test
     public void testMergeMultipleOperationsUnbucketed()
     {
-        String targetTable = "merge_multiple_" + randomTableSuffix();
+        String targetTable = "merge_multiple_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, zipcode INT, spouse VARCHAR, address VARCHAR)", targetTable));
         testMergeMultipleOperationsInternal(targetTable, 32);
     }
@@ -960,7 +968,7 @@ public abstract class BaseRaptorConnectorTest
     @Test
     public void testMergeMultipleOperationsBucketed()
     {
-        String targetTable = "merge_multiple_" + randomTableSuffix();
+        String targetTable = "merge_multiple_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, zipcode INT, spouse VARCHAR, address VARCHAR)" +
                 "   WITH (bucket_count=4, bucketed_on=ARRAY['customer'])", targetTable));
         testMergeMultipleOperationsInternal(targetTable, 32);
@@ -1026,7 +1034,7 @@ public abstract class BaseRaptorConnectorTest
     @Test
     public void testMergeSimpleQueryBucketed()
     {
-        String targetTable = "merge_simple_target_" + randomTableSuffix();
+        String targetTable = "merge_simple_target_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (bucket_count=7, bucketed_on=ARRAY['address'])", targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
@@ -1046,12 +1054,12 @@ public abstract class BaseRaptorConnectorTest
     @Test(dataProvider = "partitionedBucketedFailure")
     public void testMergeMultipleRowsMatchFails(String createTableSql)
     {
-        String targetTable = "merge_all_matches_deleted_target_" + randomTableSuffix();
+        String targetTable = "merge_all_matches_deleted_target_" + randomNameSuffix();
         assertUpdate(format(createTableSql, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
 
-        String sourceTable = "merge_all_matches_deleted_source_" + randomTableSuffix();
+        String sourceTable = "merge_all_matches_deleted_source_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", sourceTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')", sourceTable), 2);
@@ -1087,12 +1095,12 @@ public abstract class BaseRaptorConnectorTest
 
     private void testMergeWithDifferentBucketingInternal(String testDescription, String createTargetTableSql, String createSourceTableSql)
     {
-        String targetTable = format("%s_target_%s", testDescription, randomTableSuffix());
+        String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
         assertUpdate(format(createTargetTableSql, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
-        String sourceTable = format("%s_source_%s", testDescription, randomTableSuffix());
+        String sourceTable = format("%s_source_%s", testDescription, randomNameSuffix());
         assertUpdate(format(createSourceTableSql, sourceTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
@@ -1140,7 +1148,7 @@ public abstract class BaseRaptorConnectorTest
     @Test
     public void testMergeOverManySplits()
     {
-        String targetTable = "merge_delete_select_" + randomTableSuffix();
+        String targetTable = "merge_delete_select_" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (orderkey bigint, custkey bigint, orderstatus varchar(1), totalprice double, orderdate date, orderpriority varchar(15), clerk varchar(15), shippriority integer, comment varchar(79))", targetTable));
 
         assertUpdate(format("INSERT INTO %s SELECT * FROM tpch.\"sf0.1\".orders", targetTable), 150000);

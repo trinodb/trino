@@ -44,11 +44,10 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveTestUtils.SOCKS_PROXY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
-import static io.trino.testing.DistributedQueryRunner.builder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public final class S3HudiQueryRunner
@@ -86,7 +85,7 @@ public final class S3HudiQueryRunner
             // do nothing if database already exists
         }
 
-        DistributedQueryRunner queryRunner = builder(createSession())
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new TestingHudiPlugin(Optional.of(metastore)));
@@ -96,7 +95,7 @@ public final class S3HudiQueryRunner
                 ImmutableMap.<String, String>builder()
                         .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                         .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                        .put("hive.s3.endpoint", hiveMinioDataLake.getMinioAddress())
+                        .put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                         .put("hive.s3.path-style-access", "true")
                         .putAll(connectorProperties)
                         .buildOrThrow());
@@ -123,7 +122,7 @@ public final class S3HudiQueryRunner
                                 new TrinoS3ConfigurationInitializer(new HiveS3Config()
                                         .setS3AwsAccessKey(MINIO_ACCESS_KEY)
                                         .setS3AwsSecretKey(MINIO_SECRET_KEY)
-                                        .setS3Endpoint(hiveMinioDataLake.getMinioAddress())
+                                        .setS3Endpoint(hiveMinioDataLake.getMinio().getMinioAddress())
                                         .setS3PathStyleAccess(true)))),
                 ImmutableSet.of());
 
@@ -142,15 +141,6 @@ public final class S3HudiQueryRunner
         String bucketName = "test-bucket";
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
         hiveMinioDataLake.start();
-        /*
-         * Please set the below VM arguments for the main method to run:
-         *
-         * -ea --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
-         *
-         * TODO: We need to set above arguments due to Hudi's deep reflection based ObjectSizeEstimator.
-         *       Higher versions of jdk block illegal reflective access. This will not be needed after
-         *       https://issues.apache.org/jira/browse/HUDI-4687 is fixed.
-         */
         DistributedQueryRunner queryRunner = create(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

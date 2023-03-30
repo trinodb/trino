@@ -2,7 +2,7 @@
 JDBC driver
 ===========
 
-The Trino `JDBC driver <https://en.wikipedia.org/wiki/JDBC_driver>`_ allows
+The Trino `JDBC driver <https://wikipedia.org/wiki/JDBC_driver>`_ allows
 users to access Trino using Java-based applications, and other non-Java
 applications running in a JVM. Both desktop and server-side applications, such
 as those used for reporting and database development, use the JDBC driver.
@@ -15,6 +15,10 @@ The Trino JDBC driver has the following requirements:
 * Java version 8 or higher.
 * All users that connect to Trino with the JDBC driver must be granted access to
   query tables in the ``system.jdbc`` schema.
+
+The JDBC driver version should be identical to the version of the Trino cluster,
+or newer. Older versions typically work, but only a subset is regularly tested.
+Versions before 350 are not supported.
 
 Installing
 ----------

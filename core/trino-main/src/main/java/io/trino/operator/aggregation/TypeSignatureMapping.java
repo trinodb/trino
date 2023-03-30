@@ -53,15 +53,13 @@ class TypeSignatureMapping
         if (mapping.isEmpty()) {
             return dependency;
         }
-        if (dependency instanceof TypeImplementationDependency) {
-            TypeImplementationDependency typeDependency = (TypeImplementationDependency) dependency;
+        if (dependency instanceof TypeImplementationDependency typeDependency) {
             return new TypeImplementationDependency(mapTypeSignature(typeDependency.getSignature()));
         }
         if (dependency instanceof LiteralImplementationDependency) {
             return dependency;
         }
-        if (dependency instanceof FunctionImplementationDependency) {
-            FunctionImplementationDependency functionDependency = (FunctionImplementationDependency) dependency;
+        if (dependency instanceof FunctionImplementationDependency functionDependency) {
             return new FunctionImplementationDependency(
                     functionDependency.getFullyQualifiedName(),
                     functionDependency.getArgumentTypes().stream()
@@ -70,8 +68,7 @@ class TypeSignatureMapping
                     functionDependency.getInvocationConvention(),
                     functionDependency.getType());
         }
-        if (dependency instanceof OperatorImplementationDependency) {
-            OperatorImplementationDependency operatorDependency = (OperatorImplementationDependency) dependency;
+        if (dependency instanceof OperatorImplementationDependency operatorDependency) {
             return new OperatorImplementationDependency(
                     operatorDependency.getOperator(),
                     operatorDependency.getArgumentTypes().stream()
@@ -80,8 +77,7 @@ class TypeSignatureMapping
                     operatorDependency.getInvocationConvention(),
                     operatorDependency.getType());
         }
-        if (dependency instanceof CastImplementationDependency) {
-            CastImplementationDependency castDependency = (CastImplementationDependency) dependency;
+        if (dependency instanceof CastImplementationDependency castDependency) {
             return new CastImplementationDependency(
                     mapTypeSignature(castDependency.getFromType()),
                     mapTypeSignature(castDependency.getToType()),

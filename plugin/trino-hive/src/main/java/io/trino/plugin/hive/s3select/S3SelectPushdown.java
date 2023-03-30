@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.type.DecimalTypeInfo;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.InputFormat;
@@ -36,18 +36,11 @@ import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveSessionProperties.isS3SelectPushdownEnabled;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.s3select.S3SelectSerDeDataTypeMapper.getDataType;
+import static io.trino.plugin.hive.util.HiveClassNames.TEXT_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getCompressionCodec;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormatName;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde.serdeConstants.BIGINT_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.BOOLEAN_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.DATE_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.DECIMAL_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.INT_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.SMALLINT_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.STRING_TYPE_NAME;
-import static org.apache.hadoop.hive.serde.serdeConstants.TINYINT_TYPE_NAME;
 
 /**
  * S3SelectPushdown uses Amazon S3 Select to push down queries to Amazon S3. This allows Presto to retrieve only a
@@ -65,14 +58,14 @@ public final class S3SelectPushdown
      * using precision.  This means timestamps with different precisions are not equal even actually they present the same instant of time.
      */
     private static final Set<String> SUPPORTED_COLUMN_TYPES = ImmutableSet.of(
-            BOOLEAN_TYPE_NAME,
-            INT_TYPE_NAME,
-            TINYINT_TYPE_NAME,
-            SMALLINT_TYPE_NAME,
-            BIGINT_TYPE_NAME,
-            STRING_TYPE_NAME,
-            DECIMAL_TYPE_NAME,
-            DATE_TYPE_NAME);
+            "boolean",
+            "int",
+            "tinyint",
+            "smallint",
+            "bigint",
+            "string",
+            "decimal",
+            "date");
 
     private S3SelectPushdown() {}
 
@@ -86,7 +79,7 @@ public final class S3SelectPushdown
     {
         String inputFormat = getInputFormatName(schema);
 
-        if (TextInputFormat.class.getName().equals(inputFormat)) {
+        if (TEXT_INPUT_FORMAT_CLASS.equals(inputFormat)) {
             if (!Objects.equals(schema.getProperty(SKIP_HEADER_COUNT_KEY, "0"), "0")) {
                 // S3 Select supports skipping one line of headers, but it was returning incorrect results for trino-hive-hadoop2/conf/files/test_table_with_header.csv.gz
                 // TODO https://github.com/trinodb/trino/issues/2349
@@ -152,7 +145,7 @@ public final class S3SelectPushdown
             String type = column.getType().getHiveTypeName().toString();
             if (column.getType().getTypeInfo() instanceof DecimalTypeInfo) {
                 // skip precision and scale when check decimal type
-                type = DECIMAL_TYPE_NAME;
+                type = "decimal";
             }
             if (!SUPPORTED_COLUMN_TYPES.contains(type)) {
                 return false;

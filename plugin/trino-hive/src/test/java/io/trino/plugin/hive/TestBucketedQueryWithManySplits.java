@@ -32,7 +32,7 @@ public class TestBucketedQueryWithManySplits
                 .setExtraProperties(ImmutableMap.of(
                         "query.schedule-split-batch-size", "1",
                         "node-scheduler.max-splits-per-node", "1",
-                        "node-scheduler.max-pending-splits-per-task", "1"))
+                        "node-scheduler.min-pending-splits-per-task", "1"))
                 .build();
     }
 

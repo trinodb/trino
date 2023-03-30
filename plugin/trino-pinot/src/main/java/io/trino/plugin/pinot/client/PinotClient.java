@@ -155,7 +155,6 @@ public class PinotClient
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)).jsonCodec(Schema.class);
         this.brokerResponseCodec = requireNonNull(brokerResponseCodec, "brokerResponseCodec is null");
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
-        requireNonNull(config, "config is null");
         this.scheme = config.isTlsEnabled() ? "https" : "http";
         this.proxyEnabled = config.getProxyEnabled();
 
@@ -436,8 +435,9 @@ public class PinotClient
                 @JsonProperty String timeValue)
         {
             if (timeColumn != null && timeValue != null) {
-                offlineTimePredicate = Optional.of(format("%s < %s", timeColumn, timeValue));
-                onlineTimePredicate = Optional.of(format("%s >= %s", timeColumn, timeValue));
+                // See org.apache.pinot.broker.requesthandler.BaseBrokerRequestHandler::attachTimeBoundary
+                offlineTimePredicate = Optional.of(format("%s <= %s", timeColumn, timeValue));
+                onlineTimePredicate = Optional.of(format("%s > %s", timeColumn, timeValue));
             }
             else {
                 onlineTimePredicate = Optional.empty();
@@ -572,7 +572,7 @@ public class PinotClient
 
     /**
      * columnIndices: column name -> column index from column handles
-     * indiceToGroupByFunction<Int,String> (groupByFunctions): aggregationIndex -> groupByFunctionName(columnName)
+     * indiceToGroupByFunction&lt;Int,String&gt; (groupByFunctions): aggregationIndex -> groupByFunctionName(columnName)
      * groupByFunctions is for values
      * groupByColumnNames: from aggregationResult.groupByResult.groupByColumnNames()
      * aggregationResults[GroupByColumns, GroupByResult]

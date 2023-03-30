@@ -31,8 +31,6 @@ import javax.validation.constraints.NotNull;
 public class NodeMemoryConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
-    public static final String QUERY_MAX_MEMORY_PER_NODE_CONFIG = "query.max-memory-per-node";
-
     private DataSize maxQueryMemoryPerNode = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
 
     private DataSize heapHeadroom = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3));
@@ -43,7 +41,7 @@ public class NodeMemoryConfig
         return maxQueryMemoryPerNode;
     }
 
-    @Config(QUERY_MAX_MEMORY_PER_NODE_CONFIG)
+    @Config("query.max-memory-per-node")
     public NodeMemoryConfig setMaxQueryMemoryPerNode(DataSize maxQueryMemoryPerNode)
     {
         this.maxQueryMemoryPerNode = maxQueryMemoryPerNode;

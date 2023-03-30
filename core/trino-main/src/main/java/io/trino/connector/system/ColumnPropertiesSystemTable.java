@@ -14,7 +14,8 @@
 package io.trino.connector.system;
 
 import io.trino.metadata.ColumnPropertyManager;
-import io.trino.transaction.TransactionManager;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
 
 import javax.inject.Inject;
 
@@ -22,8 +23,8 @@ public class ColumnPropertiesSystemTable
         extends AbstractPropertiesSystemTable
 {
     @Inject
-    public ColumnPropertiesSystemTable(TransactionManager transactionManager, ColumnPropertyManager columnPropertyManager)
+    public ColumnPropertiesSystemTable(Metadata metadata, AccessControl accessControl, ColumnPropertyManager columnPropertyManager)
     {
-        super("column_properties", transactionManager, columnPropertyManager::getAllProperties);
+        super("column_properties", metadata, accessControl, columnPropertyManager::getAllProperties);
     }
 }

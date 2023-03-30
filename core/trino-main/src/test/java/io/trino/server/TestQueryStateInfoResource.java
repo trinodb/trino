@@ -44,11 +44,11 @@ import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static io.trino.testing.TestingAccessControlManager.privilege;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -119,6 +119,8 @@ public class TestQueryStateInfoResource
         closer.register(server);
         closer.register(client);
         closer.close();
+        server = null;
+        client = null;
     }
 
     @Test

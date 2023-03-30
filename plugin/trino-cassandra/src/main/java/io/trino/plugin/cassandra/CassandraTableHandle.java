@@ -14,79 +14,56 @@
 package io.trino.plugin.cassandra;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.SchemaTableName;
 
-import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Stream;
 
-import static java.lang.String.format;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public class CassandraTableHandle
         implements ConnectorTableHandle
 {
-    private final String schemaName;
-    private final String tableName;
-    private final Optional<List<CassandraPartition>> partitions;
-    private final String clusteringKeyPredicates;
-
-    public CassandraTableHandle(String schemaName, String tableName)
-    {
-        this(schemaName, tableName, Optional.empty(), "");
-    }
+    private final CassandraRelationHandle relationHandle;
 
     @JsonCreator
-    public CassandraTableHandle(
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("partitions") Optional<List<CassandraPartition>> partitions,
-            @JsonProperty("clusteringKeyPredicates") String clusteringKeyPredicates)
+    public CassandraTableHandle(@JsonProperty("relationHandle") CassandraRelationHandle relationHandle)
     {
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partitions = partitions.map(ImmutableList::copyOf);
-        this.clusteringKeyPredicates = requireNonNull(clusteringKeyPredicates, "clusteringKeyPredicates is null");
+        this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public CassandraRelationHandle getRelationHandle()
     {
-        return schemaName;
+        return relationHandle;
     }
 
-    @JsonProperty
-    public String getTableName()
+    @JsonIgnore
+    public CassandraNamedRelationHandle getRequiredNamedRelation()
     {
-        return tableName;
+        checkState(isNamedRelation(), "The table handle does not represent a named relation: %s", this);
+        return (CassandraNamedRelationHandle) relationHandle;
     }
 
-    @JsonProperty
-    public Optional<List<CassandraPartition>> getPartitions()
+    @JsonIgnore
+    public boolean isSynthetic()
     {
-        return partitions;
+        return !isNamedRelation();
     }
 
-    @JsonProperty
-    public String getClusteringKeyPredicates()
+    @JsonIgnore
+    public boolean isNamedRelation()
     {
-        return clusteringKeyPredicates;
-    }
-
-    public SchemaTableName getSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, tableName);
+        return relationHandle instanceof CassandraNamedRelationHandle;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, partitions, clusteringKeyPredicates);
+        return Objects.hash(relationHandle);
     }
 
     @Override
@@ -99,30 +76,14 @@ public class CassandraTableHandle
             return false;
         }
         CassandraTableHandle other = (CassandraTableHandle) obj;
-        return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.partitions, other.partitions) &&
-                Objects.equals(this.clusteringKeyPredicates, other.clusteringKeyPredicates);
+        return Objects.equals(this.relationHandle, other.relationHandle);
     }
 
     @Override
     public String toString()
     {
-        String result = format("%s:%s", schemaName, tableName);
-        if (this.partitions.isPresent()) {
-            List<CassandraPartition> partitions = this.partitions.get();
-            result += format(
-                    " %d partitions %s",
-                    partitions.size(),
-                    Stream.concat(
-                                    partitions.subList(0, Math.min(partitions.size(), 3)).stream(),
-                                    partitions.size() > 3 ? Stream.of("...") : Stream.of())
-                            .map(Object::toString)
-                            .collect(joining(", ", "[", "]")));
-        }
-        if (!clusteringKeyPredicates.isEmpty()) {
-            result += format(" constraint(%s)", clusteringKeyPredicates);
-        }
-        return result;
+        return toStringHelper(this)
+                .add("relationHandle", relationHandle)
+                .toString();
     }
 }

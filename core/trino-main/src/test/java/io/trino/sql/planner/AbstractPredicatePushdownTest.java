@@ -552,6 +552,19 @@ public abstract class AbstractPredicatePushdownTest
                                                 ImmutableMap.of("ORDERSTATUS", "orderstatus"))))));
     }
 
+    @Test
+    public void testOnlyNullPredicateIsPushDownThroughJoinFilters()
+    {
+        assertPlan(
+                """
+                WITH t(a) AS (VALUES 'a', 'b')
+                SELECT *
+                FROM t t1 JOIN t t2 ON true
+                WHERE t1.a = 'aa'
+                """,
+                output(values("field", "field_0")));
+    }
+
     private Session noSemiJoinRewrite()
     {
         return Session.builder(getQueryRunner().getDefaultSession())

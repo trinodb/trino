@@ -67,7 +67,7 @@ public class TestErrorThrowableInQuery
                     SchemaTableName classFormatErrorTableName = new SchemaTableName("default", "class_format_error_during_planning");
 
                     MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                            .withListTables((session, s) -> ImmutableList.of(stackOverflowErrorTableName))
+                            .withListTables((session, s) -> ImmutableList.of(stackOverflowErrorTableName.getTableName()))
                             .withGetColumns(schemaTableName -> ImmutableList.of(
                                     new ColumnMetadata("test_varchar", createUnboundedVarcharType()),
                                     new ColumnMetadata("test_bigint", BIGINT)))

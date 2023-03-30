@@ -24,7 +24,6 @@ import io.trino.plugin.bigquery.BigQueryClientFactory;
 import io.trino.plugin.bigquery.BigQueryColumnHandle;
 import io.trino.plugin.bigquery.BigQueryQueryRelationHandle;
 import io.trino.plugin.bigquery.BigQueryTableHandle;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -110,13 +109,12 @@ public class Query
                 }
                 columnsBuilder.add(toColumnHandle(field));
             }
-            List<BigQueryColumnHandle> columns = columnsBuilder.build();
 
             Descriptor returnedType = new Descriptor(columnsBuilder.build().stream()
                     .map(column -> new Field(column.getName(), Optional.of(column.getTrinoType())))
                     .collect(toList()));
 
-            QueryHandle handle = new QueryHandle(tableHandle.withProjectedColumns(columns.stream().map(column -> (ColumnHandle) column).collect(toList())));
+            QueryHandle handle = new QueryHandle(tableHandle.withProjectedColumns(columnsBuilder.build()));
 
             return TableFunctionAnalysis.builder()
                     .returnedType(returnedType)

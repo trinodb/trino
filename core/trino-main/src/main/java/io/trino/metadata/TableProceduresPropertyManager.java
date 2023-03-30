@@ -15,9 +15,9 @@ package io.trino.metadata;
 
 import com.google.common.collect.Maps;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.PlannerContext;

@@ -54,9 +54,10 @@ import static io.trino.spi.StandardErrorCode.USER_CANCELED;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.KILL_QUERY;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static io.trino.testing.TestingAccessControlManager.privilege;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -82,6 +83,8 @@ public class TestQueryResource
             throws Exception
     {
         closeAll(server, client);
+        server = null;
+        client = null;
     }
 
     @Test
@@ -112,7 +115,7 @@ public class TestQueryResource
                             .build(),
                     createJsonResponseHandler(jsonCodec(QueryResults.class)));
 
-            assertEquals(attempt2.getData(), attempt1.getData());
+            assertThat(attempt2.getData()).isEqualTo(attempt1.getData());
 
             uri = attempt1.getNextUri();
         }

@@ -14,11 +14,14 @@
 package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.assertj.core.api.Condition;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -30,19 +33,32 @@ import java.util.stream.Stream;
 
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public class TestSphericalGeoFunctions
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void registerFunctions()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        functionAssertions.installPlugin(new GeoPlugin());
+        assertions = new QueryAssertions();
+        assertions.addPlugin(new GeoPlugin());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
@@ -79,71 +95,116 @@ public class TestSphericalGeoFunctions
     public void testToAndFromSphericalGeography()
     {
         // empty geometries
-        assertToAndFromSphericalGeography("POINT EMPTY");
-        assertToAndFromSphericalGeography("MULTIPOINT EMPTY");
-        assertToAndFromSphericalGeography("LINESTRING EMPTY");
-        assertToAndFromSphericalGeography("MULTILINESTRING EMPTY");
-        assertToAndFromSphericalGeography("POLYGON EMPTY");
-        assertToAndFromSphericalGeography("MULTIPOLYGON EMPTY");
-        assertToAndFromSphericalGeography("GEOMETRYCOLLECTION EMPTY");
+        assertThat(assertions.function("to_geometry", toSphericalGeography("POINT EMPTY")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('POINT EMPTY')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("MULTIPOINT EMPTY")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('MULTIPOINT EMPTY')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("LINESTRING EMPTY")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('LINESTRING EMPTY')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("MULTILINESTRING EMPTY")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('MULTILINESTRING EMPTY')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("POLYGON EMPTY")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('POLYGON EMPTY')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("MULTIPOLYGON EMPTY")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('MULTIPOLYGON EMPTY')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("GEOMETRYCOLLECTION EMPTY")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('GEOMETRYCOLLECTION EMPTY')");
 
         // valid nonempty geometries
-        assertToAndFromSphericalGeography("POINT (-40.2 28.9)");
-        assertToAndFromSphericalGeography("MULTIPOINT ((-40.2 28.9), (-40.2 31.9))");
-        assertToAndFromSphericalGeography("LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9)");
-        assertToAndFromSphericalGeography("MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 31.9, -37.2 31.9))");
-        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9))");
-        assertToAndFromSphericalGeography("POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9), " +
-                "(-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))");
-        assertToAndFromSphericalGeography("MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), " +
-                "((-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9)))");
-        assertToAndFromSphericalGeography("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), " +
-                "POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))");
+        assertThat(assertions.function("to_geometry", toSphericalGeography("POINT (-40.2 28.9)")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('POINT (-40.2 28.9)')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("MULTIPOINT ((-40.2 28.9), (-40.2 31.9))")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('MULTIPOINT ((-40.2 28.9), (-40.2 31.9))')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9)")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9)')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 31.9, -37.2 31.9))")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 31.9, -37.2 31.9))')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9))")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9))')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), ((-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9)))")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('MULTIPOLYGON (((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)), ((-39.2 29.9, -38.2 29.9, -38.2 30.9, -39.2 30.9, -39.2 29.9)))')");
+
+        assertThat(assertions.function("to_geometry", toSphericalGeography("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))")))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 31.9, -37.2 31.9), POLYGON ((-40.2 28.9, -37.2 28.9, -37.2 31.9, -40.2 31.9, -40.2 28.9)))')");
 
         // geometries containing invalid latitude or longitude values
-        assertInvalidLongitude("POINT (-340.2 28.9)");
-        assertInvalidLatitude("MULTIPOINT ((-40.2 128.9), (-40.2 31.9))");
-        assertInvalidLongitude("LINESTRING (-40.2 28.9, -40.2 31.9, 237.2 31.9)");
-        assertInvalidLatitude("MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 131.9, -37.2 31.9))");
-        assertInvalidLongitude("POLYGON ((-40.2 28.9, -40.2 31.9, 237.2 31.9, -37.2 28.9, -40.2 28.9))");
-        assertInvalidLatitude("POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 131.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))");
-        assertInvalidLongitude("MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), " +
-                "((-39.2 29.9, -39.2 30.9, 238.2 30.9, -38.2 29.9, -39.2 29.9)))");
-        assertInvalidLatitude("GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9), " +
-                "POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))");
-    }
+        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('POINT (-340.2 28.9)')").evaluate())
+                .hasMessage("Longitude must be between -180 and 180");
 
-    private void assertToAndFromSphericalGeography(String wkt)
-    {
-        assertFunction(format("ST_AsText(to_geometry(to_spherical_geography(ST_GeometryFromText('%s'))))", wkt), VARCHAR, wkt);
-    }
+        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTIPOINT ((-40.2 128.9), (-40.2 31.9))')").evaluate())
+                .hasMessage("Latitude must be between -90 and 90");
 
-    private void assertInvalidLongitude(String wkt)
-    {
-        assertInvalidFunction(format("to_spherical_geography(ST_GeometryFromText('%s'))", wkt), "Longitude must be between -180 and 180");
-    }
+        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('LINESTRING (-40.2 28.9, -40.2 31.9, 237.2 31.9)')").evaluate())
+                .hasMessage("Longitude must be between -180 and 180");
 
-    private void assertInvalidLatitude(String wkt)
-    {
-        assertInvalidFunction(format("to_spherical_geography(ST_GeometryFromText('%s'))", wkt), "Latitude must be between -90 and 90");
+        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTILINESTRING ((-40.2 28.9, -40.2 31.9), (-40.2 131.9, -37.2 31.9))')").evaluate())
+                .hasMessage("Latitude must be between -90 and 90");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('POLYGON ((-40.2 28.9, -40.2 31.9, 237.2 31.9, -37.2 28.9, -40.2 28.9))')").evaluate())
+                .hasMessage("Longitude must be between -180 and 180");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 131.9, -37.2 28.9, -40.2 28.9), (-39.2 29.9, -39.2 30.9, -38.2 30.9, -38.2 29.9, -39.2 29.9))')").evaluate())
+                .hasMessage("Latitude must be between -90 and 90");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('MULTIPOLYGON (((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)), ((-39.2 29.9, -39.2 30.9, 238.2 30.9, -38.2 29.9, -39.2 29.9)))')").evaluate())
+                .hasMessage("Longitude must be between -180 and 180");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("to_spherical_geography", "ST_GeometryFromText('GEOMETRYCOLLECTION (POINT (-40.2 28.9), LINESTRING (-40.2 28.9, -40.2 131.9, -37.2 31.9), POLYGON ((-40.2 28.9, -40.2 31.9, -37.2 31.9, -37.2 28.9, -40.2 28.9)))')").evaluate())
+                .hasMessage("Latitude must be between -90 and 90");
     }
 
     @Test
     public void testDistance()
     {
-        assertDistance("POINT (-86.67 36.12)", "POINT (-118.40 33.94)", 2886448.9734367016);
-        assertDistance("POINT (-118.40 33.94)", "POINT (-86.67 36.12)", 2886448.9734367016);
-        assertDistance("POINT (-71.0589 42.3601)", "POINT (-71.2290 42.4430)", 16734.69743457383);
-        assertDistance("POINT (-86.67 36.12)", "POINT (-86.67 36.12)", 0.0);
+        assertThat(assertions.function("ST_Distance", toSphericalGeography("POINT (-86.67 36.12)"), toSphericalGeography("POINT (-118.40 33.94)")))
+                .isEqualTo(2886448.9734367016);
 
-        assertDistance("POINT EMPTY", "POINT (40 30)", null);
-        assertDistance("POINT (20 10)", "POINT EMPTY", null);
-        assertDistance("POINT EMPTY", "POINT EMPTY", null);
-    }
+        assertThat(assertions.function("ST_Distance", toSphericalGeography("POINT (-118.40 33.94)"), toSphericalGeography("POINT (-86.67 36.12)")))
+                .isEqualTo(2886448.9734367016);
 
-    private void assertDistance(String wkt, String otherWkt, Double expectedDistance)
-    {
-        assertFunction(format("ST_Distance(to_spherical_geography(ST_GeometryFromText('%s')), to_spherical_geography(ST_GeometryFromText('%s')))", wkt, otherWkt), DOUBLE, expectedDistance);
+        assertThat(assertions.function("ST_Distance", toSphericalGeography("POINT (-71.0589 42.3601)"), toSphericalGeography("POINT (-71.2290 42.4430)")))
+                .isEqualTo(16734.69743457383);
+
+        assertThat(assertions.function("ST_Distance", toSphericalGeography("POINT (-86.67 36.12)"), toSphericalGeography("POINT (-86.67 36.12)")))
+                .isEqualTo(0.0);
+
+        assertThat(assertions.function("ST_Distance", toSphericalGeography("POINT EMPTY"), toSphericalGeography("POINT (40 30)")))
+                .isNull(DOUBLE);
+
+        assertThat(assertions.function("ST_Distance", toSphericalGeography("POINT (20 10)"), toSphericalGeography("POINT EMPTY")))
+                .isNull(DOUBLE);
+
+        assertThat(assertions.function("ST_Distance", toSphericalGeography("POINT EMPTY"), toSphericalGeography("POINT EMPTY")))
+                .isNull(DOUBLE);
     }
 
     @Test
@@ -151,32 +212,43 @@ public class TestSphericalGeoFunctions
             throws Exception
     {
         // Empty polygon
-        assertFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON EMPTY')))", DOUBLE, null);
+        assertThat(assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON EMPTY')))"))
+                .hasType(DOUBLE)
+                .isEqualTo((Object) null);
 
         // Invalid polygon (too few vertices)
-        assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0))')))", "Polygon is not valid: a loop contains less then 3 vertices.");
+        assertTrinoExceptionThrownBy(() -> assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((90 0, 0 0))')))").evaluate())
+                .hasMessage("Polygon is not valid: a loop contains less then 3 vertices.");
 
         // Invalid data type (point)
-        assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))", "When applied to SphericalGeography inputs, ST_Area only supports POLYGON or MULTI_POLYGON. Input type is: POINT");
+        assertTrinoExceptionThrownBy(() -> assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POINT (0 1)')))").evaluate())
+                .hasMessage("When applied to SphericalGeography inputs, ST_Area only supports POLYGON or MULTI_POLYGON. Input type is: POINT");
 
         //Invalid Polygon (duplicated point)
-        assertInvalidFunction("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')))", "Polygon is not valid: it has two identical consecutive vertices");
+        assertTrinoExceptionThrownBy(() -> assertions.expression("ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON((0 0, 0 1, 1 1, 1 1, 1 0, 0 0))')))").evaluate())
+                .hasMessage("Polygon is not valid: it has two identical consecutive vertices");
 
         // A polygon around the North Pole
-        assertArea("POLYGON((-135 85, -45 85, 45 85, 135 85, -135 85))", 619.00E9);
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((-135 85, -45 85, 45 85, 135 85, -135 85))")))
+                .satisfies(approximatelyEqualTo(619.00E9, 0.00001));
 
-        assertArea("POLYGON((0 0, 0 1, 1 1, 1 0))", 123.64E8);
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((0 0, 0 1, 1 1, 1 0))")))
+                .satisfies(approximatelyEqualTo(123.64E8, 0.00001));
 
-        assertArea("POLYGON((-122.150124 37.486095, -122.149201 37.486606,  -122.145725 37.486580, -122.145923 37.483961 , -122.149324 37.482480 ,  -122.150837 37.483238,  -122.150901 37.485392))", 163290.93943446054);
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((-122.150124 37.486095, -122.149201 37.486606,  -122.145725 37.486580, -122.145923 37.483961 , -122.149324 37.482480 ,  -122.150837 37.483238,  -122.150901 37.485392))")))
+                .satisfies(approximatelyEqualTo(163290.93943446054, 0.00001));
 
         double angleOfOneKm = 0.008993201943349;
-        assertArea(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm), 1E6);
+        assertThat(assertions.function("ST_Area", toSphericalGeography(format("POLYGON((0 0, %.15f 0, %.15f %.15f, 0 %.15f))", angleOfOneKm, angleOfOneKm, angleOfOneKm, angleOfOneKm))))
+                .satisfies(approximatelyEqualTo(1E6, 0.00001));
 
         // 1/4th of an hemisphere, ie 1/8th of the planet, should be close to 4PiR2/8 = 637.58E11
-        assertArea("POLYGON((90 0, 0 0, 0 90))", 637.58E11);
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90))")))
+                .satisfies(approximatelyEqualTo(637.58E11, 0.00001));
 
         //A Polygon with a large hole
-        assertArea("POLYGON((90 0, 0 0, 0 90), (89 1, 1 1, 1 89))", 348.04E10);
+        assertThat(assertions.function("ST_Area", toSphericalGeography("POLYGON((90 0, 0 0, 0 90), (89 1, 1 1, 1 89))")))
+                .satisfies(approximatelyEqualTo(348.04E10, 0.00001));
 
         Path geometryPath = new File(getResource("us-states.tsv").toURI()).toPath();
         Map<String, String> stateGeometries;
@@ -196,12 +268,20 @@ public class TestSphericalGeoFunctions
         }
 
         for (String state : stateGeometries.keySet()) {
-            assertArea(stateGeometries.get(state), stateAreas.get(state));
+            String wkt = stateGeometries.get(state);
+            double expectedArea = stateAreas.get(state);
+            assertThat(assertions.function("ST_Area", toSphericalGeography(wkt)))
+                    .satisfies(approximatelyEqualTo(expectedArea, 0.00001));
         }
     }
 
-    private void assertArea(String wkt, double expectedArea)
+    private static Condition<Object> approximatelyEqualTo(double expected, double tolerance)
     {
-        assertFunction(format("ABS(ROUND((ST_Area(to_spherical_geography(ST_GeometryFromText('%s'))) / %f - 1 ) * %d, 0))", wkt, expectedArea, 10000), DOUBLE, 0.0);
+        return new Condition<>((Object value) -> Math.abs(((Double) value) / expected - 1) < tolerance, "Approximately equal to %s within %s%%", expected, tolerance * 100);
+    }
+
+    private static String toSphericalGeography(String wkt)
+    {
+        return "to_spherical_geography(ST_GeometryFromText('%s'))".formatted(wkt);
     }
 }

@@ -41,7 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
-import static io.trino.execution.ParameterExtractor.getParameters;
+import static io.trino.execution.ParameterExtractor.extractParameters;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.ascending;
@@ -116,10 +116,15 @@ public final class DescribeInputRewrite
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
 
             // get all parameters in query
-            List<Parameter> parameters = getParameters(statement);
+            List<Parameter> parameters = extractParameters(statement);
+
+            ImmutableList.Builder<Row> builder = ImmutableList.builder();
+            for (int i = 0; i < parameters.size(); i++) {
+                builder.add(createDescribeInputRow(session, i, parameters.get(i), analysis));
+            }
 
             // return the positions and types of all parameters
-            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(session, parameter, analysis)).toArray(Row[]::new);
+            Row[] rows = builder.build().toArray(Row[]::new);
             Optional<Node> limit = Optional.empty();
             if (rows.length == 0) {
                 rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
@@ -140,7 +145,7 @@ public final class DescribeInputRewrite
                     limit);
         }
 
-        private static Row createDescribeInputRow(Session session, Parameter parameter, Analysis queryAnalysis)
+        private static Row createDescribeInputRow(Session session, int position, Parameter parameter, Analysis queryAnalysis)
         {
             Type type = queryAnalysis.getCoercion(parameter);
             if (type == null) {
@@ -148,7 +153,7 @@ public final class DescribeInputRewrite
             }
 
             return row(
-                    new LongLiteral(Integer.toString(parameter.getPosition())),
+                    new LongLiteral(Integer.toString(position)),
                     new StringLiteral(getDisplayLabel(type, isOmitDateTimeTypePrecision(session))));
         }
 

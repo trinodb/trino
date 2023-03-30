@@ -14,17 +14,19 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.io.InputFile;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.Closeable;
-import java.io.OutputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,7 +44,7 @@ public class IcebergParquetFileWriter
 
     public IcebergParquetFileWriter(
             MetricsConfig metricsConfig,
-            OutputStream outputStream,
+            TrinoOutputFile outputFile,
             Closeable rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
@@ -50,12 +52,13 @@ public class IcebergParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             String trinoVersion,
             String outputPath,
             TrinoFileSystem fileSystem)
+            throws IOException
     {
-        super(outputStream,
+        super(outputFile,
                 rollbackAction,
                 fileColumnTypes,
                 fileColumnNames,
@@ -63,8 +66,9 @@ public class IcebergParquetFileWriter
                 primitiveTypes,
                 parquetWriterOptions,
                 fileInputColumnIndexes,
-                compressionCodecName,
+                compressionCodec,
                 trinoVersion,
+                false,
                 Optional.empty(),
                 Optional.empty());
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
@@ -75,7 +79,7 @@ public class IcebergParquetFileWriter
     @Override
     public Metrics getMetrics()
     {
-        InputFile inputFile = fileSystem.toFileIo().newInputFile(outputPath);
+        InputFile inputFile = new ForwardingFileIo(fileSystem).newInputFile(outputPath);
         return fileMetrics(inputFile, metricsConfig);
     }
 }

@@ -16,14 +16,14 @@ package io.trino.plugin.deltalake;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public abstract class BaseDeltaLakeSharedMetastoreWithTableRedirectionsTest
         extends AbstractTestQueryFramework
 {
-    protected final String schema = "test_shared_schema_" + randomTableSuffix();
+    protected final String schema = "test_shared_schema_" + randomNameSuffix();
 
     protected abstract String getExpectedHiveCreateSchema(String catalogName);
 

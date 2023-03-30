@@ -14,6 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.io.Resources;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -70,5 +71,13 @@ public class TestPrometheusQueryScalarResponseParse
         URL promMatrixResponse = Resources.getResource(getClass(), "/prometheus-data/up_scalar_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
         this.promVectorResponse = promMatrixResponse.openStream();
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+            throws Exception
+    {
+        promVectorResponse.close();
+        promVectorResponse = null;
     }
 }

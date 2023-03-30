@@ -104,7 +104,7 @@ public class TestMySqlLegacyConnectorTest
                 .map(value -> format("'%1$s', '%1$s'", value))
                 .collect(toImmutableList());
 
-        try (TestTable testTable = new TestTable(onRemoteDatabase(), "tpch.distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5) CHARACTER SET utf8mb4)", rows)) {
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), "tpch.distinct_strings", "(t_char CHAR(5) CHARACTER SET utf8mb4, t_varchar VARCHAR(5) CHARACTER SET utf8mb4)", rows)) {
             // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
             Session optimizeHashGenerationDisabled = Session.builder(getSession())
                     .setSystemProperty("optimize_hash_generation", "false")
@@ -166,5 +166,13 @@ public class TestMySqlLegacyConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Identifier name .* is too long");
+    }
+
+    @Override
+    public void testNativeQueryWithClause()
+    {
+        // Override because MySQL 5.x doesn't support WITH clause
+        assertThatThrownBy(super::testNativeQueryWithClause)
+                .hasStackTraceContaining("Failed to get table handle for prepared query. You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version");
     }
 }

@@ -33,7 +33,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.ArrayType;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -42,9 +41,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -94,15 +95,20 @@ public class RegisterPartitionProcedure
                 REGISTER_PARTITION.bindTo(this));
     }
 
-    public void registerPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
+    public void registerPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumns, List<String> partitionValues, String location)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            doRegisterPartition(session, accessControl, schemaName, tableName, partitionColumn, partitionValues, location);
+            doRegisterPartition(session, accessControl, schemaName, tableName, partitionColumns, partitionValues, location);
         }
     }
 
-    private void doRegisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
+    private void doRegisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumns, List<String> partitionValues, String location)
     {
+        checkProcedureArgument(schemaName != null, "schema_name cannot be null");
+        checkProcedureArgument(tableName != null, "table_name cannot be null");
+        checkProcedureArgument(partitionColumns != null, "partition_columns cannot be null");
+        checkProcedureArgument(partitionValues != null, "partition_values cannot be null");
+
         if (!allowRegisterPartition) {
             throw new TrinoException(PERMISSION_DENIED, "register_partition procedure is disabled");
         }
@@ -118,18 +124,18 @@ public class RegisterPartitionProcedure
         accessControl.checkCanInsertIntoTable(null, schemaTableName);
 
         checkIsPartitionedTable(table);
-        checkPartitionColumns(table, partitionColumn);
+        checkPartitionColumns(table, partitionColumns);
 
         Optional<Partition> partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues);
         if (partition.isPresent()) {
-            String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
+            String partitionName = makePartName(partitionColumns, partitionValues);
             throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
         }
 
         Path partitionLocation;
 
         if (location == null) {
-            partitionLocation = new Path(table.getStorage().getLocation(), FileUtils.makePartName(partitionColumn, partitionValues));
+            partitionLocation = new Path(table.getStorage().getLocation(), makePartName(partitionColumns, partitionValues));
         }
         else {
             partitionLocation = new Path(location);

@@ -2,7 +2,9 @@
 Migrating from Hive
 ===================
 
-Trino uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).
+Trino uses ANSI SQL syntax and semantics, whereas Hive uses a language similar
+to SQL called HiveQL which is loosely modeled after MySQL (which itself has many
+differences from ANSI SQL).
 
 Use subscript for accessing a dynamic index of an array instead of a udf
 ------------------------------------------------------------------------
@@ -109,6 +111,23 @@ Trino query::
     SELECT student, score
     FROM tests
     CROSS JOIN UNNEST(scores) AS t (score);
+
+Use ANSI SQL syntax for date and time INTERVAL expressions
+----------------------------------------------------------
+
+Trino supports the ANSI SQL style ``INTERVAL`` expressions that differs from the implementation used in Hive.
+
+* The ``INTERVAL`` keyword is required and is not optional.
+* Date and time units must be singular. For example ``day`` and not ``days``.
+* Values must be quoted.
+
+Hive query::
+
+    SELECT cast('2000-08-19' as date) + 14 days;
+
+Equivalent Trino query::
+
+    SELECT cast('2000-08-19' as date) + INTERVAL '14' day;
 
 Caution with datediff
 ---------------------

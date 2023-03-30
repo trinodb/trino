@@ -19,11 +19,8 @@ import io.trino.spi.security.Identity;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public final class AccessControlUtil
 {
@@ -43,19 +40,14 @@ public final class AccessControlUtil
                 .map(BasicQueryInfo::getSession)
                 .map(SessionRepresentation::toIdentity)
                 .filter(owner -> !owner.getUser().equals(identity.getUser()))
-                .map(FullIdentityEquality::new)
                 .distinct()
-                .map(FullIdentityEquality::getIdentity)
                 .collect(toImmutableList());
-        owners = accessControl.filterQueriesOwnedBy(identity, owners);
+        Collection<Identity> allowedOwners = accessControl.filterQueriesOwnedBy(identity, owners);
 
-        Set<FullIdentityEquality> allowedOwners = owners.stream()
-                .map(FullIdentityEquality::new)
-                .collect(toImmutableSet());
         return queries.stream()
                 .filter(queryInfo -> {
                     Identity queryIdentity = queryInfo.getSession().toIdentity();
-                    return queryIdentity.getUser().equals(identity.getUser()) || allowedOwners.contains(new FullIdentityEquality(queryIdentity));
+                    return queryIdentity.getUser().equals(identity.getUser()) || allowedOwners.contains(queryIdentity);
                 })
                 .collect(toImmutableList());
     }
@@ -66,48 +58,5 @@ public final class AccessControlUtil
             return;
         }
         accessControl.checkCanKillQueryOwnedBy(identity, queryOwner);
-    }
-
-    private static class FullIdentityEquality
-    {
-        private final Identity identity;
-
-        public FullIdentityEquality(Identity identity)
-        {
-            this.identity = identity;
-        }
-
-        public Identity getIdentity()
-        {
-            return identity;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            FullIdentityEquality that = (FullIdentityEquality) o;
-            return Objects.equals(identity.getUser(), that.identity.getUser()) &&
-                    Objects.equals(identity.getGroups(), that.identity.getGroups()) &&
-                    Objects.equals(identity.getPrincipal(), that.identity.getPrincipal()) &&
-                    Objects.equals(identity.getEnabledRoles(), that.identity.getEnabledRoles()) &&
-                    Objects.equals(identity.getCatalogRoles(), that.identity.getCatalogRoles());
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(
-                    identity.getUser(),
-                    identity.getGroups(),
-                    identity.getPrincipal(),
-                    identity.getEnabledRoles(),
-                    identity.getCatalogRoles());
-        }
     }
 }

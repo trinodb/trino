@@ -37,7 +37,7 @@ import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DataProviders.trueFalse;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
@@ -55,7 +55,11 @@ public class TestSqlServerConnectorTest
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSqlServerQueryRunner(
+                sqlServer,
+                ImmutableMap.of(),
+                ImmutableMap.of("sqlserver.experimental.stored-procedure-table-function-enabled", "true"),
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override
@@ -69,7 +73,7 @@ public class TestSqlServerConnectorTest
     public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyLock)
             throws SQLException
     {
-        String table = "bulk_copy_ctas_" + randomTableSuffix();
+        String table = "bulk_copy_ctas_" + randomNameSuffix();
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE, Boolean.toString(bulkCopyForWrite))
                 .setCatalogSessionProperty(CATALOG, BULK_COPY_FOR_WRITE_LOCK_DESTINATION_TABLE, Boolean.toString(bulkCopyLock))
@@ -77,6 +81,7 @@ public class TestSqlServerConnectorTest
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer", table));
+        assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
 
         // check whether minimal logging was applied.
         // Unlike fully logged operations, which use the transaction log to keep track of every row change,
@@ -97,7 +102,7 @@ public class TestSqlServerConnectorTest
     public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite, boolean bulkCopyForWriteLockDestinationTable)
             throws SQLException
     {
-        String table = "bulk_copy_insert_" + randomTableSuffix();
+        String table = "bulk_copy_insert_" + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1", table));
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty(CATALOG, NON_TRANSACTIONAL_INSERT, Boolean.toString(nonTransactionalInsert))
@@ -107,6 +112,7 @@ public class TestSqlServerConnectorTest
 
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("INSERT INTO %s SELECT * FROM tpch.tiny.customer", table));
+        assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
 
         // check whether minimal logging was applied.
         // Unlike fully logged operations, which use the transaction log to keep track of every row change,
@@ -175,7 +181,7 @@ public class TestSqlServerConnectorTest
     public void testRenameColumnNameAdditionalTests(String columnName)
     {
         String nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
-        String tableName = "tcn_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomTableSuffix();
+        String tableName = "tcn_" + nameInSql.replaceAll("[^a-z0-9]", "") + randomNameSuffix();
         // Use complex identifier to test a source column name when renaming columns
         String sourceColumnName = "a;b$c";
 
@@ -193,7 +199,7 @@ public class TestSqlServerConnectorTest
     public void testRenameFromToTableWithSpecialCharacterName(String tableName)
     {
         String tableNameInSql = "\"" + tableName.replace("\"", "\"\"") + "\"";
-        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        String sourceTableName = "test_rename_source_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
 
         assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + tableNameInSql);
@@ -277,8 +283,8 @@ public class TestSqlServerConnectorTest
                 .add("a\"quote")
                 .add("an'apostrophe")
                 .add("a`backtick`")
-                .add("a/slash`")
-                .add("a\\backslash`")
+                .add("a/slash")
+                .add("a\\backslash")
                 .add("adigit0")
                 .add("0startwithdigit")
                 .add("[brackets]")

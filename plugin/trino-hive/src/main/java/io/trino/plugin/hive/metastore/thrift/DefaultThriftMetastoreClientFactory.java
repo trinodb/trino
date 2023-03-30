@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
+import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient.TransportSupplier;
 import io.trino.spi.NodeManager;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -61,6 +62,8 @@ public class DefaultThriftMetastoreClientFactory
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenAlterTransactionalTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenAlterPartitionsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
     public DefaultThriftMetastoreClientFactory(
             Optional<SSLContext> sslContext,
@@ -99,18 +102,21 @@ public class DefaultThriftMetastoreClientFactory
     public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
             throws TTransportException
     {
-        return create(createTransport(address, delegationToken), hostname);
+        return create(() -> createTransport(address, delegationToken), hostname);
     }
 
-    protected ThriftMetastoreClient create(TTransport transport, String hostname)
+    protected ThriftMetastoreClient create(TransportSupplier transportSupplier, String hostname)
+            throws TTransportException
     {
         return new ThriftHiveMetastoreClient(
-                transport,
+                transportSupplier,
                 hostname,
                 metastoreSupportsDateStatistics,
                 chosenGetTableAlternative,
                 chosenTableParamAlternative,
-                chosenGetAllViewsAlternative);
+                chosenGetAllViewsAlternative,
+                chosenAlterTransactionalTableAlternative,
+                chosenAlterPartitionsAlternative);
     }
 
     private TTransport createTransport(HostAndPort address, Optional<String> delegationToken)

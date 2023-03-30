@@ -45,15 +45,15 @@ public interface DeltaLakeMetastore
 
     void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges);
 
-    void dropTable(ConnectorSession session, String databaseName, String tableName, boolean externalTable);
+    void dropTable(ConnectorSession session, String databaseName, String tableName, boolean deleteData);
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
 
-    Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session);
+    MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session);
 
     ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot table);
 
-    String getTableLocation(SchemaTableName table, ConnectorSession session);
+    String getTableLocation(SchemaTableName table);
 
     TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session);
 

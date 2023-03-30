@@ -1,0 +1,6 @@
+Enabled: yes
+Types: deb
+URIs: https://mirrors.ocf.berkeley.edu/ubuntu-ports/ https://mirror.kumi.systems/ubuntu-ports/
+Suites: ${UBUNTU_CODENAME} ${UBUNTU_CODENAME}-updates ${UBUNTU_CODENAME}-backports ${UBUNTU_CODENAME}-security
+Components: main restricted universe multiverse
+Architectures: arm64

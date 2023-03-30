@@ -23,6 +23,7 @@ import io.trino.spi.type.VarcharType;
 import java.util.List;
 
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Math.toIntExact;
 
 public class VarcharParametricType
         implements ParametricType
@@ -61,6 +62,6 @@ public class VarcharParametricType
             throw new IllegalArgumentException("Invalid VARCHAR length " + length);
         }
 
-        return VarcharType.createVarcharType((int) length);
+        return VarcharType.createVarcharType(toIntExact(length));
     }
 }

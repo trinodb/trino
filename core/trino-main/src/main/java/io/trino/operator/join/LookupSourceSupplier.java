@@ -18,10 +18,6 @@ import java.util.function.Supplier;
 public interface LookupSourceSupplier
         extends Supplier<LookupSource>
 {
-    long getHashCollisions();
-
-    double getExpectedHashCollisions();
-
     /**
      * @return checksum of this entity for heuristic checking equivalence of two instances
      */

@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
@@ -35,7 +36,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
@@ -137,7 +138,7 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        String tableName = "test_create_" + randomTableSuffix();
+        String tableName = "test_create_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " " + getCreateTableDefaultDefinition());
         assertThat(query("SELECT a, b FROM " + tableName))
                 .returnsEmptyResult();
@@ -162,7 +163,7 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        String tableName = "test_create_" + randomTableSuffix();
+        String tableName = "test_create_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", 1);
         assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
                 .matches("VALUES (BIGINT '42', -385e-1)");
@@ -198,7 +199,7 @@ public abstract class BaseConnectorSmokeTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_delete", "AS SELECT * FROM region")) {
-            assertQueryFails("DELETE FROM " + table.getName(), "This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + table.getName(), MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -212,7 +213,7 @@ public abstract class BaseConnectorSmokeTest
 
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_row_level_delete", "AS SELECT * FROM region")) {
-            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", "This connector does not support deletes");
+            assertQueryFails("DELETE FROM " + table.getName() + " WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
         }
     }
 
@@ -247,7 +248,7 @@ public abstract class BaseConnectorSmokeTest
     {
         if (!hasBehavior(SUPPORTS_UPDATE)) {
             // Note this change is a no-op, if actually run
-            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", "This connector does not support updates");
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
         }
 
@@ -273,7 +274,7 @@ public abstract class BaseConnectorSmokeTest
             // Note this change is a no-op, if actually run
             assertQueryFails("MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
                             "WHEN MATCHED AND n.regionkey < 1 THEN UPDATE SET nationkey = 5",
-                    "This connector does not support merges");
+                    MODIFYING_ROWS_MESSAGE);
             return;
         }
 
@@ -301,7 +302,7 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testCreateSchema()
     {
-        String schemaName = "test_schema_create_" + randomTableSuffix();
+        String schemaName = "test_schema_create_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
             assertQueryFails(createSchemaSql(schemaName), "This connector does not support creating schemas");
             return;
@@ -320,7 +321,7 @@ public abstract class BaseConnectorSmokeTest
         if (!hasBehavior(SUPPORTS_RENAME_SCHEMA)) {
             String schemaName = getSession().getSchema().orElseThrow();
             assertQueryFails(
-                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                    format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
                     "This connector does not support renaming schemas");
             return;
         }
@@ -329,7 +330,7 @@ public abstract class BaseConnectorSmokeTest
             throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
         }
 
-        String schemaName = "test_rename_schema_" + randomTableSuffix();
+        String schemaName = "test_rename_schema_" + randomNameSuffix();
         try {
             assertUpdate("CREATE SCHEMA " + schemaName);
             assertUpdate("ALTER SCHEMA " + schemaName + " RENAME TO " + schemaName + "_renamed");
@@ -353,10 +354,10 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test ALTER TABLE RENAME without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
 
-        String oldTable = "test_rename_old_" + randomTableSuffix();
+        String oldTable = "test_rename_old_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + oldTable + " " + getCreateTableDefaultDefinition());
 
-        String newTable = "test_rename_new_" + randomTableSuffix();
+        String newTable = "test_rename_new_" + randomNameSuffix();
         try {
             assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
         }
@@ -402,13 +403,13 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
 
-        String oldTable = "test_rename_old_" + randomTableSuffix();
+        String oldTable = "test_rename_old_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + oldTable + " " + getCreateTableDefaultDefinition());
 
-        String schemaName = "test_schema_" + randomTableSuffix();
+        String schemaName = "test_schema_" + randomNameSuffix();
         assertUpdate(createSchemaSql(schemaName));
 
-        String newTable = schemaName + ".test_rename_new_" + randomTableSuffix();
+        String newTable = schemaName + ".test_rename_new_" + randomNameSuffix();
         try {
             assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
         }
@@ -434,6 +435,19 @@ public abstract class BaseConnectorSmokeTest
                 .returnsEmptyResult();
 
         assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    /**
+     * This seemingly duplicate test of {@link BaseConnectorTest#testShowInformationSchemaTables()}
+     * is used in the context of this class in order to be able to test
+     * against a wider range of connector configurations.
+     */
+    @Test
+    public void testShowInformationSchemaTables()
+    {
+        assertThat(query("SHOW TABLES FROM information_schema"))
+                .skippingTypesCheck()
+                .containsAll("VALUES 'applicable_roles', 'columns', 'enabled_roles', 'roles', 'schemata', 'table_privileges', 'tables', 'views'");
     }
 
     @Test
@@ -477,7 +491,7 @@ public abstract class BaseConnectorSmokeTest
 
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
-        String viewName = "test_view_" + randomTableSuffix();
+        String viewName = "test_view_" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM nation");
 
         assertThat(query("SELECT * FROM " + viewName))
@@ -505,7 +519,7 @@ public abstract class BaseConnectorSmokeTest
 
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
-        String viewName = "test_materialized_view_" + randomTableSuffix();
+        String viewName = "test_materialized_view_" + randomNameSuffix();
         assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " AS SELECT * FROM nation");
 
         // reading

@@ -19,7 +19,10 @@ import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.validation.constraints.AssertTrue;
+
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DbResourceGroupConfig
 {
@@ -28,6 +31,7 @@ public class DbResourceGroupConfig
     private String password;
     private boolean exactMatchSelectorEnabled;
     private Duration maxRefreshInterval = new Duration(1, HOURS);
+    private Duration refreshInterval = new Duration(1, SECONDS);
 
     public String getConfigDbUrl()
     {
@@ -82,6 +86,20 @@ public class DbResourceGroupConfig
         return this;
     }
 
+    @MinDuration("1s")
+    public Duration getRefreshInterval()
+    {
+        return refreshInterval;
+    }
+
+    @Config("resource-groups.refresh-interval")
+    @ConfigDescription("How often the cluster reloads from the database")
+    public DbResourceGroupConfig setRefreshInterval(Duration refreshInterval)
+    {
+        this.refreshInterval = refreshInterval;
+        return this;
+    }
+
     public boolean getExactMatchSelectorEnabled()
     {
         return exactMatchSelectorEnabled;
@@ -92,5 +110,11 @@ public class DbResourceGroupConfig
     {
         this.exactMatchSelectorEnabled = exactMatchSelectorEnabled;
         return this;
+    }
+
+    @AssertTrue(message = "maxRefreshInterval must be greater than refreshInterval")
+    public boolean isRefreshIntervalValid()
+    {
+        return maxRefreshInterval.compareTo(refreshInterval) > 0;
     }
 }

@@ -19,12 +19,13 @@ import com.google.common.primitives.SignedBytes;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
-import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
@@ -85,30 +86,37 @@ public class MongoPageSink
         implements ConnectorPageSink
 {
     private final MongoSession mongoSession;
-    private final SchemaTableName schemaTableName;
+    private final RemoteTableName remoteTableName;
     private final List<MongoColumnHandle> columns;
     private final String implicitPrefix;
+    private final Optional<String> pageSinkIdColumnName;
+    private final ConnectorPageSinkId pageSinkId;
 
     public MongoPageSink(
             MongoClientConfig config,
             MongoSession mongoSession,
-            SchemaTableName schemaTableName,
-            List<MongoColumnHandle> columns)
+            RemoteTableName remoteTableName,
+            List<MongoColumnHandle> columns,
+            Optional<String> pageSinkIdColumnName,
+            ConnectorPageSinkId pageSinkId)
     {
         this.mongoSession = mongoSession;
-        this.schemaTableName = schemaTableName;
+        this.remoteTableName = remoteTableName;
         this.columns = columns;
         this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
+        this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
+        this.pageSinkId = requireNonNull(pageSinkId, "pageSinkId is null");
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        MongoCollection<Document> collection = mongoSession.getCollection(schemaTableName);
+        MongoCollection<Document> collection = mongoSession.getCollection(remoteTableName);
         List<Document> batch = new ArrayList<>(page.getPositionCount());
 
         for (int position = 0; position < page.getPositionCount(); position++) {
             Document doc = new Document();
+            pageSinkIdColumnName.ifPresent(columnName -> doc.append(columnName, pageSinkId.getId()));
 
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 MongoColumnHandle column = columns.get(channel);
@@ -266,7 +274,7 @@ public class MongoPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        return completedFuture(ImmutableList.of());
+        return completedFuture(ImmutableList.of(Slices.wrappedLongArray(pageSinkId.getId())));
     }
 
     @Override

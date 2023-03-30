@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CountingAccessMetadata;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.MetadataManager;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -67,6 +68,10 @@ public class TestIcebergGetTableStatisticsOperations
         localQueryRunner.installPlugin(new TpchPlugin());
         localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
+        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
+        new IcebergPlugin().getFunctions().forEach(functions::functions);
+        localQueryRunner.addFunctions(functions.build());
+
         metastoreDir = Files.createTempDirectory("test_iceberg_get_table_statistics_operations").toFile();
         HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
         localQueryRunner.createCatalog(
@@ -92,6 +97,9 @@ public class TestIcebergGetTableStatisticsOperations
             throws IOException
     {
         deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
+        localQueryRunner.close();
+        localQueryRunner = null;
+        metadata = null;
     }
 
     @BeforeMethod

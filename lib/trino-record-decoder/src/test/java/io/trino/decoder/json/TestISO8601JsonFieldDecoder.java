@@ -20,7 +20,7 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
@@ -45,16 +45,16 @@ public class TestISO8601JsonFieldDecoder
         tester.assertDecodedAs("\"2018-02-11\"", DATE, 17573);
         tester.assertDecodedAs("\"2018-02-19T09:20:11Z\"", TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(1519032011000L, UTC_KEY));
         tester.assertDecodedAs("\"2018-02-19T12:20:11+03:00\"", TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(1519032011000L, "+03:00"));
-        tester.assertDecodedAs("\"13:15:18Z\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_718_000_000_000L, 0));
-        tester.assertDecodedAs("\"13:15:18+10:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_718_000_000_000L, 10 * 60));
-        tester.assertDecodedAs("\"15:13:18.123-04:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(54_798_123_000_000L, -4 * 60));
-        tester.assertDecodedAs("\"15:13:18.123+08:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(54_798_123_000_000L, 8 * 60));
+        tester.assertDecodedAs("\"13:15:18Z\"", TIME_TZ_MILLIS, packTimeWithTimeZone(47_718_000_000_000L, 0));
+        tester.assertDecodedAs("\"13:15:18+10:00\"", TIME_TZ_MILLIS, packTimeWithTimeZone(47_718_000_000_000L, 10 * 60));
+        tester.assertDecodedAs("\"15:13:18.123-04:00\"", TIME_TZ_MILLIS, packTimeWithTimeZone(54_798_123_000_000L, -4 * 60));
+        tester.assertDecodedAs("\"15:13:18.123+08:00\"", TIME_TZ_MILLIS, packTimeWithTimeZone(54_798_123_000_000L, 8 * 60));
     }
 
     @Test
     public void testDecodeNulls()
     {
-        for (Type type : asList(DATE, TIME_MILLIS, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS)) {
+        for (Type type : asList(DATE, TIME_MILLIS, TIME_TZ_MILLIS, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS)) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
         }
@@ -83,9 +83,9 @@ public class TestISO8601JsonFieldDecoder
         tester.assertInvalidInput("\"2018-02-19\"", TIME_MILLIS, "\\Qcould not parse value '2018-02-19' as 'time(3)' for column 'some_column'\\E");
         tester.assertInvalidInput("\"2018-02-19Z\"", TIME_MILLIS, "\\Qcould not parse value '2018-02-19Z' as 'time(3)' for column 'some_column'\\E");
 
-        tester.assertInvalidInput("\"2018-02-19T09:20:11\"", TIME_WITH_TIME_ZONE, "\\Qcould not parse value '2018-02-19T09:20:11' as 'time(3) with time zone' for column 'some_column'\\E");
-        tester.assertInvalidInput("\"2018-02-19T09:20:11Z\"", TIME_WITH_TIME_ZONE, "\\Qcould not parse value '2018-02-19T09:20:11Z' as 'time(3) with time zone' for column 'some_column'\\E");
-        tester.assertInvalidInput("\"09:20:11\"", TIME_WITH_TIME_ZONE, "\\Qcould not parse value '09:20:11' as 'time(3) with time zone' for column 'some_column'\\E");
-        tester.assertInvalidInput("\"2018-02-19\"", TIME_WITH_TIME_ZONE, "\\Qcould not parse value '2018-02-19' as 'time(3) with time zone' for column 'some_column'\\E");
+        tester.assertInvalidInput("\"2018-02-19T09:20:11\"", TIME_TZ_MILLIS, "\\Qcould not parse value '2018-02-19T09:20:11' as 'time(3) with time zone' for column 'some_column'\\E");
+        tester.assertInvalidInput("\"2018-02-19T09:20:11Z\"", TIME_TZ_MILLIS, "\\Qcould not parse value '2018-02-19T09:20:11Z' as 'time(3) with time zone' for column 'some_column'\\E");
+        tester.assertInvalidInput("\"09:20:11\"", TIME_TZ_MILLIS, "\\Qcould not parse value '09:20:11' as 'time(3) with time zone' for column 'some_column'\\E");
+        tester.assertInvalidInput("\"2018-02-19\"", TIME_TZ_MILLIS, "\\Qcould not parse value '2018-02-19' as 'time(3) with time zone' for column 'some_column'\\E");
     }
 }

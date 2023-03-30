@@ -14,6 +14,8 @@
 package io.trino.sql.planner;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -22,6 +24,7 @@ import org.testng.annotations.Test;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.nCopies;
 
@@ -33,6 +36,7 @@ public class TestLocalExecutionPlanner
     public void setUp()
     {
         runner = LocalQueryRunner.create(TEST_SESSION);
+        runner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -65,5 +69,13 @@ public class TestLocalExecutionPlanner
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
                 .hasErrorCode(COMPILER_ERROR)
                 .hasMessageStartingWith("Query exceeded maximum filters");
+    }
+
+    @Test
+    public void testExpressionCompilerFailure()
+    {
+        assertTrinoExceptionThrownBy(() -> runner.execute("SELECT concat(name) FROM nation"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessageStartingWith("There must be two or more concatenation arguments");
     }
 }

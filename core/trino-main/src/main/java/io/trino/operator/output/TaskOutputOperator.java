@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.execution.buffer.OutputBuffer;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
+import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
@@ -27,6 +28,7 @@ import io.trino.operator.OutputFactory;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.util.Ciphers;
 
 import java.util.List;
 import java.util.function.Function;
@@ -95,7 +97,7 @@ public class TaskOutputOperator
     private final OperatorContext operatorContext;
     private final OutputBuffer outputBuffer;
     private final Function<Page, Page> pagePreprocessor;
-    private final PagesSerde serde;
+    private final PageSerializer serializer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
     private boolean finished;
 
@@ -104,7 +106,11 @@ public class TaskOutputOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
-        this.serde = serdeFactory.createPagesSerde();
+        this.serializer = serdeFactory.createSerializer(operatorContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
+
+        LocalMemoryContext memoryContext = operatorContext.localUserMemoryContext();
+        // memory footprint of serializer does not change over time
+        memoryContext.setBytes(serializer.getRetainedSizeInBytes());
     }
 
     @Override
@@ -162,10 +168,8 @@ public class TaskOutputOperator
     {
         List<Page> split = splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
         ImmutableList.Builder<Slice> builder = ImmutableList.builderWithExpectedSize(split.size());
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
-            for (Page p : split) {
-                builder.add(serde.serialize(context, p));
-            }
+        for (Page p : split) {
+            builder.add(serializer.serialize(p));
         }
         return builder.build();
     }

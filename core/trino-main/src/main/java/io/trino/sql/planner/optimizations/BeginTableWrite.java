@@ -26,17 +26,9 @@ import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.AssignUniqueId;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExchangeNode;
-import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SimplePlanRewriter.RewriteContext;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -46,22 +38,18 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
-import io.trino.sql.planner.plan.UpdateNode;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -138,31 +126,6 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitDelete(DeleteNode node, RewriteContext<Optional<WriterTarget>> context)
-        {
-            DeleteTarget deleteTarget = (DeleteTarget) getContextTarget(context);
-            return new DeleteNode(
-                    node.getId(),
-                    rewriteModifyTableScan(node.getSource(), deleteTarget.getHandleOrElseThrow(), false),
-                    deleteTarget,
-                    node.getRowId(),
-                    node.getOutputSymbols());
-        }
-
-        @Override
-        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Optional<WriterTarget>> context)
-        {
-            UpdateTarget updateTarget = (UpdateTarget) getContextTarget(context);
-            return new UpdateNode(
-                    node.getId(),
-                    rewriteModifyTableScan(node.getSource(), updateTarget.getHandleOrElseThrow(), false),
-                    updateTarget,
-                    node.getRowId(),
-                    node.getColumnValueAndRowIdSymbols(),
-                    node.getOutputSymbols());
-        }
-
-        @Override
         public PlanNode visitTableExecute(TableExecuteNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             TableExecuteTarget tableExecuteTarget = (TableExecuteTarget) getContextTarget(context);
@@ -233,22 +196,6 @@ public class BeginTableWrite
             if (node instanceof TableWriterNode) {
                 return ((TableWriterNode) node).getTarget();
             }
-            if (node instanceof DeleteNode) {
-                DeleteNode deleteNode = (DeleteNode) node;
-                DeleteTarget delete = deleteNode.getTarget();
-                return new DeleteTarget(
-                        Optional.of(findTableScanHandleForDeleteOrUpdate(deleteNode.getSource())),
-                        delete.getSchemaTableName());
-            }
-            if (node instanceof UpdateNode) {
-                UpdateNode updateNode = (UpdateNode) node;
-                UpdateTarget update = updateNode.getTarget();
-                return new UpdateTarget(
-                        Optional.of(findTableScanHandleForDeleteOrUpdate(updateNode.getSource())),
-                        update.getSchemaTableName(),
-                        update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
-            }
             if (node instanceof TableExecuteNode) {
                 TableExecuteTarget target = ((TableExecuteNode) node).getTarget();
                 return new TableExecuteTarget(
@@ -286,27 +233,21 @@ public class BeginTableWrite
         {
             // TODO: begin these operations in pre-execution step, not here
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
-            if (target instanceof CreateReference) {
-                CreateReference create = (CreateReference) target;
-                return new CreateTarget(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable(), target.supportsReportingWrittenBytes(metadata, session));
+            if (target instanceof CreateReference create) {
+                return new CreateTarget(
+                        metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()),
+                        create.getTableMetadata().getTable(),
+                        target.supportsReportingWrittenBytes(metadata, session),
+                        target.supportsMultipleWritersPerPartition(metadata, session),
+                        target.getMaxWriterTasks(metadata, session));
             }
-            if (target instanceof InsertReference) {
-                InsertReference insert = (InsertReference) target;
-                return new InsertTarget(metadata.beginInsert(session, insert.getHandle(), insert.getColumns()), metadata.getTableMetadata(session, insert.getHandle()).getTable(), target.supportsReportingWrittenBytes(metadata, session));
-            }
-            if (target instanceof DeleteTarget) {
-                DeleteTarget delete = (DeleteTarget) target;
-                TableHandle newHandle = metadata.beginDelete(session, delete.getHandleOrElseThrow());
-                return new DeleteTarget(Optional.of(newHandle), delete.getSchemaTableName());
-            }
-            if (target instanceof UpdateTarget) {
-                UpdateTarget update = (UpdateTarget) target;
-                TableHandle newHandle = metadata.beginUpdate(session, update.getHandleOrElseThrow(), update.getUpdatedColumnHandles());
-                return new UpdateTarget(
-                        Optional.of(newHandle),
-                        update.getSchemaTableName(),
-                        update.getUpdatedColumns(),
-                        update.getUpdatedColumnHandles());
+            if (target instanceof InsertReference insert) {
+                return new InsertTarget(
+                        metadata.beginInsert(session, insert.getHandle(), insert.getColumns()),
+                        metadata.getTableMetadata(session, insert.getHandle()).getTable(),
+                        target.supportsReportingWrittenBytes(metadata, session),
+                        target.supportsMultipleWritersPerPartition(metadata, session),
+                        target.getMaxWriterTasks(metadata, session));
             }
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
@@ -316,52 +257,18 @@ public class BeginTableWrite
                         merge.getSchemaTableName(),
                         merge.getMergeParadigmAndTypes());
             }
-            if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
-                TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;
+            if (target instanceof TableWriterNode.RefreshMaterializedViewReference refreshMV) {
                 return new TableWriterNode.RefreshMaterializedViewTarget(
                         refreshMV.getStorageTableHandle(),
                         metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
                         metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(),
                         refreshMV.getSourceTableHandles());
             }
-            if (target instanceof TableExecuteTarget) {
-                TableExecuteTarget tableExecute = (TableExecuteTarget) target;
+            if (target instanceof TableExecuteTarget tableExecute) {
                 BeginTableExecuteResult<TableExecuteHandle, TableHandle> result = metadata.beginTableExecute(session, tableExecute.getExecuteHandle(), tableExecute.getMandatorySourceHandle());
                 return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName(), tableExecute.isReportingWrittenBytesSupported());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
-        }
-
-        private TableHandle findTableScanHandleForDeleteOrUpdate(PlanNode node)
-        {
-            if (node instanceof TableScanNode) {
-                TableScanNode tableScanNode = (TableScanNode) node;
-                checkArgument(((TableScanNode) node).isUpdateTarget(), "TableScanNode should be an updatable target");
-                return tableScanNode.getTable();
-            }
-            if (node instanceof FilterNode) {
-                return findTableScanHandleForDeleteOrUpdate(((FilterNode) node).getSource());
-            }
-            if (node instanceof ProjectNode) {
-                return findTableScanHandleForDeleteOrUpdate(((ProjectNode) node).getSource());
-            }
-            if (node instanceof SemiJoinNode) {
-                return findTableScanHandleForDeleteOrUpdate(((SemiJoinNode) node).getSource());
-            }
-            if (node instanceof JoinNode) {
-                JoinNode joinNode = (JoinNode) node;
-                return findTableScanHandleForDeleteOrUpdate(joinNode.getLeft());
-            }
-            if (node instanceof AssignUniqueId) {
-                return findTableScanHandleForDeleteOrUpdate(((AssignUniqueId) node).getSource());
-            }
-            if (node instanceof MarkDistinctNode) {
-                return findTableScanHandleForDeleteOrUpdate(((MarkDistinctNode) node).getSource());
-            }
-            if (node instanceof AggregationNode) {
-                return findTableScanHandleForDeleteOrUpdate(((AggregationNode) node).getSource());
-            }
-            throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
         }
 
         private Optional<TableHandle> findTableScanHandleForTableExecute(PlanNode startNode)

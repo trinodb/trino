@@ -13,24 +13,61 @@
  */
 package io.trino.operator.scalar;
 
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestLuhnCheckFunction
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testLuhnCheck()
     {
-        assertFunction("luhn_check('4242424242424242')", BOOLEAN, true);
-        assertFunction("luhn_check('1234567891234567')", BOOLEAN, false);
-        assertFunction("luhn_check('')", BOOLEAN, false);
-        assertFunction("luhn_check(NULL)", BOOLEAN, null);
-        assertInvalidFunction("luhn_check('abcd424242424242')", INVALID_FUNCTION_ARGUMENT);
-        assertFunction("luhn_check('123456789')", BOOLEAN, false);
-        assertInvalidFunction("luhn_check('\u4EA0\u4EFF\u4EA112345')", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("luhn_check('4242\u4FE124242424242')", INVALID_FUNCTION_ARGUMENT);
+        assertThat(assertions.function("luhn_check", "'4242424242424242'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.function("luhn_check", "'1234567891234567'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("luhn_check", "''"))
+                .isEqualTo(false);
+
+        assertThat(assertions.function("luhn_check", "NULL"))
+                .isNull(BOOLEAN);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("luhn_check", "'abcd424242424242'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertThat(assertions.function("luhn_check", "'123456789'"))
+                .isEqualTo(false);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("luhn_check", "'\u4EA0\u4EFF\u4EA112345'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("luhn_check", "'4242\u4FE124242424242'").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

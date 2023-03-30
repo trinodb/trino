@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -41,13 +42,12 @@ public class TestOrcDeleteDeltaPageSource
             throws Exception
     {
         File deleteDeltaFile = new File(Resources.getResource("fullacid_delete_delta_test/delete_delta_0000004_0000004_0000/bucket_00000").toURI());
+        TrinoInputFile inputFile = HDFS_FILE_SYSTEM_FACTORY.create(ConnectorIdentity.ofUser("test")).newInputFile(deleteDeltaFile.toURI().toString());
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
-                ConnectorIdentity.ofUser("test"),
-                HDFS_FILE_SYSTEM_FACTORY,
                 new FileFormatDataSourceStats());
 
-        ConnectorPageSource pageSource = pageSourceFactory.createPageSource(deleteDeltaFile.toURI().toString(), deleteDeltaFile.length()).orElseThrow();
+        ConnectorPageSource pageSource = pageSourceFactory.createPageSource(inputFile).orElseThrow();
         MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));
 
         assertEquals(materializedRows.getRowCount(), 1);

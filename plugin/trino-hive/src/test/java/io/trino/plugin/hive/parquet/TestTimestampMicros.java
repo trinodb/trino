@@ -48,6 +48,7 @@ import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,11 +56,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestTimestampMicros
 {
     @Test(dataProvider = "testTimestampMicrosDataProvider")
-    public void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+    public void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected, boolean useOptimizedParquetReader)
             throws Exception
     {
-        ConnectorSession session = getHiveSession(new HiveConfig()
-                .setTimestampPrecision(timestampPrecision));
+        ConnectorSession session = getHiveSession(
+                new HiveConfig().setTimestampPrecision(timestampPrecision),
+                new ParquetReaderConfig().setOptimizedReaderEnabled(useOptimizedParquetReader));
 
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
         Type columnType = createTimestampType(timestampPrecision.getPrecision());
@@ -72,11 +74,12 @@ public class TestTimestampMicros
     }
 
     @Test(dataProvider = "testTimestampMicrosDataProvider")
-    public void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+    public void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected, boolean useOptimizedParquetReader)
             throws Exception
     {
-        ConnectorSession session = getHiveSession(new HiveConfig()
-                .setTimestampPrecision(timestampPrecision));
+        ConnectorSession session = getHiveSession(
+                new HiveConfig().setTimestampPrecision(timestampPrecision),
+                new ParquetReaderConfig().setOptimizedReaderEnabled(useOptimizedParquetReader));
 
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
         Type columnType = createTimestampWithTimeZoneType(timestampPrecision.getPrecision());
@@ -91,11 +94,13 @@ public class TestTimestampMicros
     @DataProvider
     public static Object[][] testTimestampMicrosDataProvider()
     {
-        return new Object[][] {
-                {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907")},
-                {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
-        };
+        return cartesianProduct(
+                new Object[][] {
+                        {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907")},
+                        {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
+                        {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
+                },
+                new Object[][] {{true}, {false}});
     }
 
     private ConnectorPageSource createPageSource(ConnectorSession session, File parquetFile, String columnName, HiveType columnHiveType, Type columnType)
@@ -110,22 +115,23 @@ public class TestTimestampMicros
 
         ReaderPageSource pageSourceWithProjections = pageSourceFactory.createPageSource(
                         newEmptyConfiguration(),
-                session,
-                new Path(parquetFile.toURI()),
-                0,
-                parquetFile.length(),
-                parquetFile.length(),
-                schema,
-                List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
-                TupleDomain.all(),
-                Optional.empty(),
-                OptionalInt.empty(),
-                false,
-                AcidTransaction.NO_ACID_TRANSACTION)
+                        session,
+                        new Path(parquetFile.toURI()),
+                        0,
+                        parquetFile.length(),
+                        parquetFile.length(),
+                        schema,
+                        List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
+                        TupleDomain.all(),
+                        Optional.empty(),
+                        OptionalInt.empty(),
+                        false,
+                        AcidTransaction.NO_ACID_TRANSACTION)
                 .orElseThrow();
 
-        pageSourceWithProjections.getReaderColumns()
-                .ifPresent(projections -> { throw new IllegalStateException("Unexpected projections: " + projections); });
+        pageSourceWithProjections.getReaderColumns().ifPresent(projections -> {
+            throw new IllegalStateException("Unexpected projections: " + projections);
+        });
 
         return pageSourceWithProjections.get();
     }

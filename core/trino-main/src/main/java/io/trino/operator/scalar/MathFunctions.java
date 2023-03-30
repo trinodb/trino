@@ -1155,6 +1155,14 @@ public final class MathFunctions
         return Math.sin(num);
     }
 
+    @Description("Hyperbolic sine")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double sinh(@SqlType(StandardTypes.DOUBLE) double num)
+    {
+        return Math.sinh(num);
+    }
+
     @Description("Square root")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)

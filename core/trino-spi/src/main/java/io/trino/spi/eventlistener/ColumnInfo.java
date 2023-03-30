@@ -15,8 +15,9 @@ package io.trino.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.spi.Unstable;
 
-import java.util.List;
+import java.util.Optional;
 
 /**
  * This class is JSON serializable for convenience and serialization compatibility is not guaranteed across versions.
@@ -24,13 +25,14 @@ import java.util.List;
 public class ColumnInfo
 {
     private final String column;
-    private final List<String> masks;
+    private final Optional<String> mask;
 
     @JsonCreator
-    public ColumnInfo(String column, List<String> masks)
+    @Unstable
+    public ColumnInfo(String column, Optional<String> mask)
     {
         this.column = column;
-        this.masks = masks;
+        this.mask = mask;
     }
 
     @JsonProperty
@@ -40,8 +42,8 @@ public class ColumnInfo
     }
 
     @JsonProperty
-    public List<String> getMasks()
+    public Optional<String> getMask()
     {
-        return masks;
+        return mask;
     }
 }

@@ -227,6 +227,7 @@ J
 -
 
 - :func:`jaccard_index`
+- :ref:`json_array() <json_array>`
 - :func:`json_array_contains`
 - :func:`json_array_get`
 - :func:`json_array_length`
@@ -234,6 +235,7 @@ J
 - :func:`json_extract`
 - :func:`json_extract_scalar`
 - :func:`json_format`
+- :ref:`json_object() <json_object>`
 - :func:`json_parse`
 - :ref:`json_query() <json_query>`
 - :func:`json_size`
@@ -384,6 +386,7 @@ S
 - :func:`sign`
 - :func:`simplify_geometry`
 - :func:`sin`
+- :func:`sinh`
 - :func:`skewness`
 - :func:`slice`
 - :ref:`SOME <quantified_comparison_predicates>`

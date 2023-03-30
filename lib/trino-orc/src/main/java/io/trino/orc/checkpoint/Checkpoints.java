@@ -115,6 +115,9 @@ public final class Checkpoints
                 case STRUCT:
                     checkpoints.putAll(getStructColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
                     break;
+                case UNION:
+                    checkpoints.putAll(getUnionColumnCheckpoints(columnId, compressed, availableStreams, columnPositionsList));
+                    break;
                 case DECIMAL:
                     checkpoints.putAll(getDecimalColumnCheckpoints(columnId, columnEncoding, compressed, availableStreams, columnPositionsList));
                     break;
@@ -335,6 +338,25 @@ public final class Checkpoints
 
         if (availableStreams.contains(PRESENT)) {
             checkpoints.put(new StreamId(columnId, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
+        }
+
+        return checkpoints.buildOrThrow();
+    }
+
+    private static Map<StreamId, StreamCheckpoint> getUnionColumnCheckpoints(
+            OrcColumnId columnId,
+            boolean compressed,
+            Set<StreamKind> availableStreams,
+            ColumnPositionsList positionsList)
+    {
+        ImmutableMap.Builder<StreamId, StreamCheckpoint> checkpoints = ImmutableMap.builder();
+
+        if (availableStreams.contains(PRESENT)) {
+            checkpoints.put(new StreamId(columnId, PRESENT), new BooleanStreamCheckpoint(compressed, positionsList));
+        }
+
+        if (availableStreams.contains(DATA)) {
+            checkpoints.put(new StreamId(columnId, DATA), new ByteStreamCheckpoint(compressed, positionsList));
         }
 
         return checkpoints.buildOrThrow();

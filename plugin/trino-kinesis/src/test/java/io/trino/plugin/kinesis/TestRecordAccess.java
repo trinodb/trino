@@ -79,14 +79,15 @@ public class TestRecordAccess
         jsonStreamName = "sampleTable";
         jsonGzipCompressStreamName = "sampleGzipCompressTable";
         jsonAutomaticCompressStreamName = "sampleAutomaticCompressTable";
-        this.queryRunner = new StandaloneQueryRunner(SESSION);
+        queryRunner = new StandaloneQueryRunner(SESSION);
         mockClient = TestUtils.installKinesisPlugin(queryRunner);
     }
 
-    @AfterClass
+    @AfterClass(alwaysRun = true)
     public void stop()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     private void createDummyMessages(String streamName, int count)

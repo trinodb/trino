@@ -40,7 +40,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 
 /**
  * Caches directory content (including listings that were started concurrently).
@@ -185,7 +184,7 @@ public class TransactionScopeCachingDirectoryLister
     private static boolean isLocationPresent(Storage storage)
     {
         // Some Hive table types (e.g.: views) do not have a storage location
-        return storage.getOptionalLocation().isPresent() && isNotEmpty(storage.getLocation());
+        return storage.getOptionalLocation().isPresent() && !storage.getLocation().isEmpty();
     }
 
     private static class FetchingValueHolder

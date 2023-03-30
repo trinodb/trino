@@ -20,7 +20,7 @@ import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
 import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.slice.Slice;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 
 import java.io.IOException;
 import java.util.zip.GZIPInputStream;
@@ -40,7 +40,7 @@ public final class ParquetCompressionUtils
 
     private ParquetCompressionUtils() {}
 
-    public static Slice decompress(CompressionCodecName codec, Slice input, int uncompressedSize)
+    public static Slice decompress(CompressionCodec codec, Slice input, int uncompressedSize)
             throws IOException
     {
         requireNonNull(input, "input is null");
@@ -63,6 +63,7 @@ public final class ParquetCompressionUtils
             case ZSTD:
                 return decompressZstd(input, uncompressedSize);
             case BROTLI:
+            case LZ4_RAW:
                 // unsupported
                 break;
         }

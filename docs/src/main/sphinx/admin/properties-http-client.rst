@@ -149,7 +149,7 @@ Request logging
 * **Type:** :ref:`prop-type-boolean`
 * **Default value:** ``true``
 
-Enable log file compression. The client uses the ``.gz``` format for log files.
+Enable log file compression. The client uses the ``.gz`` format for log files.
 
 ``http-client.log.enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

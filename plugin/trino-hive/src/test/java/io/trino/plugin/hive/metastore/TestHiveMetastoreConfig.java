@@ -34,9 +34,7 @@ public class TestHiveMetastoreConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.hide-delta-lake-tables", "true")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("hive.hide-delta-lake-tables", "true");
 
         HiveMetastoreConfig expected = new HiveMetastoreConfig()
                 .setHideDeltaLakeTables(true);

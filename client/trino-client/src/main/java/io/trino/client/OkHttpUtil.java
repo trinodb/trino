@@ -195,7 +195,7 @@ public final class OkHttpUtil
                 catch (IOException | GeneralSecurityException ignored) {
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
-                    keyStore = KeyStore.getInstance(keyStoreType.orElse(KeyStore.getDefaultType()));
+                    keyStore = KeyStore.getInstance(keyStoreType.orElseGet(KeyStore::getDefaultType));
                     try (InputStream in = new FileInputStream(keyStorePath.get())) {
                         keyStore.load(in, keyManagerPassword);
                     }
@@ -265,7 +265,7 @@ public final class OkHttpUtil
     private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, Optional<String> trustStoreType)
             throws IOException, GeneralSecurityException
     {
-        KeyStore trustStore = KeyStore.getInstance(trustStoreType.orElse(KeyStore.getDefaultType()));
+        KeyStore trustStore = KeyStore.getInstance(trustStoreType.orElseGet(KeyStore::getDefaultType));
         try {
             // attempt to read the trust store as a PEM file
             List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
@@ -301,7 +301,7 @@ public final class OkHttpUtil
             }
         }
 
-        KeyStore trustStore = KeyStore.getInstance(systemTrustStoreType.orElse(KeyStore.getDefaultType()));
+        KeyStore trustStore = KeyStore.getInstance(systemTrustStoreType.orElseGet(KeyStore::getDefaultType));
         trustStore.load(null, null);
         return trustStore;
     }

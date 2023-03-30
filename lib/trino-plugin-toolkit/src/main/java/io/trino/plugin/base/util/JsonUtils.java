@@ -126,6 +126,24 @@ public final class JsonUtils
         }
     }
 
+    public static <T> T parseJson(String json, String jsonPointer, Class<T> javaType)
+    {
+        JsonNode node = parseJson(json, JsonNode.class);
+        return parseJson(node, jsonPointer, javaType);
+    }
+
+    public static <T> T parseJson(Path path, String jsonPointer, Class<T> javaType)
+    {
+        JsonNode node = parseJson(path, JsonNode.class);
+        return parseJson(node, jsonPointer, javaType);
+    }
+
+    private static <T> T parseJson(JsonNode node, String jsonPointer, Class<T> javaType)
+    {
+        JsonNode mappingsNode = node.at(jsonPointer);
+        return jsonTreeToValue(mappingsNode, javaType);
+    }
+
     private interface ParserConstructor<I>
     {
         JsonParser createParser(ObjectMapper mapper, I input)

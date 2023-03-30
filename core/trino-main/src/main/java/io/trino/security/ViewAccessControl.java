@@ -22,6 +22,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
@@ -92,9 +93,9 @@ public class ViewAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
-        return delegate.getColumnMasks(context, tableName, columnName, type);
+        return delegate.getColumnMask(context, tableName, columnName, type);
     }
 
     private static void wrapAccessDeniedException(Runnable runnable)

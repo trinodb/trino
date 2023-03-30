@@ -15,6 +15,7 @@ package io.trino.plugin.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.plugin.cassandra.CassandraType.Kind;
 import io.trino.spi.connector.RecordCursor;
@@ -24,21 +25,28 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validColumnName;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Float.floatToRawIntBits;
+import static java.util.Objects.requireNonNull;
 
 public class CassandraRecordCursor
         implements RecordCursor
 {
+    private final List<String> columnNames;
     private final List<CassandraType> cassandraTypes;
     private final CassandraTypeManager cassandraTypeManager;
     private final ResultSet rs;
     private Row currentRow;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, List<CassandraType> cassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, CassandraTypeManager cassandraTypeManager, List<String> columnNames, List<CassandraType> cassandraTypes, String cql)
     {
+        this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.cassandraTypes = cassandraTypes;
+        checkArgument(columnNames.size() == cassandraTypes.size(), "columnNames and cassandraTypes sizes don't match");
         this.cassandraTypeManager = cassandraTypeManager;
         rs = cassandraSession.execute(cql);
         currentRow = null;
@@ -63,7 +71,7 @@ public class CassandraRecordCursor
     @Override
     public boolean getBoolean(int i)
     {
-        return currentRow.getBool(i);
+        return currentRow.getBool(validColumnName(columnNames.get(i)));
     }
 
     @Override
@@ -81,13 +89,14 @@ public class CassandraRecordCursor
     @Override
     public double getDouble(int i)
     {
+        String columnName = validColumnName(columnNames.get(i));
         switch (getCassandraType(i).getKind()) {
             case DOUBLE:
-                return currentRow.getDouble(i);
+                return currentRow.getDouble(columnName);
             case FLOAT:
-                return currentRow.getFloat(i);
+                return currentRow.getFloat(columnName);
             case DECIMAL:
-                return currentRow.getBigDecimal(i).doubleValue();
+                return currentRow.getBigDecimal(columnName).doubleValue();
             default:
                 throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
         }
@@ -96,22 +105,25 @@ public class CassandraRecordCursor
     @Override
     public long getLong(int i)
     {
+        String columnName = validColumnName(columnNames.get(i));
         switch (getCassandraType(i).getKind()) {
             case INT:
-                return currentRow.getInt(i);
+                return currentRow.getInt(columnName);
             case SMALLINT:
-                return currentRow.getShort(i);
+                return currentRow.getShort(columnName);
             case TINYINT:
-                return currentRow.getByte(i);
+                return currentRow.getByte(columnName);
             case BIGINT:
             case COUNTER:
-                return currentRow.getLong(i);
+                return currentRow.getLong(columnName);
+            case TIME:
+                return currentRow.getLocalTime(columnName).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND;
             case TIMESTAMP:
-                return packDateTimeWithZone(currentRow.getInstant(i).toEpochMilli(), TimeZoneKey.UTC_KEY);
+                return packDateTimeWithZone(currentRow.getInstant(columnName).toEpochMilli(), TimeZoneKey.UTC_KEY);
             case DATE:
-                return currentRow.getLocalDate(i).toEpochDay();
+                return currentRow.getLocalDate(columnName).toEpochDay();
             case FLOAT:
-                return floatToRawIntBits(currentRow.getFloat(i));
+                return floatToRawIntBits(currentRow.getFloat(columnName));
             default:
                 throw new IllegalStateException("Cannot retrieve long for " + getCassandraType(i));
         }
@@ -128,7 +140,7 @@ public class CassandraRecordCursor
         if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
             throw new IllegalArgumentException("Timestamp column can not be accessed with getSlice");
         }
-        NullableValue value = cassandraTypeManager.getColumnValue(cassandraTypes.get(i), currentRow, i);
+        NullableValue value = cassandraTypeManager.getColumnValue(cassandraTypes.get(i), currentRow, currentRow.firstIndexOf(validColumnName(columnNames.get(i))));
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }
@@ -142,7 +154,7 @@ public class CassandraRecordCursor
         switch (cassandraType.getKind()) {
             case TUPLE:
             case UDT:
-                return cassandraTypeManager.getColumnValue(cassandraType, currentRow, i).getValue();
+                return cassandraTypeManager.getColumnValue(cassandraType, currentRow, currentRow.firstIndexOf(validColumnName(columnNames.get(i)))).getValue();
             default:
                 throw new IllegalArgumentException("getObject cannot be called for " + cassandraType);
         }
@@ -157,9 +169,10 @@ public class CassandraRecordCursor
     @Override
     public boolean isNull(int i)
     {
+        String columnName = validColumnName(columnNames.get(i));
         if (getCassandraType(i).getKind() == Kind.TIMESTAMP) {
-            return currentRow.getInstant(i) == null;
+            return currentRow.getInstant(columnName) == null;
         }
-        return currentRow.isNull(i);
+        return currentRow.isNull(columnName);
     }
 }

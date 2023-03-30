@@ -18,7 +18,14 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.ArrayConstructor;
+import io.trino.operator.scalar.FormatFunction;
+import io.trino.operator.scalar.TryFunction;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.sql.PlannerContext;
@@ -27,13 +34,22 @@ import io.trino.sql.analyzer.ExpressionAnalyzer.LabelPrefixedReference;
 import io.trino.sql.analyzer.ResolvedField;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureTranslator;
+import io.trino.sql.tree.Array;
+import io.trino.sql.tree.AtTimeZone;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.CurrentCatalog;
+import io.trino.sql.tree.CurrentPath;
+import io.trino.sql.tree.CurrentSchema;
+import io.trino.sql.tree.CurrentTime;
+import io.trino.sql.tree.CurrentUser;
 import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionRewriter;
 import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.Extract;
 import io.trino.sql.tree.FieldReference;
+import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.GenericLiteral;
@@ -49,16 +65,20 @@ import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LabelDereference;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.Trim;
+import io.trino.sql.tree.TryExpression;
 import io.trino.sql.util.AstUtils;
+import io.trino.type.FunctionType;
 import io.trino.type.JsonPath2016Type;
 
 import java.util.Arrays;
@@ -72,6 +92,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -80,6 +103,10 @@ import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.OMIT;
+import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
+import static io.trino.type.LikeFunctions.LIKE_PATTERN_FUNCTION_NAME;
+import static io.trino.type.LikePatternType.LIKE_PATTERN;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -239,7 +266,7 @@ class TranslationMap
 
                 return getSymbolForColumn(node)
                         .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
-                        .orElse(coerceIfNecessary(node, node));
+                        .orElseGet(() -> coerceIfNecessary(node, node));
             }
 
             @Override
@@ -343,6 +370,323 @@ class TranslationMap
             }
 
             @Override
+            public Expression rewriteArray(Array node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                checkCondition(node.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
+
+                List<Type> types = node.getValues().stream()
+                        .map(analysis::getType)
+                        .collect(toImmutableList());
+
+                List<Expression> values = node.getValues().stream()
+                        .map(element -> treeRewriter.rewrite(element, context))
+                        .collect(toImmutableList());
+
+                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName(QualifiedName.of(ArrayConstructor.NAME))
+                        .setArguments(types, values)
+                        .build();
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteCurrentCatalog(CurrentCatalog node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(node, new FunctionCall(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$current_catalog"), ImmutableList.of())
+                                .toQualifiedName(),
+                        ImmutableList.of()));
+            }
+
+            @Override
+            public Expression rewriteCurrentSchema(CurrentSchema node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(node, new FunctionCall(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$current_schema"), ImmutableList.of())
+                                .toQualifiedName(),
+                        ImmutableList.of()));
+            }
+
+            @Override
+            public Expression rewriteCurrentPath(CurrentPath node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(node, new FunctionCall(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$current_path"), ImmutableList.of())
+                                .toQualifiedName(),
+                        ImmutableList.of()));
+            }
+
+            @Override
+            public Expression rewriteCurrentUser(CurrentUser node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                return coerceIfNecessary(node, new FunctionCall(
+                        plannerContext.getMetadata()
+                                .resolveFunction(session, QualifiedName.of("$current_user"), ImmutableList.of())
+                                .toQualifiedName(),
+                        ImmutableList.of()));
+            }
+
+            @Override
+            public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                FunctionCall call = switch (node.getFunction()) {
+                    case DATE -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("current_date"))
+                            .build();
+                    case TIME -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$current_time"))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                    case LOCALTIME -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$localtime"))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                    case TIMESTAMP -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$current_timestamp"))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                    case LOCALTIMESTAMP -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$localtimestamp"))
+                            .setArguments(ImmutableList.of(analysis.getType(node)), ImmutableList.of(new NullLiteral()))
+                            .build();
+                };
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteExtract(Extract node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Expression value = treeRewriter.rewrite(node.getExpression(), context);
+                Type type = analysis.getType(node.getExpression());
+
+                FunctionCall call = switch (node.getField()) {
+                    case YEAR -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("year"))
+                            .addArgument(type, value)
+                            .build();
+                    case QUARTER -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("quarter"))
+                            .addArgument(type, value)
+                            .build();
+                    case MONTH -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("month"))
+                            .addArgument(type, value)
+                            .build();
+                    case WEEK -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("week"))
+                            .addArgument(type, value)
+                            .build();
+                    case DAY, DAY_OF_MONTH -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("day"))
+                            .addArgument(type, value)
+                            .build();
+                    case DAY_OF_WEEK, DOW -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("day_of_week"))
+                            .addArgument(type, value)
+                            .build();
+                    case DAY_OF_YEAR, DOY -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("day_of_year"))
+                            .addArgument(type, value)
+                            .build();
+                    case YEAR_OF_WEEK, YOW -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("year_of_week"))
+                            .addArgument(type, value)
+                            .build();
+                    case HOUR -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("hour"))
+                            .addArgument(type, value)
+                            .build();
+                    case MINUTE -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("minute"))
+                            .addArgument(type, value)
+                            .build();
+                    case SECOND -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("second"))
+                            .addArgument(type, value)
+                            .build();
+                    case TIMEZONE_MINUTE -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("timezone_minute"))
+                            .addArgument(type, value)
+                            .build();
+                    case TIMEZONE_HOUR -> FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("timezone_hour"))
+                            .addArgument(type, value)
+                            .build();
+                };
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteAtTimeZone(AtTimeZone node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Type valueType = analysis.getType(node.getValue());
+                Expression value = treeRewriter.rewrite(node.getValue(), context);
+
+                Type timeZoneType = analysis.getType(node.getTimeZone());
+                Expression timeZone = treeRewriter.rewrite(node.getTimeZone(), context);
+
+                FunctionCall call;
+                if (valueType instanceof TimeType type) {
+                    call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$at_timezone"))
+                            .addArgument(createTimeWithTimeZoneType(type.getPrecision()), new Cast(value, toSqlType(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()))))
+                            .addArgument(timeZoneType, timeZone)
+                            .build();
+                }
+                else if (valueType instanceof TimeWithTimeZoneType) {
+                    call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("$at_timezone"))
+                            .addArgument(valueType, value)
+                            .addArgument(timeZoneType, timeZone)
+                            .build();
+                }
+                else if (valueType instanceof TimestampType type) {
+                    call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("at_timezone"))
+                            .addArgument(createTimestampWithTimeZoneType(type.getPrecision()), new Cast(value, toSqlType(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()))))
+                            .addArgument(timeZoneType, timeZone)
+                            .build();
+                }
+                else if (valueType instanceof TimestampWithTimeZoneType) {
+                    call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of("at_timezone"))
+                            .addArgument(valueType, value)
+                            .addArgument(timeZoneType, timeZone)
+                            .build();
+                }
+                else {
+                    throw new IllegalArgumentException("Unexpected type: " + valueType);
+                }
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteFormat(Format node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                List<Expression> arguments = node.getArguments().stream()
+                        .map(value -> treeRewriter.rewrite(value, context))
+                        .collect(toImmutableList());
+                List<Type> argumentTypes = node.getArguments().stream()
+                        .map(analysis::getType)
+                        .collect(toImmutableList());
+
+                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName(QualifiedName.of(FormatFunction.NAME))
+                        .addArgument(VARCHAR, arguments.get(0))
+                        .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))
+                        .build();
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteTryExpression(TryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Type type = analysis.getType(node);
+                Expression expression = treeRewriter.rewrite(node.getInnerExpression(), context);
+
+                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName(QualifiedName.of(TryFunction.NAME))
+                        .addArgument(new FunctionType(ImmutableList.of(), type), new LambdaExpression(ImmutableList.of(), expression))
+                        .build();
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
+            public Expression rewriteLikePredicate(LikePredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                Optional<SymbolReference> mapped = tryGetMapping(node);
+                if (mapped.isPresent()) {
+                    return coerceIfNecessary(node, mapped.get());
+                }
+
+                Expression value = treeRewriter.rewrite(node.getValue(), context);
+                Expression pattern = treeRewriter.rewrite(node.getPattern(), context);
+                Optional<Expression> escape = node.getEscape().map(e -> treeRewriter.rewrite(e, context));
+
+                FunctionCall patternCall;
+                if (escape.isPresent()) {
+                    patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                            .addArgument(analysis.getType(node.getPattern()), pattern)
+                            .addArgument(analysis.getType(node.getEscape().get()), escape.get())
+                            .build();
+                }
+                else {
+                    patternCall = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                            .setName(QualifiedName.of(LIKE_PATTERN_FUNCTION_NAME))
+                            .addArgument(analysis.getType(node.getPattern()), pattern)
+                            .build();
+                }
+
+                FunctionCall call = FunctionCallBuilder.resolve(session, plannerContext.getMetadata())
+                        .setName(QualifiedName.of(LIKE_FUNCTION_NAME))
+                        .addArgument(analysis.getType(node.getValue()), value)
+                        .addArgument(LIKE_PATTERN, patternCall)
+                        .build();
+
+                return coerceIfNecessary(node, call);
+            }
+
+            @Override
             public Expression rewriteTrim(Trim node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
                 Optional<SymbolReference> mapped = tryGetMapping(node);
@@ -404,7 +748,7 @@ class TranslationMap
                     return coerceIfNecessary(node, mapped.get());
                 }
 
-                checkState(analysis.getParameters().size() > node.getPosition(), "Too few parameter values");
+                checkState(analysis.getParameters().size() > node.getId(), "Too few parameter values");
                 return coerceIfNecessary(node, treeRewriter.rewrite(analysis.getParameters().get(NodeRef.of(node)), null));
             }
 
@@ -500,9 +844,9 @@ class TranslationMap
                         .add(pathExpression)
                         .add(orderedParameters.getParametersRow())
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
-                        .add(rewritten.getEmptyDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
+                        .add(rewritten.getEmptyDefault().orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))))
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
-                        .add(rewritten.getErrorDefault().orElse(new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
+                        .add(rewritten.getErrorDefault().orElseGet(() -> new Cast(new NullLiteral(), toSqlType(resolvedFunction.getSignature().getReturnType()))));
 
                 Expression result = new FunctionCall(resolvedFunction.toQualifiedName(), arguments.build());
 

@@ -18,10 +18,10 @@ import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
+import static io.trino.execution.QueryRunnerUtil.createQuery;
+import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.execution.TestQueryRunnerUtil.createQuery;
-import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT_2;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.adhocSession;

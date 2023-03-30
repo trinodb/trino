@@ -91,6 +91,19 @@ public class TestJweTokenSerializer
                 .isExactlyInstanceOf(ExpiredJwtException.class);
     }
 
+    @Test
+    public void testTokenDeserializationWhenNonJWETokenIsPassed()
+            throws Exception
+    {
+        JweTokenSerializer serializer = tokenSerializer(new TestingClock(), succinctDuration(12, MINUTES));
+        String nonJWEToken = "non_jwe_token";
+
+        TokenPair tokenPair = serializer.deserialize(nonJWEToken);
+
+        assertThat(tokenPair.getAccessToken()).isEqualTo(nonJWEToken);
+        assertThat(tokenPair.getRefreshToken()).isEmpty();
+    }
+
     private JweTokenSerializer tokenSerializer(Clock clock, Duration tokenExpiration)
             throws GeneralSecurityException, KeyLengthException
     {

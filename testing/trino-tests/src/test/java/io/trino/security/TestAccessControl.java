@@ -16,38 +16,67 @@ package io.trino.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Key;
+import com.google.inject.Scopes;
 import io.airlift.testing.Assertions;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
+import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SystemSecurityMetadata;
+import io.trino.plugin.base.security.AllowAllSystemAccessControl;
+import io.trino.plugin.base.security.DefaultSystemAccessControl;
+import io.trino.plugin.base.security.ForwardingSystemAccessControl;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.jdbc.JdbcPlugin;
 import io.trino.plugin.jdbc.TestingH2JdbcModule;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.SystemAccessControl;
+import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.security.ViewExpression;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
+import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingSession;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.doubleProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_VIEW;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_MATERIALIZED_VIEW;
@@ -72,26 +101,48 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.TRUNCATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Test(singleThreaded = true) // Test is stateful, see @BeforeMethod
 public class TestAccessControl
         extends AbstractTestQueryFramework
 {
+    private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new DefaultSystemAccessControl());
+    private final TestingGroupProvider groupProvider = new TestingGroupProvider();
+    private TestingSystemSecurityMetadata systemSecurityMetadata;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
+                .setSource("test")
                 .setCatalog("blackhole")
                 .setSchema("default")
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setAdditionalModule(binder -> {
+                    newOptionalBinder(binder, SystemSecurityMetadata.class)
+                            .setBinding()
+                            .to(TestingSystemSecurityMetadata.class)
+                            .in(Scopes.SINGLETON);
+                })
                 .setNodeCount(1)
+                .setSystemAccessControl(new ForwardingSystemAccessControl() {
+                    @Override
+                    protected SystemAccessControl delegate()
+                    {
+                        return systemAccessControl.get();
+                    }
+                })
                 .build();
+        queryRunner.getGroupProvider().setConfiguredGroupProvider(groupProvider);
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.installPlugin(new MemoryPlugin());
@@ -99,6 +150,12 @@ public class TestAccessControl
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withGetTableHandle((session1, schemaTableName) -> {
+                    if (schemaTableName.getTableName().startsWith("new")) {
+                        return null;
+                    }
+                    return new MockConnectorTableHandle(schemaTableName);
+                })
                 .withGetViews((connectorSession, prefix) -> {
                     ConnectorViewDefinition definitionRunAsDefiner = new ConnectorViewDefinition(
                             "select 1",
@@ -120,15 +177,58 @@ public class TestAccessControl
                             new SchemaTableName("default", "test_view_definer"), definitionRunAsDefiner,
                             new SchemaTableName("default", "test_view_invoker"), definitionRunAsInvoker);
                 })
+                .withGetMaterializedViews(new BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>>() {
+                    @Override
+                    public Map<SchemaTableName, ConnectorMaterializedViewDefinition> apply(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
+                    {
+                        ConnectorMaterializedViewDefinition materializedViewDefinition = new ConnectorMaterializedViewDefinition(
+                                "select 1",
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("test", BIGINT.getTypeId())),
+                                Optional.of("comment"),
+                                Optional.of("owner"),
+                                ImmutableMap.of());
+                        return ImmutableMap.of(
+                                new SchemaTableName("default", "test_materialized_view"), materializedViewDefinition);
+                    }
+                })
                 .withListRoleGrants((connectorSession, roles, grantees, limit) -> ImmutableSet.of(new RoleGrant(new TrinoPrincipal(USER, "alice"), "alice_role", false)))
+                .withAnalyzeProperties(() -> ImmutableList.of(
+                        integerProperty("another_property", "description", 0, false),
+                        integerProperty("integer_analyze_property", "description", 0, false)))
+                .withGetMaterializedViewProperties(() -> ImmutableList.of(
+                        integerProperty("another_property", "description", 0, false),
+                        stringProperty("string_materialized_view_property", "description", "", false)))
+                .withSchemaProperties(() -> ImmutableList.of(
+                        integerProperty("another_property", "description", 0, false),
+                        booleanProperty("boolean_schema_property", "description", false, false)))
+                .withTableProperties(() -> ImmutableList.of(
+                        integerProperty("another_property", "description", 0, false),
+                        doubleProperty("double_table_property", "description", 0d, false)))
+                .withColumnProperties(() -> ImmutableList.of(
+                        integerProperty("another_property", "description", 0, false),
+                        stringProperty("string_column_property", "description", "", false)))
                 .build()));
         queryRunner.createCatalog("mock", "mock");
-        queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
-        queryRunner.createCatalog("jdbc", "base-jdbc", TestingH2JdbcModule.createProperties());
+        queryRunner.installPlugin(new JdbcPlugin("base_jdbc", new TestingH2JdbcModule()));
+        queryRunner.createCatalog("jdbc", "base_jdbc", TestingH2JdbcModule.createProperties());
         for (String tableName : ImmutableList.of("orders", "nation", "region", "lineitem")) {
             queryRunner.execute(format("CREATE TABLE %1$s AS SELECT * FROM tpch.tiny.%1$s WITH NO DATA", tableName));
         }
+        systemSecurityMetadata = (TestingSystemSecurityMetadata) queryRunner.getCoordinator().getInstance(Key.get(SystemSecurityMetadata.class));
         return queryRunner;
+    }
+
+    @BeforeMethod
+    public void reset()
+    {
+        systemAccessControl.set(new DefaultSystemAccessControl());
+        requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null")
+                .reset();
+        getQueryRunner().getAccessControl().reset();
+        groupProvider.reset();
     }
 
     @Test
@@ -140,6 +240,7 @@ public class TestAccessControl
         assertAccessDenied("TRUNCATE TABLE orders", "Cannot truncate table .*.orders.*", privilege("orders", TRUNCATE_TABLE));
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
         assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
+        assertAccessDenied("ALTER TABLE orders ALTER COLUMN orderkey SET DATA TYPE char(100)", "Cannot alter a column for table .*.orders.*", privilege("orders", ALTER_COLUMN));
         assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
@@ -191,7 +292,7 @@ public class TestAccessControl
                 .setSchema(getSession().getSchema())
                 .build();
 
-        String columnAccessViewName = "test_view_column_access_" + randomTableSuffix();
+        String columnAccessViewName = "test_view_column_access_" + randomNameSuffix();
 
         // TEST COLUMN-LEVEL PRIVILEGES
         // view creation permissions are only checked at query time, not at creation
@@ -226,7 +327,7 @@ public class TestAccessControl
                 .setSchema(getSession().getSchema())
                 .build();
 
-        String nestedViewName = "test_nested_view_column_access_" + randomTableSuffix();
+        String nestedViewName = "test_nested_view_column_access_" + randomNameSuffix();
         // view creation permissions are only checked at query time, not at creation
         assertAccessAllowed(
                 nestedViewOwnerSession,
@@ -248,7 +349,7 @@ public class TestAccessControl
                 privilege(getSession().getUser(), columnAccessViewName, SELECT_COLUMN));
 
         // verify that INVOKER security runs as session user
-        String invokerViewName = "test_invoker_view_column_access_" + randomTableSuffix();
+        String invokerViewName = "test_invoker_view_column_access_" + randomNameSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW " + invokerViewName + " SECURITY INVOKER AS SELECT * FROM orders",
@@ -262,22 +363,14 @@ public class TestAccessControl
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         // verify that groups are set inside access control
-        executeExclusively(() -> {
-            try {
-                // require view owner to be in a group to access table
-                getQueryRunner().getAccessControl().denyIdentityTable((identity, table) -> identity.getGroups().contains("testgroup") || !"orders".equals(table));
-                assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName))
-                        .hasMessageMatching("Access Denied: View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders");
+        // require view owner to be in a group to access table
+        getQueryRunner().getAccessControl().denyIdentityTable((identity, table) -> identity.getGroups().contains("testgroup") || !"orders".equals(table));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName))
+                .hasMessageMatching("Access Denied: View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders");
 
-                // verify view can be queried when owner is in group
-                getQueryRunner().getGroupProvider().setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
-                getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName);
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-                getQueryRunner().getGroupProvider().reset();
-            }
-        });
+        // verify view can be queried when owner is in group
+        groupProvider.setUserGroups(ImmutableMap.of(viewOwnerSession.getUser(), ImmutableSet.of("testgroup")));
+        getQueryRunner().execute(getSession(), "SELECT * FROM " + columnAccessViewName);
 
         // change access denied exception to view
         assertAccessDenied("SHOW CREATE VIEW " + nestedViewName, "Cannot show create table for .*test_nested_view_column_access.*", privilege(nestedViewName, SHOW_CREATE_TABLE));
@@ -286,6 +379,88 @@ public class TestAccessControl
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW " + nestedViewName);
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + columnAccessViewName);
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerViewName);
+    }
+
+    @Test
+    public void testViewOwnersRoleGrants()
+    {
+        String viewOwner = "view_owner";
+        TrinoPrincipal viewOwnerPrincipal = new TrinoPrincipal(USER, viewOwner);
+        String viewName = "test_view_column_access_" + randomNameSuffix();
+
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        systemSecurityMetadata.setViewOwner(
+                getSession(),
+                new CatalogSchemaTableName("blackhole", "default", viewName),
+                viewOwnerPrincipal);
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser(viewOwner)
+                        .withEnabledRoles(Set.of("view_owner_role"))
+                        .build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW " + viewName + " AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // whenever view_owner_role_without_access is granted to test_view_access_owner, the view cannot be queried
+        getQueryRunner().getAccessControl()
+                .denyIdentityTable((identity, table) -> !(identity.getEnabledRoles().contains("view_owner_role_without_access") && "orders".equals(table)));
+
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession,
+                "SELECT * FROM " + viewName))
+                .hasMessageMatching("Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders");
+
+        systemSecurityMetadata.revokeRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + viewName);
+
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testJoinBaseTableWithView()
+    {
+        String viewOwner = "view_owner";
+        TrinoPrincipal viewOwnerPrincipal = new TrinoPrincipal(USER, viewOwner);
+        String viewName = "test_join_base_table_with_view_" + randomNameSuffix();
+
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        systemSecurityMetadata.setViewOwner(
+                getSession(),
+                new CatalogSchemaTableName("blackhole", "default", viewName),
+                viewOwnerPrincipal);
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser(viewOwner)
+                        .withEnabledRoles(Set.of("view_owner_role"))
+                        .build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW " + viewName + " AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+
+        // view_owner_role_without_access is granted to view_owner, that role deny access to the base table
+        getQueryRunner().getAccessControl()
+                .denyIdentityTable((identity, table) -> !(identity.getEnabledRoles().contains("view_owner_role_without_access") && "orders".equals(table)));
+        systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
+        String errorMessage = "Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders";
+
+        getQueryRunner().execute(viewOwnerSession, "SELECT * FROM orders");
+        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + viewName))
+                .hasMessageMatching(errorMessage);
+        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession, "SELECT * FROM orders, " + viewName))
+                .hasMessageMatching(errorMessage);
+        assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession, "SELECT * FROM %s, orders".formatted(viewName)))
+                .hasMessageMatching(errorMessage);
+
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
     }
 
     @Test
@@ -299,7 +474,7 @@ public class TestAccessControl
 
         // TEST FUNCTION PRIVILEGES
         // view creation permissions are only checked at query time, not at creation
-        String functionAccessViewName = "test_view_function_access_" + randomTableSuffix();
+        String functionAccessViewName = "test_view_function_access_" + randomNameSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW " + functionAccessViewName + " AS SELECT abs(1) AS c",
@@ -317,7 +492,7 @@ public class TestAccessControl
 
         // TEST SECURITY INVOKER
         // view creation permissions are only checked at query time, not at creation
-        String invokerFunctionAccessViewName = "test_invoker_view_function_access_" + randomTableSuffix();
+        String invokerFunctionAccessViewName = "test_invoker_view_function_access_" + randomNameSuffix();
         assertAccessAllowed(
                 viewOwnerSession,
                 "CREATE VIEW " + invokerFunctionAccessViewName + " SECURITY INVOKER AS SELECT abs(1) AS c",
@@ -359,7 +534,7 @@ public class TestAccessControl
     @Test
     public void testCommentView()
     {
-        String viewName = "comment_view" + randomTableSuffix();
+        String viewName = "comment_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " COMMENT 'old comment' AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON VIEW " + viewName + " IS 'new comment'", "Cannot comment view to .*", privilege(viewName, COMMENT_VIEW));
         assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "COMMENT ON VIEW " + viewName + " IS 'new comment'"))
@@ -400,10 +575,20 @@ public class TestAccessControl
     @Test
     public void testCommentColumnView()
     {
-        String viewName = "comment_view" + randomTableSuffix();
+        String viewName = "comment_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("COMMENT ON COLUMN " + viewName + ".orderkey IS 'new order key comment'", "Cannot comment column to .*", privilege(viewName, COMMENT_COLUMN));
         assertUpdate(getSession(), "COMMENT ON COLUMN " + viewName + ".orderkey IS 'new comment'");
+    }
+
+    @Test
+    public void testSetColumnType()
+    {
+        String tableName = "test_set_colun_type" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " ALTER COLUMN orderkey SET DATA TYPE char(100)", "Cannot alter a column for table .*." + tableName + ".*", privilege(tableName, ALTER_COLUMN));
+        assertAccessAllowed("ALTER TABLE " + tableName + " ALTER COLUMN orderkey SET DATA TYPE char(100)", privilege(tableName + ".orderkey", ALTER_COLUMN));
     }
 
     @Test
@@ -442,9 +627,9 @@ public class TestAccessControl
         String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
 
-        String targetTable = "merge_nation_target_" + randomTableSuffix();
+        String targetTable = "merge_nation_target_" + randomNameSuffix();
         String targetName = format("%s.%s.%s", catalogName, schemaName, targetTable);
-        String sourceTable = "merge_nation_source_" + randomTableSuffix();
+        String sourceTable = "merge_nation_source_" + randomNameSuffix();
         String sourceName = format("%s.%s.%s", catalogName, schemaName, sourceTable);
 
         assertUpdate(format("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR)", targetTable));
@@ -524,54 +709,40 @@ public class TestAccessControl
     public void testDescribe()
     {
         assertAccessDenied("DESCRIBE orders", "Cannot show columns of table default.orders", privilege("orders", SHOW_COLUMNS));
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().deny(privilege("orders.orderkey", SELECT_COLUMN));
-                assertQuery(
-                        "DESCRIBE orders",
-                        "VALUES " +
-                                // orderkey column is filtered
-                                "('custkey', 'bigint', '', '')," +
-                                "('orderstatus', 'varchar(1)', '', '')," +
-                                "('totalprice', 'double', '', '')," +
-                                "('orderdate', 'date', '', '')," +
-                                "('orderpriority', 'varchar(15)', '', '')," +
-                                "('clerk', 'varchar(15)', '', '')," +
-                                "('shippriority', 'integer', '', '')," +
-                                "('comment', 'varchar(79)', '', '')");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().deny(privilege("orders.orderkey", SELECT_COLUMN));
+        assertQuery(
+                "DESCRIBE orders",
+                "VALUES " +
+                        // orderkey column is filtered
+                        "('custkey', 'bigint', '', '')," +
+                        "('orderstatus', 'varchar(1)', '', '')," +
+                        "('totalprice', 'double', '', '')," +
+                        "('orderdate', 'date', '', '')," +
+                        "('orderpriority', 'varchar(15)', '', '')," +
+                        "('clerk', 'varchar(15)', '', '')," +
+                        "('shippriority', 'integer', '', '')," +
+                        "('comment', 'varchar(79)', '', '')");
     }
 
     @Test
     public void testDescribeForViews()
     {
-        String viewName = "describe_orders_view" + randomTableSuffix();
+        String viewName = "describe_orders_view" + randomNameSuffix();
         assertUpdate("CREATE VIEW " + viewName + " AS SELECT * FROM orders");
         assertAccessDenied("DESCRIBE " + viewName, "Cannot show columns of table default.*", privilege(viewName, SHOW_COLUMNS));
-        executeExclusively(() -> {
-            try {
-                getQueryRunner().getAccessControl().deny(privilege(viewName + ".orderkey", SELECT_COLUMN));
-                assertQuery(
-                        "DESCRIBE " + viewName,
-                        "VALUES " +
-                                // orderkey column is filtered
-                                "('custkey', 'bigint', '', '')," +
-                                "('orderstatus', 'varchar(1)', '', '')," +
-                                "('totalprice', 'double', '', '')," +
-                                "('orderdate', 'date', '', '')," +
-                                "('orderpriority', 'varchar(15)', '', '')," +
-                                "('clerk', 'varchar(15)', '', '')," +
-                                "('shippriority', 'integer', '', '')," +
-                                "('comment', 'varchar(79)', '', '')");
-            }
-            finally {
-                getQueryRunner().getAccessControl().reset();
-            }
-        });
+        getQueryRunner().getAccessControl().deny(privilege(viewName + ".orderkey", SELECT_COLUMN));
+        assertQuery(
+                "DESCRIBE " + viewName,
+                "VALUES " +
+                        // orderkey column is filtered
+                        "('custkey', 'bigint', '', '')," +
+                        "('orderstatus', 'varchar(1)', '', '')," +
+                        "('totalprice', 'double', '', '')," +
+                        "('orderdate', 'date', '', '')," +
+                        "('orderpriority', 'varchar(15)', '', '')," +
+                        "('clerk', 'varchar(15)', '', '')," +
+                        "('shippriority', 'integer', '', '')," +
+                        "('comment', 'varchar(79)', '', '')");
         assertUpdate("DROP VIEW " + viewName);
     }
 
@@ -626,5 +797,283 @@ public class TestAccessControl
     public void testSetViewAuthorizationWithSecurityInvoker()
     {
         assertQuerySucceeds("ALTER VIEW mock.default.test_view_invoker SET AUTHORIZATION some_other_user");
+    }
+
+    @Test
+    public void testSystemMetadataAnalyzePropertiesFilteringValues()
+    {
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.analyze_properties");
+    }
+
+    @Test
+    public void testSystemMetadataMaterializedViewPropertiesFilteringValues()
+    {
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.materialized_view_properties");
+    }
+
+    @Test
+    public void testSystemMetadataSchemaPropertiesFilteringValues()
+    {
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.schema_properties");
+    }
+
+    @Test
+    public void testSystemMetadataTablePropertiesFilteringValues()
+    {
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("blackhole") && !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.table_properties");
+    }
+
+    @Test
+    public void testSystemMetadataColumnPropertiesFilteringValues()
+    {
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
+        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.column_properties");
+    }
+
+    @Test
+    public void testUseStatementAccessControl()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog(Optional.empty())
+                .setSchema(Optional.empty())
+                .build();
+        getQueryRunner().execute(session, "USE tpch.tiny");
+        assertThatThrownBy(() -> getQueryRunner().execute("USE not_exists_catalog.tiny"))
+                .hasMessageMatching("Catalog does not exist: not_exists_catalog");
+        assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
+                .hasMessageMatching("Schema does not exist: tpch.not_exists_schema");
+    }
+
+    @Test
+    public void testUseStatementAccessControlWithDeniedCatalog()
+    {
+        getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("tpch"));
+        assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
+                .hasMessageMatching("Access Denied: Cannot access catalog tpch");
+        assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
+                .hasMessageMatching("Access Denied: Cannot access catalog tpch");
+    }
+
+    @Test
+    public void testUseStatementAccessControlWithDeniedSchema()
+    {
+        getQueryRunner().getAccessControl().denySchemas(schema -> !schema.equals("tiny"));
+        assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.tiny"))
+                .hasMessageMatching("Access Denied: Cannot access schema: tpch.tiny");
+    }
+
+    @Test
+    public void testPropertiesAccessControl()
+    {
+        systemAccessControl.set(new DenySetPropertiesSystemAccessControl());
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table (pk bigint) WITH (double_table_property = 0.0)", // default value
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table (pk bigint) WITH (double_table_property = 1.0)",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table (pk bigint) WITH (double_table_property = 1.0, another_property = 1)",
+                "Cannot access properties: \\[another_property, double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table (pk bigint) WITH (DOUBLE_TABLE_PROPERTY = 1.0)",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table WITH (double_table_property = 0.0) AS SELECT 1 pk", // default value
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table WITH (double_table_property = 1.0) AS SELECT 1 pk",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table WITH (double_table_property = 1.0, another_property = 1) AS SELECT 1 pk",
+                "Cannot access properties: \\[another_property, double_table_property]");
+        assertAccessDenied(
+                "CREATE TABLE mock.default.new_table WITH (DOUBLE_TABLE_PROPERTY = 1.0) AS SELECT 1 pk",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "CREATE SCHEMA mock.new_schema WITH (boolean_schema_property = false)", // default value
+                "Cannot access properties: \\[boolean_schema_property]");
+        assertAccessDenied(
+                "CREATE SCHEMA mock.new_schema WITH (boolean_schema_property = true)",
+                "Cannot access properties: \\[boolean_schema_property]");
+        assertAccessDenied(
+                "CREATE SCHEMA mock.new_schema WITH (another_property = 1, boolean_schema_property = true)",
+                "Cannot access properties: \\[another_property, boolean_schema_property]");
+        assertAccessDenied(
+                "CREATE SCHEMA mock.new_schema WITH (BOOLEAN_SCHEMA_PROPERTY = true)",
+                "Cannot access properties: \\[boolean_schema_property]");
+        assertAccessDenied(
+                "CREATE MATERIALIZED VIEW mock.default.new_materialized_view WITH (string_materialized_view_property = '') AS SELECT 1 a", // default value
+                "Cannot access properties: \\[string_materialized_view_property]");
+        assertAccessDenied(
+                "CREATE MATERIALIZED VIEW mock.default.new_materialized_view WITH (string_materialized_view_property = 'value') AS SELECT 1 a",
+                "Cannot access properties: \\[string_materialized_view_property]");
+        assertAccessDenied(
+                "CREATE MATERIALIZED VIEW mock.default.new_materialized_view WITH (string_materialized_view_property = 'value', another_property = 1) AS SELECT 1 a",
+                "Cannot access properties: \\[another_property, string_materialized_view_property]");
+        assertAccessDenied(
+                "CREATE MATERIALIZED VIEW mock.default.new_materialized_view WITH (STRING_MATERIALIZED_VIEW_PROPERTY = 'value') AS SELECT 1 a",
+                "Cannot access properties: \\[string_materialized_view_property]");
+        assertAccessDenied(
+                "ALTER TABLE mock.default.foo SET PROPERTIES double_table_property = 0.0", // default value
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "ALTER TABLE mock.default.foo SET PROPERTIES double_table_property = 1.0, another_property = 1",
+                "Cannot access properties: \\[another_property, double_table_property]");
+        assertAccessDenied(
+                "ALTER TABLE mock.default.foo SET PROPERTIES double_table_property = 1.0",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "ALTER TABLE mock.default.foo SET PROPERTIES DOUBLE_TABLE_PROPERTY = 1.0",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "ALTER TABLE mock.default.foo SET PROPERTIES double_table_property = DEFAULT",
+                "Cannot access properties: \\[double_table_property]");
+        assertAccessDenied(
+                "ALTER MATERIALIZED VIEW mock.default.test_materialized_view SET PROPERTIES string_materialized_view_property = ''", // default value
+                "Cannot access properties: \\[string_materialized_view_property]");
+        assertAccessDenied(
+                "ALTER MATERIALIZED VIEW mock.default.test_materialized_view SET PROPERTIES string_materialized_view_property = 'value'",
+                "Cannot access properties: \\[string_materialized_view_property]");
+        assertAccessDenied(
+                "ALTER MATERIALIZED VIEW mock.default.test_materialized_view SET PROPERTIES string_materialized_view_property = 'value', another_property = 1",
+                "Cannot access properties: \\[another_property, string_materialized_view_property]");
+        assertAccessDenied(
+                "ALTER MATERIALIZED VIEW mock.default.test_materialized_view SET PROPERTIES STRING_MATERIALIZED_VIEW_PROPERTY = 'value'",
+                "Cannot access properties: \\[string_materialized_view_property]");
+        assertAccessDenied(
+                "ALTER MATERIALIZED VIEW mock.default.test_materialized_view SET PROPERTIES string_materialized_view_property = DEFAULT",
+                "Cannot access properties: \\[string_materialized_view_property]");
+    }
+
+    @Test
+    public void testPropertiesAccessControlIsSkippedWhenUsingDefaults()
+    {
+        systemAccessControl.set(new DenySetPropertiesSystemAccessControl());
+        systemAccessControl.set(new DenySetPropertiesSystemAccessControl());
+        assertAccessAllowed("CREATE TABLE mock.default.new_table (pk bigint)");
+        assertAccessAllowed("CREATE SCHEMA mock.new_schema");
+        assertAccessAllowed("CREATE MATERIALIZED VIEW mock.default.new_materialized_view AS SELECT 1 a");
+    }
+
+    @Test
+    public void testAccessControlWithGroupsAndColumnMask()
+    {
+        groupProvider.setUserGroups(ImmutableMap.of(getSession().getUser(), ImmutableSet.of("group")));
+        TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
+        accessControlManager.denyIdentityTable((identity, table) -> (identity.getGroups().contains("group") && "orders".equals(table)));
+        accessControlManager.columnMask(
+                new QualifiedObjectName("blackhole", "default", "orders"),
+                "comment",
+                getSession().getUser(),
+                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "substr(comment,1,3)"));
+
+        assertAccessAllowed("SELECT comment FROM orders");
+    }
+
+    @Test
+    public void testAccessControlWithGroupsAndRowFilter()
+    {
+        groupProvider.setUserGroups(ImmutableMap.of(getSession().getUser(), ImmutableSet.of("group")));
+        TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
+        accessControlManager.denyIdentityTable((identity, table) -> (identity.getGroups().contains("group") && "nation".equals(table)));
+        accessControlManager.rowFilter(
+                new QualifiedObjectName("blackhole", "default", "nation"),
+                getSession().getUser(),
+                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "nationkey % 2 = 0"));
+
+        assertAccessAllowed("SELECT nationkey FROM nation");
+    }
+
+    @Test
+    public void testAccessControlWithRolesAndColumnMask()
+    {
+        String role = "role";
+        String user = "user";
+        Session session = Session.builder(getSession())
+                .setIdentity(Identity.forUser(user)
+                        .withEnabledRoles(ImmutableSet.of(role))
+                        .build())
+                .build();
+        systemSecurityMetadata.grantRoles(getSession(), Set.of(role), Set.of(new TrinoPrincipal(USER, user)), false, Optional.empty());
+        TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
+        accessControlManager.denyIdentityTable((identity, table) -> (identity.getEnabledRoles().contains(role) && "orders".equals(table)));
+        accessControlManager.columnMask(
+                new QualifiedObjectName("blackhole", "default", "orders"),
+                "comment",
+                getSession().getUser(),
+                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "substr(comment,1,3)"));
+
+        assertAccessAllowed(session, "SELECT comment FROM orders");
+    }
+
+    @Test
+    public void testAccessControlWithRolesAndRowFilter()
+    {
+        String role = "role";
+        String user = "user";
+        Session session = Session.builder(getSession())
+                .setIdentity(Identity.forUser(user)
+                        .withEnabledRoles(ImmutableSet.of(role))
+                        .build())
+                .build();
+        systemSecurityMetadata.grantRoles(getSession(), Set.of(role), Set.of(new TrinoPrincipal(USER, user)), false, Optional.empty());
+        TestingAccessControlManager accessControlManager = getQueryRunner().getAccessControl();
+        accessControlManager.denyIdentityTable((identity, table) -> (identity.getEnabledRoles().contains(role) && "nation".equals(table)));
+        accessControlManager.rowFilter(
+                new QualifiedObjectName("blackhole", "default", "nation"),
+                getSession().getUser(),
+                new ViewExpression(Optional.empty(), Optional.empty(), Optional.empty(), "nationkey % 2 = 0"));
+
+        assertAccessAllowed(session, "SELECT nationkey FROM nation");
+    }
+
+    private static final class DenySetPropertiesSystemAccessControl
+            extends AllowAllSystemAccessControl
+    {
+        @Override
+        public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
+        {
+            checkProperties(properties);
+        }
+
+        @Override
+        public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Object> properties)
+        {
+            checkProperties(properties);
+        }
+
+        @Override
+        public void checkCanCreateMaterializedView(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Object> properties)
+        {
+            checkProperties(properties);
+        }
+
+        @Override
+        public void checkCanSetTableProperties(SystemSecurityContext context, CatalogSchemaTableName table, Map<String, Optional<Object>> properties)
+        {
+            checkProperties(properties);
+        }
+
+        @Override
+        public void checkCanSetMaterializedViewProperties(SystemSecurityContext context, CatalogSchemaTableName materializedView, Map<String, Optional<Object>> properties)
+        {
+            checkProperties(properties);
+        }
+
+        private static void checkProperties(Map<?, ?> properties)
+        {
+            if (!properties.isEmpty()) {
+                List<String> keys = properties.keySet()
+                        .stream()
+                        .map(Object::toString)
+                        .sorted().collect(toList());
+                throw new AccessDeniedException("Cannot access properties: " + keys);
+            }
+        }
     }
 }

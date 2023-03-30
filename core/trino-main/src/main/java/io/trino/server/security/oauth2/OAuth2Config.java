@@ -157,8 +157,8 @@ public class OAuth2Config
         return groupsField;
     }
 
-    @Config("http-server.authentication.oauth2.groups-field")
-    @ConfigDescription("Groups field in the claim")
+    @Config("deprecated.http-server.authentication.oauth2.groups-field")
+    @ConfigDescription("Groups field in the claim. This configuration is scheduled for removal.")
     public OAuth2Config setGroupsField(String groupsField)
     {
         this.groupsField = Optional.ofNullable(groupsField);

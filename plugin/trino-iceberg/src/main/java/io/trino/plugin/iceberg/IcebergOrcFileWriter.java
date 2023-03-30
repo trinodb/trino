@@ -289,8 +289,7 @@ public class IcebergOrcFileWriter
                 this.min = Conversions.toByteBuffer(type, min);
                 this.max = Conversions.toByteBuffer(type, max);
             }
-            else if (metricsMode instanceof MetricsModes.Truncate) {
-                MetricsModes.Truncate truncateMode = (MetricsModes.Truncate) metricsMode;
+            else if (metricsMode instanceof MetricsModes.Truncate truncateMode) {
                 int truncateLength = truncateMode.length();
                 switch (type.typeId()) {
                     case STRING:

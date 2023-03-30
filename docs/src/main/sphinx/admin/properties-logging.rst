@@ -2,6 +2,33 @@
 Logging properties
 ==================
 
+``log.annotation-file``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+
+An optional properties file that contains annotations to be included with
+each log message. This can be used to include machine-specific or
+environment-specific information into logs which are centrally aggregated.
+The annotation values can contain references to environment variables.
+
+.. code-block:: properties
+
+    environment=production
+    host=${ENV:HOSTNAME}
+
+``log.format``
+^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-string`
+* **Default value:** ``TEXT``
+
+The file format for log records. Can be set to either ``TEXT`` or ``JSON``. When
+set to ``JSON``, the log record is formatted as a JSON object, one record per
+line. Any newlines in the field values, such as exception stack traces, are
+escaped as normal in the JSON object. This allows for capturing and indexing
+exceptions as singular fields in a logging search system.
+
 ``log.path``
 ^^^^^^^^^^^^
 
@@ -9,7 +36,9 @@ Logging properties
 
 The path to the log file used by Trino. The path is relative to the data
 directory, configured to ``var/log/server.log`` by the launcher script as
-detailed in :ref:`running_trino`.
+detailed in :ref:`running_trino`. Alternatively, you can write logs to separate
+the process (typically running next to Trino as a sidecar process) via the TCP
+protocol by using a log path of the format ``tcp://host:port``.
 
 ``log.max-history``
 ^^^^^^^^^^^^^^^^^^^

@@ -23,6 +23,7 @@ import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -32,6 +33,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static io.trino.spi.connector.Preconditions.checkArgument;
+import static io.trino.spi.connector.Preconditions.checkState;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -41,7 +44,6 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryRecordSet
@@ -68,18 +70,18 @@ public class InMemoryRecordSet
         return new InMemoryRecordCursor(types, records.iterator());
     }
 
-    private static class InMemoryRecordCursor
+    public static class InMemoryRecordCursor
             implements RecordCursor
     {
         private final List<Type> types;
-        private final Iterator<? extends List<?>> records;
+        private Iterator<? extends List<?>> records;
         private List<?> record;
         private long completedBytes;
 
-        private InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records)
+        protected InMemoryRecordCursor(List<Type> types, Iterator<? extends List<?>> records)
         {
-            this.types = types;
-            this.records = records;
+            this.types = requireNonNull(types, "types is null");
+            this.records = requireNonNull(records, "records is null");
         }
 
         @Override
@@ -174,6 +176,8 @@ public class InMemoryRecordSet
         @Override
         public void close()
         {
+            records = null;
+            record = null;
         }
     }
 
@@ -228,6 +232,9 @@ public class InMemoryRecordSet
                     checkArgument(value instanceof Integer || value instanceof Long,
                             "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
                 }
+                else if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && !timestampWithTimeZoneType.isShort()) {
+                    checkArgument(value instanceof LongTimestampWithTimeZone, "Expected value %s to be an instance of LongTimestampWithTimeZone, but is a %s", i, value.getClass().getSimpleName());
+                }
                 else if (DOUBLE.equals(type)) {
                     checkArgument(value instanceof Double, "Expected value %s to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
                 }
@@ -268,20 +275,6 @@ public class InMemoryRecordSet
         public InMemoryRecordSet build()
         {
             return new InMemoryRecordSet(types, records);
-        }
-    }
-
-    private static void checkArgument(boolean test, String message, Object... args)
-    {
-        if (!test) {
-            throw new IllegalArgumentException(format(message, args));
-        }
-    }
-
-    private static void checkState(boolean test, String message)
-    {
-        if (!test) {
-            throw new IllegalStateException(message);
         }
     }
 

@@ -47,7 +47,7 @@ public class TimestampColumnReader
     {
         if (type instanceof TimestampWithTimeZoneType) {
             DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(valuesReader.readBytes());
-            long utcMillis = decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
+            long utcMillis = decodedTimestamp.epochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.nanosOfSecond() / NANOSECONDS_PER_MILLISECOND;
             type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
         }
         else {

@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -60,7 +61,7 @@ public class TestHivePlugin
         deleteRecursively(tempDirectory, ALLOW_INSECURE);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     @BeforeMethod
     public void deinitializeRubix()
     {
@@ -72,19 +73,6 @@ public class TestHivePlugin
     public void testCreateConnector()
     {
         ConnectorFactory factory = getHiveConnectorFactory();
-
-        // simplest possible configuration
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
-    }
-
-    @Test
-    public void testCreateConnectorLegacyName()
-    {
-        Plugin plugin = new HivePlugin();
-        ConnectorFactory factory = stream(plugin.getConnectorFactories())
-                .filter(x -> x.getName().equals("hive-hadoop2"))
-                .collect(toOptional())
-                .orElseThrow();
 
         // simplest possible configuration
         factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
@@ -239,9 +227,7 @@ public class TestHivePlugin
 
         Connector connector = connectorFactory.create(
                 "test",
-                ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://foo:1234")
-                        .buildOrThrow(),
+                ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"),
                 new TestingConnectorContext());
         assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(APPEND);
         connector.shutdown();
@@ -251,8 +237,7 @@ public class TestHivePlugin
     {
         return connector.getSessionProperties().stream()
                 .filter(propertyMetadata -> "insert_existing_partitions_behavior".equals(propertyMetadata.getName()))
-                .findAny()
-                .orElseThrow()
+                .collect(onlyElement())
                 .getDefaultValue();
     }
 

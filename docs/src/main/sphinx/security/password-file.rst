@@ -90,3 +90,45 @@ Add or update the password for the user ``test``:
 
     htpasswd -B -C 10 password.db test
 
+.. _verify_authentication:
+
+Verify configuration
+^^^^^^^^^^^^^^^^^^^^
+
+To verify password file authentication, log in to the :doc:`Web UI
+</admin/web-interface>`, and connect with the Trino :doc:`CLI </client/cli>` to
+the cluster:
+
+* Connect to the Web UI from your browser using a URL that uses HTTPS, such as
+  ``https://trino.example.com:8443``. Enter a username in the ``Username`` text
+  box and the corresponding password in the ``Password`` text box, and log in to
+  the UI. Confirm that you are not able to log in using an incorrect username
+  and password combination. A successful login displays the username in the
+  top right corner of the UI.
+
+* Connect with the Trino CLI using a URL that uses HTTPS, such as
+  ``https://trino.example.net:8443`` with the addition of the ``--user`` and
+  ``--password`` properties:
+
+.. code-block:: text
+
+    ./trino --server https://trino.example.com:8443 --user test --password
+
+The above command quotes you for a password. Supply the password set for the
+user entered for the ``--user`` property to use the ``trino>`` prompt. Sucessful
+authentication allows you to run queries from the CLI.
+
+To test the connection, send a query:
+
+.. code-block:: text
+
+  trino> SELECT 'rocks' AS trino;
+
+  trino
+  -------
+  rocks
+  (1 row)
+
+  Query 20220919_113804_00017_54qfi, FINISHED, 1 node
+  Splits: 1 total, 1 done (100.00%)
+  0.12 [0 rows, 0B] [0 rows/s, 0B/s]

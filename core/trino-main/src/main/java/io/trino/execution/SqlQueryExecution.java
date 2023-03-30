@@ -26,7 +26,6 @@ import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.scheduler.EventDrivenFaultTolerantQueryScheduler;
 import io.trino.execution.scheduler.EventDrivenTaskSourceFactory;
-import io.trino.execution.scheduler.FaultTolerantQueryScheduler;
 import io.trino.execution.scheduler.NodeAllocatorService;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
@@ -35,7 +34,6 @@ import io.trino.execution.scheduler.QueryScheduler;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
 import io.trino.execution.scheduler.TaskExecutionStats;
-import io.trino.execution.scheduler.TaskSourceFactory;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.failuredetector.FailureDetector;
@@ -86,17 +84,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.SystemSessionProperties.getTaskRetryAttemptsOverall;
-import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
-import static io.trino.SystemSessionProperties.isFaultTolerantExecutionEventDriverSchedulerEnabled;
+import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.STACK_OVERFLOW;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -135,7 +129,6 @@ public class SqlQueryExecution
     private final TypeAnalyzer typeAnalyzer;
     private final SqlTaskManager coordinatorTaskManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
-    private final TaskSourceFactory taskSourceFactory;
     private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
     private final TaskDescriptorStorage taskDescriptorStorage;
 
@@ -169,7 +162,6 @@ public class SqlQueryExecution
             TypeAnalyzer typeAnalyzer,
             SqlTaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
-            TaskSourceFactory taskSourceFactory,
             EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
             TaskDescriptorStorage taskDescriptorStorage)
     {
@@ -217,7 +209,6 @@ public class SqlQueryExecution
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
-            this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "taskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         }
@@ -260,7 +251,7 @@ public class SqlQueryExecution
         Analyzer analyzer = analyzerFactory.createAnalyzer(
                 stateMachine.getSession(),
                 preparedQuery.getParameters(),
-                parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
+                bindParameters(preparedQuery.getStatement(), preparedQuery.getParameters()),
                 warningCollector);
         Analysis analysis;
         try {
@@ -527,51 +518,25 @@ public class SqlQueryExecution
                         coordinatorTaskManager);
                 break;
             case TASK:
-                if (isFaultTolerantExecutionEventDriverSchedulerEnabled(stateMachine.getSession())) {
-                    scheduler = new EventDrivenFaultTolerantQueryScheduler(
-                            stateMachine,
-                            plannerContext.getMetadata(),
-                            remoteTaskFactory,
-                            taskDescriptorStorage,
-                            eventDrivenTaskSourceFactory,
-                            plan.isSummarizeTaskInfos(),
-                            nodeTaskMap,
-                            queryExecutor,
-                            schedulerExecutor,
-                            schedulerStats,
-                            partitionMemoryEstimatorFactory,
-                            nodePartitioningManager,
-                            exchangeManagerRegistry.getExchangeManager(),
-                            nodeAllocatorService,
-                            failureDetector,
-                            dynamicFilterService,
-                            taskExecutionStats,
-                            plan.getRoot());
-                }
-                else {
-                    scheduler = new FaultTolerantQueryScheduler(
-                            stateMachine,
-                            queryExecutor,
-                            schedulerStats,
-                            failureDetector,
-                            taskSourceFactory,
-                            taskDescriptorStorage,
-                            exchangeManagerRegistry.getExchangeManager(),
-                            nodePartitioningManager,
-                            getTaskRetryAttemptsOverall(getSession()),
-                            getTaskRetryAttemptsPerTask(getSession()),
-                            getMaxTasksWaitingForNodePerStage(getSession()),
-                            schedulerExecutor,
-                            nodeAllocatorService,
-                            partitionMemoryEstimatorFactory,
-                            taskExecutionStats,
-                            dynamicFilterService,
-                            plannerContext.getMetadata(),
-                            remoteTaskFactory,
-                            nodeTaskMap,
-                            plan.getRoot(),
-                            plan.isSummarizeTaskInfos());
-                }
+                scheduler = new EventDrivenFaultTolerantQueryScheduler(
+                        stateMachine,
+                        plannerContext.getMetadata(),
+                        remoteTaskFactory,
+                        taskDescriptorStorage,
+                        eventDrivenTaskSourceFactory,
+                        plan.isSummarizeTaskInfos(),
+                        nodeTaskMap,
+                        queryExecutor,
+                        schedulerExecutor,
+                        schedulerStats,
+                        partitionMemoryEstimatorFactory,
+                        nodePartitioningManager,
+                        exchangeManagerRegistry.getExchangeManager(),
+                        nodeAllocatorService,
+                        failureDetector,
+                        dynamicFilterService,
+                        taskExecutionStats,
+                        plan.getRoot());
                 break;
             default:
                 throw new IllegalArgumentException("Unexpected retry policy: " + retryPolicy);
@@ -777,7 +742,6 @@ public class SqlQueryExecution
         private final TypeAnalyzer typeAnalyzer;
         private final SqlTaskManager coordinatorTaskManager;
         private final ExchangeManagerRegistry exchangeManagerRegistry;
-        private final TaskSourceFactory taskSourceFactory;
         private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
         private final TaskDescriptorStorage taskDescriptorStorage;
 
@@ -808,7 +772,6 @@ public class SqlQueryExecution
                 TypeAnalyzer typeAnalyzer,
                 SqlTaskManager coordinatorTaskManager,
                 ExchangeManagerRegistry exchangeManagerRegistry,
-                TaskSourceFactory taskSourceFactory,
                 EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
                 TaskDescriptorStorage taskDescriptorStorage)
         {
@@ -837,7 +800,6 @@ public class SqlQueryExecution
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.coordinatorTaskManager = requireNonNull(coordinatorTaskManager, "coordinatorTaskManager is null");
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
-            this.taskSourceFactory = requireNonNull(taskSourceFactory, "taskSourceFactory is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "eventDrivenTaskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
         }
@@ -883,7 +845,6 @@ public class SqlQueryExecution
                     typeAnalyzer,
                     coordinatorTaskManager,
                     exchangeManagerRegistry,
-                    taskSourceFactory,
                     eventDrivenTaskSourceFactory,
                     taskDescriptorStorage);
         }

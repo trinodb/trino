@@ -28,7 +28,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.plan.WindowNode.Function;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.planner.rowpattern.AggregatedSetDescriptor;
 import io.trino.sql.planner.rowpattern.AggregationValuePointer;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
@@ -197,7 +196,7 @@ public class TestPatternRecognitionNodeSerialization
         PatternRecognitionNode node = new PatternRecognitionNode(
                 new PlanNodeId("0"),
                 new ValuesNode(new PlanNodeId("1"), 1),
-                new Specification(ImmutableList.of(), Optional.empty()),
+                new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0,

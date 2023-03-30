@@ -91,6 +91,8 @@ public class IcebergAvroPageSource
                 .collect(toImmutableMap(Types.NestedField::name, Types.NestedField::type));
         pageBuilder = new PageBuilder(columnTypes);
         recordIterator = avroReader.iterator();
+        // TODO: Remove when NPE check has been released: https://github.com/trinodb/trino/issues/15372
+        isFinished();
     }
 
     private boolean isIndexColumn(int column)

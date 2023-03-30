@@ -16,32 +16,30 @@ package io.trino.plugin.bigquery;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.cloud.bigquery.Field;
-import com.google.common.annotations.VisibleForTesting;
+import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import org.openjdk.jol.info.ClassLayout;
+import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryColumnHandle
-        implements ColumnHandle, BigQueryType.Adaptor
+        implements ColumnHandle
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BigQueryColumnHandle.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BigQueryColumnHandle.class);
 
     private final String name;
-    private final BigQueryType bigQueryType;
+    private final Type trinoType;
+    private final StandardSQLTypeName bigqueryType;
     private final Field.Mode mode;
     private final Long precision;
     private final Long scale;
@@ -52,7 +50,8 @@ public class BigQueryColumnHandle
     @JsonCreator
     public BigQueryColumnHandle(
             @JsonProperty("name") String name,
-            @JsonProperty("bigQueryType") BigQueryType bigQueryType,
+            @JsonProperty("trinoType") Type trinoType,
+            @JsonProperty("bigqueryType") StandardSQLTypeName bigqueryType,
             @JsonProperty("mode") Field.Mode mode,
             @JsonProperty("precision") Long precision,
             @JsonProperty("scale") Long scale,
@@ -61,7 +60,8 @@ public class BigQueryColumnHandle
             @JsonProperty("hidden") boolean hidden)
     {
         this.name = requireNonNull(name, "column name cannot be null");
-        this.bigQueryType = requireNonNull(bigQueryType, () -> format("column type cannot be null for column [%s]", name));
+        this.trinoType = requireNonNull(trinoType, "trinoType is null");
+        this.bigqueryType = requireNonNull(bigqueryType, "bigqueryType is null");
         this.mode = requireNonNull(mode, "Field mode cannot be null");
         this.precision = precision;
         this.scale = scale;
@@ -70,53 +70,36 @@ public class BigQueryColumnHandle
         this.hidden = hidden;
     }
 
-    @VisibleForTesting
-    BigQueryColumnHandle(
-            String name,
-            BigQueryType bigQueryType,
-            Field.Mode mode,
-            Long precision,
-            Long scale,
-            List<BigQueryColumnHandle> subColumns,
-            String description)
-    {
-        this(name, bigQueryType, mode, precision, scale, subColumns, description, false);
-    }
-
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
-    @Override
     @JsonProperty
-    public BigQueryType getBigQueryType()
+    public Type getTrinoType()
     {
-        return bigQueryType;
+        return trinoType;
     }
 
-    @Override
-    public Map<String, BigQueryType.Adaptor> getBigQuerySubTypes()
+    @JsonProperty
+    public StandardSQLTypeName getBigqueryType()
     {
-        return subColumns.stream().collect(toImmutableMap(BigQueryColumnHandle::getName, column -> column));
+        return bigqueryType;
     }
 
-    @Override
     @JsonProperty
     public Field.Mode getMode()
     {
         return mode;
     }
 
-    @Override
     @JsonProperty
     public Long getPrecision()
     {
         return precision;
     }
 
-    @Override
     @JsonProperty
     public Long getScale()
     {
@@ -145,7 +128,7 @@ public class BigQueryColumnHandle
     {
         return ColumnMetadata.builder()
                 .setName(name)
-                .setType(getTrinoType())
+                .setType(trinoType)
                 .setComment(Optional.ofNullable(description))
                 .setNullable(mode == Field.Mode.NULLABLE)
                 .setHidden(hidden)
@@ -163,7 +146,8 @@ public class BigQueryColumnHandle
         }
         BigQueryColumnHandle that = (BigQueryColumnHandle) o;
         return Objects.equals(name, that.name) &&
-                Objects.equals(bigQueryType, that.bigQueryType) &&
+                Objects.equals(trinoType, that.trinoType) &&
+                Objects.equals(bigqueryType, that.bigqueryType) &&
                 Objects.equals(mode, that.mode) &&
                 Objects.equals(precision, that.precision) &&
                 Objects.equals(scale, that.scale) &&
@@ -174,7 +158,7 @@ public class BigQueryColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, bigQueryType, mode, precision, scale, subColumns, description);
+        return Objects.hash(name, trinoType, bigqueryType, mode, precision, scale, subColumns, description);
     }
 
     @Override
@@ -182,7 +166,8 @@ public class BigQueryColumnHandle
     {
         return toStringHelper(this)
                 .add("name", name)
-                .add("type", bigQueryType)
+                .add("trinoType", trinoType)
+                .add("bigqueryType", bigqueryType)
                 .add("mode", mode)
                 .add("precision", precision)
                 .add("scale", scale)

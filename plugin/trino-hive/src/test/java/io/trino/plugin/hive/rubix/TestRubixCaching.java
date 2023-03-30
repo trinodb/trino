@@ -101,8 +101,8 @@ public class TestRubixCaching
 {
     private static final DataSize SMALL_FILE_SIZE = DataSize.of(1, MEGABYTE);
     private static final DataSize LARGE_FILE_SIZE = DataSize.of(100, MEGABYTE);
-    private static final MBeanServer BEAN_SERVER = ManagementFactory.getPlatformMBeanServer();
 
+    private MBeanServer mBeanServer;
     private java.nio.file.Path tempDirectory;
     private Path cacheStoragePath;
     private HdfsConfig config;
@@ -116,11 +116,12 @@ public class TestRubixCaching
     public void setup()
             throws IOException
     {
+        mBeanServer = ManagementFactory.getPlatformMBeanServer();
+
         cacheStoragePath = getStoragePath("/");
         config = new HdfsConfig();
         List<PropertyMetadata<?>> hiveSessionProperties = getHiveSessionProperties(
                 new HiveConfig(),
-                new RubixEnabledConfig().setCacheEnabled(true),
                 new OrcReaderConfig()).getSessionProperties();
         context = new HdfsContext(
                 TestingConnectorSession.builder()
@@ -130,7 +131,7 @@ public class TestRubixCaching
         nonCachingFileSystem = getNonCachingFileSystem();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     @BeforeMethod
     public void deinitializeRubix()
     {
@@ -237,6 +238,8 @@ public class TestRubixCaching
             throws IOException
     {
         closeFileSystem(nonCachingFileSystem);
+        nonCachingFileSystem = null;
+        mBeanServer = null;
     }
 
     @AfterMethod(alwaysRun = true)
@@ -557,8 +560,8 @@ public class TestRubixCaching
     private long getRemoteReadsCount()
     {
         try {
-            long directRemoteReads = (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Direct_rrc_requests");
-            long remoteReads = (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Remote_rrc_requests");
+            long directRemoteReads = (long) mBeanServer.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Direct_rrc_requests");
+            long remoteReads = (long) mBeanServer.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Remote_rrc_requests");
             return directRemoteReads + remoteReads;
         }
         catch (Exception exception) {
@@ -569,7 +572,7 @@ public class TestRubixCaching
     private long getCachedReadsCount()
     {
         try {
-            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Cached_rrc_requests");
+            return (long) mBeanServer.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Cached_rrc_requests");
         }
         catch (Exception exception) {
             throw new RuntimeException(exception);
@@ -583,7 +586,7 @@ public class TestRubixCaching
         }
 
         try {
-            return (long) BEAN_SERVER.getAttribute(new ObjectName("metrics:name=rubix.bookkeeper.count.async_downloaded_mb"), "Count");
+            return (long) mBeanServer.getAttribute(new ObjectName("metrics:name=rubix.bookkeeper.count.async_downloaded_mb"), "Count");
         }
         catch (Exception exception) {
             throw new RuntimeException(exception);

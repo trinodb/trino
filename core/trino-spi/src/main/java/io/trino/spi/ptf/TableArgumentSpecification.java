@@ -15,6 +15,9 @@ package io.trino.spi.ptf;
 
 import io.trino.spi.Experimental;
 
+import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
+
 @Experimental(eta = "2022-10-31")
 public class TableArgumentSpecification
         extends ArgumentSpecification
@@ -23,9 +26,12 @@ public class TableArgumentSpecification
     private final boolean pruneWhenEmpty;
     private final boolean passThroughColumns;
 
-    private TableArgumentSpecification(String name, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns)
+    private TableArgumentSpecification(String name, boolean rowSemantics, Boolean pruneWhenEmpty, boolean passThroughColumns)
     {
         super(name, true, null);
+
+        requireNonNull(pruneWhenEmpty, "The pruneWhenEmpty property is not set");
+        checkArgument(!rowSemantics || pruneWhenEmpty, "Cannot set the KEEP WHEN EMPTY property for a table argument with row semantics");
 
         this.rowSemantics = rowSemantics;
         this.pruneWhenEmpty = pruneWhenEmpty;
@@ -56,7 +62,7 @@ public class TableArgumentSpecification
     {
         private String name;
         private boolean rowSemantics;
-        private boolean pruneWhenEmpty;
+        private Boolean pruneWhenEmpty;
         private boolean passThroughColumns;
 
         private Builder() {}
@@ -77,6 +83,12 @@ public class TableArgumentSpecification
         public Builder pruneWhenEmpty()
         {
             this.pruneWhenEmpty = true;
+            return this;
+        }
+
+        public Builder keepWhenEmpty()
+        {
+            this.pruneWhenEmpty = false;
             return this;
         }
 

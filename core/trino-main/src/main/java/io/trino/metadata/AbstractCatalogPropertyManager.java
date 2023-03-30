@@ -14,10 +14,10 @@
 package io.trino.metadata;
 
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Expression;

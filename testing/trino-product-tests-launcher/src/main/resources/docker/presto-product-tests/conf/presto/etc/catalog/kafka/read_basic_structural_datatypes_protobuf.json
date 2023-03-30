@@ -1,0 +1,21 @@
+{
+  "tableName": "read_basic_structural_datatypes_protobuf",
+  "schemaName": "product_tests",
+  "topicName": "read_basic_structural_datatypes_protobuf",
+  "message": {
+    "dataFormat": "protobuf",
+    "dataSchema": "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/basic_structural_datatypes.proto",
+    "fields": [
+      {
+        "name": "c_array",
+        "type": "ARRAY(BIGINT)",
+        "mapping": "a_array"
+      },
+      {
+        "name": "c_map",
+        "type": "MAP(VARCHAR, DOUBLE)",
+        "mapping": "a_map"
+      }
+    ]
+  }
+}

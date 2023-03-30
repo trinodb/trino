@@ -12,15 +12,21 @@ current_version=$(${maven} help:evaluate -Dexpression=project.version -q -Dforce
 previous_released_version=$((${current_version%-SNAPSHOT}-1))
 first_tested_version=352
 # test n-th version only
-version_step=5
+version_step=7
 
 echo "Current version: ${current_version}"
+
+if (( previous_released_version == 404 )); then
+    # 404 was skipped
+    previous_released_version=403
+fi
 
 (( previous_released_version >= first_tested_version )) || exit 0
 
 echo "Testing every ${version_step}. version between ${first_tested_version} and ${previous_released_version}"
 
-tested_versions=$(seq "${first_tested_version}" ${version_step} "${previous_released_version}")
+# 404 was skipped
+tested_versions=$(seq "${first_tested_version}" ${version_step} "${previous_released_version}" | grep -vx 404)
 
 if (( (previous_released_version - first_tested_version) % version_step != 0 )); then
     tested_versions="${tested_versions} ${previous_released_version}"

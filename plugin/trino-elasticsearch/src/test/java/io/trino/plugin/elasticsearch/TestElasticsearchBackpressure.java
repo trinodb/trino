@@ -60,8 +60,11 @@ public class TestElasticsearchBackpressure
             throws IOException
     {
         elasticsearchNginxProxy.stop();
+        elasticsearchNginxProxy = null;
         elasticsearch.stop();
+        elasticsearch = null;
         network.close();
+        network = null;
     }
 
     @Test

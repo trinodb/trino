@@ -71,6 +71,7 @@ import static io.trino.plugin.pinot.query.PinotPatterns.singleInput;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunction;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionName;
 import static io.trino.plugin.pinot.query.PinotPatterns.transformFunctionType;
+import static io.trino.plugin.pinot.query.PinotTransformFunctionTypeResolver.getTransformFunctionType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -95,9 +96,7 @@ public class PinotSqlFormatter
             .add(new BinaryOperatorPredicateRule())
             .build();
 
-    private static final List<Rule<FunctionContext>> GLOBAL_FUNCTION_RULES = ImmutableList.<Rule<FunctionContext>>builder()
-            .add(new MinusFunctionRule())
-            .build();
+    private static final List<Rule<FunctionContext>> GLOBAL_FUNCTION_RULES = ImmutableList.of(new MinusFunctionRule());
 
     private static final Map<Predicate.Type, Rule<Predicate>> PREDICATE_RULE_MAP;
     private static final Map<TransformFunctionType, Rule<FunctionContext>> FUNCTION_RULE_MAP;
@@ -200,7 +199,7 @@ public class PinotSqlFormatter
     {
         switch (expressionContext.getType()) {
             case LITERAL:
-                return singleQuoteValue(expressionContext.getLiteral());
+                return singleQuoteValue(expressionContext.getLiteral().getValue().toString());
             case IDENTIFIER:
                 if (context.getColumnHandles().isPresent()) {
                     return quoteIdentifier(getColumnHandle(expressionContext.getIdentifier(), context.getSchemaTableName(), context.getColumnHandles().get()).getColumnName());
@@ -216,7 +215,7 @@ public class PinotSqlFormatter
     {
         Optional<String> result = Optional.empty();
         if (functionContext.getType() == FunctionContext.Type.TRANSFORM) {
-            Rule<FunctionContext> rule = FUNCTION_RULE_MAP.get(TransformFunctionType.getTransformFunctionType(functionContext.getFunctionName()));
+            Rule<FunctionContext> rule = FUNCTION_RULE_MAP.get(getTransformFunctionType(functionContext).orElseThrow());
 
             if (rule != null) {
                 result = applyRule(rule, functionContext, context);

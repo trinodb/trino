@@ -36,8 +36,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -83,7 +83,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testNotAnalyzed()
     {
-        String tableName = "test_not_analyzed_" + randomTableSuffix();
+        String tableName = "test_not_analyzed_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -115,7 +115,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testBasic()
     {
-        String tableName = "test_stats_orders_" + randomTableSuffix();
+        String tableName = "test_stats_orders_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
@@ -143,7 +143,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testAllNulls()
     {
-        String tableName = "test_stats_table_all_nulls_" + randomTableSuffix();
+        String tableName = "test_stats_table_all_nulls_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
@@ -192,7 +192,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testNullsFraction()
     {
-        String tableName = "test_stats_table_with_nulls_" + randomTableSuffix();
+        String tableName = "test_stats_table_with_nulls_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         assertUpdate("" +
                         "CREATE TABLE " + tableName + " AS " +
@@ -242,7 +242,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testView()
     {
-        String tableName = "test_stats_view_" + randomTableSuffix();
+        String tableName = "test_stats_view_" + randomNameSuffix();
         executeInMysql("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
         try {
             assertQuery(
@@ -335,12 +335,12 @@ public abstract class BaseTestMySqlTableStatisticsTest
 //                            "('mixed_infinities_and_numbers', null, 4.0, 0.0, null, null, null)," +
 //                            "('nans_only', null, 1.0, 0.5, null, null, null)," +
 //                            "('nans_and_numbers', null, 3.0, 0.0, null, null, null)," +
-                            "('large_doubles', null, 1.9, 0.050000000000000044, null, null, null)," +
-                            "('short_decimals_big_fraction', null, 1.9, 0.050000000000000044, null, null, null)," +
-                            "('short_decimals_big_integral', null, 1.9, 0.050000000000000044, null, null, null)," +
-                            "('long_decimals_big_fraction', null, 1.9, 0.050000000000000044, null, null, null)," +
-                            "('long_decimals_middle', null, 1.9, 0.050000000000000044, null, null, null)," +
-                            "('long_decimals_big_integral', null, 1.9, 0.050000000000000044, null, null, null)," +
+                            "('large_doubles', null, 2.0, 0.0, null, null, null)," +
+                            "('short_decimals_big_fraction', null, 2.0, 0.0, null, null, null)," +
+                            "('short_decimals_big_integral', null, 2.0, 0.0, null, null, null)," +
+                            "('long_decimals_big_fraction', null, 2.0, 0.0, null, null, null)," +
+                            "('long_decimals_middle', null, 2.0, 0.0, null, null, null)," +
+                            "('long_decimals_big_integral', null, 2.0, 0.0, null, null, null)," +
                             "(null, null, null, null, 2, null, null)");
         }
     }
@@ -394,15 +394,24 @@ public abstract class BaseTestMySqlTableStatisticsTest
                         .isEqualTo(0);
             }
 
-            AbstractDoubleAssert<?> ndvAssertion = assertThat((Double) row.getField(2)).as("NDV for " + columnName);
+            Double distinctCount = (Double) row.getField(2);
+            Double nullsFraction = (Double) row.getField(3);
+            AbstractDoubleAssert<?> ndvAssertion = assertThat(distinctCount).as("NDV for " + columnName);
             if (expectedNdv == null) {
                 ndvAssertion.isNull();
-                assertNull(row.getField(3), "null fraction for " + columnName);
+                assertNull(nullsFraction, "null fraction for " + columnName);
             }
             else {
                 ndvAssertion.isBetween(expectedNdv * 0.5, min(expectedNdv * 4.0, tableCardinality)); // [-50%, +300%] but no more than row count
-                assertThat((Double) row.getField(3)).as("Null fraction for " + columnName)
-                        .isBetween(expectedNullFraction * 0.4, min(expectedNullFraction * 1.1, 1.0));
+                AbstractDoubleAssert<?> nullsAssertion = assertThat(nullsFraction).as("Null fraction for " + columnName);
+                if (distinctCount.compareTo(tableCardinality) >= 0) {
+                    nullsAssertion.isEqualTo(0);
+                }
+                else {
+                    double maxNullsFraction = (tableCardinality - distinctCount) / tableCardinality;
+                    expectedNullFraction = Math.min(expectedNullFraction, maxNullsFraction);
+                    nullsAssertion.isBetween(expectedNullFraction * 0.4, expectedNullFraction * 1.1);
+                }
             }
 
             assertNull(row.getField(4), "min");

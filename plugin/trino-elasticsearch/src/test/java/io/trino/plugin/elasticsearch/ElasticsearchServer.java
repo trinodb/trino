@@ -14,6 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.common.net.HostAndPort;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -69,6 +70,12 @@ public class ElasticsearchServer
     {
         container.close();
         deleteRecursively(configurationPath, ALLOW_INSECURE);
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return container.getContainerId() != null;
     }
 
     public HostAndPort getAddress()

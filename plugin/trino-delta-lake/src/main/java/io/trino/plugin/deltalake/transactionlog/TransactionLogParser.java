@@ -17,6 +17,8 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystem;
@@ -29,9 +31,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 
@@ -54,6 +53,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -86,8 +86,8 @@ public final class TransactionLogParser
     private static final Logger log = Logger.get(TransactionLogParser.class);
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
-    // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
-    public static final LocalDate START_OF_MODERN_ERA = LocalDate.of(1901, 1, 1);
+    // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 day margin.
+    public static final LocalDate START_OF_MODERN_ERA = LocalDate.of(1900, 1, 2);
 
     public static final String LAST_CHECKPOINT_FILENAME = "_last_checkpoint";
 
@@ -206,7 +206,7 @@ public final class TransactionLogParser
             }
         }
         catch (RuntimeException e) {
-            return new TrinoException(
+            throw new TrinoException(
                     GENERIC_INTERNAL_ERROR,
                     format("Unable to parse value [%s] from column %s with type %s", valueString, column.getName(), column.getType()),
                     e);
@@ -217,25 +217,26 @@ public final class TransactionLogParser
                 format("Unable to parse value [%s] from column %s with type %s", valueString, column.getName(), column.getType()));
     }
 
-    static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, Path tableLocation)
+    static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
     {
-        return Failsafe.with(new RetryPolicy<>()
+        return Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(5)
                         .withDelay(Duration.ofSeconds(1))
                         .onRetry(event -> {
                             // The _last_checkpoint file is malformed, it's probably in the middle of a rewrite (file rewrites on Azure are NOT atomic)
                             // Retry several times with a short delay, and if that fails, fall back to manually finding latest checkpoint.
-                            log.debug(event.getLastFailure(), "Failure when accessing last checkpoint information, will be retried");
-                        }))
+                            log.debug(event.getLastException(), "Failure when accessing last checkpoint information, will be retried");
+                        })
+                        .build())
                 .get(() -> tryReadLastCheckpoint(fileSystem, tableLocation));
     }
 
-    private static Optional<LastCheckpoint> tryReadLastCheckpoint(TrinoFileSystem fileSystem, Path tableLocation)
+    private static Optional<LastCheckpoint> tryReadLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
             throws JsonParseException, JsonMappingException
     {
-        Path checkpointPath = new Path(getTransactionLogDir(tableLocation), LAST_CHECKPOINT_FILENAME);
-        TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath.toString());
-        try (InputStream lastCheckpointInput = inputFile.newInput().inputStream()) {
+        String checkpointPath = appendPath(getTransactionLogDir(tableLocation), LAST_CHECKPOINT_FILENAME);
+        TrinoInputFile inputFile = fileSystem.newInputFile(checkpointPath);
+        try (InputStream lastCheckpointInput = inputFile.newStream()) {
             // Note: there apparently is 8K buffering applied and _last_checkpoint should be much smaller.
             return Optional.of(JsonUtils.parseJson(OBJECT_MAPPER, lastCheckpointInput, LastCheckpoint.class));
         }
@@ -251,15 +252,15 @@ public final class TransactionLogParser
         }
     }
 
-    public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, Path tableLocation)
+    public static long getMandatoryCurrentVersion(TrinoFileSystem fileSystem, String tableLocation)
             throws IOException
     {
         long version = readLastCheckpoint(fileSystem, tableLocation).map(LastCheckpoint::getVersion).orElse(0L);
 
-        Path transactionLogDir = getTransactionLogDir(tableLocation);
+        String transactionLogDir = getTransactionLogDir(tableLocation);
         while (true) {
-            Path entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
-            if (!fileSystem.newInputFile(entryPath.toString()).exists()) {
+            String entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version + 1);
+            if (!fileSystem.newInputFile(entryPath).exists()) {
                 return version;
             }
             version++;

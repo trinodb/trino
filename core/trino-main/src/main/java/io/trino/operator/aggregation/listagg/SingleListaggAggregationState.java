@@ -16,16 +16,15 @@ package io.trino.operator.aggregation.listagg;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.Math.toIntExact;
 
 public class SingleListaggAggregationState
         implements ListaggAggregationState
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SingleListaggAggregationState.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SingleListaggAggregationState.class);
     private BlockBuilder blockBuilder;
     private Slice separator;
     private boolean overflowError;

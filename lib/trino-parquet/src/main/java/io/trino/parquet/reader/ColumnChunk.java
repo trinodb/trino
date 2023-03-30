@@ -15,6 +15,8 @@ package io.trino.parquet.reader;
 
 import io.trino.spi.block.Block;
 
+import java.util.OptionalLong;
+
 import static java.util.Objects.requireNonNull;
 
 public class ColumnChunk
@@ -22,12 +24,19 @@ public class ColumnChunk
     private final Block block;
     private final int[] definitionLevels;
     private final int[] repetitionLevels;
+    private OptionalLong maxBlockSize;
 
     public ColumnChunk(Block block, int[] definitionLevels, int[] repetitionLevels)
+    {
+        this(block, definitionLevels, repetitionLevels, OptionalLong.empty());
+    }
+
+    public ColumnChunk(Block block, int[] definitionLevels, int[] repetitionLevels, OptionalLong maxBlockSize)
     {
         this.block = requireNonNull(block, "block is null");
         this.definitionLevels = requireNonNull(definitionLevels, "definitionLevels is null");
         this.repetitionLevels = requireNonNull(repetitionLevels, "repetitionLevels is null");
+        this.maxBlockSize = maxBlockSize;
     }
 
     public Block getBlock()
@@ -43,5 +52,13 @@ public class ColumnChunk
     public int[] getRepetitionLevels()
     {
         return repetitionLevels;
+    }
+
+    public long getMaxBlockSize()
+    {
+        if (maxBlockSize.isEmpty()) {
+            maxBlockSize = OptionalLong.of(block.getSizeInBytes());
+        }
+        return maxBlockSize.getAsLong();
     }
 }

@@ -37,11 +37,9 @@ public class SetOperationOutputMatcher
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof SetOperationNode)) {
+        if (!(node instanceof SetOperationNode setOperationNode)) {
             return Optional.empty();
         }
-
-        SetOperationNode setOperationNode = (SetOperationNode) node;
 
         if (index >= setOperationNode.getOutputSymbols().size()) {
             return Optional.empty();

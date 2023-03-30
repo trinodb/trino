@@ -40,7 +40,7 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
 import io.trino.execution.StageInfo;
-import io.trino.execution.buffer.PagesSerde;
+import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClientSupplier;
@@ -52,6 +52,7 @@ import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
+import io.trino.util.Ciphers;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -110,7 +111,8 @@ class Query
     private final Executor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
-    private final PagesSerde serde;
+    @GuardedBy("this")
+    private PageDeserializer deserializer;
     private final boolean supportsParametricDateTime;
 
     @GuardedBy("this")
@@ -122,8 +124,7 @@ class Query
     @GuardedBy("this")
     private long lastToken = -1;
 
-    @GuardedBy("this")
-    private boolean resultsConsumed;
+    private volatile boolean resultsConsumed;
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -231,7 +232,8 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
+        deserializer = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
+                .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
 
     public void cancel()
@@ -345,10 +347,15 @@ class Query
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
-    public synchronized void markResultsConsumedIfReady()
+    public void markResultsConsumedIfReady()
     {
-        if (!resultsConsumed && exchangeDataSource.isFinished()) {
-            queryManager.resultsConsumed(queryId);
+        if (resultsConsumed) {
+            return;
+        }
+        synchronized (this) {
+            if (!resultsConsumed && exchangeDataSource.isFinished()) {
+                queryManager.resultsConsumed(queryId);
+            }
         }
     }
 
@@ -414,7 +421,7 @@ class Query
             return Optional.empty();
         }
 
-        // is the a repeated request for the last results?
+        // is this a repeated request for the last results?
         if (token == lastToken) {
             // tell query manager we are still interested in the query
             queryManager.recordHeartbeat(queryId);
@@ -559,7 +566,7 @@ class Query
                 .withExceptionConsumer(this::handleSerializationException)
                 .withColumnsAndTypes(columns, types);
 
-        try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+        try {
             long bytes = 0;
             while (bytes < targetResultBytes) {
                 Slice serializedPage = exchangeDataSource.pollPage();
@@ -567,12 +574,13 @@ class Query
                     break;
                 }
 
-                Page page = serde.deserialize(context, serializedPage);
+                Page page = deserializer.deserialize(serializedPage);
                 bytes += page.getLogicalSizeInBytes();
                 resultBuilder.addPage(page);
             }
             if (exchangeDataSource.isFinished()) {
                 exchangeDataSource.close();
+                deserializer = null; // null to reclaim memory of PagesSerde which does not expose explicit lifecycle
             }
         }
         catch (Throwable cause) {
@@ -582,13 +590,18 @@ class Query
         return resultBuilder.build();
     }
 
-    private synchronized void closeExchangeIfNecessary(QueryInfo queryInfo)
+    private void closeExchangeIfNecessary(QueryInfo queryInfo)
     {
+        if (queryInfo.getState() != FAILED && queryInfo.getOutputStage().isPresent()) {
+            return;
+        }
         // Close the exchange client if the query has failed, or if the query
         // does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
-        if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
-            exchangeDataSource.close();
+        synchronized (this) {
+            if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
+                exchangeDataSource.close();
+            }
         }
     }
 

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import io.trino.plugin.base.CatalogName;
 import org.weakref.jmx.ObjectNameBuilder;
 import org.weakref.jmx.ObjectNameGenerator;
 
@@ -29,13 +30,11 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorObjectNameGeneratorModule
         implements Module
 {
-    private final String catalogName;
     private final String packageName;
     private final String defaultDomainBase;
 
-    public ConnectorObjectNameGeneratorModule(String catalogName, String packageName, String defaultDomainBase)
+    public ConnectorObjectNameGeneratorModule(String packageName, String defaultDomainBase)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.packageName = requireNonNull(packageName, "packageName is null");
         this.defaultDomainBase = requireNonNull(defaultDomainBase, "defaultDomainBase is null");
     }
@@ -47,10 +46,10 @@ public class ConnectorObjectNameGeneratorModule
     }
 
     @Provides
-    ObjectNameGenerator createPrefixObjectNameGenerator(ObjectNameGeneratorConfig config)
+    ObjectNameGenerator createPrefixObjectNameGenerator(CatalogName catalogName, ObjectNameGeneratorConfig config)
     {
         String domainBase = firstNonNull(config.getDomainBase(), defaultDomainBase);
-        return new ConnectorObjectNameGenerator(packageName, domainBase, catalogName);
+        return new ConnectorObjectNameGenerator(packageName, domainBase, catalogName.toString());
     }
 
     public static final class ConnectorObjectNameGenerator

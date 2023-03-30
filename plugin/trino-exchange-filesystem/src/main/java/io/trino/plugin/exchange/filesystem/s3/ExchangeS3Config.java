@@ -16,6 +16,7 @@ package io.trino.plugin.exchange.filesystem.s3;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -24,6 +25,7 @@ import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -129,6 +131,12 @@ public class ExchangeS3Config
     {
         this.s3Endpoint = Optional.ofNullable(s3Endpoint);
         return this;
+    }
+
+    @AssertTrue(message = "Either exchange.s3.region or exchange.s3.endpoint is expected to be set")
+    public boolean isEndpointOrRegionSet()
+    {
+        return s3Region.isPresent() || s3Endpoint.isPresent();
     }
 
     @Min(0)
@@ -237,7 +245,7 @@ public class ExchangeS3Config
         return this;
     }
 
-    public Optional<String> getGcsJsonKeyFilePath()
+    public Optional<@FileExists String> getGcsJsonKeyFilePath()
     {
         return gcsJsonKeyFilePath;
     }

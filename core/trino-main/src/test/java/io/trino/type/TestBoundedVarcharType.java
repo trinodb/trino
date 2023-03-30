@@ -21,6 +21,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Character.MAX_CODE_POINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestBoundedVarcharType
@@ -58,17 +59,7 @@ public class TestBoundedVarcharType
     public void testRange()
     {
         Type.Range range = type.getRange().orElseThrow();
-
-        String expectedMax = new StringBuilder()
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .appendCodePoint(Character.MAX_CODE_POINT)
-                .toString();
-
         assertEquals(range.getMin(), Slices.utf8Slice(""));
-        assertEquals(range.getMax(), Slices.utf8Slice(expectedMax));
+        assertEquals(range.getMax(), Slices.utf8Slice(Character.toString(MAX_CODE_POINT).repeat(((VarcharType) type).getBoundedLength())));
     }
 }

@@ -66,6 +66,7 @@ public class TestJdbcClient
             throws Exception
     {
         database.close();
+        database = null;
     }
 
     @Test

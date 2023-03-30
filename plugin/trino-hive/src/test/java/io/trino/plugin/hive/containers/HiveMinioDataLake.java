@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.containers;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.ResourcePresence;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import io.trino.util.AutoCloseableCloser;
@@ -23,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
@@ -30,10 +33,6 @@ import static org.testcontainers.containers.Network.newNetwork;
 public class HiveMinioDataLake
         implements AutoCloseable
 {
-    @Deprecated
-    public static final String MINIO_ACCESS_KEY = Minio.MINIO_ACCESS_KEY;
-    @Deprecated
-    public static final String MINIO_SECRET_KEY = Minio.MINIO_SECRET_KEY;
     /**
      * In S3 this region is implicitly the default one. In Minio, however,
      * if we set an empty region, it will accept any.
@@ -99,6 +98,12 @@ public class HiveMinioDataLake
         state = State.STOPPED;
     }
 
+    @ResourcePresence
+    public boolean isNotStopped()
+    {
+        return state != State.STOPPED;
+    }
+
     public MinioClient getMinioClient()
     {
         checkState(state == State.STARTED, "Can't provide client when MinIO state is: %s", state);
@@ -133,12 +138,6 @@ public class HiveMinioDataLake
     public String getBucketName()
     {
         return bucketName;
-    }
-
-    @Deprecated
-    public String getMinioAddress()
-    {
-        return getMinio().getMinioAddress();
     }
 
     @Override

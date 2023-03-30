@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -43,6 +44,14 @@ public abstract class BaseJdbcConnectionCreationTest
         // Test expects connectionFactory to be provided with AbstractTestQueryFramework.createQueryRunner implementation
         requireNonNull(connectionFactory, "connectionFactory is null");
         connectionFactory.assertThatNoConnectionHasLeaked();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void destroy()
+            throws Exception
+    {
+        connectionFactory.close();
+        connectionFactory = null;
     }
 
     protected void assertJdbcConnections(@Language("SQL") String query, int expectedJdbcConnectionsCount, Optional<String> errorMessage)

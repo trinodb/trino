@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.google.common.base.VerifyException;
+import io.trino.execution.scheduler.FaultTolerantPartitioningScheme;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
@@ -38,6 +39,8 @@ import static com.google.common.collect.Iterables.getLast;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_NUMBER;
+import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Math.toIntExact;
@@ -113,6 +116,24 @@ public final class MergePartitioningHandle
         }
 
         return optionalInsertMap.orElseGet(optionalUpdateMap::orElseThrow);
+    }
+
+    public FaultTolerantPartitioningScheme getFaultTolerantPartitioningScheme(Function<PartitioningHandle, FaultTolerantPartitioningScheme> getScheme)
+    {
+        Optional<FaultTolerantPartitioningScheme> optionalInsertScheme = insertPartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getScheme);
+        Optional<FaultTolerantPartitioningScheme> optionalUpdateScheme = updatePartitioning.map(scheme -> scheme.getPartitioning().getHandle()).map(getScheme);
+
+        if (optionalInsertScheme.isPresent() && optionalUpdateScheme.isPresent()) {
+            FaultTolerantPartitioningScheme insertScheme = optionalInsertScheme.get();
+            FaultTolerantPartitioningScheme updateScheme = optionalUpdateScheme.get();
+            if (insertScheme.getPartitionCount() != updateScheme.getPartitionCount()
+                    || !Arrays.equals(insertScheme.getBucketToPartitionMap().orElse(null), updateScheme.getBucketToPartitionMap().orElse(null))
+                    || !Objects.equals(insertScheme.getPartitionToNodeMap(), updateScheme.getPartitionToNodeMap())) {
+                throw new TrinoException(NOT_SUPPORTED, "Insert and update layout have mismatched BucketNodeMap");
+            }
+        }
+
+        return optionalInsertScheme.orElseGet(optionalUpdateScheme::orElseThrow);
     }
 
     public PartitionFunction getPartitionFunction(PartitionFunctionLookup partitionFunctionLookup, List<Type> types, int[] bucketToPartition)
@@ -194,8 +215,8 @@ public final class MergePartitioningHandle
             Block operationBlock = page.getBlock(0);
             int operation = toIntExact(TINYINT.getLong(operationBlock, position));
             return switch (operation) {
-                case INSERT_OPERATION_NUMBER -> insertFunction.getPartition(page.getColumns(insertColumns), position);
-                case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER -> updateFunction.getPartition(page.getColumns(updateColumns), position);
+                case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER -> insertFunction.getPartition(page.getColumns(insertColumns), position);
+                case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> updateFunction.getPartition(page.getColumns(updateColumns), position);
                 default -> throw new VerifyException("Invalid merge operation number: " + operation);
             };
         }

@@ -69,7 +69,8 @@ public class FileSystemExchangeModule
             configBinder(binder).bindConfig(ExchangeAzureConfig.class);
         }
         else {
-            binder.addError(new TrinoException(NOT_SUPPORTED, format("Scheme %s is not supported as exchange spooling storage", scheme)));
+            binder.addError(new TrinoException(NOT_SUPPORTED,
+                    format("Scheme %s is not supported as exchange spooling storage in exchange manager type %s", scheme, FileSystemExchangeManagerFactory.FILESYSTEM)));
         }
     }
 }

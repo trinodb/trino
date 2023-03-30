@@ -85,7 +85,12 @@ public class TestDeltaLakeAdlsStorage
                         "/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.toString()))
                 .build());
         hiveHadoop.start();
-        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA_NAME, ImmutableMap.of(), ImmutableMap.of(), hiveHadoop);
+        return createAbfsDeltaLakeQueryRunner(
+                DELTA_CATALOG,
+                SCHEMA_NAME,
+                ImmutableMap.of(),
+                ImmutableMap.of("delta.register-table-procedure.enabled", "true"),
+                hiveHadoop);
     }
 
     private Path createHadoopCoreSiteXmlTempFileWithAbfsSettings()
@@ -98,7 +103,7 @@ public class TestDeltaLakeAdlsStorage
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
         Path coreSiteXml = Files.createTempFile("core-site", ".xml", posixFilePermissions);
         coreSiteXml.toFile().deleteOnExit();
-        Files.write(coreSiteXml, abfsSpecificCoreSiteXmlContent.getBytes(UTF_8));
+        Files.writeString(coreSiteXml, abfsSpecificCoreSiteXmlContent);
 
         return coreSiteXml;
     }
@@ -109,12 +114,7 @@ public class TestDeltaLakeAdlsStorage
         hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-mkdir", "-p", adlsDirectory);
         TABLES.forEach(table -> {
             hiveHadoop.executeInContainerFailOnError("hadoop", "fs", "-copyFromLocal", "-f", "/tmp/tpch-tiny/" + table, adlsDirectory);
-            getQueryRunner().execute(format("CREATE TABLE %s.%s.%s (dummy int) WITH (location = '%s/%s')",
-                    DELTA_CATALOG,
-                    SCHEMA_NAME,
-                    table,
-                    adlsDirectory,
-                    table));
+            getQueryRunner().execute(format("CALL system.register_table('%s', '%s', '%s/%s')", SCHEMA_NAME, table, adlsDirectory, table));
         });
     }
 

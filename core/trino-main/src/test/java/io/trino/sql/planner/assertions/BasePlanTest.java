@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -99,6 +99,11 @@ public class BasePlanTest
         return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
     }
 
+    protected CatalogHandle getCatalogHandle(String catalogName)
+    {
+        return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalogName)).get();
+    }
+
     protected LocalQueryRunner getQueryRunner()
     {
         return queryRunner;
@@ -137,11 +142,17 @@ public class BasePlanTest
 
     protected void assertPlan(@Language("SQL") String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
-        queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage, WarningCollector.NOOP);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
-            return null;
-        });
+        try {
+            queryRunner.inTransaction(transactionSession -> {
+                Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage, WarningCollector.NOOP);
+                PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                return null;
+            });
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("Query: " + sql));
+            throw e;
+        }
     }
 
     protected void assertDistributedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
@@ -173,21 +184,33 @@ public class BasePlanTest
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
     {
-        queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
-            return null;
-        });
+        try {
+            queryRunner.inTransaction(session, transactionSession -> {
+                Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+                PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                return null;
+            });
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("Query: " + sql));
+            throw e;
+        }
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern, Consumer<Plan> planValidator)
     {
-        queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
-            planValidator.accept(actualPlan);
-            return null;
-        });
+        try {
+            queryRunner.inTransaction(session, transactionSession -> {
+                Plan actualPlan = queryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+                PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                planValidator.accept(actualPlan);
+                return null;
+            });
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("Query: " + sql));
+            throw e;
+        }
     }
 
     protected Plan plan(@Language("SQL") String sql)

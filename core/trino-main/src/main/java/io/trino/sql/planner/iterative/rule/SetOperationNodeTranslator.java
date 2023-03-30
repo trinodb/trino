@@ -26,12 +26,12 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SetOperationNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.planner.plan.WindowNode.Specification;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NullLiteral;
@@ -210,7 +210,7 @@ public class SetOperationNodeTranslator
         return new WindowNode(
                 idAllocator.getNextId(),
                 sourceNode,
-                new Specification(originalColumns, Optional.empty()),
+                new DataOrganizationSpecification(originalColumns, Optional.empty()),
                 functions.buildOrThrow(),
                 Optional.empty(),
                 ImmutableSet.of(),

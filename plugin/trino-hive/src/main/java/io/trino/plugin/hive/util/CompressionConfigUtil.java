@@ -41,9 +41,9 @@ public final class CompressionConfigUtil
         OrcConf.COMPRESS.setString(config, compressionCodec.getOrcCompressionKind().name());
 
         // For RCFile and Text
-        if (compressionCodec.getCodec().isPresent()) {
-            config.set("mapred.output.compression.codec", compressionCodec.getCodec().get().getName());
-            config.set(FileOutputFormat.COMPRESS_CODEC, compressionCodec.getCodec().get().getName());
+        if (compressionCodec.getHiveCompressionKind().isPresent()) {
+            config.set("mapred.output.compression.codec", compressionCodec.getHiveCompressionKind().get().getHadoopClassName());
+            config.set(FileOutputFormat.COMPRESS_CODEC, compressionCodec.getHiveCompressionKind().get().getHadoopClassName());
         }
         else {
             config.unset("mapred.output.compression.codec");

@@ -47,7 +47,7 @@ public class GlueHiveMetastoreConfig
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
     private int readStatisticsThreads = 5;
-    private int writeStatisticsThreads = 5;
+    private int writeStatisticsThreads = 20;
     private boolean assumeCanonicalPartitionKeys;
 
     public Optional<String> getGlueRegion()

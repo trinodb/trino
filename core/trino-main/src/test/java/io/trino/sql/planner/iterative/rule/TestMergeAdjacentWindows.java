@@ -22,6 +22,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
@@ -51,7 +52,7 @@ public class TestMergeAdjacentWindows
     private static final ResolvedFunction LAG = FUNCTION_RESOLUTION.resolveFunction(QualifiedName.of("lag"), fromTypes(DOUBLE));
 
     private static final String columnAAlias = "ALIAS_A";
-    private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
+    private static final ExpectedValueProvider<DataOrganizationSpecification> specificationA =
             specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
 
     @Test
@@ -203,9 +204,9 @@ public class TestMergeAdjacentWindows
                                                         values(columnAAlias, unusedAlias))))));
     }
 
-    private static WindowNode.Specification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName)
+    private static DataOrganizationSpecification newWindowNodeSpecification(PlanBuilder planBuilder, String symbolName)
     {
-        return new WindowNode.Specification(ImmutableList.of(planBuilder.symbol(symbolName, BIGINT)), Optional.empty());
+        return new DataOrganizationSpecification(ImmutableList.of(planBuilder.symbol(symbolName, BIGINT)), Optional.empty());
     }
 
     private static WindowNode.Function newWindowNodeFunction(ResolvedFunction resolvedFunction, String... symbols)

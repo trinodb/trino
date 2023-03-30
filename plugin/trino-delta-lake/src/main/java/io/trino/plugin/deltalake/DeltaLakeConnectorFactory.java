@@ -20,6 +20,7 @@ import io.trino.spi.connector.ConnectorFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.plugin.base.Versions.checkSpiVersion;
@@ -28,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeConnectorFactory
         implements ConnectorFactory
 {
-    public static final String CONNECTOR_NAME = "delta-lake";
+    public static final String CONNECTOR_NAME = "delta_lake";
 
     private final Class<? extends Module> module;
 
@@ -53,8 +54,8 @@ public class DeltaLakeConnectorFactory
             Class<?> moduleClass = classLoader.loadClass(Module.class.getName());
             Object moduleInstance = classLoader.loadClass(module.getName()).getConstructor().newInstance();
             return (Connector) classLoader.loadClass(InternalDeltaLakeConnectorFactory.class.getName())
-                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, moduleClass)
-                    .invoke(null, catalogName, config, context, moduleInstance);
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, moduleClass)
+                    .invoke(null, catalogName, config, context, Optional.empty(), moduleInstance);
         }
         catch (InvocationTargetException e) {
             Throwable targetException = e.getTargetException();

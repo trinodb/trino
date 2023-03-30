@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -61,7 +60,7 @@ public class TestShowQueries
                                                 .setType(BIGINT)
                                                 .build()))
                         .withListSchemaNames(session -> ImmutableList.of("mockschema"))
-                        .withListTables((session, schemaName) -> ImmutableList.of(new SchemaTableName("mockSchema", "mockTable")))
+                        .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
                         .build(),
                 ImmutableMap.of());
         queryRunner.createCatalog("testing_catalog", "mock", ImmutableMap.of());

@@ -28,11 +28,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.index.strtree.AbstractNode;
 import org.locationtech.jts.index.strtree.ItemBoundable;
 import org.locationtech.jts.index.strtree.STRtree;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verifyNotNull;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.operator.PagesSpatialIndex.EMPTY_INDEX;
 import static io.trino.operator.SyntheticAddress.decodePosition;
@@ -51,16 +52,16 @@ import static java.lang.Math.toIntExact;
 public class PagesSpatialIndexSupplier
         implements Supplier<PagesSpatialIndex>
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PagesSpatialIndexSupplier.class).instanceSize());
-    private static final int ENVELOPE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Envelope.class).instanceSize());
-    private static final int STRTREE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(STRtree.class).instanceSize());
-    private static final int ABSTRACT_NODE_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(AbstractNode.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PagesSpatialIndexSupplier.class);
+    private static final int ENVELOPE_INSTANCE_SIZE = instanceSize(Envelope.class);
+    private static final int STRTREE_INSTANCE_SIZE = instanceSize(STRtree.class);
+    private static final int ABSTRACT_NODE_INSTANCE_SIZE = instanceSize(AbstractNode.class);
 
     private final Session session;
     private final LongArrayList addresses;
     private final List<Type> types;
     private final List<Integer> outputChannels;
-    private final List<List<Block>> channels;
+    private final List<ObjectArrayList<Block>> channels;
     private final Optional<Integer> radiusChannel;
     private final SpatialPredicate spatialRelationshipTest;
     private final Optional<JoinFilterFunctionCompiler.JoinFilterFunctionFactory> filterFunctionFactory;
@@ -73,7 +74,7 @@ public class PagesSpatialIndexSupplier
             LongArrayList addresses,
             List<Type> types,
             List<Integer> outputChannels,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             int geometryChannel,
             Optional<Integer> radiusChannel,
             Optional<Integer> partitionChannel,
@@ -96,7 +97,7 @@ public class PagesSpatialIndexSupplier
                 (rtree.isEmpty() ? 0 : STRTREE_INSTANCE_SIZE + computeMemorySizeInBytes(rtree.getRoot()));
     }
 
-    private static STRtree buildRTree(LongArrayList addresses, List<List<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel, Optional<Integer> partitionChannel)
+    private static STRtree buildRTree(LongArrayList addresses, List<ObjectArrayList<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel, Optional<Integer> partitionChannel)
     {
         STRtree rtree = new STRtree();
         Operator relateOperator = OperatorFactoryLocal.getInstance().getOperator(Operator.Type.Relate);

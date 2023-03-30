@@ -24,6 +24,7 @@ import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 
 import static com.google.common.base.MoreObjects.ToStringHelper;
@@ -57,7 +58,7 @@ public class TDigestHistogram
     }
 
     @JsonProperty
-    public TDigest getDigest()
+    public synchronized TDigest getDigest()
     {
         return TDigest.copyOf(digest);
     }
@@ -65,14 +66,33 @@ public class TDigestHistogram
     @Override
     public TDigestHistogram mergeWith(TDigestHistogram other)
     {
-        TDigest result = TDigest.copyOf(digest);
-        result.mergeWith(other.getDigest());
+        TDigest result = getDigest();
+        other.mergeTo(result);
         return new TDigestHistogram(result);
     }
 
     @Override
+    public TDigestHistogram mergeWith(List<TDigestHistogram> others)
+    {
+        if (others.isEmpty()) {
+            return this;
+        }
+
+        TDigest result = getDigest();
+        for (TDigestHistogram other : others) {
+            other.mergeTo(result);
+        }
+        return new TDigestHistogram(result);
+    }
+
+    private synchronized void mergeTo(TDigest digest)
+    {
+        digest.mergeWith(this.digest);
+    }
+
+    @Override
     @JsonProperty
-    public long getTotal()
+    public synchronized long getTotal()
     {
         return (long) digest.getCount();
     }
@@ -146,7 +166,7 @@ public class TDigestHistogram
     }
 
     @Override
-    public double getPercentile(double percentile)
+    public synchronized double getPercentile(double percentile)
     {
         return digest.valueAt(percentile / 100.0);
     }

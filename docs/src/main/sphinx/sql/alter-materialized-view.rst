@@ -25,7 +25,7 @@ exists.
 SET PROPERTIES
 ^^^^^^^^^^^^^^
 
-The ``ALTER MATERALIZED VIEW SET PROPERTIES``  statement followed by some number
+The ``ALTER MATERIALIZED VIEW SET PROPERTIES``  statement followed by some number
 of ``property_name`` and ``expression`` pairs applies the specified properties
 and values to a materialized view. Ommitting an already-set property from this
 statement leaves that property unchanged in the materialized view.
@@ -55,11 +55,11 @@ Set view properties (``x = y``) in materialized view ``people``::
 Set multiple view properties (``foo = 123`` and ``foo bar = 456``) in
 materialized view ``people``::
 
-    ALTER MATERALIZED VIEW people SET PROPERTIES foo = 123, "foo bar" = 456;
+    ALTER MATERIALIZED VIEW people SET PROPERTIES foo = 123, "foo bar" = 456;
 
 Set view property ``x`` to its default value in materialized view ``people``::
 
-    ALTER MATERALIZED VIEW people SET PROPERTIES x = DEFAULT;
+    ALTER MATERIALIZED VIEW people SET PROPERTIES x = DEFAULT;
 
 See also
 --------

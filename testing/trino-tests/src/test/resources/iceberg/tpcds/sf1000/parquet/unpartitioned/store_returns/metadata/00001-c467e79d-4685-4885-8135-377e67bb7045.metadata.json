@@ -1,0 +1,287 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "7edeba10-a532-4ac0-a62e-9c05e199a417",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/store_returns",
+  "last-updated-ms" : 1663711017880,
+  "last-column-id" : 20,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "sr_returned_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "sr_return_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "sr_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "sr_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "sr_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "sr_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "sr_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "sr_store_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "sr_reason_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "sr_ticket_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "sr_return_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "sr_return_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 13,
+      "name" : "sr_return_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 14,
+      "name" : "sr_return_amt_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 15,
+      "name" : "sr_fee",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 16,
+      "name" : "sr_return_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 17,
+      "name" : "sr_refunded_cash",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 18,
+      "name" : "sr_reversed_charge",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 19,
+      "name" : "sr_store_credit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "sr_net_loss",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "sr_returned_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "sr_return_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "sr_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "sr_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "sr_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "sr_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "sr_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "sr_store_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "sr_reason_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "sr_ticket_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "sr_return_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "sr_return_amt",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 13,
+      "name" : "sr_return_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 14,
+      "name" : "sr_return_amt_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 15,
+      "name" : "sr_fee",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 16,
+      "name" : "sr_return_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 17,
+      "name" : "sr_refunded_cash",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 18,
+      "name" : "sr_reversed_charge",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 19,
+      "name" : "sr_store_credit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "sr_net_loss",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.7.ndv" : "5947530",
+    "trino.stats.ndv.2.ndv" : "32934",
+    "trino.stats.ndv.16.ndv" : "351933",
+    "trino.stats.ndv.4.ndv" : "12236563",
+    "trino.stats.ndv.5.ndv" : "1890006",
+    "trino.stats.ndv.19.ndv" : "677045",
+    "trino.stats.ndv.18.ndv" : "697964",
+    "trino.stats.ndv.9.ndv" : "65",
+    "trino.stats.ndv.14.ndv" : "1229056",
+    "trino.stats.ndv.12.ndv" : "659344",
+    "trino.stats.ndv.10.ndv" : "177092218",
+    "trino.stats.ndv.8.ndv" : "513",
+    "trino.stats.ndv.1.ndv" : "2017",
+    "trino.stats.ndv.15.ndv" : "10141",
+    "trino.stats.ndv.6.ndv" : "7082",
+    "trino.stats.ndv.3.ndv" : "297612",
+    "write.format.default" : "PARQUET",
+    "trino.stats.ndv.17.ndv" : "927393",
+    "trino.stats.ndv.13.ndv" : "119761",
+    "trino.stats.ndv.20.ndv" : "713783",
+    "trino.stats.ndv.11.ndv" : "100"
+  },
+  "current-snapshot-id" : 939104734745829810,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 939104734745829810,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 939104734745829810,
+    "timestamp-ms" : 1648063532101,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "14",
+      "added-records" : "287999764",
+      "added-files-size" : "12546602144",
+      "changed-partition-count" : "1",
+      "total-records" : "287999764",
+      "total-files-size" : "12546602144",
+      "total-data-files" : "14",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/store_returns/metadata/snap-939104734745829810-1-0f4d5031-eb6d-42a9-886c-92d65dd60c58.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648063532101,
+    "snapshot-id" : 939104734745829810
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648063532101,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/store_returns/metadata/00000-ea05246c-4c4f-42d7-aec1-b7d0dd0e7e46.metadata.json"
+  } ]
+}

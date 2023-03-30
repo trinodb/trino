@@ -37,6 +37,7 @@ public class PageBufferClientStatus
     private final int requestsScheduled;
     private final int requestsCompleted;
     private final int requestsFailed;
+    private final int requestsSucceeded;
     private final String httpRequestState;
 
     @JsonCreator
@@ -50,6 +51,7 @@ public class PageBufferClientStatus
             @JsonProperty("requestsScheduled") int requestsScheduled,
             @JsonProperty("requestsCompleted") int requestsCompleted,
             @JsonProperty("requestsFailed") int requestsFailed,
+            @JsonProperty("requestsSucceeded") int requestsSucceeded,
             @JsonProperty("httpRequestState") String httpRequestState)
     {
         this.uri = uri;
@@ -62,6 +64,7 @@ public class PageBufferClientStatus
         this.requestsScheduled = requestsScheduled;
         this.requestsCompleted = requestsCompleted;
         this.requestsFailed = requestsFailed;
+        this.requestsSucceeded = requestsSucceeded;
         this.httpRequestState = httpRequestState;
     }
 
@@ -123,6 +126,12 @@ public class PageBufferClientStatus
     public int getRequestsFailed()
     {
         return requestsFailed;
+    }
+
+    @JsonProperty
+    public int getRequestsSucceeded()
+    {
+        return requestsSucceeded;
     }
 
     @JsonProperty

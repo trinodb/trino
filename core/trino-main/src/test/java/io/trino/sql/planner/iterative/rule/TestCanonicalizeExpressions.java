@@ -14,12 +14,8 @@
 package io.trino.sql.planner.iterative.rule;
 
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.tree.CurrentTime;
 import org.testng.annotations.Test;
 
-import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 
@@ -51,32 +47,5 @@ public class TestCanonicalizeExpressions
         tester().assertThat(canonicalizeExpressions.joinExpressionRewrite())
                 .on(p -> p.join(INNER, p.values(), p.values(), FALSE_LITERAL))
                 .doesNotFire();
-    }
-
-    /**
-     * Test canonicalization of {@link CurrentTime}
-     */
-    @Test
-    public void testCanonicalizeCurrentTime()
-    {
-        CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getPlannerContext(), tester().getTypeAnalyzer());
-        tester().assertThat(canonicalizeExpressions.filterExpressionRewrite())
-                .on(p -> p.filter(expression("LOCALTIMESTAMP > TIMESTAMP '2005-09-10 13:30:00'"), p.values(1)))
-                .matches(
-                        filter(
-                                "\"$localtimestamp\"(null) > TIMESTAMP '2005-09-10 13:30:00'",
-                                values(1)));
-    }
-
-    @Test
-    public void testCanonicalizeDateArgument()
-    {
-        CanonicalizeExpressions canonicalizeExpressions = new CanonicalizeExpressions(tester().getPlannerContext(), tester().getTypeAnalyzer());
-        tester().assertThat(canonicalizeExpressions.filterExpressionRewrite())
-                .on(p -> p.filter(expression("date(LOCALTIMESTAMP) > DATE '2005-09-10'"), p.values(1)))
-                .matches(
-                        filter(
-                                "CAST(\"$localtimestamp\"(null) AS date) > DATE '2005-09-10'",
-                                values(1)));
     }
 }

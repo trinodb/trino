@@ -13,42 +13,31 @@
  */
 package io.trino.parquet.dictionary;
 
-import io.trino.parquet.ParquetEncoding;
 import org.apache.parquet.io.api.Binary;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-public abstract class Dictionary
+public interface Dictionary
 {
-    public Dictionary(ParquetEncoding encoding)
-    {
-        checkArgument(
-                encoding == ParquetEncoding.PLAIN_DICTIONARY || encoding == ParquetEncoding.PLAIN,
-                "Dictionary does not support encoding: %s",
-                encoding);
-    }
-
-    public Binary decodeToBinary(int id)
+    default Binary decodeToBinary(int id)
     {
         throw new UnsupportedOperationException();
     }
 
-    public int decodeToInt(int id)
+    default int decodeToInt(int id)
     {
         throw new UnsupportedOperationException();
     }
 
-    public long decodeToLong(int id)
+    default long decodeToLong(int id)
     {
         throw new UnsupportedOperationException();
     }
 
-    public float decodeToFloat(int id)
+    default float decodeToFloat(int id)
     {
         throw new UnsupportedOperationException();
     }
 
-    public double decodeToDouble(int id)
+    default double decodeToDouble(int id)
     {
         throw new UnsupportedOperationException();
     }

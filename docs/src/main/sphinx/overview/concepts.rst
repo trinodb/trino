@@ -27,11 +27,35 @@ general to most specific.
     provide further information about Trino and the concepts in use.
 
 
-Server types
+.. _trino-concept-architecture:
+
+Architecture
 ------------
 
-There are two types of Trino servers: coordinators and workers. The
-following section explains the difference between the two.
+Trino is a distributed query engine that processes data in parallel across
+multiple servers. There are two types of Trino servers,
+:ref:`coordinators <trino-concept-coordinator>` and
+:ref:`workers <trino-concept-worker>`. The following sections describe these
+servers and other components of Trino's architecture.
+
+.. _trino-concept-cluster:
+
+Cluster
+^^^^^^^
+
+A Trino cluster consists of a :ref:`coordinator <trino-concept-coordinator>` and
+many :ref:`workers <trino-concept-worker>`. Users connect to the coordinator
+with their :ref:`SQL <glossSQL>` query tool. The coordinator collaborates with the
+workers. The coordinator and the workers access the connected
+:ref:`data sources <trino-concept-data-sources>`. This access is configured in
+:ref:`catalogs <trino-concept-catalog>`.
+
+Processing each query is a stateful operation. The workload is orchestrated by
+the coordinator and spread parallel across all workers in the cluster. Each node
+runs Trino in one JVM instance, and processing is parallelized further using
+threads.
+
+.. _trino-concept-coordinator:
 
 Coordinator
 ^^^^^^^^^^^
@@ -52,6 +76,8 @@ Trino workers.
 
 Coordinators communicate with workers and clients using a REST API.
 
+.. _trino-concept-worker:
+
 Worker
 ^^^^^^
 
@@ -67,6 +93,8 @@ for task execution.
 
 Workers communicate with other workers and Trino coordinators
 using a REST API.
+
+.. _trino-concept-data-sources:
 
 Data sources
 ------------
@@ -103,13 +131,15 @@ two Hive clusters, you can configure two catalogs in a single Trino
 cluster that both use the Hive connector, allowing you to query data
 from both Hive clusters, even within the same SQL query.
 
+.. _trino-concept-catalog:
+
 Catalog
 ^^^^^^^
 
 A Trino catalog contains schemas and references a data source via a
 connector.  For example, you can configure a JMX catalog to provide
-access to JMX information via the JMX connector. When you run a SQL
-statement in Trino, you are running it against one or more catalogs.
+access to JMX information via the JMX connector. When you run SQL
+statements in Trino, you are running them against one or more catalogs.
 Other examples of catalogs include the Hive catalog to connect to a
 Hive data source.
 
@@ -154,8 +184,8 @@ expressions, and predicates.
 
 Some readers might be curious why this section lists separate concepts
 for statements and queries. This is necessary because, in Trino,
-statements simply refer to the textual representation of a SQL
-statement. When a statement is executed, Trino creates a query along
+statements simply refer to the textual representation of a statement written
+in SQL. When a statement is executed, Trino creates a query along
 with a query plan that is then distributed across a series of Trino
 workers.
 

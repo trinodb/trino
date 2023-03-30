@@ -39,7 +39,6 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NotExpression;
@@ -51,6 +50,7 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.TestingTransactionManager;
+import io.trino.type.LikeFunctions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -68,7 +68,6 @@ import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.IS_NULL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
-import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NEGATE_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NOT_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.NULLIF_FUNCTION_NAME;
@@ -90,6 +89,8 @@ import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.LikeFunctions.likePattern;
+import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -336,29 +337,68 @@ public class TestConnectorExpressionTranslator
     @Test
     public void testTranslateLike()
     {
-        String pattern = "%pattern%";
-        assertTranslationRoundTrips(
-                new LikePredicate(
-                        new SymbolReference("varchar_symbol_1"),
-                        new StringLiteral(pattern),
-                        Optional.empty()),
-                new Call(BOOLEAN,
-                        LIKE_FUNCTION_NAME,
-                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())))));
+        transaction(new TestingTransactionManager(), new AllowAllAccessControl())
+                .readOnly()
+                .execute(TEST_SESSION, transactionSession -> {
+                    String pattern = "%pattern%";
+                    Call translated = new Call(BOOLEAN,
+                            StandardFunctions.LIKE_FUNCTION_NAME,
+                            List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                    new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length()))));
 
-        String escape = "\\";
-        assertTranslationRoundTrips(
-                new LikePredicate(
-                        new SymbolReference("varchar_symbol_1"),
-                        new StringLiteral(pattern),
-                        Optional.of(new StringLiteral(escape))),
-                new Call(BOOLEAN,
-                        LIKE_FUNCTION_NAME,
-                        List.of(
-                                new Variable("varchar_symbol_1", VARCHAR_TYPE),
-                                new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
-                                new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length())))));
+                    assertTranslationToConnectorExpression(
+                            transactionSession,
+                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                    .setName(QualifiedName.of(LikeFunctions.LIKE_FUNCTION_NAME))
+                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .addArgument(LIKE_PATTERN, LITERAL_ENCODER.toExpression(transactionSession, likePattern(utf8Slice(pattern)), LIKE_PATTERN))
+                                    .build(),
+                            Optional.of(translated));
+
+                    assertTranslationFromConnectorExpression(
+                            transactionSession,
+                            translated,
+                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                    .setName(QualifiedName.of(LikeFunctions.LIKE_FUNCTION_NAME))
+                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .addArgument(LIKE_PATTERN,
+                                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                                    .setName(QualifiedName.of(LikeFunctions.LIKE_PATTERN_FUNCTION_NAME))
+                                                    .addArgument(createVarcharType(pattern.length()), new StringLiteral(pattern))
+                                                    .build())
+                                    .build());
+
+                    String escape = "\\";
+                    translated = new Call(BOOLEAN,
+                            StandardFunctions.LIKE_FUNCTION_NAME,
+                            List.of(
+                                    new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                    new Constant(Slices.wrappedBuffer(pattern.getBytes(UTF_8)), createVarcharType(pattern.length())),
+                                    new Constant(Slices.wrappedBuffer(escape.getBytes(UTF_8)), createVarcharType(escape.length()))));
+
+                    assertTranslationToConnectorExpression(
+                            transactionSession,
+                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                    .setName(QualifiedName.of(LikeFunctions.LIKE_FUNCTION_NAME))
+                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .addArgument(LIKE_PATTERN, LITERAL_ENCODER.toExpression(transactionSession, likePattern(utf8Slice(pattern), utf8Slice(escape)), LIKE_PATTERN))
+                                    .build(),
+                            Optional.of(translated));
+
+                    assertTranslationFromConnectorExpression(
+                            transactionSession,
+                            translated,
+                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                    .setName(QualifiedName.of(LikeFunctions.LIKE_FUNCTION_NAME))
+                                    .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                                    .addArgument(LIKE_PATTERN,
+                                            FunctionCallBuilder.resolve(transactionSession, PLANNER_CONTEXT.getMetadata())
+                                                    .setName(QualifiedName.of(LikeFunctions.LIKE_PATTERN_FUNCTION_NAME))
+                                                    .addArgument(createVarcharType(pattern.length()), new StringLiteral(pattern))
+                                                    .addArgument(createVarcharType(1), new StringLiteral(escape))
+                                                    .build())
+                                    .build());
+                });
     }
 
     @Test

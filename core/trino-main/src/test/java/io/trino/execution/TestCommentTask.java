@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -118,7 +119,7 @@ public class TestCommentTask
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).get();
         ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(testSession, tableHandle).getMetadata();
-        assertThat(Optional.ofNullable(connectorTableMetadata.getColumns().stream().filter(column -> "test".equals(column.getName())).findFirst().get().getComment()))
+        assertThat(Optional.ofNullable(connectorTableMetadata.getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment()))
                 .isEqualTo(Optional.of("new test column comment"));
     }
 
@@ -132,7 +133,7 @@ public class TestCommentTask
         assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
-        assertThat(metadata.getView(testSession, viewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).findAny().get().getComment())
+        assertThat(metadata.getView(testSession, viewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())
                 .isEqualTo(Optional.of("new test column comment"));
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))

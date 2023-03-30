@@ -48,14 +48,16 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
-import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -93,7 +95,7 @@ class StatementClientV1
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
-    public StatementClientV1(OkHttpClient httpClient, ClientSession session, String query)
+    public StatementClientV1(OkHttpClient httpClient, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(session, "session is null");
@@ -107,7 +109,9 @@ class StatementClientV1
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
-        this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
+        this.clientCapabilities = Joiner.on(",").join(clientCapabilities.orElseGet(() -> stream(ClientCapabilities.values())
+                .map(Enum::name)
+                .collect(toImmutableSet())));
         this.compressionDisabled = session.isCompressionDisabled();
 
         Request request = buildQueryRequest(session, query);
@@ -387,7 +391,7 @@ class StatementClientV1
                 return true;
             }
 
-            if (response.getStatusCode() != HTTP_UNAVAILABLE) {
+            if (!shouldRetry(response.getStatusCode())) {
                 state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                 throw requestFailedException("fetching next", request, response);
             }
@@ -444,7 +448,7 @@ class StatementClientV1
         if (!response.hasValue()) {
             if (response.getStatusCode() == HTTP_UNAUTHORIZED) {
                 return new ClientException("Authentication failed" +
-                        Optional.ofNullable(response.getStatusMessage())
+                        response.getResponseBody()
                                 .map(message -> ": " + message)
                                 .orElse(""));
             }

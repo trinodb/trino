@@ -283,6 +283,12 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testTableCreationWithTrailingSpaceInLocation()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
     public void testTableCreationIgnoreExisting()
     {
         // Alluxio metastore does not support create operations
@@ -385,5 +391,11 @@ public class TestHiveAlluxioMetastore
             throws Exception
     {
         // Alluxio metastore does not support insert/update/delete operations
+    }
+
+    @Override
+    public void testCreateEmptyTableShouldNotCreateStagingDirectory()
+    {
+        // Alluxio metastore does not support create operations
     }
 }

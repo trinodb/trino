@@ -110,7 +110,7 @@ databases:
     https_keystore_password: ${databases.presto.https_keystore_password}
 
   mysql:
-    jdbc_driver_class: com.mysql.jdbc.Driver
+    jdbc_driver_class: com.mysql.cj.jdbc.Driver
     jdbc_url: jdbc:mysql://mysql:13306/test
     jdbc_user: root
     jdbc_password: test
@@ -169,6 +169,16 @@ databases:
       schema: default
       prepare_statement:
           - USE ${databases.delta.schema}
+      table_manager_type: jdbc
+      jdbc_url: jdbc:hive2://spark:10213
+      jdbc_user: hive
+      jdbc_password: na
+
+  hudi:
+      jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+      schema: default
+      prepare_statement:
+          - USE ${databases.hudi.schema}
       table_manager_type: jdbc
       jdbc_url: jdbc:hive2://spark:10213
       jdbc_user: hive

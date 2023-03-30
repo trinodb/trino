@@ -13,17 +13,18 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
+import io.trino.plugin.hive.type.ListTypeInfo;
+import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.PrimitiveCategory;
+import io.trino.plugin.hive.type.PrimitiveTypeInfo;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hive.common.util.Murmur3;
 
 import java.util.List;
 
@@ -35,7 +36,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 final class HiveBucketingV2
 {
@@ -85,27 +85,27 @@ final class HiveBucketingV2
                     case BYTE:
                         return SignedBytes.checkedCast(trinoType.getLong(block, position));
                     case SHORT:
-                        return Murmur3.hash32(bytes(Shorts.checkedCast(trinoType.getLong(block, position))));
+                        return murmur3(bytes(Shorts.checkedCast(trinoType.getLong(block, position))));
                     case INT:
-                        return Murmur3.hash32(bytes(toIntExact(trinoType.getLong(block, position))));
+                        return murmur3(bytes(toIntExact(trinoType.getLong(block, position))));
                     case LONG:
-                        return Murmur3.hash32(bytes(trinoType.getLong(block, position)));
+                        return murmur3(bytes(trinoType.getLong(block, position)));
                     case FLOAT:
                         // convert to canonical NaN if necessary
                         // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
                         // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
-                        return Murmur3.hash32(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact(trinoType.getLong(block, position)))))));
+                        return murmur3(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact(trinoType.getLong(block, position)))))));
                     case DOUBLE:
                         // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
                         // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L836
-                        return Murmur3.hash32(bytes(doubleToRawLongBits(doubleToLongBits(trinoType.getDouble(block, position)))));
+                        return murmur3(bytes(doubleToRawLongBits(doubleToLongBits(trinoType.getDouble(block, position)))));
                     case STRING:
-                        return Murmur3.hash32(trinoType.getSlice(block, position).getBytes());
+                        return murmur3(trinoType.getSlice(block, position).getBytes());
                     case VARCHAR:
-                        return Murmur3.hash32(trinoType.getSlice(block, position).getBytes());
+                        return murmur3(trinoType.getSlice(block, position).getBytes());
                     case DATE:
                         // day offset from 1970-01-01
-                        return Murmur3.hash32(bytes(toIntExact(trinoType.getLong(block, position))));
+                        return murmur3(bytes(toIntExact(trinoType.getLong(block, position))));
                     case TIMESTAMP:
                         // We do not support bucketing on timestamp
                         break;
@@ -149,28 +149,28 @@ final class HiveBucketingV2
                     case BYTE:
                         return SignedBytes.checkedCast((long) value);
                     case SHORT:
-                        return Murmur3.hash32(bytes(Shorts.checkedCast((long) value)));
+                        return murmur3(bytes(Shorts.checkedCast((long) value)));
                     case INT:
-                        return Murmur3.hash32(bytes(toIntExact((long) value)));
+                        return murmur3(bytes(toIntExact((long) value)));
                     case LONG:
-                        return Murmur3.hash32(bytes((long) value));
+                        return murmur3(bytes((long) value));
                     case FLOAT:
                         // convert to canonical NaN if necessary
                         // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
                         // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
-                        return Murmur3.hash32(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact((long) value))))));
+                        return murmur3(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(toIntExact((long) value))))));
                     case DOUBLE:
                         // convert to canonical NaN if necessary
                         // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
                         // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L836
-                        return Murmur3.hash32(bytes(doubleToRawLongBits(doubleToLongBits((double) value))));
+                        return murmur3(bytes(doubleToRawLongBits(doubleToLongBits((double) value))));
                     case STRING:
-                        return Murmur3.hash32(((Slice) value).getBytes());
+                        return murmur3(((Slice) value).getBytes());
                     case VARCHAR:
-                        return Murmur3.hash32(((Slice) value).getBytes());
+                        return murmur3(((Slice) value).getBytes());
                     case DATE:
                         // day offset from 1970-01-01
-                        return Murmur3.hash32(bytes(toIntExact((long) value)));
+                        return murmur3(bytes(toIntExact((long) value)));
                     case TIMESTAMP:
                         // We do not support bucketing on timestamp
                         break;
@@ -242,5 +242,57 @@ final class HiveBucketingV2
         return new byte[] {
                 (byte) ((value >> 56) & 0xff), (byte) ((value >> 48) & 0xff), (byte) ((value >> 40) & 0xff), (byte) ((value >> 32) & 0xff),
                 (byte) ((value >> 24) & 0xff), (byte) ((value >> 16) & 0xff), (byte) ((value >> 8) & 0xff), (byte) (value & 0xff)};
+    }
+
+    // copied from org.apache.hive.common.util.Murmur3
+    // WARNING: this implementation incorrectly handles negative values in the tail
+    @SuppressWarnings("fallthrough")
+    private static int murmur3(byte[] data)
+    {
+        int length = data.length;
+        int hash = 104729;
+        int blocks = length / 4;
+
+        // body
+        for (int block = 0; block < blocks; block++) {
+            int i = block * 4;
+            int k = Ints.fromBytes(data[i + 3], data[i + 2], data[i + 1], data[i]);
+
+            // mix functions
+            k *= 0xcc9e2d51;
+            k = Integer.rotateLeft(k, 15);
+            k *= 0x1b873593;
+            hash ^= k;
+            hash = Integer.rotateLeft(hash, 13) * 5 + 0xe6546b64;
+        }
+
+        // tail
+        int idx = blocks * 4;
+        int k1 = 0;
+        switch (length - idx) {
+            // these should be unsigned, but the Hive version is broken
+            case 3:
+                k1 ^= data[idx + 2] << 16;
+            case 2:
+                k1 ^= data[idx + 1] << 8;
+            case 1:
+                k1 ^= data[idx];
+
+                // mix functions
+                k1 *= 0xcc9e2d51;
+                k1 = Integer.rotateLeft(k1, 15);
+                k1 *= 0x1b873593;
+                hash ^= k1;
+        }
+
+        // finalization
+        hash ^= length;
+        hash ^= (hash >>> 16);
+        hash *= 0x85ebca6b;
+        hash ^= (hash >>> 13);
+        hash *= 0xc2b2ae35;
+        hash ^= (hash >>> 16);
+
+        return hash;
     }
 }

@@ -18,7 +18,7 @@ import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.Slices;
 import org.apache.parquet.bytes.BytesInput;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -32,9 +32,9 @@ interface ParquetCompressor
     ParquetDataOutput compress(byte[] input)
             throws IOException;
 
-    static ParquetCompressor getCompressor(CompressionCodecName codec)
+    static ParquetCompressor getCompressor(CompressionCodec codec)
     {
-        switch (codec.getParquetCompressionCodec()) {
+        switch (codec) {
             case GZIP:
                 return new GzipCompressor();
             case SNAPPY:

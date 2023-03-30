@@ -34,11 +34,10 @@ public class OffsetMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof OffsetNode)) {
+        if (!(node instanceof OffsetNode offsetNode)) {
             return false;
         }
 
-        OffsetNode offsetNode = (OffsetNode) node;
         return offsetNode.getCount() == rowCount;
     }
 

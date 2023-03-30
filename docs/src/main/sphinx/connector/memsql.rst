@@ -1,6 +1,6 @@
-==============================
-SingleStore (MemSQL) connector
-==============================
+=====================
+SingleStore connector
+=====================
 
 .. raw:: html
 
@@ -23,11 +23,11 @@ To connect to SingleStore, you need:
 Configuration
 -------------
 
-To configure the SingleStore connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``singlestore.properties``, to
-mount the SingleStore connector as the ``singlestore`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the SingleStore connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``example.properties``, to mount the
+SingleStore connector as the ``example`` catalog. Create the file with the
+following contents, replacing the connection properties as appropriate for your
+setup:
 
 .. code-block:: text
 
@@ -93,25 +93,25 @@ Querying SingleStore
 The SingleStore connector provides a schema for every SingleStore *database*.
 You can see the available SingleStore databases by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM singlestore;
+    SHOW SCHEMAS FROM example;
 
 If you have a SingleStore database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM singlestore.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web``
 database using either of the following::
 
-    DESCRIBE singlestore.web.clicks;
-    SHOW COLUMNS FROM singlestore.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM singlestore.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``singlestore`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _singlestore-type-mapping:
 
@@ -340,6 +340,8 @@ The connector supports pushdown for a number of operations:
 * :ref:`join-pushdown`
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. include:: join-pushdown-enabled-false.fragment
 

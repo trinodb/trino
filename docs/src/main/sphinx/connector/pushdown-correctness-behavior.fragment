@@ -1,0 +1,6 @@
+.. note::
+
+  The connector performs pushdown where performance may be improved, but in
+  order to preserve correctness an operation may not be pushed down. When
+  pushdown of an operation may result in better performance but risks
+  correctness, the connector prioritizes correctness.

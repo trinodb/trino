@@ -48,6 +48,7 @@ import java.util.function.Predicate;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
@@ -87,6 +88,7 @@ import static io.trino.spi.security.AccessDeniedException.denyTruncateTable;
 import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.ALTER_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_VIEW;
@@ -133,8 +135,9 @@ public class TestingAccessControlManager
 
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
-    private final Map<ColumnMaskKey, List<ViewExpression>> columnMasks = new HashMap<>();
+    private final Map<ColumnMaskKey, ViewExpression> columnMasks = new HashMap<>();
     private Predicate<String> deniedCatalogs = s -> true;
+    private Predicate<String> deniedSchemas = s -> true;
     private Predicate<SchemaTableName> deniedTables = s -> true;
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
 
@@ -172,14 +175,14 @@ public class TestingAccessControlManager
 
     public void columnMask(QualifiedObjectName table, String column, String identity, ViewExpression mask)
     {
-        columnMasks.computeIfAbsent(new ColumnMaskKey(identity, table, column), key -> new ArrayList<>())
-                .add(mask);
+        columnMasks.put(new ColumnMaskKey(identity, table, column), mask);
     }
 
     public void reset()
     {
         denyPrivileges.clear();
         deniedCatalogs = s -> true;
+        deniedSchemas = s -> true;
         deniedTables = s -> true;
         denyIdentityTable = IDENTITY_TABLE_TRUE;
         rowFilters.clear();
@@ -189,6 +192,11 @@ public class TestingAccessControlManager
     public void denyCatalogs(Predicate<String> deniedCatalogs)
     {
         this.deniedCatalogs = this.deniedCatalogs.and(deniedCatalogs);
+    }
+
+    public void denySchemas(Predicate<String> deniedSchemas)
+    {
+        this.deniedSchemas = this.deniedSchemas.and(deniedSchemas);
     }
 
     public void denyTables(Predicate<SchemaTableName> deniedTables)
@@ -208,6 +216,17 @@ public class TestingAccessControlManager
                 securityContext,
                 catalogs.stream()
                         .filter(this.deniedCatalogs)
+                        .collect(toImmutableSet()));
+    }
+
+    @Override
+    public Set<String> filterSchemas(SecurityContext securityContext, String catalogName, Set<String> schemaNames)
+    {
+        return super.filterSchemas(
+                securityContext,
+                catalogName,
+                schemaNames.stream()
+                        .filter(this.deniedSchemas)
                         .collect(toImmutableSet()));
     }
 
@@ -291,13 +310,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName)
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), schemaName.getSchemaName(), CREATE_SCHEMA)) {
             denyCreateSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateSchema(context, schemaName);
+            super.checkCanCreateSchema(context, schemaName, properties);
         }
     }
 
@@ -439,6 +458,15 @@ public class TestingAccessControlManager
             denyRenameColumn(tableName.toString());
         }
         super.checkCanRenameColumn(context, tableName);
+    }
+
+    @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName)
+    {
+        if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), ALTER_COLUMN)) {
+            denyAlterColumn(tableName.toString());
+        }
+        super.checkCanAlterColumn(context, tableName);
     }
 
     @Override
@@ -717,13 +745,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String column, Type type)
+    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String column, Type type)
     {
-        List<ViewExpression> viewExpressions = columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column));
-        if (viewExpressions != null) {
-            return viewExpressions;
+        ViewExpression mask = columnMasks.get(new ColumnMaskKey(context.getIdentity().getUser(), tableName, column));
+        if (mask != null) {
+            return Optional.of(mask);
         }
-        return super.getColumnMasks(context, tableName, column, type);
+        return super.getColumnMask(context, tableName, column, type);
     }
 
     private boolean shouldDenyPrivilege(String actorName, String entityName, TestingPrivilegeType verb)
@@ -748,7 +776,7 @@ public class TestingAccessControlManager
         EXECUTE_FUNCTION, EXECUTE_TABLE_PROCEDURE,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
         SHOW_CREATE_TABLE, CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, COMMENT_VIEW, COMMENT_COLUMN, INSERT_TABLE, DELETE_TABLE, MERGE_TABLE, UPDATE_TABLE, TRUNCATE_TABLE, SET_TABLE_PROPERTIES, SHOW_COLUMNS,
-        ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
+        ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, ALTER_COLUMN, SELECT_COLUMN,
         CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
         CREATE_MATERIALIZED_VIEW, REFRESH_MATERIALIZED_VIEW, DROP_MATERIALIZED_VIEW, RENAME_MATERIALIZED_VIEW, SET_MATERIALIZED_VIEW_PROPERTIES,
         GRANT_EXECUTE_FUNCTION,
@@ -811,70 +839,22 @@ public class TestingAccessControlManager
         }
     }
 
-    private static class RowFilterKey
+    private record RowFilterKey(String identity, QualifiedObjectName table)
     {
-        private final String identity;
-        private final QualifiedObjectName table;
-
-        public RowFilterKey(String identity, QualifiedObjectName table)
+        private RowFilterKey
         {
-            this.identity = requireNonNull(identity, "identity is null");
-            this.table = requireNonNull(table, "table is null");
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            RowFilterKey that = (RowFilterKey) o;
-            return identity.equals(that.identity) &&
-                    table.equals(that.table);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, table);
+            requireNonNull(identity, "identity is null");
+            requireNonNull(table, "table is null");
         }
     }
 
-    private static class ColumnMaskKey
+    private record ColumnMaskKey(String identity, QualifiedObjectName table, String column)
     {
-        private final String identity;
-        private final QualifiedObjectName table;
-        private final String column;
-
-        public ColumnMaskKey(String identity, QualifiedObjectName table, String column)
+        private ColumnMaskKey
         {
-            this.identity = identity;
-            this.table = table;
-            this.column = column;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            ColumnMaskKey that = (ColumnMaskKey) o;
-            return identity.equals(that.identity) &&
-                    table.equals(that.table) &&
-                    column.equals(that.column);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(identity, table, column);
+            requireNonNull(identity, "identity is null");
+            requireNonNull(table, "table is null");
+            requireNonNull(column, "column is null");
         }
     }
 }

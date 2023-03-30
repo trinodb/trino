@@ -41,6 +41,7 @@ import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlu
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
@@ -93,7 +94,7 @@ public class TestGlueToTrinoConverter
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
         assertEquals(trinoTable.getTableName(), testTable.getName());
         assertEquals(trinoTable.getDatabaseName(), testDatabase.getName());
-        assertEquals(trinoTable.getTableType(), testTable.getTableType());
+        assertEquals(trinoTable.getTableType(), getTableTypeNullable(testTable));
         assertEquals(trinoTable.getOwner().orElse(null), testTable.getOwner());
         assertEquals(trinoTable.getParameters(), testTable.getParameters());
         assertColumnList(trinoTable.getDataColumns(), testTable.getStorageDescriptor().getColumns());
@@ -114,7 +115,7 @@ public class TestGlueToTrinoConverter
 
         assertEquals(trinoTable.getTableName(), glueTable.getName());
         assertEquals(trinoTable.getDatabaseName(), testDatabase.getName());
-        assertEquals(trinoTable.getTableType(), glueTable.getTableType());
+        assertEquals(trinoTable.getTableType(), getTableTypeNullable(glueTable));
         assertEquals(trinoTable.getOwner().orElse(null), glueTable.getOwner());
         assertEquals(trinoTable.getParameters(), glueTable.getParameters());
         assertEquals(trinoTable.getDataColumns().size(), 1);

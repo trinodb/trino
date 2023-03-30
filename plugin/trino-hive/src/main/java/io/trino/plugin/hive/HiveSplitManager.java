@@ -21,6 +21,7 @@ import com.google.common.collect.PeekingIterator;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
@@ -71,6 +72,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_Q
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.trino.plugin.hive.HiveSessionProperties.isOptimizeSymlinkListing;
 import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSortingProperties;
@@ -85,6 +87,7 @@ import static io.trino.plugin.hive.util.HiveCoercionPolicy.canCoerce;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
@@ -99,6 +102,7 @@ public class HiveSplitManager
 
     private final HiveTransactionManager transactionManager;
     private final HivePartitionManager partitionManager;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final Executor executor;
@@ -119,6 +123,7 @@ public class HiveSplitManager
             HiveConfig hiveConfig,
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
+            TrinoFileSystemFactory fileSystemFactory,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             ExecutorService executorService,
@@ -128,6 +133,7 @@ public class HiveSplitManager
         this(
                 transactionManager,
                 partitionManager,
+                fileSystemFactory,
                 namenodeStats,
                 hdfsEnvironment,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
@@ -147,6 +153,7 @@ public class HiveSplitManager
     public HiveSplitManager(
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
+            TrinoFileSystemFactory fileSystemFactory,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             Executor executor,
@@ -164,6 +171,7 @@ public class HiveSplitManager
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.executor = new ErrorCodedExecutor(executor);
@@ -218,7 +226,7 @@ public class HiveSplitManager
             if (hiveTable.isRecordScannedFiles()) {
                 return new FixedSplitSource(ImmutableList.of(), ImmutableList.of());
             }
-            return new FixedSplitSource(ImmutableList.of());
+            return emptySplitSource();
         }
 
         // get buckets from first partition (arbitrary)
@@ -252,6 +260,7 @@ public class HiveSplitManager
                 typeManager,
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
+                fileSystemFactory,
                 hdfsEnvironment,
                 namenodeStats,
                 transactionalMetadata.getDirectoryLister(),
@@ -261,7 +270,7 @@ public class HiveSplitManager
                 !hiveTable.getPartitionColumns().isEmpty() && isIgnoreAbsentPartitions(session),
                 isOptimizeSymlinkListing(session),
                 metastore.getValidWriteIds(session, hiveTable)
-                        .map(validTxnWriteIdList -> validTxnWriteIdList.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
+                        .map(value -> value.getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName())),
                 hiveTable.getMaxScannedFileSize(),
                 maxPartitionsPerScan);
 
@@ -403,15 +412,16 @@ public class HiveSplitManager
 
     private TableToPartitionMapping getTableToPartitionMapping(ConnectorSession session, Optional<HiveStorageFormat> storageFormat, SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
     {
+        HiveTimestampPrecision hiveTimestampPrecision = getTimestampPrecision(session);
         if (storageFormat.isPresent() && isPartitionUsesColumnNames(session, storageFormat.get())) {
-            return getTableToPartitionMappingByColumnNames(tableName, partName, tableColumns, partitionColumns);
+            return getTableToPartitionMappingByColumnNames(tableName, partName, tableColumns, partitionColumns, hiveTimestampPrecision);
         }
         ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
         for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
             HiveType tableType = tableColumns.get(i).getType();
             HiveType partitionType = partitionColumns.get(i).getType();
             if (!tableType.equals(partitionType)) {
-                if (!canCoerce(typeManager, partitionType, tableType)) {
+                if (!canCoerce(typeManager, partitionType, tableType, hiveTimestampPrecision)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumns.get(i).getName(), tableType, partitionColumns.get(i).getName(), partitionType);
                 }
                 columnCoercions.put(i, partitionType.getHiveTypeName());
@@ -436,7 +446,7 @@ public class HiveSplitManager
         }
     }
 
-    private TableToPartitionMapping getTableToPartitionMappingByColumnNames(SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
+    private TableToPartitionMapping getTableToPartitionMappingByColumnNames(SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns, HiveTimestampPrecision hiveTimestampPrecision)
     {
         ImmutableMap.Builder<String, Integer> partitionColumnIndexesBuilder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
@@ -457,7 +467,7 @@ public class HiveSplitManager
             Column partitionColumn = partitionColumns.get(partitionColumnIndex);
             HiveType partitionType = partitionColumn.getType();
             if (!tableType.equals(partitionType)) {
-                if (!canCoerce(typeManager, partitionType, tableType)) {
+                if (!canCoerce(typeManager, partitionType, tableType, hiveTimestampPrecision)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumn.getName(), tableType, partitionColumn.getName(), partitionType);
                 }
                 columnCoercions.put(partitionColumnIndex, partitionType.getHiveTypeName());

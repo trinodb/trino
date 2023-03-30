@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -38,9 +39,11 @@ import javax.annotation.Nullable;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -49,6 +52,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.scheduler.NodeScheduler.calculateLowWatermark;
+import static io.trino.execution.scheduler.NodeScheduler.filterNodes;
 import static io.trino.execution.scheduler.NodeScheduler.getAllNodes;
 import static io.trino.execution.scheduler.NodeScheduler.randomizedNodes;
 import static io.trino.execution.scheduler.NodeScheduler.selectDistributionNodes;
@@ -58,6 +62,7 @@ import static io.trino.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpac
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class UniformNodeSelector
         implements NodeSelector
@@ -70,10 +75,11 @@ public class UniformNodeSelector
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
     private final int minCandidates;
     private final long maxSplitsWeightPerNode;
-    private final long maxPendingSplitsWeightPerTask;
+    private final long minPendingSplitsWeightPerTask;
     private final int maxUnacknowledgedSplitsPerTask;
     private final SplitsBalancingPolicy splitsBalancingPolicy;
     private final boolean optimizedLocalScheduling;
+    private final QueueSizeAdjuster queueSizeAdjuster;
 
     public UniformNodeSelector(
             InternalNodeManager nodeManager,
@@ -82,10 +88,38 @@ public class UniformNodeSelector
             Supplier<NodeMap> nodeMap,
             int minCandidates,
             long maxSplitsWeightPerNode,
-            long maxPendingSplitsWeightPerTask,
+            long minPendingSplitsWeightPerTask,
+            long maxAdjustedPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             SplitsBalancingPolicy splitsBalancingPolicy,
             boolean optimizedLocalScheduling)
+    {
+        this(nodeManager,
+                nodeTaskMap,
+                includeCoordinator,
+                nodeMap,
+                minCandidates,
+                maxSplitsWeightPerNode,
+                minPendingSplitsWeightPerTask,
+                maxUnacknowledgedSplitsPerTask,
+                splitsBalancingPolicy,
+                optimizedLocalScheduling,
+                new QueueSizeAdjuster(minPendingSplitsWeightPerTask, maxAdjustedPendingSplitsWeightPerTask));
+    }
+
+    @VisibleForTesting
+    UniformNodeSelector(
+            InternalNodeManager nodeManager,
+            NodeTaskMap nodeTaskMap,
+            boolean includeCoordinator,
+            Supplier<NodeMap> nodeMap,
+            int minCandidates,
+            long maxSplitsWeightPerNode,
+            long minPendingSplitsWeightPerTask,
+            int maxUnacknowledgedSplitsPerTask,
+            SplitsBalancingPolicy splitsBalancingPolicy,
+            boolean optimizedLocalScheduling,
+            QueueSizeAdjuster queueSizeAdjuster)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -93,11 +127,12 @@ public class UniformNodeSelector
         this.nodeMap = new AtomicReference<>(nodeMap);
         this.minCandidates = minCandidates;
         this.maxSplitsWeightPerNode = maxSplitsWeightPerNode;
-        this.maxPendingSplitsWeightPerTask = maxPendingSplitsWeightPerTask;
+        this.minPendingSplitsWeightPerTask = minPendingSplitsWeightPerTask;
         this.maxUnacknowledgedSplitsPerTask = maxUnacknowledgedSplitsPerTask;
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.splitsBalancingPolicy = requireNonNull(splitsBalancingPolicy, "splitsBalancingPolicy is null");
         this.optimizedLocalScheduling = optimizedLocalScheduling;
+        this.queueSizeAdjuster = queueSizeAdjuster;
     }
 
     @Override
@@ -131,13 +166,16 @@ public class UniformNodeSelector
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
-
-        ResettableRandomizedIterator<InternalNode> randomCandidates = randomizedNodes(nodeMap, includeCoordinator, ImmutableSet.of());
+        queueSizeAdjuster.update(existingTasks, assignmentStats);
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
         // splitsToBeRedistributed becomes true only when splits go through locality-based assignment
         boolean splitsToBeRedistributed = false;
-        Set<Split> remainingSplits = new HashSet<>();
+        Set<Split> remainingSplits = new HashSet<>(splits.size());
+
+        List<InternalNode> filteredNodes = filterNodes(nodeMap, includeCoordinator, ImmutableSet.of());
+        ResettableRandomizedIterator<InternalNode> randomCandidates = new ResettableRandomizedIterator<>(filteredNodes);
+        Set<InternalNode> schedulableNodes = new HashSet<>(filteredNodes);
 
         // optimizedLocalScheduling enables prioritized assignment of splits to local nodes when splits contain locality information
         if (optimizedLocalScheduling) {
@@ -183,9 +221,15 @@ public class UniformNodeSelector
                 long minWeight = Long.MAX_VALUE;
                 for (InternalNode node : candidateNodes) {
                     long queuedWeight = assignmentStats.getQueuedSplitsWeightForStage(node);
-                    if (queuedWeight <= minWeight && queuedWeight < maxPendingSplitsWeightPerTask && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
+                    long adjustedMaxPendingSplitsWeightPerTask = queueSizeAdjuster.getAdjustedMaxPendingSplitsWeightPerTask(node.getNodeIdentifier());
+
+                    if (queuedWeight <= minWeight && queuedWeight < adjustedMaxPendingSplitsWeightPerTask && assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask) {
                         chosenNode = node;
                         minWeight = queuedWeight;
+                    }
+                    if (queuedWeight >= adjustedMaxPendingSplitsWeightPerTask) {
+                        // Mark node for adjustment, since its queue is full, and we still have split to assign.
+                        queueSizeAdjuster.scheduleAdjustmentForNode(node.getNodeIdentifier());
                     }
                 }
             }
@@ -194,6 +238,7 @@ public class UniformNodeSelector
                 assignmentStats.addAssignedSplit(chosenNode, split.getSplitWeight());
             }
             else {
+                candidateNodes.forEach(schedulableNodes::remove);
                 if (split.isRemotelyAccessible()) {
                     splitWaitingForAnyNode = true;
                 }
@@ -201,15 +246,20 @@ public class UniformNodeSelector
                 else if (!splitWaitingForAnyNode) {
                     blockedExactNodes.addAll(candidateNodes);
                 }
+
+                if (splitWaitingForAnyNode && schedulableNodes.isEmpty()) {
+                    // All nodes assigned, no need to test if we can assign new split
+                    break;
+                }
             }
         }
 
         ListenableFuture<Void> blocked;
         if (splitWaitingForAnyNode) {
-            blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
+            blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(minPendingSplitsWeightPerTask));
         }
         else {
-            blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(maxPendingSplitsWeightPerTask));
+            blocked = toWhenHasSplitQueueSpaceFuture(blockedExactNodes, existingTasks, calculateLowWatermark(minPendingSplitsWeightPerTask));
         }
 
         if (splitsToBeRedistributed) {
@@ -221,7 +271,8 @@ public class UniformNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
+        // TODO: Implement split assignment adjustment based on how quick node is able to process splits. More information https://github.com/trinodb/trino/pull/15168
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, minPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap);
     }
 
     @Nullable
@@ -389,5 +440,98 @@ public class UniformNodeSelector
             }
         }
         return false;
+    }
+
+    static class QueueSizeAdjuster
+    {
+        private static final long SCALE_DOWN_INTERVAL = SECONDS.toNanos(1);
+        private final Ticker ticker;
+        private final Map<String, TaskAdjustmentInfo> taskAdjustmentInfos = new HashMap<>();
+        private final Set<String> previousScheduleFullTasks = new HashSet<>();
+        private final long minPendingSplitsWeightPerTask;
+        private final long maxAdjustedPendingSplitsWeightPerTask;
+
+        private QueueSizeAdjuster(long minPendingSplitsWeightPerTask, long maxAdjustedPendingSplitsWeightPerTask)
+        {
+            this(minPendingSplitsWeightPerTask, maxAdjustedPendingSplitsWeightPerTask, Ticker.systemTicker());
+        }
+
+        @VisibleForTesting
+        QueueSizeAdjuster(long minPendingSplitsWeightPerTask, long maxAdjustedPendingSplitsWeightPerTask, Ticker ticker)
+        {
+            this.ticker = requireNonNull(ticker, "ticker is null");
+            this.maxAdjustedPendingSplitsWeightPerTask = maxAdjustedPendingSplitsWeightPerTask;
+            this.minPendingSplitsWeightPerTask = minPendingSplitsWeightPerTask;
+        }
+
+        public void update(List<RemoteTask> existingTasks, NodeAssignmentStats nodeAssignmentStats)
+        {
+            if (!isEnabled()) {
+                return;
+            }
+            for (RemoteTask task : existingTasks) {
+                String nodeId = task.getNodeId();
+                TaskAdjustmentInfo nodeTaskAdjustmentInfo = taskAdjustmentInfos.computeIfAbsent(nodeId, key -> new TaskAdjustmentInfo(minPendingSplitsWeightPerTask));
+                Optional<Long> lastAdjustmentTime = nodeTaskAdjustmentInfo.getLastAdjustmentNanos();
+
+                if (previousScheduleFullTasks.contains(nodeId) && nodeAssignmentStats.getQueuedSplitsWeightForStage(nodeId) == 0) {
+                    // even if we max out adjustment we want to move forward lastAdjustmentTime
+                    nodeTaskAdjustmentInfo.setAdjustedMaxSplitsWeightPerTask(Math.min(maxAdjustedPendingSplitsWeightPerTask, nodeTaskAdjustmentInfo.getAdjustedMaxSplitsWeightPerTask() * 2));
+                }
+                else if (lastAdjustmentTime.isPresent() && (ticker.read() - lastAdjustmentTime.get()) >= SCALE_DOWN_INTERVAL) {
+                    nodeTaskAdjustmentInfo.setAdjustedMaxSplitsWeightPerTask((long) Math.max(minPendingSplitsWeightPerTask, nodeTaskAdjustmentInfo.getAdjustedMaxSplitsWeightPerTask() / 1.5));
+                }
+            }
+            previousScheduleFullTasks.clear();
+        }
+
+        public long getAdjustedMaxPendingSplitsWeightPerTask(String nodeId)
+        {
+            TaskAdjustmentInfo nodeTaskAdjustmentInfo = taskAdjustmentInfos.get(nodeId);
+
+            return nodeTaskAdjustmentInfo != null ? nodeTaskAdjustmentInfo.getAdjustedMaxSplitsWeightPerTask() : minPendingSplitsWeightPerTask;
+        }
+
+        public void scheduleAdjustmentForNode(String nodeIdentifier)
+        {
+            if (!isEnabled()) {
+                return;
+            }
+
+            previousScheduleFullTasks.add(nodeIdentifier);
+        }
+
+        private boolean isEnabled()
+        {
+            return maxAdjustedPendingSplitsWeightPerTask != minPendingSplitsWeightPerTask;
+        }
+
+        private class TaskAdjustmentInfo
+        {
+            private long adjustedMaxSplitsWeightPerTask;
+            private Optional<Long> lastAdjustmentNanos;
+
+            public TaskAdjustmentInfo(long adjustedMaxSplitsWeightPerTask)
+            {
+                this.adjustedMaxSplitsWeightPerTask = adjustedMaxSplitsWeightPerTask;
+                this.lastAdjustmentNanos = Optional.empty();
+            }
+
+            public long getAdjustedMaxSplitsWeightPerTask()
+            {
+                return adjustedMaxSplitsWeightPerTask;
+            }
+
+            public void setAdjustedMaxSplitsWeightPerTask(long adjustedMaxSplitsWeightPerTask)
+            {
+                this.adjustedMaxSplitsWeightPerTask = adjustedMaxSplitsWeightPerTask;
+                this.lastAdjustmentNanos = Optional.of(ticker.read());
+            }
+
+            public Optional<Long> getLastAdjustmentNanos()
+            {
+                return lastAdjustmentNanos;
+            }
+        }
     }
 }

@@ -19,7 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.testing.QueryRunner;
@@ -33,6 +32,7 @@ import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static io.trino.plugin.jdbc.TestingH2JdbcModule.createH2ConnectionUrl;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.util.Objects.requireNonNull;
@@ -80,8 +80,8 @@ public class TestJdbcConnectionCreation
                 {"CREATE TABLE copy_of_nation AS SELECT * FROM nation", 6, Optional.empty()},
                 {"INSERT INTO copy_of_nation SELECT * FROM nation", 6, Optional.empty()},
                 {"DELETE FROM copy_of_nation WHERE nationkey = 3", 1, Optional.empty()},
-                {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.of("This connector does not support updates")},
-                {"MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 1, Optional.of("This connector does not support merges")},
+                {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.of(MODIFYING_ROWS_MESSAGE)},
+                {"MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 1, Optional.of(MODIFYING_ROWS_MESSAGE)},
                 {"DROP TABLE copy_of_nation", 1, Optional.empty()},
                 {"SHOW SCHEMAS", 1, Optional.empty()},
                 {"SHOW TABLES", 1, Optional.empty()},
@@ -113,7 +113,7 @@ public class TestJdbcConnectionCreation
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory()
         {
             return connectionCountingConnectionFactory;
         }

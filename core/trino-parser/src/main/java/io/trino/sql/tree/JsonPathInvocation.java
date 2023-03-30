@@ -82,7 +82,7 @@ public class JsonPathInvocation
         ImmutableList.Builder<Node> children = ImmutableList.builder();
         children.add(inputExpression);
         children.add(jsonPath);
-        pathParameters.stream()
+        pathParameters
                 .forEach(children::add);
         return children.build();
     }

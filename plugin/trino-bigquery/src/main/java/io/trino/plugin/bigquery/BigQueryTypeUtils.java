@@ -19,6 +19,7 @@ import com.google.common.primitives.SignedBytes;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -38,6 +39,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -66,7 +68,7 @@ public final class BigQueryTypeUtils
             return null;
         }
 
-        // TODO https://github.com/trinodb/trino/issues/13741 Add support for decimal, time, timestamp with time zone, geography, map type
+        // TODO https://github.com/trinodb/trino/issues/13741 Add support for time, timestamp with time zone, geography, map type
         if (type.equals(BOOLEAN)) {
             return type.getBoolean(block, position);
         }
@@ -84,6 +86,9 @@ public final class BigQueryTypeUtils
         }
         if (type.equals(DOUBLE)) {
             return type.getDouble(block, position);
+        }
+        if (type instanceof DecimalType) {
+            return readBigDecimal((DecimalType) type, block, position).toString();
         }
         if (type instanceof VarcharType) {
             return type.getSlice(block, position).toStringUtf8();

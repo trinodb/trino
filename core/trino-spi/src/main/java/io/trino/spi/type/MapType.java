@@ -248,11 +248,10 @@ public class MapType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        if (!(value instanceof SingleMapBlock)) {
+        if (!(value instanceof SingleMapBlock singleMapBlock)) {
             throw new IllegalArgumentException("Maps must be represented with SingleMapBlock");
         }
 
-        SingleMapBlock singleMapBlock = (SingleMapBlock) value;
         BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
 
         for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {

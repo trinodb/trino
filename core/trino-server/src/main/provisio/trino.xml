@@ -176,6 +176,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/mysql-event-listener">
+        <artifact id="${project.groupId}:trino-mysql-event-listener:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/redshift">
         <artifact id="${project.groupId}:trino-redshift:zip:${project.version}">
             <unpack />
@@ -285,6 +291,18 @@
 
     <artifactSet to="plugin/exchange-filesystem">
         <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/exchange-hdfs">
+        <artifact id="${project.groupId}:trino-exchange-hdfs:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/ignite">
+        <artifact id="${project.groupId}:trino-ignite:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

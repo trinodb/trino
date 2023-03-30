@@ -42,10 +42,10 @@ import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.inject.Inject;
 
+import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -58,13 +58,14 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.HashArraySizeSupplier.defaultHashArraySizeSupplier;
 import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
+import static io.trino.operator.join.JoinUtils.getSingleBigintJoinChannel;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -79,7 +80,7 @@ import static java.util.Objects.requireNonNull;
 public class PagesIndex
         implements Swapper
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PagesIndex.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PagesIndex.class);
     private static final Logger log = Logger.get(PagesIndex.class);
 
     private final OrderingCompiler orderingCompiler;
@@ -92,6 +93,7 @@ public class PagesIndex
     private final IntArrayList positionCounts;
     private final boolean eagerCompact;
 
+    private int modificationCount; // may overflow, doesn't matter
     private int pageCount;
     private int nextBlockToCompact;
     private int positionCount;
@@ -202,6 +204,7 @@ public class PagesIndex
 
     public void clear()
     {
+        modificationCount++;
         for (ObjectArrayList<Block> channel : channels) {
             channel.clear();
             channel.trim();
@@ -211,12 +214,16 @@ public class PagesIndex
         positionCount = 0;
         nextBlockToCompact = 0;
         pagesMemorySize = 0;
+        positionCounts.clear();
+        positionCounts.trim();
+        pageCount = 0;
 
         estimatedSize = calculateEstimatedSize();
     }
 
     public void addPage(Page page)
     {
+        modificationCount++;
         // ignore empty pages
         if (page.getPositionCount() == 0) {
             return;
@@ -255,6 +262,7 @@ public class PagesIndex
 
     public void compact()
     {
+        modificationCount++;
         if (eagerCompact || channels.length == 0) {
             return;
         }
@@ -291,15 +299,17 @@ public class PagesIndex
     @Override
     public void swap(int a, int b)
     {
+        // Not changing modificationCount. This is part of sorting and we change modificationCount for sorting only once.
+        // TODO remove the method from PagesIndex interface
         long[] elements = valueAddresses.elements();
         long temp = elements[a];
         elements[a] = elements[b];
         elements[b] = temp;
     }
 
-    private int buildPage(int position, PageBuilder pageBuilder)
+    private int buildPage(int position, int endPosition, PageBuilder pageBuilder)
     {
-        while (!pageBuilder.isFull() && position < positionCount) {
+        while (!pageBuilder.isFull() && position < endPosition) {
             long pageAddress = valueAddresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
             int blockPosition = decodePosition(pageAddress);
@@ -410,6 +420,7 @@ public class PagesIndex
 
     public void sort(List<Integer> sortChannels, List<SortOrder> sortOrders, int startPosition, int endPosition)
     {
+        modificationCount++;
         createPagesIndexComparator(sortChannels, sortOrders).sort(this, startPosition, endPosition);
     }
 
@@ -466,7 +477,7 @@ public class PagesIndex
         // if compilation fails, use interpreter
         return new SimplePagesHashStrategy(
                 types,
-                outputChannels.orElse(rangeList(types.size())),
+                outputChannels.orElseGet(() -> rangeList(types.size())),
                 ImmutableList.copyOf(channels),
                 joinChannels,
                 hashChannel,
@@ -502,7 +513,7 @@ public class PagesIndex
             Map<Integer, Rectangle> partitions)
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
-        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions);
     }
 
@@ -516,7 +527,7 @@ public class PagesIndex
             Optional<List<Integer>> outputChannels,
             HashArraySizeSupplier hashArraySizeSupplier)
     {
-        List<List<Block>> channels = ImmutableList.copyOf(this.channels);
+        List<ObjectArrayList<Block>> channels = ImmutableList.copyOf(this.channels);
         if (!joinChannels.isEmpty()) {
             // todo compiled implementation of lookup join does not support when we are joining with empty join channels.
             // This code path will trigger only for OUTER joins. To fix that we need to add support for
@@ -536,7 +547,7 @@ public class PagesIndex
 
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
-                outputChannels.orElse(rangeList(types.size())),
+                outputChannels.orElseGet(() -> rangeList(types.size())),
                 channels,
                 joinChannels,
                 hashChannel,
@@ -576,12 +587,16 @@ public class PagesIndex
     {
         return new AbstractIterator<>()
         {
+            private final int startingModificationCount = modificationCount;
             private int currentPage;
 
             @Override
             protected Page computeNext()
             {
                 if (currentPage == pageCount) {
+                    if (startingModificationCount != modificationCount) {
+                        throw new ConcurrentModificationException("PagesIndex mutated during iteration: %s != %s".formatted(startingModificationCount, modificationCount));
+                    }
                     return endOfData();
                 }
 
@@ -598,16 +613,39 @@ public class PagesIndex
 
     public Iterator<Page> getSortedPages()
     {
+        return getSortedPagesFromRange(0, positionCount);
+    }
+
+    /**
+     * Get sorted pages from the specified section of the PagesIndex.
+     *
+     * @param start start position of the section, inclusive
+     * @param end end position of the section, exclusive
+     * @return iterator of pages
+     */
+    public Iterator<Page> getSortedPages(int start, int end)
+    {
+        checkArgument(start >= 0 && end <= positionCount, "position range out of bounds");
+        checkArgument(start <= end, "invalid position range");
+        return getSortedPagesFromRange(start, end);
+    }
+
+    private Iterator<Page> getSortedPagesFromRange(int start, int end)
+    {
         return new AbstractIterator<>()
         {
-            private int currentPosition;
+            private final int startingModificationCount = modificationCount;
+            private int currentPosition = start;
             private final PageBuilder pageBuilder = new PageBuilder(types);
 
             @Override
             public Page computeNext()
             {
-                currentPosition = buildPage(currentPosition, pageBuilder);
+                currentPosition = buildPage(currentPosition, end, pageBuilder);
                 if (pageBuilder.isEmpty()) {
+                    if (startingModificationCount != modificationCount) {
+                        throw new ConcurrentModificationException("PagesIndex mutated during iteration: %s != %s".formatted(startingModificationCount, modificationCount));
+                    }
                     return endOfData();
                 }
                 Page page = pageBuilder.build();
@@ -615,5 +653,24 @@ public class PagesIndex
                 return page;
             }
         };
+    }
+
+    public long getEstimatedMemoryRequiredToCreateLookupSource(
+            HashArraySizeSupplier hashArraySizeSupplier,
+            Optional<Integer> sortChannel,
+            List<Integer> joinChannels)
+    {
+        // channels and valueAddresses are shared between PagesIndex and JoinHashSupplier and are accounted as part of lookupSourceEstimatedRetainedSizeInBytes
+        long lookupSourceEstimatedRetainedSizeInBytes = JoinHashSupplier.getEstimatedRetainedSizeInBytes(
+                positionCount,
+                valueAddresses,
+                ImmutableList.copyOf(channels),
+                pagesMemorySize,
+                sortChannel,
+                getSingleBigintJoinChannel(joinChannels, types),
+                hashArraySizeSupplier);
+        // PageIndex is retained during LookupSource creation, hence any extra memory retained by the PagesIndex must be accounted here
+        long pagesIndexAdditionalRetainedSizeInBytes = INSTANCE_SIZE + sizeOf(positionCounts.elements());
+        return pagesIndexAdditionalRetainedSizeInBytes + lookupSourceEstimatedRetainedSizeInBytes;
     }
 }

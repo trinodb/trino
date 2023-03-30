@@ -74,7 +74,7 @@ public class ConfigEnvBased
                         .omitEmptyStrings()
                         .trimResults()
                         .splitToList(value))
-                .orElse(super.getExcludedGroups());
+                .orElseGet(super::getExcludedGroups);
     }
 
     @Override
@@ -86,7 +86,7 @@ public class ConfigEnvBased
                         .omitEmptyStrings()
                         .trimResults()
                         .splitToList(value))
-                .orElse(super.getExcludedTests());
+                .orElseGet(super::getExcludedTests);
     }
 
     @Override

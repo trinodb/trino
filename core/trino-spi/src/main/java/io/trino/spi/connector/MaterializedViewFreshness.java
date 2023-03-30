@@ -13,20 +13,41 @@
  */
 package io.trino.spi.connector;
 
+import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.StringJoiner;
+
+import static java.util.Objects.requireNonNull;
 
 public final class MaterializedViewFreshness
 {
-    private final boolean materializedViewFresh;
+    private final Freshness freshness;
+    private final Optional<Instant> lastFreshTime;
 
-    public MaterializedViewFreshness(boolean materializedViewFresh)
+    @Deprecated
+    public MaterializedViewFreshness(Freshness freshness)
     {
-        this.materializedViewFresh = materializedViewFresh;
+        this(freshness, Optional.empty());
     }
 
-    public boolean isMaterializedViewFresh()
+    public MaterializedViewFreshness(Freshness freshness, Optional<Instant> lastFreshTime)
     {
-        return materializedViewFresh;
+        this.freshness = requireNonNull(freshness, "freshness is null");
+        this.lastFreshTime = requireNonNull(lastFreshTime, "lastFreshTime is null");
+    }
+
+    public Freshness getFreshness()
+    {
+        return freshness;
+    }
+
+    /**
+     * Last time when the materialized view was known to be fresh.
+     */
+    public Optional<Instant> getLastFreshTime()
+    {
+        return lastFreshTime;
     }
 
     @Override
@@ -39,21 +60,30 @@ public final class MaterializedViewFreshness
             return false;
         }
         MaterializedViewFreshness that = (MaterializedViewFreshness) obj;
-        return Objects.equals(materializedViewFresh, that.materializedViewFresh);
+        return freshness == that.freshness
+                && Objects.equals(lastFreshTime, that.lastFreshTime);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(materializedViewFresh);
+        return Objects.hash(freshness, lastFreshTime);
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("MaterializedViewFreshness{");
-        sb.append("materializedViewFresh=").append(materializedViewFresh);
-        sb.append('}');
-        return sb.toString();
+        return new StringJoiner(", ", MaterializedViewFreshness.class.getSimpleName() + "[", "]")
+                .add("freshness=" + freshness)
+                .add("lastFreshTime=" + lastFreshTime.orElse(null))
+                .toString();
+    }
+
+    public enum Freshness
+    {
+        FRESH,
+        STALE,
+        UNKNOWN,
+        /**/
     }
 }

@@ -14,14 +14,18 @@
 package io.trino.connector;
 
 import io.trino.Session;
+import io.trino.spi.connector.CatalogHandle;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ConnectorServicesProvider
 {
     void loadInitialCatalogs();
 
     void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs);
+
+    void pruneCatalogs(Set<CatalogHandle> catalogsInUse);
 
     ConnectorServices getConnectorServices(CatalogHandle catalogHandle);
 }

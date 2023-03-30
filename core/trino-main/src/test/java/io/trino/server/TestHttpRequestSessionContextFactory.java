@@ -30,8 +30,8 @@ import javax.ws.rs.core.MultivaluedMap;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
@@ -66,7 +66,7 @@ public class TestHttpRequestSessionContextFactory
                 .put(protocolHeaders.requestTimeZone(), "Asia/Taipei")
                 .put(protocolHeaders.requestClientInfo(), "client-info")
                 .put(protocolHeaders.requestSession(), QUERY_MAX_MEMORY + "=1GB")
-                .put(protocolHeaders.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+                .put(protocolHeaders.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
                 .put(protocolHeaders.requestSession(), "some_session_property=some value with %2C comma")
                 .put(protocolHeaders.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
                 .put(protocolHeaders.requestRole(), "system=ROLE{system-role}")
@@ -86,23 +86,25 @@ public class TestHttpRequestSessionContextFactory
         assertEquals(context.getCatalog().orElse(null), "testCatalog");
         assertEquals(context.getSchema().orElse(null), "testSchema");
         assertEquals(context.getPath().orElse(null), "testPath");
-        assertEquals(context.getIdentity(), Identity.ofUser("testUser"));
+        assertEquals(context.getIdentity(), Identity.forUser("testUser")
+                .withGroups(ImmutableSet.of("testUser"))
+                .withConnectorRoles(ImmutableMap.of(
+                        "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
+                        "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
+                        "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("catalog-role"))))
+                .withEnabledRoles(ImmutableSet.of("system-role"))
+                .build());
         assertEquals(context.getClientInfo().orElse(null), "client-info");
         assertEquals(context.getLanguage().orElse(null), "zh-TW");
         assertEquals(context.getTimeZoneId().orElse(null), "Asia/Taipei");
         assertEquals(context.getSystemProperties(), ImmutableMap.of(
                 QUERY_MAX_MEMORY, "1GB",
                 JOIN_DISTRIBUTION_TYPE, "partitioned",
-                HASH_PARTITION_COUNT, "43",
+                MAX_HASH_PARTITION_COUNT, "43",
                 "some_session_property", "some value with , comma"));
         assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
         assertEquals(context.getSelectedRole(), new SelectedRole(SelectedRole.Type.ROLE, Optional.of("system-role")));
-        assertEquals(context.getIdentity().getCatalogRoles(), ImmutableMap.of(
-                "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
-                "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
-                "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("catalog-role"))));
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
-        assertEquals(context.getIdentity().getGroups(), ImmutableSet.of("testUser"));
     }
 
     @Test

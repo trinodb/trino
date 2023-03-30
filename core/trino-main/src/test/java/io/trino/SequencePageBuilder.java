@@ -25,8 +25,6 @@ import java.util.List;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -69,11 +67,11 @@ public final class SequencePageBuilder
             else if (type.equals(TIMESTAMP_MILLIS)) {
                 blocks[i] = BlockAssertions.createTimestampSequenceBlock(initialValue, initialValue + length);
             }
-            else if (isShortDecimal(type)) {
-                blocks[i] = BlockAssertions.createShortDecimalSequenceBlock(initialValue, initialValue + length, (DecimalType) type);
+            else if (type instanceof DecimalType decimalType && decimalType.isShort()) {
+                blocks[i] = BlockAssertions.createShortDecimalSequenceBlock(initialValue, initialValue + length, decimalType);
             }
-            else if (isLongDecimal(type)) {
-                blocks[i] = BlockAssertions.createLongDecimalSequenceBlock(initialValue, initialValue + length, (DecimalType) type);
+            else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
+                blocks[i] = BlockAssertions.createLongDecimalSequenceBlock(initialValue, initialValue + length, decimalType);
             }
             else {
                 throw new IllegalStateException("Unsupported type " + type);

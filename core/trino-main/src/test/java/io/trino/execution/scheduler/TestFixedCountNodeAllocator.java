@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.scheduler.TestingNodeSelectorFactory.TestingNodeSupplier;
 import io.trino.metadata.InternalNode;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.CatalogHandle;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 

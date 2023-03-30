@@ -26,14 +26,14 @@ that should generally lead to better read performance:
 
 **Column Filtering**
     The new API allows column filtering to only read the data you are interested in.
-    `Backed by a columnar datastore <https://cloud.google.com/blog/big-data/2016/04/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
+    `Backed by a columnar datastore <https://cloud.google.com/blog/products/bigquery/inside-capacitor-bigquerys-next-generation-columnar-storage-format>`_,
     it can efficiently stream data without reading all columns.
 
 **Dynamic Sharding**
     The API rebalances records between readers until they all complete. This means
     that all Map phases will finish nearly concurrently. See this blog article on
     `how dynamic sharding is similarly used in Google Cloud Dataflow
-    <https://cloud.google.com/blog/big-data/2016/05/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
+    <https://cloud.google.com/blog/products/gcp/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow>`_.
 
 Requirements
 ------------
@@ -65,10 +65,9 @@ Configuration
 -------------
 
 To configure the BigQuery connector, create a catalog properties file in
-``etc/catalog`` named, for example, ``bigquery.properties``, to mount the
-BigQuery connector as the ``bigquery`` catalog. Create the file with the
-following contents, replacing the connection properties as appropriate for
-your setup:
+``etc/catalog`` named ``example.properties``, to mount the BigQuery connector as
+the ``example`` catalog. Create the file with the following contents, replacing
+the connection properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -94,6 +93,19 @@ read (before filtering). This should roughly correspond to the maximum number
 of readers supported by the BigQuery Storage API. This can be configured
 explicitly with the ``bigquery.parallelism`` property. BigQuery may limit the
 number of partitions based on server constraints.
+
+Arrow serialization support
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This is an experimental feature which introduces support for using Apache Arrow
+as the serialization format when reading from BigQuery.  Please note there are
+a few caveats:
+
+* Using Apache Arrow serialization is disabled by default. In order to enable
+  it, set the ``bigquery.experimental.arrow-serialization.enabled``
+  configuration property to ``true`` and add
+  ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the Trino
+  :ref:`jvm_config`.
 
 Reading from views
 ^^^^^^^^^^^^^^^^^^
@@ -141,6 +153,10 @@ Property                                              Description               
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
 ``bigquery.query-results-cache.enabled``              Enable `query results cache
                                                       <https://cloud.google.com/bigquery/docs/cached-results>`_      ``false``
+``bigquery.experimental.arrow-serialization.enabled`` Enable using Apache Arrow serialization when reading data      ``false``
+                                                      from BigQuery.
+                                                      Please read this `section <#arrow-serialization-support>`_
+                                                      before enabling this feature.
 ===================================================== ============================================================== ======================================================
 
 .. _bigquery-type-mapping:
@@ -204,7 +220,7 @@ to the following table:
     - Time zone is UTC
   * - ``GEOGRAPHY``
     - ``VARCHAR``
-    - In `Well-known text (WKT) <https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
+    - In `Well-known text (WKT) <https://wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
   * - ``ARRAY``
     - ``ARRAY``
     -
@@ -243,6 +259,9 @@ to the following table:
     - ``INT64``
     - ``INT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``, ``TINYINT``, and
       ``BYTEINT`` are aliases for ``INT64`` in BigQuery.
+  * - ``DECIMAL(P,S)``
+    - ``NUMERIC``
+    - The default precision and scale of ``NUMERIC`` is ``(38, 9)``.
   * - ``VARCHAR``
     - ``STRING``
     -
@@ -255,9 +274,10 @@ No other types are supported.
 System tables
 -------------
 
-For each Trino table which maps to BigQuery view there exists a system table which exposes BigQuery view definition.
-Given a BigQuery view ``customer_view`` you can send query
-``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
+For each Trino table which maps to BigQuery view there exists a system table
+which exposes BigQuery view definition. Given a BigQuery view ``example_view``
+you can send query ``SELECT * example_view$view_definition`` to see the SQL
+which defines view in BigQuery.
 
 .. _bigquery_special_columns:
 
@@ -276,12 +296,12 @@ can be selected directly, or used in conditional statements. For example, you
 can inspect the partition date and time for each record::
 
     SELECT *, "$partition_date", "$partition_time"
-    FROM bigquery.web.page_views;
+    FROM example.web.page_views;
 
 Retrieve all records stored in the partition ``_PARTITIONDATE = '2022-04-07'``::
 
     SELECT *
-    FROM bigquery.web.page_views
+    FROM example.web.page_views
     WHERE "$partition_date" = date '2022-04-07';
 
 .. note::
@@ -327,13 +347,14 @@ running a query natively may be faster.
 
 .. include:: polymorphic-table-function-ordering.fragment
 
-For example, group and concatenate all employee IDs by manager ID::
+For example, query the ``example`` catalog and group and concatenate all
+employee IDs by manager ID::
 
     SELECT
       *
     FROM
       TABLE(
-        bigquery.system.query(
+        example.system.query(
           query => 'SELECT
             manager_id, STRING_AGG(employee_id)
           FROM

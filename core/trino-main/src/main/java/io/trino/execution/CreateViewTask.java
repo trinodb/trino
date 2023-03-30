@@ -35,9 +35,9 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
@@ -92,7 +92,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterExtractor(statement, parameters), stateMachine.getWarningCollector())
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, bindParameters(statement, parameters), stateMachine.getWarningCollector())
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())

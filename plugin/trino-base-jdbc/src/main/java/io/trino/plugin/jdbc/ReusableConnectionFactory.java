@@ -128,7 +128,7 @@ public final class ReusableConnectionFactory
         delegate.close();
     }
 
-    private final class CachedConnection
+    final class CachedConnection
             extends ForwardingConnection
     {
         private final String queryId;
@@ -176,7 +176,7 @@ public final class ReusableConnectionFactory
             if (dirty) {
                 delegate.close();
             }
-            else {
+            else if (!delegate.isClosed()) {
                 connections.put(queryId, delegate);
             }
         }

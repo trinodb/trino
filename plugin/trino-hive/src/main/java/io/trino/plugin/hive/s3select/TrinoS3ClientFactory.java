@@ -15,14 +15,20 @@ package io.trino.plugin.hive.s3select;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.s3.HiveS3Config;
@@ -42,13 +48,20 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TIMEOUT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TTL;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CREDENTIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_EXTERNAL_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_ERROR_RETRIES;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ROLE_SESSION_NAME;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SESSION_TOKEN;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SOCKET_TIMEOUT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SSL_ENABLED;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STS_ENDPOINT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STS_REGION;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -62,6 +75,7 @@ import static java.lang.String.format;
  */
 public class TrinoS3ClientFactory
 {
+    private static final Logger log = Logger.get(TrinoS3ClientFactory.class);
     private static final String S3_SELECT_PUSHDOWN_MAX_CONNECTIONS = "hive.s3select-pushdown.max-connections";
 
     private final boolean enabled;
@@ -103,6 +117,11 @@ public class TrinoS3ClientFactory
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
                 .withUserAgentSuffix(enabled ? "Trino-select" : "Trino");
+
+        String connectTtlValue = config.get(S3_CONNECT_TTL);
+        if (!isNullOrEmpty(connectTtlValue)) {
+            clientConfiguration.setConnectionTTL(Duration.valueOf(connectTtlValue).toMillis());
+        }
 
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config);
         AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
@@ -149,7 +168,49 @@ public class TrinoS3ClientFactory
             return getCustomAWSCredentialsProvider(conf, providerClass);
         }
 
-        return DefaultAWSCredentialsProviderChain.getInstance();
+        AWSCredentialsProvider provider = getAwsCredentials(conf)
+                .map(value -> (AWSCredentialsProvider) new AWSStaticCredentialsProvider(value))
+                .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
+
+        String iamRole = conf.get(S3_IAM_ROLE);
+        if (iamRole != null) {
+            String stsEndpointOverride = conf.get(S3_STS_ENDPOINT);
+            String stsRegionOverride = conf.get(S3_STS_REGION);
+            String s3RoleSessionName = conf.get(S3_ROLE_SESSION_NAME);
+            String externalId = conf.get(S3_EXTERNAL_ID);
+
+            AWSSecurityTokenServiceClientBuilder stsClientBuilder = AWSSecurityTokenServiceClientBuilder.standard()
+                    .withCredentials(provider);
+
+            String region;
+            if (!isNullOrEmpty(stsRegionOverride)) {
+                region = stsRegionOverride;
+            }
+            else {
+                DefaultAwsRegionProviderChain regionProviderChain = new DefaultAwsRegionProviderChain();
+                try {
+                    region = regionProviderChain.getRegion();
+                }
+                catch (SdkClientException ex) {
+                    log.warn("Falling back to default AWS region %s", US_EAST_1);
+                    region = US_EAST_1.getName();
+                }
+            }
+
+            if (!isNullOrEmpty(stsEndpointOverride)) {
+                stsClientBuilder.withEndpointConfiguration(new EndpointConfiguration(stsEndpointOverride, region));
+            }
+            else {
+                stsClientBuilder.withRegion(region);
+            }
+
+            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, s3RoleSessionName)
+                    .withExternalId(externalId)
+                    .withStsClient(stsClientBuilder.build())
+                    .build();
+        }
+
+        return provider;
     }
 
     private static AWSCredentialsProvider getCustomAWSCredentialsProvider(Configuration conf, String providerClass)
@@ -173,6 +234,11 @@ public class TrinoS3ClientFactory
         if (isNullOrEmpty(accessKey) || isNullOrEmpty(secretKey)) {
             return Optional.empty();
         }
+        String sessionToken = conf.get(S3_SESSION_TOKEN);
+        if (!isNullOrEmpty(sessionToken)) {
+            return Optional.of(new BasicSessionCredentials(accessKey, secretKey, sessionToken));
+        }
+
         return Optional.of(new BasicAWSCredentials(accessKey, secretKey));
     }
 }

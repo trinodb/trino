@@ -154,7 +154,8 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(columnDescriptor, BIGINT, 10, longColumnStats(0L, 100L), ID, UTC), create(ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)), false));
 
-        assertEquals(getDomain(columnDescriptor, BIGINT, 20, longOnlyNullsStats(10), ID, UTC), create(ValueSet.all(BIGINT), true));
+        assertEquals(getDomain(columnDescriptor, BIGINT, 20, longOnlyNullsStats(10), ID, UTC), Domain.all(BIGINT));
+        assertEquals(getDomain(columnDescriptor, BIGINT, 20, longOnlyNullsStats(20), ID, UTC), Domain.onlyNull(BIGINT));
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, BIGINT, 10, longColumnStats(100L, 10L), ID, UTC))
@@ -463,11 +464,10 @@ public class TestTupleDomainParquetPredicate
         LocalDateTime maxTime = baseTime.plus(Duration.ofMillis(50));
 
         Object maxDomainValue;
-        if (baseDomainValue instanceof Long) {
-            maxDomainValue = (long) baseDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        if (baseDomainValue instanceof Long value) {
+            maxDomainValue = value + 50 * MICROSECONDS_PER_MILLISECOND;
         }
-        else if (baseDomainValue instanceof LongTimestamp) {
-            LongTimestamp longTimestamp = ((LongTimestamp) baseDomainValue);
+        else if (baseDomainValue instanceof LongTimestamp longTimestamp) {
             maxDomainValue = new LongTimestamp(longTimestamp.getEpochMicros() + 50 * MICROSECONDS_PER_MILLISECOND, longTimestamp.getPicosOfMicro());
         }
         else {
@@ -555,7 +555,7 @@ public class TestTupleDomainParquetPredicate
                 .withMax(value.getBytes(UTF_8))
                 .withNumNulls(1L)
                 .build();
-        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, stats), ID))
+        assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, stats), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(column)));
     }
 
@@ -569,10 +569,10 @@ public class TestTupleDomainParquetPredicate
                 Domain.create(ValueSet.of(typeForParquetInt32, 42L, 43L, 44L, 112L), false)));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
 
-        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, intColumnStats(32, 42)), ID))
+        assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, intColumnStats(32, 42)), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(column)));
-        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, intColumnStats(30, 40)), ID)).isEmpty();
-        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, intColumnStats(1024, 0x10000 + 42)), ID).isPresent())
+        assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, intColumnStats(30, 40)), ID)).isEmpty();
+        assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, intColumnStats(1024, 0x10000 + 42)), ID).isPresent())
                 .isEqualTo(typeForParquetInt32 != INTEGER); // stats invalid for smallint/tinyint
     }
 
@@ -596,10 +596,10 @@ public class TestTupleDomainParquetPredicate
                 Domain.create(ValueSet.of(BIGINT, 42L, 43L, 44L, 404L), false)));
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(column), UTC);
 
-        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, longColumnStats(32, 42)), ID))
+        assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, longColumnStats(32, 42)), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(column)));
-        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, longColumnStats(30, 40)), ID)).isEmpty();
-        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(column, longColumnStats(1024, 0x10000 + 42)), ID)).isEmpty();
+        assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, longColumnStats(30, 40)), ID)).isEmpty();
+        assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, longColumnStats(1024, 0x10000 + 42)), ID)).isEmpty();
     }
 
     @Test
@@ -669,23 +669,23 @@ public class TestTupleDomainParquetPredicate
 
         TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, singletonList(columnA), UTC);
         assertThat(parquetPredicate.getIndexLookupCandidates(
-                2,
+                ImmutableMap.of(columnA, 2L, columnB, 2L),
                 ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(columnA)));
 
         parquetPredicate = new TupleDomainParquetPredicate(effectivePredicate, ImmutableList.of(columnA, columnB), UTC);
         // column stats missing on columnB
-        assertThat(parquetPredicate.getIndexLookupCandidates(2, ImmutableMap.of(columnA, longColumnStats(32, 42)), ID))
+        assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(columnA, 2L), ImmutableMap.of(columnA, longColumnStats(32, 42)), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(columnA, columnB)));
 
         // All possible values for columnB are covered by effectivePredicate
         assertThat(parquetPredicate.getIndexLookupCandidates(
-                2,
+                ImmutableMap.of(columnA, 2L, columnB, 2L),
                 ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(50, 400)), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(columnA)));
 
         assertThat(parquetPredicate.getIndexLookupCandidates(
-                2,
+                ImmutableMap.of(columnA, 2L, columnB, 2L),
                 ImmutableMap.of(columnA, longColumnStats(32, 42), columnB, longColumnStats(42, 500)), ID))
                 .isEqualTo(Optional.of(ImmutableList.of(columnA, columnB)));
     }
@@ -701,6 +701,27 @@ public class TestTupleDomainParquetPredicate
                 asList(1L, 2L, 3L, 4L, 5L, 6L),
                 toByteBufferList(null, 2L, null, 4L, null, 9L),
                 toByteBufferList(null, 3L, null, 15L, null, 10L));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
+        assertThat(getDomain(BIGINT, 200, columnIndex, new ParquetDataSourceId("test"), column, UTC))
+                .isEqualTo(Domain.create(
+                        ValueSet.ofRanges(
+                                range(BIGINT, 2L, true, 3L, true),
+                                range(BIGINT, 4L, true, 15L, true),
+                                range(BIGINT, 9L, true, 10L, true)),
+                        true));
+    }
+
+    @Test
+    public void testColumnIndexWithNoNullsCount()
+            throws Exception
+    {
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(INT64).named("test_int64"),
+                BoundaryOrder.UNORDERED,
+                asList(false, false, false),
+                null,
+                toByteBufferList(2L, 4L, 9L),
+                toByteBufferList(3L, 15L, 10L));
         ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
         assertThat(getDomain(BIGINT, 200, columnIndex, new ParquetDataSourceId("test"), column, UTC))
                 .isEqualTo(Domain.create(

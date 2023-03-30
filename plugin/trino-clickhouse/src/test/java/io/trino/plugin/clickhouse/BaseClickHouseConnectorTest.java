@@ -43,11 +43,11 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PRO
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -67,6 +67,9 @@ public abstract class BaseClickHouseConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_SET_COLUMN_TYPE:
+                return false;
+
             case SUPPORTS_DELETE:
                 return false;
 
@@ -80,11 +83,13 @@ public abstract class BaseClickHouseConnectorTest
         }
     }
 
-    @Override
-    @Test(dataProvider = "testColumnNameDataProvider")
-    public void testColumnName(String columnName)
+    @Test
+    public void testSampleBySqlInjection()
     {
-        throw new SkipException("TODO: test not implemented yet");
+        assertQueryFails("CREATE TABLE test (p1 int NOT NULL, p2 boolean NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'], sample_by = 'p2; drop table tpch.nation')", "(?s).*Missing columns: 'p2; drop table tpch.nation.*");
+        assertUpdate("CREATE TABLE test (p1 int NOT NULL, p2 boolean NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['p1', 'p2'], primary_key = ARRAY['p1', 'p2'], sample_by = 'p2')");
+        assertQueryFails("ALTER TABLE test SET PROPERTIES sample_by = 'p2; drop table tpch.nation'", "(?s).*Missing columns: 'p2; drop table tpch.nation.*");
+        assertUpdate("ALTER TABLE test SET PROPERTIES sample_by = 'p2'");
     }
 
     @Override
@@ -105,12 +110,21 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    public void testAddAndDropColumnName(String columnName)
+    public void testDropAndAddColumnWithSameName()
     {
-        // TODO: Enable this test
-        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                .hasMessageContaining("is not supported by storage Log");
-        throw new SkipException("TODO");
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "(x int NOT NULL, y int, z int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])", ImmutableList.of("1,2,3"))) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, NULL)");
+        }
+    }
+
+    @Override
+    protected String createTableSqlForAddingAndDroppingColumn(String tableName, String columnNameInSql)
+    {
+        return format("CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['value'])", tableName, columnNameInSql);
     }
 
     @Override
@@ -140,11 +154,15 @@ public abstract class BaseClickHouseConnectorTest
     @Override
     public void testDropColumn()
     {
-        String tableName = "test_drop_column_" + randomTableSuffix();
+        String tableName = "test_drop_column_" + randomNameSuffix();
 
         // only MergeTree engine table can drop column
-        assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])");
+        assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
         assertUpdate("INSERT INTO " + tableName + "(x,y,a) SELECT 123, 456, 111", 1);
+
+        // the columns are referenced by order_by/partition_by property can not be dropped
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x'.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a'.*");
 
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
@@ -156,56 +174,18 @@ public abstract class BaseClickHouseConnectorTest
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN notExistColumn");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-
-        // the columns are referenced by order_by/order_by property can not be dropped
-        assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH " +
-                "(engine = 'MergeTree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN x", "(?s).* Missing columns: 'x' while processing query: 'x', required columns: 'x' 'x'.*");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", "(?s).* Missing columns: 'a' while processing query: 'a', required columns: 'a' 'a'.*");
     }
 
     @Override
-    public void testAddColumnConcurrently()
+    protected TestTable createTableWithOneIntegerColumn(String namePrefix)
     {
-        // TODO: Default storage engine doesn't support adding new columns
-        throw new SkipException("TODO: test not implemented yet");
+        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['col'])");
     }
 
     @Override
-    public void testAddColumn()
+    protected String tableDefinitionForAddColumn()
     {
-        String tableName = "test_add_column_" + randomTableSuffix();
-        // Only MergeTree engine table can add column
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
-        assertUpdate("INSERT INTO " + tableName + " (id, x) VALUES(1, 'first')", 1);
-
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN X bigint", ".* Column 'X' already exists");
-        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN q bad_type", ".* Unknown type 'bad_type' for column 'q'");
-
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a varchar");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 2, 'second', 'xxx'", 1);
-        assertQuery(
-                "SELECT x, a FROM " + tableName,
-                "VALUES ('first', NULL), ('second', 'xxx')");
-
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b double");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 3, 'third', 'yyy', 33.3E0", 1);
-        assertQuery(
-                "SELECT x, a, b FROM " + tableName,
-                "VALUES ('first', NULL, NULL), ('second', 'xxx', NULL), ('third', 'yyy', 33.3)");
-
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar");
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN IF NOT EXISTS c varchar");
-        assertUpdate("INSERT INTO " + tableName + " SELECT 4, 'fourth', 'zzz', 55.3E0, 'newColumn'", 1);
-        assertQuery(
-                "SELECT x, a, b, c FROM " + tableName,
-                "VALUES ('first', NULL, NULL, NULL), ('second', 'xxx', NULL, NULL), ('third', 'yyy', 33.3, NULL), ('fourth', 'zzz', 55.3, 'newColumn')");
-        assertUpdate("DROP TABLE " + tableName);
-
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
-        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        return "(x VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'])";
     }
 
     @Override
@@ -279,9 +259,9 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -292,8 +272,6 @@ public abstract class BaseClickHouseConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
@@ -313,7 +291,7 @@ public abstract class BaseClickHouseConnectorTest
     public void testCharVarcharComparison()
     {
         assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessageContaining("For query: ")
+                .hasMessageContaining("For query")
                 .hasMessageContaining("Actual rows")
                 .hasMessageContaining("Expected rows");
 
@@ -324,7 +302,7 @@ public abstract class BaseClickHouseConnectorTest
     @Test
     public void testDifferentEngine()
     {
-        String tableName = "test_add_column_" + randomTableSuffix();
+        String tableName = "test_add_column_" + randomNameSuffix();
         // MergeTree
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
@@ -337,7 +315,7 @@ public abstract class BaseClickHouseConnectorTest
 
         // MergeTree with optional
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR, logdate DATE NOT NULL) WITH " +
-                "(engine = 'MergeTree', order_by = ARRAY['id'], partition_by = ARRAY['toYYYYMM(logdate)'])");
+                "(engine = 'MergeTree', order_by = ARRAY['id'], partition_by = ARRAY['logdate'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("DROP TABLE " + tableName);
 
@@ -357,7 +335,7 @@ public abstract class BaseClickHouseConnectorTest
     @Test
     public void testTableProperty()
     {
-        String tableName = "test_add_column_" + randomTableSuffix();
+        String tableName = "test_add_column_" + randomNameSuffix();
         // no table property, it should create a table with default Log engine table
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
@@ -707,6 +685,24 @@ public abstract class BaseClickHouseConnectorTest
     }
 
     @Override
+    public void testNativeQueryColumnAlias()
+    {
+        // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertQueryFails(
+                "SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))",
+                ".* Table function system.query not registered");
+    }
+
+    @Override
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Table function system.query not registered");
+    }
+
+    @Override
     public void testNativeQuerySelectUnsupportedType()
     {
         // table function disabled for ClickHouse, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
@@ -769,7 +765,7 @@ public abstract class BaseClickHouseConnectorTest
     public void testCreateTableWithLongTableName()
     {
         // Override because ClickHouse connector can create a table which can't be dropped
-        String baseTableName = "test_create_" + randomTableSuffix();
+        String baseTableName = "test_create_" + randomNameSuffix();
         String validTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length());
 
         assertUpdate("CREATE TABLE " + validTableName + " (a bigint)");
@@ -788,10 +784,10 @@ public abstract class BaseClickHouseConnectorTest
     public void testRenameSchemaToLongName()
     {
         // Override because the max length is different from CREATE SCHEMA case
-        String sourceTableName = "test_rename_source_" + randomTableSuffix();
+        String sourceTableName = "test_rename_source_" + randomNameSuffix();
         assertUpdate("CREATE SCHEMA " + sourceTableName);
 
-        String baseSchemaName = "test_rename_target_" + randomTableSuffix();
+        String baseSchemaName = "test_rename_target_" + randomNameSuffix();
 
         // The numeric value depends on file system
         int maxLength = 255 - ".sql".length();
@@ -825,10 +821,10 @@ public abstract class BaseClickHouseConnectorTest
     public void testRenameTableToLongTableName()
     {
         // Override because ClickHouse connector can rename to a table which can't be dropped
-        String sourceTableName = "test_source_long_table_name_" + randomTableSuffix();
+        String sourceTableName = "test_source_long_table_name_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
 
-        String baseTableName = "test_target_long_table_name_" + randomTableSuffix();
+        String baseTableName = "test_target_long_table_name_" + randomNameSuffix();
         // The max length is different from CREATE TABLE case
         String validTargetTableName = baseTableName + "z".repeat(255 - ".sql".length() - baseTableName.length());
 

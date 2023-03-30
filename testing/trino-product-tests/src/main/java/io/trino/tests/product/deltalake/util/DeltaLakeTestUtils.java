@@ -13,23 +13,55 @@
  */
 package io.trino.tests.product.deltalake.util;
 
+import com.amazonaws.services.glue.model.ConcurrentModificationException;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.google.common.base.Throwables;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
+import io.airlift.log.Logger;
 import io.trino.tempto.query.QueryResult;
+import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.intellij.lang.annotations.Language;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public final class DeltaLakeTestUtils
 {
-    public static final String DATABRICKS_104_RUNTIME_VERSION = "10.4";
-    public static final String DATABRICKS_91_RUNTIME_VERSION = "9.1";
+    private static final Logger log = Logger.get(DeltaLakeTestUtils.class);
+
+    public static final String DATABRICKS_COMMUNICATION_FAILURE_ISSUE = "https://github.com/trinodb/trino/issues/14391";
+    @Language("RegExp")
+    public static final String DATABRICKS_COMMUNICATION_FAILURE_MATCH =
+            "\\Q[Databricks][DatabricksJDBCDriver](500593) Communication link failure. Failed to connect to server. Reason: HTTP retry after response received with no Retry-After header, error: HTTP Response code: 503, Error message: Unknown.";
+    private static final RetryPolicy<QueryResult> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.<QueryResult>builder()
+            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
+            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof MetaException metaException && metaException.getMessage() != null && metaException.getMessage().contains("Table being modified concurrently"))
+            .withBackoff(1, 10, ChronoUnit.SECONDS)
+            .withMaxRetries(3)
+            .onRetry(event -> log.warn(event.getLastException(), "Query failed on attempt %d, will retry.", event.getAttemptCount()))
+            .build();
 
     private DeltaLakeTestUtils() {}
 
-    public static String getDatabricksRuntimeVersion()
+    public static Optional<DatabricksVersion> getDatabricksRuntimeVersion()
     {
-        return firstNonNull((String) onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')").getOnlyValue(), "unknown");
+        String version = (String) onDelta().executeQuery("SELECT java_method('java.lang.System', 'getenv', 'DATABRICKS_RUNTIME_VERSION')").getOnlyValue();
+        // OSS Spark returns null
+        if (version.equals("null")) {
+            return Optional.empty();
+        }
+        return Optional.of(DatabricksVersion.parse(version));
     }
 
     public static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
@@ -51,6 +83,28 @@ public final class DeltaLakeTestUtils
         return (String) result.rows().stream()
                 .filter(row -> row.get(0).equals("Comment"))
                 .map(row -> row.get(1))
-                .findFirst().orElseThrow();
+                .collect(onlyElement());
+    }
+
+    /**
+     * Workaround method to avoid <a href="https://github.com/trinodb/trino/issues/13199">Table being modified concurrently error in Glue</a>.
+     */
+    public static QueryResult dropDeltaTableWithRetry(String tableName)
+    {
+        return Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
+                .get(() -> onDelta().executeQuery("DROP TABLE IF EXISTS " + tableName));
+    }
+
+    public static void removeS3Directory(AmazonS3 s3, String bucketName, String directoryPrefix)
+    {
+        ObjectListing listing = s3.listObjects(bucketName, directoryPrefix);
+        do {
+            List<String> objectKeys = listing.getObjectSummaries().stream().map(S3ObjectSummary::getKey).collect(toImmutableList());
+            DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys.toArray(new String[0]));
+            log.info("Deleting keys: %s", objectKeys);
+            s3.deleteObjects(deleteObjectsRequest);
+            listing = s3.listNextBatchOfObjects(listing);
+        }
+        while (listing.isTruncated());
     }
 }

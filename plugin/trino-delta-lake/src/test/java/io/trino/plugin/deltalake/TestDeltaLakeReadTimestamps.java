@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -93,14 +94,14 @@ public class TestDeltaLakeReadTimestamps
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG);
+        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
     }
 
     @BeforeClass
     public void registerTables()
     {
         String dataPath = getClass().getClassLoader().getResource("databricks/read_timestamps").toExternalForm();
-        getQueryRunner().execute(format("CREATE TABLE read_timestamps (col_0 VARCHAR, col_1 TIMESTAMP(3) WITH TIME ZONE) WITH (location = '%s')", dataPath));
+        getQueryRunner().execute(format("CALL system.register_table('%s', 'read_timestamps', '%s')", getSession().getSchema().orElseThrow(), dataPath));
     }
 
     @Test

@@ -10,9 +10,9 @@ Therefore, a metastore database can hold a variety of tables with different tabl
 As a concrete example, let's use the following
 simple scenario which makes use of table redirection::
 
-    USE a-catalog.myschema;
+    USE example.example_schema;
 
-    EXPLAIN SELECT * FROM mytable;
+    EXPLAIN SELECT * FROM example_table;
 
 .. code-block:: text
 
@@ -22,16 +22,16 @@ simple scenario which makes use of table redirection::
          ...
          Output[columnNames = [...]]
          │   ...
-         └─ TableScan[table = another-catalog:myschema:mytable]
+         └─ TableScan[table = another_catalog:example_schema:example_table]
                 ...
 
 The output of the ``EXPLAIN`` statement points out the actual
-catalog which is handling the ``SELECT`` query over the table ``mytable``.
+catalog which is handling the ``SELECT`` query over the table ``example_table``.
 
 The table redirection functionality works also when using
 fully qualified names for the tables::
 
-    EXPLAIN SELECT * FROM a-catalog.myschema.mytable;
+    EXPLAIN SELECT * FROM example.example_schema.example_table;
 
 .. code-block:: text
 
@@ -41,7 +41,7 @@ fully qualified names for the tables::
          ...
          Output[columnNames = [...]]
          │   ...
-         └─ TableScan[table = another-catalog:myschema:mytable]
+         └─ TableScan[table = another_catalog:example_schema:example_table]
                 ...
 
 Trino offers table redirection support for the following operations:

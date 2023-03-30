@@ -5,7 +5,7 @@ Example HTTP connector
 The Example HTTP connector has a simple goal: it reads comma-separated
 data over HTTP. For example, if you have a large amount of data in a
 CSV format, you can point the example HTTP connector at this data and
-write a SQL query to process it.
+write a query to process it.
 
 Code
 ----
@@ -52,7 +52,7 @@ connector in Trino configuration.
     @Override
     public String getName()
     {
-        return "example-http";
+        return "example_http";
     }
 
 The real work in a connector factory happens in the ``create()``

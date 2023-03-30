@@ -89,9 +89,7 @@ public class TestServiceConfig
     {
         assertInvalidLoad(
                 "a.secret-key",
-                ImmutableMap.<String, String>builder()
-                        .put("a.access-key", "a-accessValue")
-                        .buildOrThrow());
+                ImmutableMap.of("a.access-key", "a-accessValue"));
         assertInvalidLoad(
                 "a.unknown",
                 ImmutableMap.<String, String>builder()

@@ -40,8 +40,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -65,7 +65,7 @@ public class TestQuerySessionSupplier
             .put(TRINO_HEADERS.requestClientInfo(), "client-info")
             .put(TRINO_HEADERS.requestClientTags(), "tag1,tag2 ,tag3, tag2")
             .put(TRINO_HEADERS.requestSession(), QUERY_MAX_MEMORY + "=1GB")
-            .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+            .put(TRINO_HEADERS.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
             .put(TRINO_HEADERS.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
             .build());
     private static final HttpRequestSessionContextFactory SESSION_CONTEXT_FACTORY = new HttpRequestSessionContextFactory(
@@ -95,7 +95,7 @@ public class TestQuerySessionSupplier
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
-                .put(HASH_PARTITION_COUNT, "43")
+                .put(MAX_HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
         assertEquals(session.getPreparedStatements(), ImmutableMap.<String, String>builder()
                 .put("query1", "select * from foo")
@@ -106,9 +106,7 @@ public class TestQuerySessionSupplier
     @Test
     public void testEmptyClientTags()
     {
-        MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(TRINO_HEADERS.requestUser(), "testUser")
-                .build());
+        MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"));
         SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
@@ -130,9 +128,7 @@ public class TestQuerySessionSupplier
         SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
-        MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
-                .put(TRINO_HEADERS.requestUser(), "testUser")
-                .build());
+        MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"));
         SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
@@ -183,18 +179,14 @@ public class TestQuerySessionSupplier
     {
         // no session or defaults
         Session session = createSession(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(TRINO_HEADERS.requestUser(), "testUser")
-                        .build(),
+                ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"),
                 new SqlEnvironmentConfig());
         assertThat(session.getCatalog()).isEmpty();
         assertThat(session.getSchema()).isEmpty();
 
         // no session with default catalog
         session = createSession(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(TRINO_HEADERS.requestUser(), "testUser")
-                        .build(),
+                ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"),
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog"));
         assertThat(session.getCatalog()).contains("default-catalog");
@@ -202,9 +194,7 @@ public class TestQuerySessionSupplier
 
         // no session with default catalog and schema
         session = createSession(
-                ImmutableListMultimap.<String, String>builder()
-                        .put(TRINO_HEADERS.requestUser(), "testUser")
-                        .build(),
+                ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"),
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog")
                         .setDefaultSchema("default-schema"));

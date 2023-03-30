@@ -19,8 +19,8 @@ import com.datastax.oss.driver.api.querybuilder.select.SelectFrom;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.cassandra.CassandraColumnHandle;
+import io.trino.plugin.cassandra.CassandraNamedRelationHandle;
 import io.trino.plugin.cassandra.CassandraPartition;
-import io.trino.plugin.cassandra.CassandraTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 
 import java.util.ArrayList;
@@ -108,20 +108,20 @@ public final class CassandraCqlUtils
                 .collect(toImmutableList());
     }
 
-    public static Select selectFrom(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
+    public static Select selectFrom(CassandraNamedRelationHandle tableHandle, List<CassandraColumnHandle> columns)
     {
         SelectFrom selectFrom = from(tableHandle);
         return columns.isEmpty() ? selectFrom.all() : selectFrom.columns(selection(columns));
     }
 
-    public static SelectFrom from(CassandraTableHandle tableHandle)
+    public static SelectFrom from(CassandraNamedRelationHandle tableHandle)
     {
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
         return QueryBuilder.selectFrom(schema, table);
     }
 
-    public static Select selectDistinctFrom(CassandraTableHandle tableHandle, List<CassandraColumnHandle> columns)
+    public static Select selectDistinctFrom(CassandraNamedRelationHandle tableHandle, List<CassandraColumnHandle> columns)
     {
         SelectFrom selectFrom = from(tableHandle).distinct();
         if (columns.isEmpty()) {
@@ -146,7 +146,7 @@ public final class CassandraCqlUtils
                 schemaName, tableName, getWhereCondition(partition.getPartitionId(), clusteringKeyPredicates));
     }
 
-    public static List<String> getDeleteQueries(CassandraTableHandle handle)
+    public static List<String> getDeleteQueries(CassandraNamedRelationHandle handle)
     {
         ImmutableList.Builder<String> queries = ImmutableList.builder();
         for (CassandraPartition partition : handle.getPartitions().orElse(ImmutableList.of())) {

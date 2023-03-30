@@ -93,6 +93,7 @@ public class TestTrinoDriverAuth
             throws Exception
     {
         server.close();
+        server = null;
     }
 
     @Test

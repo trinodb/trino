@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
+import io.trino.likematcher.LikeMatcher;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -46,6 +47,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.SessionTimeProvider;
 import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
@@ -59,7 +61,6 @@ import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
@@ -68,6 +69,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.LikeFunctions;
+import io.trino.type.LikePatternType;
 import io.trino.type.TypeCoercion;
 
 import javax.annotation.Nullable;
@@ -103,6 +105,7 @@ import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.combineDisjunctsWithDefault;
 import static io.trino.sql.ExpressionUtils.or;
+import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
@@ -112,6 +115,7 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
+import static io.trino.type.LikeFunctions.LIKE_FUNCTION_NAME;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
@@ -317,6 +321,7 @@ public final class DomainTranslator
                 new StatementAnalyzerFactory(
                         plannerContext,
                         new SqlParser(),
+                        SessionTimeProvider.DEFAULT,
                         new AllowAllAccessControl(),
                         new NoOpTransactionManager(),
                         user -> ImmutableSet.of(),
@@ -505,17 +510,16 @@ public final class DomainTranslator
                 return createComparisonExtractionResult(normalized.getComparisonOperator(), symbol, type, value.getValue(), complement)
                         .orElseGet(() -> super.visitComparisonExpression(node, complement));
             }
-            if (symbolExpression instanceof Cast) {
-                Cast castExpression = (Cast) symbolExpression;
+            if (symbolExpression instanceof Cast castExpression) {
                 // type of expression which is then cast to type of value
                 Type castSourceType = requireNonNull(expressionTypes.get(NodeRef.of(castExpression.getExpression())), "No type for Cast source expression");
                 Type castTargetType = requireNonNull(expressionTypes.get(NodeRef.of(castExpression)), "No type for Cast target expression");
                 if (castSourceType instanceof VarcharType && castTargetType == DATE && !castExpression.isSafe()) {
                     Optional<ExtractionResult> result = createVarcharCastToDateComparisonExtractionResult(
-                            node,
+                            normalized,
                             (VarcharType) castSourceType,
-                            normalized.getValue(),
-                            complement);
+                            complement,
+                            node);
                     if (result.isPresent()) {
                         return result.get();
                     }
@@ -604,15 +608,14 @@ public final class DomainTranslator
         }
 
         private Optional<ExtractionResult> createVarcharCastToDateComparisonExtractionResult(
-                ComparisonExpression node,
+                NormalizedSimpleComparison comparison,
                 VarcharType sourceType,
-                NullableValue value,
-                boolean complement)
+                boolean complement,
+                ComparisonExpression originalExpression)
         {
-            Cast castExpression = (Cast) node.getLeft();
-            Expression sourceExpression = castExpression.getExpression();
-            ComparisonExpression.Operator comparisonOperator = node.getOperator();
-            requireNonNull(value, "value is null");
+            Expression sourceExpression = ((Cast) comparison.getSymbolExpression()).getExpression();
+            ComparisonExpression.Operator operator = comparison.getComparisonOperator();
+            NullableValue value = comparison.getValue();
 
             if (complement || value.isNull()) {
                 return Optional.empty();
@@ -638,7 +641,7 @@ public final class DomainTranslator
             ValueSet valueSet;
             boolean nullAllowed = false;
 
-            switch (comparisonOperator) {
+            switch (operator) {
                 case EQUAL:
                     valueSet = dateStringRanges(date, sourceType);
                     break;
@@ -649,7 +652,7 @@ public final class DomainTranslator
                         return Optional.empty();
                     }
                     valueSet = ValueSet.all(sourceType).subtract(dateStringRanges(date, sourceType));
-                    nullAllowed = (comparisonOperator == IS_DISTINCT_FROM);
+                    nullAllowed = (operator == IS_DISTINCT_FROM);
                     break;
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
@@ -670,7 +673,7 @@ public final class DomainTranslator
 
             return Optional.of(new ExtractionResult(
                     TupleDomain.withColumnDomains(ImmutableMap.of(sourceSymbol, Domain.create(valueSet, nullAllowed))),
-                    node));
+                    originalExpression));
         }
 
         /**
@@ -933,11 +936,10 @@ public final class DomainTranslator
         @Override
         protected ExtractionResult visitInPredicate(InPredicate node, Boolean complement)
         {
-            if (!(node.getValueList() instanceof InListExpression)) {
+            if (!(node.getValueList() instanceof InListExpression valueList)) {
                 return super.visitInPredicate(node, complement);
             }
 
-            InListExpression valueList = (InListExpression) node.getValueList();
             checkState(!valueList.getValues().isEmpty(), "InListExpression should never be empty");
 
             Optional<ExtractionResult> directExtractionResult = processSimpleInPredicate(node, complement);
@@ -1039,43 +1041,41 @@ public final class DomainTranslator
                     new ComparisonExpression(LESS_THAN_OR_EQUAL, node.getValue(), node.getMax())), complement);
         }
 
-        @Override
-        protected ExtractionResult visitLikePredicate(LikePredicate node, Boolean complement)
+        private Optional<ExtractionResult> tryVisitLikeFunction(FunctionCall node, Boolean complement)
         {
-            Optional<ExtractionResult> result = tryVisitLikePredicate(node, complement);
-            return result.orElseGet(() -> super.visitLikePredicate(node, complement));
-        }
+            Expression value = node.getArguments().get(0);
+            Expression patternArgument = node.getArguments().get(1);
 
-        private Optional<ExtractionResult> tryVisitLikePredicate(LikePredicate node, Boolean complement)
-        {
-            if (!(node.getValue() instanceof SymbolReference)) {
+            if (!(value instanceof SymbolReference)) {
                 // LIKE not on a symbol
                 return Optional.empty();
             }
 
-            if (!(node.getPattern() instanceof StringLiteral)) {
-                // dynamic pattern
-                return Optional.empty();
-            }
-
-            if (node.getEscape().isPresent() && !(node.getEscape().get() instanceof StringLiteral)) {
-                // dynamic escape
-                return Optional.empty();
-            }
-
-            Type type = typeAnalyzer.getType(session, types, node.getValue());
-            if (!(type instanceof VarcharType)) {
+            Type type = typeAnalyzer.getType(session, types, value);
+            if (!(type instanceof VarcharType varcharType)) {
                 // TODO support CharType
                 return Optional.empty();
             }
-            VarcharType varcharType = (VarcharType) type;
 
-            Symbol symbol = Symbol.from(node.getValue());
-            Slice pattern = utf8Slice(((StringLiteral) node.getPattern()).getValue());
-            Optional<Slice> escape = node.getEscape()
-                    .map(StringLiteral.class::cast)
-                    .map(StringLiteral::getValue)
-                    .map(Slices::utf8Slice);
+            Symbol symbol = Symbol.from(value);
+
+            if (!(typeAnalyzer.getType(session, types, patternArgument) instanceof LikePatternType) ||
+                    !SymbolsExtractor.extractAll(patternArgument).isEmpty()) {
+                // dynamic pattern or escape
+                return Optional.empty();
+            }
+
+            LikeMatcher matcher = (LikeMatcher) evaluateConstantExpression(
+                    patternArgument,
+                    typeAnalyzer.getType(session, types, patternArgument),
+                    plannerContext,
+                    session,
+                    new AllowAllAccessControl(),
+                    ImmutableMap.of());
+
+            Slice pattern = utf8Slice(matcher.getPattern());
+            Optional<Slice> escape = matcher.getEscape()
+                    .map(character -> Slices.utf8Slice(character.toString()));
 
             int patternConstantPrefixBytes = LikeFunctions.patternConstantPrefixBytes(pattern, escape);
             if (patternConstantPrefixBytes == pattern.length()) {
@@ -1109,6 +1109,12 @@ public final class DomainTranslator
             String name = ResolvedFunction.extractFunctionName(node.getName());
             if (name.equals("starts_with")) {
                 Optional<ExtractionResult> result = tryVisitStartsWithFunction(node, complement);
+                if (result.isPresent()) {
+                    return result.get();
+                }
+            }
+            else if (name.equals(LIKE_FUNCTION_NAME)) {
+                Optional<ExtractionResult> result = tryVisitLikeFunction(node, complement);
                 if (result.isPresent()) {
                     return result.get();
                 }

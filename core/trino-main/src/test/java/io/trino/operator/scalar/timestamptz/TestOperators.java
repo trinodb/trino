@@ -14,23 +14,28 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.trino.sql.query.QueryAssertions;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestOperators
 {
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         assertions = new QueryAssertions();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -484,6 +489,20 @@ public class TestOperators
         assertThat(assertions.expression("INTERVAL '1' MONTH + TIMESTAMP '2020-05-01 12:34:56.1234567890 Asia/Kathmandu'")).matches("TIMESTAMP '2020-06-01 12:34:56.1234567890 Asia/Kathmandu'");
         assertThat(assertions.expression("INTERVAL '1' MONTH + TIMESTAMP '2020-05-01 12:34:56.12345678901 Asia/Kathmandu'")).matches("TIMESTAMP '2020-06-01 12:34:56.12345678901 Asia/Kathmandu'");
         assertThat(assertions.expression("INTERVAL '1' MONTH + TIMESTAMP '2020-05-01 12:34:56.123456789012 Asia/Kathmandu'")).matches("TIMESTAMP '2020-06-01 12:34:56.123456789012 Asia/Kathmandu'");
+
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.1 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.12 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.123 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.1234 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.12345 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.123456 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234567 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.1234567 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345678 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.12345678 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456789 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.123456789 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234567890 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.1234567890 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345678901 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.12345678901 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456789012 Asia/Kathmandu' + INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-11-01 01:02:03.123456789012 Asia/Kathmandu'");
     }
 
     @Test
@@ -502,6 +521,20 @@ public class TestOperators
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567890 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-04-01 12:34:56.1234567890 Asia/Kathmandu'");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678901 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-04-01 12:34:56.12345678901 Asia/Kathmandu'");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789012 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-04-01 12:34:56.123456789012 Asia/Kathmandu'");
+
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.1 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.12 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.123 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.1234 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.12345 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.123456 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234567 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.1234567 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345678 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.12345678 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456789 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.123456789 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.1234567890 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.1234567890 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.12345678901 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.12345678901 Asia/Kathmandu'");
+        assertThat(assertions.expression("TIMESTAMP '2020-10-01 01:02:03.123456789012 Asia/Kathmandu' - INTERVAL '1' MONTH")).matches("TIMESTAMP '2020-09-01 01:02:03.123456789012 Asia/Kathmandu'");
     }
 
     @Test
@@ -557,5 +590,17 @@ public class TestOperators
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.0002222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.0009999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.00022222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.00099999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.000222222222 Asia/Kathmandu' - TIMESTAMP '2020-05-01 12:34:55.000999999999 Asia/Kathmandu'")).matches("INTERVAL '0.999' SECOND");
+    }
+
+    @Test
+    public void testIndeterminate()
+    {
+        assertThat(assertions.operator(INDETERMINATE, "cast(null as TIMESTAMP WITH TIME ZONE)"))
+                .hasType(BOOLEAN)
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "TIMESTAMP '2001-01-02 01:04:05.321 +02:09'"))
+                .hasType(BOOLEAN)
+                .isEqualTo(false);
     }
 }

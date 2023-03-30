@@ -18,11 +18,12 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
@@ -30,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TypedHeap
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TypedHeap.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TypedHeap.class);
 
     private static final int COMPACT_THRESHOLD_BYTES = 32768;
     private static final int COMPACT_THRESHOLD_RATIO = 3; // when 2/3 of elements in heapBlockBuilder is unreferenced, do compact
@@ -111,39 +112,15 @@ public class TypedHeap
         return new TypedHeap(min, compare, elementType, capacity, heapBlock.getPositionCount(), heapIndex, heapBlockBuilder);
     }
 
-    public void popAllReverse(BlockBuilder resultBlockBuilder)
+    public void writeAll(BlockBuilder resultBlockBuilder)
     {
         int[] indexes = new int[positionCount];
-        while (positionCount > 0) {
-            indexes[positionCount - 1] = heapIndex[0];
-            positionCount--;
-            heapIndex[0] = heapIndex[positionCount];
-            siftDown();
-        }
+        System.arraycopy(heapIndex, 0, indexes, 0, positionCount);
+        IntArrays.quickSort(indexes, (a, b) -> compare(heapBlockBuilder, a, heapBlockBuilder, b));
 
         for (int index : indexes) {
             elementType.appendTo(heapBlockBuilder, index, resultBlockBuilder);
         }
-    }
-
-    public void popAll(BlockBuilder resultBlockBuilder)
-    {
-        while (positionCount > 0) {
-            pop(resultBlockBuilder);
-        }
-    }
-
-    public void pop(BlockBuilder resultBlockBuilder)
-    {
-        elementType.appendTo(heapBlockBuilder, heapIndex[0], resultBlockBuilder);
-        remove();
-    }
-
-    private void remove()
-    {
-        positionCount--;
-        heapIndex[0] = heapIndex[positionCount];
-        siftDown();
     }
 
     public void add(Block block, int position)
@@ -237,16 +214,21 @@ public class TypedHeap
         heapBlockBuilder = newHeapBlockBuilder;
     }
 
-    private boolean keyGreaterThanOrEqual(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    private int compare(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         try {
             long result = (long) compare.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
-            return min ? result < 0 : result > 0;
+            return (int) (min ? result : -result);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
             throw new RuntimeException(throwable);
         }
+    }
+
+    private boolean keyGreaterThanOrEqual(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
+    {
+        return compare(leftBlock, leftPosition, rightBlock, rightPosition) < 0;
     }
 
     public TypedHeap copy()

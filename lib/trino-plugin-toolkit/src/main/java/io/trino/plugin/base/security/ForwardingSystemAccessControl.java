@@ -134,15 +134,27 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SystemSecurityContext context, String catalog)
+    {
+        delegate().checkCanCreateCatalog(context, catalog);
+    }
+
+    @Override
+    public void checkCanDropCatalog(SystemSecurityContext context, String catalog)
+    {
+        delegate().checkCanDropCatalog(context, catalog);
+    }
+
+    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         return delegate().filterCatalogs(context, catalogs);
     }
 
     @Override
-    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
+    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
     {
-        delegate().checkCanCreateSchema(context, schema);
+        delegate().checkCanCreateSchema(context, schema, properties);
     }
 
     @Override
@@ -269,6 +281,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanRenameColumn(context, table);
+    }
+
+    @Override
+    public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanAlterColumn(context, table);
     }
 
     @Override
@@ -503,6 +521,12 @@ public abstract class ForwardingSystemAccessControl
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         return delegate().getRowFilters(context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 
     @Override

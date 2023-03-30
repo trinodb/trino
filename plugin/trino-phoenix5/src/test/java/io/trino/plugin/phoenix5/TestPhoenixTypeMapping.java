@@ -29,7 +29,6 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -104,14 +103,8 @@ public class TestPhoenixTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        phoenixServer = TestingPhoenixServer.getInstance();
+        phoenixServer = closeAfterClass(TestingPhoenixServer.getInstance()).get();
         return createPhoenixQueryRunner(phoenixServer, ImmutableMap.of(), ImmutableList.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        TestingPhoenixServer.shutDown();
     }
 
     @Test
@@ -784,7 +777,7 @@ public class TestPhoenixTypeMapping
     private void assertPhoenixQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()).execute(sql))
-                .getCause()
+                .cause()
                 .hasMessageContaining(expectedMessage);
     }
 }

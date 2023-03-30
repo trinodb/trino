@@ -14,10 +14,25 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.minio.messages.Event;
 import io.trino.Session;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.ConfigurationInitializer;
+import io.trino.hdfs.DynamicHdfsConfiguration;
+import io.trino.hdfs.HdfsConfig;
+import io.trino.hdfs.HdfsConfiguration;
+import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
+import io.trino.plugin.hive.s3.HiveS3Config;
+import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -29,9 +44,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_ACCESS_KEY;
-import static io.trino.plugin.hive.containers.HiveMinioDataLake.MINIO_SECRET_KEY;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +55,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseIcebergMinioConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
+    protected final TrinoFileSystemFactory fileSystemFactory;
+
     private final String schemaName;
     private final String bucketName;
 
@@ -48,7 +66,14 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         super(format);
         this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
-        this.bucketName = "test-iceberg-minio-smoke-test-" + randomTableSuffix();
+        this.bucketName = "test-iceberg-minio-smoke-test-" + randomNameSuffix();
+
+        ConfigurationInitializer s3Config = new TrinoS3ConfigurationInitializer(new HiveS3Config()
+                .setS3AwsAccessKey(MINIO_ACCESS_KEY)
+                .setS3AwsSecretKey(MINIO_SECRET_KEY));
+        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
+        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
+        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()));
     }
 
     @Override
@@ -70,6 +95,8 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                                 .put("hive.s3.path-style-access", "true")
                                 .put("hive.s3.streaming.part-size", "5MB")
+                                .put("iceberg.register-table-procedure.enabled", "true")
+                                .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .buildOrThrow())
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
@@ -91,7 +118,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     public void testRenameSchema()
     {
         assertQueryFails(
-                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomTableSuffix()),
+                format("ALTER SCHEMA %s RENAME TO %s", schemaName, schemaName + randomNameSuffix()),
                 "Hive metastore does not support renaming schemas");
     }
 
@@ -100,7 +127,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         // Verify data and metadata files' uri don't contain fragments
         String schemaName = getSession().getSchema().orElseThrow();
-        String tableName = "test_s3_location_with_trailing_slash_" + randomTableSuffix();
+        String tableName = "test_s3_location_with_trailing_slash_" + randomNameSuffix();
         String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
         assertThat(location).doesNotContain("#");
 
@@ -124,7 +151,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     {
         // Regression test for https://github.com/trinodb/trino/issues/14299
         String schemaName = getSession().getSchema().orElseThrow();
-        String tableName = "test_meatdata_location_with_double_slash_" + randomTableSuffix();
+        String tableName = "test_meatdata_location_with_double_slash_" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 col", 1);
 
@@ -147,7 +174,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
     @Test
     public void testExpireSnapshotsBatchDeletes()
     {
-        String tableName = "test_expiring_snapshots_" + randomTableSuffix();
+        String tableName = "test_expiring_snapshots_" + randomNameSuffix();
         Session sessionWithShortRetentionUnlocked = prepareCleanUpSession();
         String location = "s3://%s/%s/%s/".formatted(bucketName, schemaName, tableName);
         Queue<Event> events = new ConcurrentLinkedQueue<>();
@@ -205,5 +232,54 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 .getOnlyColumn()
                 .map(Long.class::cast)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    protected void dropTableFromMetastore(String tableName)
+    {
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .build());
+        metastore.dropTable(schemaName, tableName, false);
+        assertThat(metastore.getTable(schemaName, tableName)).isEmpty();
+    }
+
+    @Override
+    protected String getMetadataLocation(String tableName)
+    {
+        HiveMetastore metastore = new BridgingHiveMetastore(
+                testingThriftHiveMetastoreBuilder()
+                        .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                        .build());
+        return metastore
+                .getTable(schemaName, tableName).orElseThrow()
+                .getParameters().get("metadata_location");
+    }
+
+    @Override
+    protected String schemaPath()
+    {
+        return format("s3://%s/%s", bucketName, schemaName);
+    }
+
+    @Override
+    protected boolean locationExists(String location)
+    {
+        String prefix = "s3://" + bucketName + "/";
+        return !hiveMinioDataLake.listFiles(location.substring(prefix.length())).isEmpty();
+    }
+
+    @Override
+    protected void deleteDirectory(String location)
+    {
+        String prefix = "s3://" + bucketName + "/";
+        String key = location.substring(prefix.length());
+
+        MinioClient minio = hiveMinioDataLake.getMinioClient();
+        for (String file : minio.listObjects(bucketName, key)) {
+            minio.removeObject(bucketName, file);
+        }
+        assertThat(minio.listObjects(bucketName, key)).isEmpty();
     }
 }

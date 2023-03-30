@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.accumulo.serializers;
 
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
 import io.trino.spi.TrinoException;
@@ -51,7 +53,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class StringRowSerializer
         implements AccumuloRowSerializer
 {
-    private final Map<String, Map<String, String>> familyQualifierColumnMap = new HashMap<>();
+    private final Table<String, String, String> familyQualifierColumnMap = HashBasedTable.create();
     private final Map<String, Object> columnValues = new HashMap<>();
     private final Text rowId = new Text();
     private final Text family = new Text();
@@ -77,13 +79,7 @@ public class StringRowSerializer
     public void setMapping(String name, String family, String qualifier)
     {
         columnValues.put(name, null);
-        Map<String, String> qualifierColumnMap = familyQualifierColumnMap.get(family);
-        if (qualifierColumnMap == null) {
-            qualifierColumnMap = new HashMap<>();
-            familyQualifierColumnMap.put(family, qualifierColumnMap);
-        }
-
-        qualifierColumnMap.put(qualifier, name);
+        familyQualifierColumnMap.put(family, qualifier, name);
     }
 
     @Override
@@ -112,7 +108,7 @@ public class StringRowSerializer
         }
 
         value.set(entry.getValue().get());
-        columnValues.put(familyQualifierColumnMap.get(family.toString()).get(qualifier.toString()), value.toString());
+        columnValues.put(familyQualifierColumnMap.get(family.toString(), qualifier.toString()), value.toString());
     }
 
     @Override

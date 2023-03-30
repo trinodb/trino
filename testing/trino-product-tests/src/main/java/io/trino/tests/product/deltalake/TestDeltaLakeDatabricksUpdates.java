@@ -15,6 +15,7 @@ package io.trino.tests.product.deltalake;
 
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -23,10 +24,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -35,9 +39,10 @@ public class TestDeltaLakeDatabricksUpdates
         extends BaseTestDeltaLakeS3Storage
 {
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdateOnAppendOnlyTableFails()
     {
-        String tableName = "test_update_on_append_only_table_fails_" + randomTableSuffix();
+        String tableName = "test_update_on_append_only_table_fails_" + randomNameSuffix();
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
                 "         (a INT, b INT)" +
@@ -49,7 +54,7 @@ public class TestDeltaLakeDatabricksUpdates
         assertQueryFailure(() -> onDelta().executeQuery("UPDATE default." + tableName + " SET a = a + 1"))
                 .hasMessageContaining("This table is configured to only allow appends");
         assertQueryFailure(() -> onTrino().executeQuery("UPDATE default." + tableName + " SET a = a + 1"))
-                .hasMessageContaining("Cannot update rows from a table with 'delta.appendOnly' set to true");
+                .hasMessageContaining("Cannot modify rows from a table with 'delta.appendOnly' set to true");
 
         assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                 .containsOnly(row(1, 11), row(2, 12));
@@ -57,9 +62,10 @@ public class TestDeltaLakeDatabricksUpdates
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testUpdatesFromDatabricks()
     {
-        String tableName = "test_updates_" + randomTableSuffix();
+        String tableName = "test_updates_" + randomNameSuffix();
 
         assertThat(onTrino().executeQuery("CREATE TABLE delta.default.\"" + tableName + "\" " +
                 "(id, value) " +
@@ -90,7 +96,7 @@ public class TestDeltaLakeDatabricksUpdates
             assertThat(databricksResult).containsExactly(toRows(prestoResult));
         }
         finally {
-            onDelta().executeQuery("DROP TABLE default." + tableName);
+            dropDeltaTableWithRetry("default." + tableName);
         }
     }
 

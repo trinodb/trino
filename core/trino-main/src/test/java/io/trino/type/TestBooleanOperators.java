@@ -13,138 +13,310 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestBooleanOperators
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testLiteral()
     {
-        assertFunction("true", BOOLEAN, true);
-        assertFunction("false", BOOLEAN, false);
+        assertThat(assertions.expression("true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("false"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testTypeConstructor()
     {
-        assertFunction("BOOLEAN 'true'", BOOLEAN, true);
-        assertFunction("BOOLEAN 'false'", BOOLEAN, false);
+        assertThat(assertions.expression("BOOLEAN 'true'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("BOOLEAN 'false'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("true = true", BOOLEAN, true);
-        assertFunction("true = false", BOOLEAN, false);
-        assertFunction("false = true", BOOLEAN, false);
-        assertFunction("false = false", BOOLEAN, true);
+        assertThat(assertions.operator(EQUAL, "true", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "true", "false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "false", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "false", "false"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("true <> true", BOOLEAN, false);
-        assertFunction("true <> false", BOOLEAN, true);
-        assertFunction("false <> true", BOOLEAN, true);
-        assertFunction("false <> false", BOOLEAN, false);
+        assertThat(assertions.expression("a <> b")
+        .binding("a", "true")
+        .binding("b", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+        .binding("a", "true")
+        .binding("b", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+        .binding("a", "false")
+        .binding("b", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+        .binding("a", "false")
+        .binding("b", "false"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("true < true", BOOLEAN, false);
-        assertFunction("true < false", BOOLEAN, false);
-        assertFunction("false < true", BOOLEAN, true);
-        assertFunction("false < false", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN, "true", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "true", "false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "false", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "false", "false"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("true <= true", BOOLEAN, true);
-        assertFunction("true <= false", BOOLEAN, false);
-        assertFunction("false <= true", BOOLEAN, true);
-        assertFunction("false <= false", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "true", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "true", "false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "false", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "false", "false"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("true > true", BOOLEAN, false);
-        assertFunction("true > false", BOOLEAN, true);
-        assertFunction("false > true", BOOLEAN, false);
-        assertFunction("false > false", BOOLEAN, false);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "true")
+                .binding("b", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "true")
+                .binding("b", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "false")
+                .binding("b", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("true >= true", BOOLEAN, true);
-        assertFunction("true >= false", BOOLEAN, true);
-        assertFunction("false >= true", BOOLEAN, false);
-        assertFunction("false >= false", BOOLEAN, true);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "true")
+                .binding("b", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "true")
+                .binding("b", "false"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "false")
+                .binding("b", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "false")
+                .binding("b", "false"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("true BETWEEN true AND true", BOOLEAN, true);
-        assertFunction("true BETWEEN true AND false", BOOLEAN, false);
-        assertFunction("true BETWEEN false AND true", BOOLEAN, true);
-        assertFunction("true BETWEEN false AND false", BOOLEAN, false);
-        assertFunction("false BETWEEN true AND true", BOOLEAN, false);
-        assertFunction("false BETWEEN true AND false", BOOLEAN, false);
-        assertFunction("false BETWEEN false AND true", BOOLEAN, true);
-        assertFunction("false BETWEEN false AND false", BOOLEAN, true);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "true")
+                .binding("low", "true")
+                .binding("high", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "true")
+                .binding("low", "true")
+                .binding("high", "false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "true")
+                .binding("low", "false")
+                .binding("high", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "true")
+                .binding("low", "false")
+                .binding("high", "false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "false")
+                .binding("low", "true")
+                .binding("high", "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "false")
+                .binding("low", "true")
+                .binding("high", "false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "false")
+                .binding("low", "false")
+                .binding("high", "true"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "false")
+                .binding("low", "false")
+                .binding("high", "false"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testCastToReal()
     {
-        assertFunction("cast(true as real)", REAL, 1.0f);
-        assertFunction("cast(false as real)", REAL, 0.0f);
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "true"))
+                .isEqualTo(1.0f);
+
+        assertThat(assertions.expression("cast(a as real)")
+                .binding("a", "false"))
+                .isEqualTo(0.0f);
     }
 
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(true as varchar)", VARCHAR, "true");
-        assertFunction("cast(false as varchar)", VARCHAR, "false");
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "true"))
+                .hasType(VARCHAR)
+                .isEqualTo("true");
+
+        assertThat(assertions.expression("cast(a as varchar)")
+                .binding("a", "false"))
+                .hasType(VARCHAR)
+                .isEqualTo("false");
     }
 
     @Test
     public void testCastFromVarchar()
     {
-        assertFunction("cast('true' as boolean)", BOOLEAN, true);
-        assertFunction("cast('false' as boolean)", BOOLEAN, false);
+        assertThat(assertions.expression("cast(a as boolean)")
+                .binding("a", "'true'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("cast(a as boolean)")
+                .binding("a", "'false'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testIsDistinctFrom()
     {
-        assertFunction("CAST(NULL AS BOOLEAN) IS DISTINCT FROM CAST(NULL AS BOOLEAN)", BOOLEAN, false);
-        assertFunction("FALSE IS DISTINCT FROM FALSE", BOOLEAN, false);
-        assertFunction("TRUE IS DISTINCT FROM TRUE", BOOLEAN, false);
-        assertFunction("FALSE IS DISTINCT FROM TRUE", BOOLEAN, true);
-        assertFunction("TRUE IS DISTINCT FROM FALSE", BOOLEAN, true);
-        assertFunction("FALSE IS DISTINCT FROM NULL", BOOLEAN, true);
-        assertFunction("TRUE IS DISTINCT FROM NULL", BOOLEAN, true);
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS BOOLEAN)", "CAST(NULL AS BOOLEAN)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "FALSE", "FALSE"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "TRUE", "TRUE"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "FALSE", "TRUE"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "TRUE", "FALSE"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "FALSE", "NULL"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "TRUE", "NULL"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "cast(null AS BOOLEAN)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "true", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "false", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "true AND false", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "true OR false", BOOLEAN, false);
+        assertThat(assertions.operator(INDETERMINATE, "cast(null AS BOOLEAN)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "true"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "true AND false"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "true OR false"))
+                .isEqualTo(false);
     }
 }

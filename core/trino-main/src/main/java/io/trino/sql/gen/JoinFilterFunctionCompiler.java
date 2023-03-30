@@ -72,18 +72,18 @@ import static java.util.Objects.requireNonNull;
 public class JoinFilterFunctionCompiler
 {
     private final FunctionManager functionManager;
+    private final NonEvictableLoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories;
 
     @Inject
     public JoinFilterFunctionCompiler(FunctionManager functionManager)
     {
-        this.functionManager = functionManager;
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.joinFilterFunctionFactories = buildNonEvictableCache(
+                CacheBuilder.newBuilder()
+                        .recordStats()
+                        .maximumSize(1000),
+                CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
     }
-
-    private final NonEvictableLoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = buildNonEvictableCache(
-            CacheBuilder.newBuilder()
-                    .recordStats()
-                    .maximumSize(1000),
-            CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getFilter(), key.getLeftBlocksSize())));
 
     @Managed
     @Nested

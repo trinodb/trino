@@ -61,13 +61,19 @@ public class AllowAllAccessControlManager
     public void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner) {}
 
     @Override
+    public void checkCanCreateCatalog(SecurityContext context, String catalog) {}
+
+    @Override
+    public void checkCanDropCatalog(SecurityContext context, String catalog) {}
+
+    @Override
     public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return catalogs;
     }
 
     @Override
-    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName) {}
+    public void checkCanCreateSchema(SecurityContext context, CatalogSchemaName schemaName, Map<String, Object> properties) {}
 
     @Override
     public void checkCanDropSchema(SecurityContext context, CatalogSchemaName schemaName) {}
@@ -137,6 +143,9 @@ public class AllowAllAccessControlManager
 
     @Override
     public void checkCanDropColumn(SecurityContext context, QualifiedObjectName tableName) {}
+
+    @Override
+    public void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName) {}
 
     @Override
     public void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal) {}

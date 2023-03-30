@@ -13,8 +13,11 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.lang.invoke.MethodHandle;
 
@@ -22,300 +25,764 @@ import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.MODULUS;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.NEGATION;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.isNaN;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestRealOperators
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testTypeConstructor()
     {
-        assertFunction("REAL '12.2'", REAL, 12.2f);
-        assertFunction("REAL '-17.76'", REAL, -17.76f);
-        assertFunction("REAL 'NaN'", REAL, Float.NaN);
-        assertFunction("REAL '-NaN'", REAL, Float.NaN);
-        assertFunction("REAL 'Infinity'", REAL, Float.POSITIVE_INFINITY);
-        assertFunction("REAL '-Infinity'", REAL, Float.NEGATIVE_INFINITY);
+        assertThat(assertions.expression("REAL '12.2'"))
+                .isEqualTo(12.2f);
+
+        assertThat(assertions.expression("REAL '-17.76'"))
+                .isEqualTo(-17.76f);
+
+        assertThat(assertions.expression("REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.expression("REAL '-NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.expression("REAL 'Infinity'"))
+                .isEqualTo(Float.POSITIVE_INFINITY);
+
+        assertThat(assertions.expression("REAL '-Infinity'"))
+                .isEqualTo(Float.NEGATIVE_INFINITY);
     }
 
     @Test
     public void testAdd()
     {
-        assertFunction("REAL '12.34' + REAL '56.78'", REAL, 12.34f + 56.78f);
-        assertFunction("REAL '-17.34' + REAL '-22.891'", REAL, -17.34f + -22.891f);
-        assertFunction("REAL '-89.123' + REAL '754.0'", REAL, -89.123f + 754.0f);
-        assertFunction("REAL '-0.0' + REAL '0.0'", REAL, -0.0f + 0.0f);
-        assertFunction("REAL 'NaN' + REAL '1.23'", REAL, Float.NaN);
-        assertFunction("REAL '1.23' + REAL 'NaN'", REAL, Float.NaN);
-        assertFunction("REAL 'NaN' + REAL '-NaN'", REAL, Float.NaN);
+        assertThat(assertions.operator(ADD, "REAL '12.34'", "REAL '56.78'"))
+                .isEqualTo(12.34f + 56.78f);
+
+        assertThat(assertions.operator(ADD, "REAL '-17.34'", "REAL '-22.891'"))
+                .isEqualTo(-17.34f + -22.891f);
+
+        assertThat(assertions.operator(ADD, "REAL '-89.123'", "REAL '754.0'"))
+                .isEqualTo(-89.123f + 754.0f);
+
+        assertThat(assertions.operator(ADD, "REAL '-0.0'", "REAL '0.0'"))
+                .isEqualTo(-0.0f + 0.0f);
+
+        assertThat(assertions.operator(ADD, "REAL 'NaN'", "REAL '1.23'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(ADD, "REAL '1.23'", "REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(ADD, "REAL 'NaN'", "REAL '-NaN'"))
+                .isEqualTo(Float.NaN);
     }
 
     @Test
     public void testSubtract()
     {
-        assertFunction("REAL '12.34' - REAL '56.78'", REAL, 12.34f - 56.78f);
-        assertFunction("REAL '-17.34' - REAL '-22.891'", REAL, -17.34f - -22.891f);
-        assertFunction("REAL '-89.123' - REAL '754.0'", REAL, -89.123f - 754.0f);
-        assertFunction("REAL '-0.0' - REAL '0.0'", REAL, -0.0f - 0.0f);
-        assertFunction("REAL 'NaN' - REAL '1.23'", REAL, Float.NaN);
-        assertFunction("REAL '1.23' - REAL 'NaN'", REAL, Float.NaN);
-        assertFunction("REAL 'NaN' - REAL 'NaN'", REAL, Float.NaN);
+        assertThat(assertions.operator(SUBTRACT, "REAL '12.34'", "REAL '56.78'"))
+                .isEqualTo(12.34f - 56.78f);
+
+        assertThat(assertions.operator(SUBTRACT, "REAL '-17.34'", "REAL '-22.891'"))
+                .isEqualTo(-17.34f - -22.891f);
+
+        assertThat(assertions.operator(SUBTRACT, "REAL '-89.123'", "REAL '754.0'"))
+                .isEqualTo(-89.123f - 754.0f);
+
+        assertThat(assertions.operator(SUBTRACT, "REAL '-0.0'", "REAL '0.0'"))
+                .isEqualTo(-0.0f - 0.0f);
+
+        assertThat(assertions.operator(SUBTRACT, "REAL 'NaN'", "REAL '1.23'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(SUBTRACT, "REAL '1.23'", "REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(SUBTRACT, "REAL 'NaN'", "REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
     }
 
     @Test
     public void testMultiply()
     {
-        assertFunction("REAL '12.34' * REAL '56.78'", REAL, 12.34f * 56.78f);
-        assertFunction("REAL '-17.34' * REAL '-22.891'", REAL, -17.34f * -22.891f);
-        assertFunction("REAL '-89.123' * REAL '754.0'", REAL, -89.123f * 754.0f);
-        assertFunction("REAL '-0.0' * REAL '0.0'", REAL, -0.0f * 0.0f);
-        assertFunction("REAL '-17.71' * REAL '-1.0'", REAL, -17.71f * -1.0f);
-        assertFunction("REAL 'NaN' * REAL '1.23'", REAL, Float.NaN);
-        assertFunction("REAL '1.23' * REAL 'NaN'", REAL, Float.NaN);
-        assertFunction("REAL 'NaN' * REAL '-NaN'", REAL, Float.NaN);
+        assertThat(assertions.operator(MULTIPLY, "REAL '12.34'", "REAL '56.78'"))
+                .isEqualTo(12.34f * 56.78f);
+
+        assertThat(assertions.operator(MULTIPLY, "REAL '-17.34'", "REAL '-22.891'"))
+                .isEqualTo(-17.34f * -22.891f);
+
+        assertThat(assertions.operator(MULTIPLY, "REAL '-89.123'", "REAL '754.0'"))
+                .isEqualTo(-89.123f * 754.0f);
+
+        assertThat(assertions.operator(MULTIPLY, "REAL '-0.0'", "REAL '0.0'"))
+                .isEqualTo(-0.0f * 0.0f);
+
+        assertThat(assertions.operator(MULTIPLY, "REAL '-17.71'", "REAL '-1.0'"))
+                .isEqualTo(-17.71f * -1.0f);
+
+        assertThat(assertions.operator(MULTIPLY, "REAL 'NaN'", "REAL '1.23'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(MULTIPLY, "REAL '1.23'", "REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(MULTIPLY, "REAL 'NaN'", "REAL '-NaN'"))
+                .isEqualTo(Float.NaN);
     }
 
     @Test
     public void testDivide()
     {
-        assertFunction("REAL '12.34' / REAL '56.78'", REAL, 12.34f / 56.78f);
-        assertFunction("REAL '-17.34' / REAL '-22.891'", REAL, -17.34f / -22.891f);
-        assertFunction("REAL '-89.123' / REAL '754.0'", REAL, -89.123f / 754.0f);
-        assertFunction("REAL '-0.0' / REAL '0.0'", REAL, -0.0f / 0.0f);
-        assertFunction("REAL '-17.71' / REAL '-1.0'", REAL, -17.71f / -1.0f);
-        assertFunction("REAL 'NaN' / REAL '1.23'", REAL, Float.NaN);
-        assertFunction("REAL '1.23' / REAL 'NaN'", REAL, Float.NaN);
-        assertFunction("REAL 'NaN' / REAL '-NaN'", REAL, Float.NaN);
+        assertThat(assertions.operator(DIVIDE, "REAL '12.34'", "REAL '56.78'"))
+                .isEqualTo(12.34f / 56.78f);
+
+        assertThat(assertions.operator(DIVIDE, "REAL '-17.34'", "REAL '-22.891'"))
+                .isEqualTo(-17.34f / -22.891f);
+
+        assertThat(assertions.operator(DIVIDE, "REAL '-89.123'", "REAL '754.0'"))
+                .isEqualTo(-89.123f / 754.0f);
+
+        assertThat(assertions.operator(DIVIDE, "REAL '-0.0'", "REAL '0.0'"))
+                .isEqualTo(-0.0f / 0.0f);
+
+        assertThat(assertions.operator(DIVIDE, "REAL '-17.71'", "REAL '-1.0'"))
+                .isEqualTo(-17.71f / -1.0f);
+
+        assertThat(assertions.operator(DIVIDE, "REAL 'NaN'", "REAL '1.23'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(DIVIDE, "REAL '1.23'", "REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(DIVIDE, "REAL 'NaN'", "REAL '-NaN'"))
+                .isEqualTo(Float.NaN);
     }
 
     @Test
     public void testModulus()
     {
-        assertFunction("REAL '12.34' % REAL '56.78'", REAL, 12.34f % 56.78f);
-        assertFunction("REAL '-17.34' % REAL '-22.891'", REAL, -17.34f % -22.891f);
-        assertFunction("REAL '-89.123' % REAL '754.0'", REAL, -89.123f % 754.0f);
-        assertFunction("REAL '-0.0' % REAL '0.0'", REAL, -0.0f % 0.0f);
-        assertFunction("REAL '-17.71' % REAL '-1.0'", REAL, -17.71f % -1.0f);
-        assertFunction("REAL 'NaN' % REAL '1.23'", REAL, Float.NaN);
-        assertFunction("REAL '1.23' % REAL 'NaN'", REAL, Float.NaN);
-        assertFunction("REAL 'NaN' % REAL 'NaN'", REAL, Float.NaN);
+        assertThat(assertions.operator(MODULUS, "REAL '12.34'", "REAL '56.78'"))
+                .isEqualTo(12.34f % 56.78f);
+
+        assertThat(assertions.operator(MODULUS, "REAL '-17.34'", "REAL '-22.891'"))
+                .isEqualTo(-17.34f % -22.891f);
+
+        assertThat(assertions.operator(MODULUS, "REAL '-89.123'", "REAL '754.0'"))
+                .isEqualTo(-89.123f % 754.0f);
+
+        assertThat(assertions.operator(MODULUS, "REAL '-0.0'", "REAL '0.0'"))
+                .isEqualTo(-0.0f % 0.0f);
+
+        assertThat(assertions.operator(MODULUS, "REAL '-17.71'", "REAL '-1.0'"))
+                .isEqualTo(-17.71f % -1.0f);
+
+        assertThat(assertions.operator(MODULUS, "REAL 'NaN'", "REAL '1.23'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(MODULUS, "REAL '1.23'", "REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(MODULUS, "REAL 'NaN'", "REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
     }
 
     @Test
     public void testNegation()
     {
-        assertFunction("-REAL '12.34'", REAL, -12.34f);
-        assertFunction("-REAL '-17.34'", REAL, 17.34f);
-        assertFunction("-REAL '-0.0'", REAL, -(-0.0f));
-        assertFunction("-REAL 'NaN'", REAL, Float.NaN);
-        assertFunction("-REAL '-NaN'", REAL, Float.NaN);
+        assertThat(assertions.operator(NEGATION, "REAL '12.34'"))
+                .isEqualTo(-12.34f);
+
+        assertThat(assertions.operator(NEGATION, "REAL '-17.34'"))
+                .isEqualTo(17.34f);
+
+        assertThat(assertions.operator(NEGATION, "REAL '-0.0'"))
+                .isEqualTo(0.0f);
+
+        assertThat(assertions.operator(NEGATION, "REAL 'NaN'"))
+                .isEqualTo(Float.NaN);
+
+        assertThat(assertions.operator(NEGATION, "REAL '-NaN'"))
+                .isEqualTo(Float.NaN);
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("REAL '12.34' = REAL '12.34'", BOOLEAN, true);
-        assertFunction("REAL '12.340' = REAL '12.34'", BOOLEAN, true);
-        assertFunction("REAL '-17.34' = REAL '-17.34'", BOOLEAN, true);
-        assertFunction("REAL '71.17' = REAL '23.45'", BOOLEAN, false);
-        assertFunction("REAL '-0.0' = REAL '0.0'", BOOLEAN, true);
-        assertFunction("REAL 'NaN' = REAL '1.23'", BOOLEAN, false);
-        assertFunction("REAL '1.23' = REAL 'NaN'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' = REAL 'NaN'", BOOLEAN, false);
+        assertThat(assertions.operator(EQUAL, "REAL '12.34'", "REAL '12.34'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "REAL '12.340'", "REAL '12.34'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "REAL '-17.34'", "REAL '-17.34'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "REAL '71.17'", "REAL '23.45'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "REAL '-0.0'", "REAL '0.0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "REAL 'NaN'", "REAL '1.23'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "REAL '1.23'", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "REAL 'NaN'", "REAL 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("REAL '12.34' <> REAL '12.34'", BOOLEAN, false);
-        assertFunction("REAL '12.34' <> REAL '12.340'", BOOLEAN, false);
-        assertFunction("REAL '-17.34' <> REAL '-17.34'", BOOLEAN, false);
-        assertFunction("REAL '71.17' <> REAL '23.45'", BOOLEAN, true);
-        assertFunction("REAL '-0.0' <> REAL '0.0'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' <> REAL '1.23'", BOOLEAN, true);
-        assertFunction("REAL '1.23' <> REAL 'NaN'", BOOLEAN, true);
-        assertFunction("REAL 'NaN' <> REAL 'NaN'", BOOLEAN, true);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "REAL '12.34'")
+                .binding("b", "REAL '12.34'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "REAL '12.34'")
+                .binding("b", "REAL '12.340'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "REAL '-17.34'")
+                .binding("b", "REAL '-17.34'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "REAL '71.17'")
+                .binding("b", "REAL '23.45'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "REAL '-0.0'")
+                .binding("b", "REAL '0.0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "REAL 'NaN'")
+                .binding("b", "REAL '1.23'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "REAL '1.23'")
+                .binding("b", "REAL 'NaN'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "REAL 'NaN'")
+                .binding("b", "REAL 'NaN'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("REAL '12.34' < REAL '754.123'", BOOLEAN, true);
-        assertFunction("REAL '-17.34' < REAL '-16.34'", BOOLEAN, true);
-        assertFunction("REAL '71.17' < REAL '23.45'", BOOLEAN, false);
-        assertFunction("REAL '-0.0' < REAL '0.0'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' < REAL '1.23'", BOOLEAN, false);
-        assertFunction("REAL '1.23' < REAL 'NaN'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' < REAL 'NaN'", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN, "REAL '12.34'", "REAL '754.123'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "REAL '-17.34'", "REAL '-16.34'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "REAL '71.17'", "REAL '23.45'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "REAL '-0.0'", "REAL '0.0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "REAL 'NaN'", "REAL '1.23'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "REAL '1.23'", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "REAL 'NaN'", "REAL 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("REAL '12.34' <= REAL '754.123'", BOOLEAN, true);
-        assertFunction("REAL '-17.34' <= REAL '-17.34'", BOOLEAN, true);
-        assertFunction("REAL '71.17' <= REAL '23.45'", BOOLEAN, false);
-        assertFunction("REAL '-0.0' <= REAL '0.0'", BOOLEAN, true);
-        assertFunction("REAL 'NaN' <= REAL '1.23'", BOOLEAN, false);
-        assertFunction("REAL '1.23' <= REAL 'NaN'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' <= REAL 'NaN'", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL '12.34'", "REAL '754.123'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL '-17.34'", "REAL '-17.34'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL '71.17'", "REAL '23.45'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL '-0.0'", "REAL '0.0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL 'NaN'", "REAL '1.23'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL '1.23'", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "REAL 'NaN'", "REAL 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("REAL '12.34' > REAL '754.123'", BOOLEAN, false);
-        assertFunction("REAL '-17.34' > REAL '-17.34'", BOOLEAN, false);
-        assertFunction("REAL '71.17' > REAL '23.45'", BOOLEAN, true);
-        assertFunction("REAL '-0.0' > REAL '0.0'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' > REAL '1.23'", BOOLEAN, false);
-        assertFunction("REAL '1.23' > REAL 'NaN'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' > REAL 'NaN'", BOOLEAN, false);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "REAL '12.34'")
+                .binding("b", "REAL '754.123'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "REAL '-17.34'")
+                .binding("b", "REAL '-17.34'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "REAL '71.17'")
+                .binding("b", "REAL '23.45'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "REAL '-0.0'")
+                .binding("b", "REAL '0.0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "REAL 'NaN'")
+                .binding("b", "REAL '1.23'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "REAL '1.23'")
+                .binding("b", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "REAL 'NaN'")
+                .binding("b", "REAL 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("REAL '12.34' >= REAL '754.123'", BOOLEAN, false);
-        assertFunction("REAL '-17.34' >= REAL '-17.34'", BOOLEAN, true);
-        assertFunction("REAL '71.17' >= REAL '23.45'", BOOLEAN, true);
-        assertFunction("REAL '-0.0' >= REAL '0.0'", BOOLEAN, true);
-        assertFunction("REAL 'NaN' >= REAL '1.23'", BOOLEAN, false);
-        assertFunction("REAL '1.23' >= REAL 'NaN'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' >= REAL 'NaN'", BOOLEAN, false);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "REAL '12.34'")
+                .binding("b", "REAL '754.123'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "REAL '-17.34'")
+                .binding("b", "REAL '-17.34'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "REAL '71.17'")
+                .binding("b", "REAL '23.45'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "REAL '-0.0'")
+                .binding("b", "REAL '0.0'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "REAL 'NaN'")
+                .binding("b", "REAL '1.23'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "REAL '1.23'")
+                .binding("b", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "REAL 'NaN'")
+                .binding("b", "REAL 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("REAL '12.34' BETWEEN REAL '9.12' AND REAL '25.89'", BOOLEAN, true);
-        assertFunction("REAL '-17.34' BETWEEN REAL '-17.34' AND REAL '-16.57'", BOOLEAN, true);
-        assertFunction("REAL '-17.34' BETWEEN REAL '-18.98' AND REAL '-17.34'", BOOLEAN, true);
-        assertFunction("REAL '0.0' BETWEEN REAL '-1.2' AND REAL '2.3'", BOOLEAN, true);
-        assertFunction("REAL '56.78' BETWEEN REAL '12.34' AND REAL '34.56'", BOOLEAN, false);
-        assertFunction("REAL '56.78' BETWEEN REAL '78.89' AND REAL '98.765'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' BETWEEN REAL '-1.2' AND REAL '2.3'", BOOLEAN, false);
-        assertFunction("REAL '56.78' BETWEEN REAL '-NaN' AND REAL 'NaN'", BOOLEAN, false);
-        assertFunction("REAL '56.78' BETWEEN REAL 'NaN' AND REAL '-NaN'", BOOLEAN, false);
-        assertFunction("REAL '56.78' BETWEEN REAL '56.78' AND REAL 'NaN'", BOOLEAN, false);
-        assertFunction("REAL 'NaN' BETWEEN REAL 'NaN' AND REAL 'NaN'", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '12.34'")
+                .binding("low", "REAL '9.12'")
+                .binding("high", "REAL '25.89'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '-17.34'")
+                .binding("low", "REAL '-17.34'")
+                .binding("high", "REAL '-16.57'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '-17.34'")
+                .binding("low", "REAL '-18.98'")
+                .binding("high", "REAL '-17.34'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '0.0'")
+                .binding("low", "REAL '-1.2'")
+                .binding("high", "REAL '2.3'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '56.78'")
+                .binding("low", "REAL '12.34'")
+                .binding("high", "REAL '34.56'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '56.78'")
+                .binding("low", "REAL '78.89'")
+                .binding("high", "REAL '98.765'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL 'NaN'")
+                .binding("low", "REAL '-1.2'")
+                .binding("high", "REAL '2.3'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '56.78'")
+                .binding("low", "REAL '-NaN'")
+                .binding("high", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '56.78'")
+                .binding("low", "REAL 'NaN'")
+                .binding("high", "REAL '-NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL '56.78'")
+                .binding("low", "REAL '56.78'")
+                .binding("high", "REAL 'NaN'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "REAL 'NaN'")
+                .binding("low", "REAL 'NaN'")
+                .binding("high", "REAL 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("CAST(REAL '754.1985' as VARCHAR)", VARCHAR, "7.541985E2");
-        assertFunction("CAST(REAL '-754.2008' as VARCHAR)", VARCHAR, "-7.542008E2");
-        assertFunction("CAST(REAL 'Infinity' as VARCHAR)", VARCHAR, "Infinity");
-        assertFunction("CAST(REAL '0.0' / REAL '0.0' as VARCHAR)", VARCHAR, "NaN");
-        assertFunction("cast(REAL '12e2' as varchar(6))", createVarcharType(6), "1.2E3");
-        assertFunction("cast(REAL '12e2' as varchar(50))", createVarcharType(50), "1.2E3");
-        assertFunction("cast(REAL '12345678.9e0' as varchar(50))", createVarcharType(50), "1.234568E7");
-        assertFunction("cast(REAL 'NaN' as varchar(3))", createVarcharType(3), "NaN");
-        assertFunction("cast(REAL 'Infinity' as varchar(50))", createVarcharType(50), "Infinity");
-        assertFunction("cast(REAL '12e2' as varchar(5))", createVarcharType(5), "1.2E3");
-        assertInvalidCast("cast(REAL '12e2' as varchar(4))", "Value 1200.0 (1.2E3) cannot be represented as varchar(4)");
-        assertInvalidCast("cast(REAL '0e0' as varchar(2))", "Value 0.0 (0E0) cannot be represented as varchar(2)");
-        assertInvalidCast("cast(REAL '-0e0' as varchar(3))", "Value -0.0 (-0E0) cannot be represented as varchar(3)");
-        assertInvalidCast("cast(REAL '0e0' / REAL '0e0' as varchar(2))", "Value NaN (NaN) cannot be represented as varchar(2)");
-        assertInvalidCast("cast(REAL 'Infinity' as varchar(7))", "Value Infinity (Infinity) cannot be represented as varchar(7)");
+        assertThat(assertions.expression("cast(a as VARCHAR)")
+                .binding("a", "REAL '754.1985'"))
+                .hasType(VARCHAR)
+                .isEqualTo("7.541985E2");
+
+        assertThat(assertions.expression("cast(a as VARCHAR)")
+                .binding("a", "REAL '-754.2008'"))
+                .hasType(VARCHAR)
+                .isEqualTo("-7.542008E2");
+
+        assertThat(assertions.expression("cast(a as VARCHAR)")
+                .binding("a", "REAL 'Infinity'"))
+                .hasType(VARCHAR)
+                .isEqualTo("Infinity");
+
+        assertThat(assertions.expression("CAST(a AS VARCHAR)")
+                .binding("a", "CAST(nan() AS REAL)"))
+                .hasType(VARCHAR)
+                .isEqualTo("NaN");
+
+        assertThat(assertions.expression("cast(a as varchar(6))")
+                .binding("a", "REAL '12e2'"))
+                .hasType(createVarcharType(6))
+                .isEqualTo("1.2E3");
+
+        assertThat(assertions.expression("cast(a as varchar(50))")
+                .binding("a", "REAL '12e2'"))
+                .hasType(createVarcharType(50))
+                .isEqualTo("1.2E3");
+
+        assertThat(assertions.expression("cast(a as varchar(50))")
+                .binding("a", "REAL '12345678.9e0'"))
+                .hasType(createVarcharType(50))
+                .isEqualTo("1.234568E7");
+
+        assertThat(assertions.expression("cast(a as varchar(3))")
+                .binding("a", "REAL 'NaN'"))
+                .hasType(createVarcharType(3))
+                .isEqualTo("NaN");
+
+        assertThat(assertions.expression("cast(a as varchar(50))")
+                .binding("a", "REAL 'Infinity'"))
+                .hasType(createVarcharType(50))
+                .isEqualTo("Infinity");
+
+        assertThat(assertions.expression("cast(a as varchar(5))")
+                .binding("a", "REAL '12e2'"))
+                .hasType(createVarcharType(5))
+                .isEqualTo("1.2E3");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as varchar(4))")
+                .binding("a", "REAL '12e2'")
+                .evaluate())
+                .hasMessage("Value 1200.0 (1.2E3) cannot be represented as varchar(4)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as varchar(2))")
+                .binding("a", "REAL '0e0'")
+                .evaluate())
+                .hasMessage("Value 0.0 (0E0) cannot be represented as varchar(2)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as varchar(3))")
+                .binding("a", "REAL '-0e0'")
+                .evaluate())
+                .hasMessage("Value -0.0 (-0E0) cannot be represented as varchar(3)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("CAST(a AS varchar(2))")
+                .binding("a", "nan()").evaluate())
+                .hasMessage("Value NaN (NaN) cannot be represented as varchar(2)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as varchar(7))")
+                .binding("a", "REAL 'Infinity'")
+                .evaluate())
+                .hasMessage("Value Infinity (Infinity) cannot be represented as varchar(7)")
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test
     public void testCastToBigInt()
     {
-        assertFunction("CAST(REAL '754.1985' as BIGINT)", BIGINT, 754L);
-        assertFunction("CAST(REAL '-754.2008' as BIGINT)", BIGINT, -754L);
-        assertFunction("CAST(REAL '1.98' as BIGINT)", BIGINT, 2L);
-        assertFunction("CAST(REAL '-0.0' as BIGINT)", BIGINT, 0L);
-        assertInvalidFunction("CAST(REAL 'NaN' as BIGINT)", INVALID_CAST_ARGUMENT);
+        assertThat(assertions.expression("cast(a as BIGINT)")
+                .binding("a", "REAL '754.1985'"))
+                .isEqualTo(754L);
+
+        assertThat(assertions.expression("cast(a as BIGINT)")
+                .binding("a", "REAL '-754.2008'"))
+                .isEqualTo(-754L);
+
+        assertThat(assertions.expression("cast(a as BIGINT)")
+                .binding("a", "REAL '1.98'"))
+                .isEqualTo(2L);
+
+        assertThat(assertions.expression("cast(a as BIGINT)")
+                .binding("a", "REAL '-0.0'"))
+                .isEqualTo(0L);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as BIGINT)")
+                .binding("a", "REAL 'NaN'")
+                .evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test
     public void testCastToInteger()
     {
-        assertFunction("CAST(REAL '754.2008' AS INTEGER)", INTEGER, 754);
-        assertFunction("CAST(REAL '-754.1985' AS INTEGER)", INTEGER, -754);
-        assertFunction("CAST(REAL '9.99' AS INTEGER)", INTEGER, 10);
-        assertFunction("CAST(REAL '-0.0' AS INTEGER)", INTEGER, 0);
-        assertInvalidFunction("CAST(REAL 'NaN' AS INTEGER)", INVALID_CAST_ARGUMENT);
+        assertThat(assertions.expression("cast(a as INTEGER)")
+                .binding("a", "REAL '754.2008'"))
+                .isEqualTo(754);
+
+        assertThat(assertions.expression("cast(a as INTEGER)")
+                .binding("a", "REAL '-754.1985'"))
+                .isEqualTo(-754);
+
+        assertThat(assertions.expression("cast(a as INTEGER)")
+                .binding("a", "REAL '9.99'"))
+                .isEqualTo(10);
+
+        assertThat(assertions.expression("cast(a as INTEGER)")
+                .binding("a", "REAL '-0.0'"))
+                .isEqualTo(0);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as INTEGER)")
+                .binding("a", "REAL 'NaN'")
+                .evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test
     public void testCastToSmallint()
     {
-        assertFunction("CAST(REAL '754.2008' AS SMALLINT)", SMALLINT, (short) 754);
-        assertFunction("CAST(REAL '-754.1985' AS SMALLINT)", SMALLINT, (short) -754);
-        assertFunction("CAST(REAL '9.99' AS SMALLINT)", SMALLINT, (short) 10);
-        assertFunction("CAST(REAL '-0.0' AS SMALLINT)", SMALLINT, (short) 0);
-        assertInvalidFunction("CAST(REAL 'NaN' AS SMALLINT)", INVALID_CAST_ARGUMENT);
+        assertThat(assertions.expression("cast(a as SMALLINT)")
+                .binding("a", "REAL '754.2008'"))
+                .isEqualTo((short) 754);
+
+        assertThat(assertions.expression("cast(a as SMALLINT)")
+                .binding("a", "REAL '-754.1985'"))
+                .isEqualTo((short) -754);
+
+        assertThat(assertions.expression("cast(a as SMALLINT)")
+                .binding("a", "REAL '9.99'"))
+                .isEqualTo((short) 10);
+
+        assertThat(assertions.expression("cast(a as SMALLINT)")
+                .binding("a", "REAL '-0.0'"))
+                .isEqualTo((short) 0);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as SMALLINT)")
+                .binding("a", "REAL 'NaN'")
+                .evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test
     public void testCastToTinyint()
     {
-        assertFunction("CAST(REAL '127.45' AS TINYINT)", TINYINT, (byte) 127);
-        assertFunction("CAST(REAL '-128.234' AS TINYINT)", TINYINT, (byte) -128);
-        assertFunction("CAST(REAL '9.99' AS TINYINT)", TINYINT, (byte) 10);
-        assertFunction("CAST(REAL '-0.0' AS TINYINT)", TINYINT, (byte) 0);
-        assertInvalidFunction("CAST(REAL 'NaN' AS TINYINT)", INVALID_CAST_ARGUMENT);
+        assertThat(assertions.expression("cast(a as TINYINT)")
+                .binding("a", "REAL '127.45'"))
+                .isEqualTo((byte) 127);
+
+        assertThat(assertions.expression("cast(a as TINYINT)")
+                .binding("a", "REAL '-128.234'"))
+                .isEqualTo((byte) -128);
+
+        assertThat(assertions.expression("cast(a as TINYINT)")
+                .binding("a", "REAL '9.99'"))
+                .isEqualTo((byte) 10);
+
+        assertThat(assertions.expression("cast(a as TINYINT)")
+                .binding("a", "REAL '-0.0'"))
+                .isEqualTo((byte) 0);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as TINYINT)")
+                .binding("a", "REAL 'NaN'")
+                .evaluate())
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     @Test
     public void testCastToDouble()
     {
-        assertFunction("CAST(REAL '754.1985' AS DOUBLE)", DOUBLE, (double) 754.1985f);
-        assertFunction("CAST(REAL '-754.2008' AS DOUBLE)", DOUBLE, (double) -754.2008f);
-        assertFunction("CAST(REAL '0.0' AS DOUBLE)", DOUBLE, (double) 0.0f);
-        assertFunction("CAST(REAL '-0.0' AS DOUBLE)", DOUBLE, (double) -0.0f);
-        assertFunction("CAST(CAST(REAL '754.1985' AS DOUBLE) AS REAL)", REAL, 754.1985f);
-        assertFunction("CAST(REAL 'NaN' AS DOUBLE)", DOUBLE, Double.NaN);
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "REAL '754.1985'"))
+                .isEqualTo((double) 754.1985f);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "REAL '-754.2008'"))
+                .isEqualTo((double) -754.2008f);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "REAL '0.0'"))
+                .isEqualTo((double) 0.0f);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "REAL '-0.0'"))
+                .isEqualTo((double) -0.0f);
+
+        assertThat(assertions.expression("cast(a as DOUBLE)")
+                .binding("a", "REAL 'NaN'"))
+                .isEqualTo(Double.NaN);
     }
 
     @Test
     public void testCastToBoolean()
     {
-        assertFunction("CAST(REAL '754.1985' AS BOOLEAN)", BOOLEAN, true);
-        assertFunction("CAST(REAL '0.0' AS BOOLEAN)", BOOLEAN, false);
-        assertFunction("CAST(REAL '-0.0' AS BOOLEAN)", BOOLEAN, false);
-        assertFunction("CAST(REAL 'NaN' AS BOOLEAN)", BOOLEAN, true);
+        assertThat(assertions.expression("cast(a as BOOLEAN)")
+                .binding("a", "REAL '754.1985'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("cast(a as BOOLEAN)")
+                .binding("a", "REAL '0.0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("cast(a as BOOLEAN)")
+                .binding("a", "REAL '-0.0'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("cast(a as BOOLEAN)")
+                .binding("a", "REAL 'NaN'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testIsDistinctFrom()
     {
-        assertFunction("CAST(NULL AS REAL) IS DISTINCT FROM CAST(NULL AS REAL)", BOOLEAN, false);
-        assertFunction("REAL '37.7' IS DISTINCT FROM REAL '37.7'", BOOLEAN, false);
-        assertFunction("REAL '37.7' IS DISTINCT FROM REAL '37.8'", BOOLEAN, true);
-        assertFunction("NULL IS DISTINCT FROM REAL '37.7'", BOOLEAN, true);
-        assertFunction("REAL '37.7' IS DISTINCT FROM NULL", BOOLEAN, true);
-        assertFunction("CAST(nan() AS REAL) IS DISTINCT FROM CAST(nan() AS REAL)", BOOLEAN, false);
-        assertFunction("REAL 'NaN' IS DISTINCT FROM REAL '37.8'", BOOLEAN, true);
-        assertFunction("REAL '37.8' IS DISTINCT FROM REAL 'NaN'", BOOLEAN, true);
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(NULL AS REAL)", "CAST(NULL AS REAL)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL '37.7'", "REAL '37.7'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL '37.7'", "REAL '37.8'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "NULL", "REAL '37.7'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL '37.7'", "NULL"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "CAST(nan() AS REAL)", "CAST(nan() AS REAL)"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL 'NaN'", "REAL '37.8'"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(IS_DISTINCT_FROM, "REAL '37.8'", "REAL 'NaN'"))
+                .isEqualTo(true);
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "cast(null as real)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "cast(-1.2 as real)", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "cast(1.2 as real)", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "cast(123 as real)", BOOLEAN, false);
-        assertOperator(INDETERMINATE, "REAL 'NaN'", BOOLEAN, false);
+        assertThat(assertions.operator(INDETERMINATE, "cast(null as real)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "REAL '-1.2'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "REAL '1.2'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "REAL '123'"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(INDETERMINATE, "REAL 'NaN'"))
+                .isEqualTo(false);
     }
 
     @Test
@@ -346,14 +813,22 @@ public class TestRealOperators
     private long executeHashOperator(long value)
             throws Throwable
     {
-        MethodHandle hashCodeOperator = functionAssertions.getTypeOperators().getHashCodeOperator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+        MethodHandle hashCodeOperator = assertions.getQueryRunner()
+                .getTypeManager()
+                .getTypeOperators()
+                .getHashCodeOperator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+
         return (long) hashCodeOperator.invokeExact((long) intBitsToFloat((int) value));
     }
 
     private long executeXxHas64hOperator(long value)
             throws Throwable
     {
-        MethodHandle xxHash64Operator = functionAssertions.getTypeOperators().getXxHash64Operator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+        MethodHandle xxHash64Operator = assertions.getQueryRunner()
+                .getTypeManager()
+                .getTypeOperators()
+                .getXxHash64Operator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+
         return (long) xxHash64Operator.invokeExact((long) intBitsToFloat((int) value));
     }
 }

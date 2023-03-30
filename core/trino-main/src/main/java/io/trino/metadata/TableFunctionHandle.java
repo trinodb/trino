@@ -15,8 +15,9 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 
 import static java.util.Objects.requireNonNull;
@@ -24,16 +25,19 @@ import static java.util.Objects.requireNonNull;
 public class TableFunctionHandle
 {
     private final CatalogHandle catalogHandle;
+    private final SchemaFunctionName schemaFunctionName;
     private final ConnectorTableFunctionHandle functionHandle;
     private final ConnectorTransactionHandle transactionHandle;
 
     @JsonCreator
     public TableFunctionHandle(
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
+            @JsonProperty("schemaFunctionName") SchemaFunctionName schemaFunctionName,
             @JsonProperty("functionHandle") ConnectorTableFunctionHandle functionHandle,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+        this.schemaFunctionName = requireNonNull(schemaFunctionName, "schemaFunctionName is null");
         this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
     }
@@ -42,6 +46,12 @@ public class TableFunctionHandle
     public CatalogHandle getCatalogHandle()
     {
         return catalogHandle;
+    }
+
+    @JsonProperty
+    public SchemaFunctionName getSchemaFunctionName()
+    {
+        return schemaFunctionName;
     }
 
     @JsonProperty

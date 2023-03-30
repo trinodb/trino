@@ -99,9 +99,7 @@ public class TestHdfsConfig
     @Test
     public void testNewDirectoryPermissionsMapping()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.fs.new-directory-permissions", "skip")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("hive.fs.new-directory-permissions", "skip");
 
         HdfsConfig expected = new HdfsConfig()
                 .setNewDirectoryPermissions("skip");

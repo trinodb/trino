@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.TrinoOutputFile;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -24,10 +26,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -41,17 +42,18 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuilder;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetFileWriter
         implements FileWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ParquetFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ParquetFileWriter.class);
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final ParquetWriter parquetWriter;
@@ -60,9 +62,10 @@ public class ParquetFileWriter
     private final List<Block> nullBlocks;
     private final Optional<Supplier<ParquetDataSource>> validationInputFactory;
     private long validationCpuNanos;
+    private final AggregatedMemoryContext memoryContext;
 
     public ParquetFileWriter(
-            OutputStream outputStream,
+            TrinoOutputFile outputFile,
             Closeable rollbackAction,
             List<Type> fileColumnTypes,
             List<String> fileColumnNames,
@@ -70,12 +73,15 @@ public class ParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
-            CompressionCodecName compressionCodecName,
+            CompressionCodec compressionCodec,
             String trinoVersion,
+            boolean useBatchColumnReadersForVerification,
             Optional<DateTimeZone> parquetTimeZone,
             Optional<Supplier<ParquetDataSource>> validationInputFactory)
+            throws IOException
     {
-        requireNonNull(outputStream, "outputStream is null");
+        this.memoryContext = newSimpleAggregatedMemoryContext();
+        OutputStream outputStream = outputFile.create(memoryContext);
         requireNonNull(trinoVersion, "trinoVersion is null");
         this.validationInputFactory = requireNonNull(validationInputFactory, "validationInputFactory is null");
 
@@ -84,8 +90,9 @@ public class ParquetFileWriter
                 messageType,
                 primitiveTypes,
                 parquetWriterOptions,
-                compressionCodecName,
+                compressionCodec,
                 trinoVersion,
+                useBatchColumnReadersForVerification,
                 parquetTimeZone,
                 validationInputFactory.isPresent()
                         ? Optional.of(new ParquetWriteValidationBuilder(fileColumnTypes, fileColumnNames))
@@ -112,7 +119,7 @@ public class ParquetFileWriter
     @Override
     public long getMemoryUsage()
     {
-        return INSTANCE_SIZE + parquetWriter.getRetainedBytes();
+        return INSTANCE_SIZE + parquetWriter.getRetainedBytes() + memoryContext.getBytes();
     }
 
     @Override

@@ -17,9 +17,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -28,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 public class UnnestingPositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(UnnestingPositionsAppender.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(UnnestingPositionsAppender.class);
 
     private final PositionsAppender delegate;
 
@@ -61,6 +60,20 @@ public class UnnestingPositionsAppender
             return;
         }
         delegate.appendRle(block, rlePositionCount);
+    }
+
+    @Override
+    public void append(int position, Block source)
+    {
+        if (source instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+            delegate.append(0, runLengthEncodedBlock.getValue());
+        }
+        else if (source instanceof DictionaryBlock dictionaryBlock) {
+            delegate.append(dictionaryBlock.getId(position), dictionaryBlock.getDictionary());
+        }
+        else {
+            delegate.append(position, source);
+        }
     }
 
     @Override

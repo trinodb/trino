@@ -47,11 +47,10 @@ public class RealDecoder
         }
 
         float decoded;
-        if (value instanceof Number) {
-            decoded = ((Number) value).floatValue();
+        if (value instanceof Number number) {
+            decoded = number.floatValue();
         }
-        else if (value instanceof String) {
-            String stringValue = (String) value;
+        else if (value instanceof String stringValue) {
             if (stringValue.isEmpty()) {
                 output.appendNull();
                 return;

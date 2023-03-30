@@ -192,12 +192,6 @@ public class PhoenixMetadata
     }
 
     @Override
-    public boolean supportsMissingColumnsOnInsert()
-    {
-        return true;
-    }
-
-    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
         if (retryMode != NO_RETRIES) {

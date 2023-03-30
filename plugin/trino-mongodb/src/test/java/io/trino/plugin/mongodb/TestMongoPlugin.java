@@ -18,8 +18,6 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -28,33 +26,17 @@ import static org.testng.Assert.assertEquals;
 
 public class TestMongoPlugin
 {
-    private MongoServer server;
-    private String connectionString;
-
-    @BeforeClass
-    public void start()
-    {
-        server = new MongoServer();
-        connectionString = server.getConnectionString().toString();
-    }
-
     @Test
     public void testCreateConnector()
     {
         MongoPlugin plugin = new MongoPlugin();
 
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        Connector connector = factory.create("test", ImmutableMap.of("mongodb.connection-url", connectionString), new TestingConnectorContext());
+        Connector connector = factory.create("test", ImmutableMap.of("mongodb.connection-url", "mongodb://localhost:27017"), new TestingConnectorContext());
 
         Type type = getOnlyElement(plugin.getTypes());
         assertEquals(type, OBJECT_ID);
 
         connector.shutdown();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        server.close();
     }
 }

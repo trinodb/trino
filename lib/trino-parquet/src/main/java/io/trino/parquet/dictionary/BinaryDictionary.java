@@ -24,7 +24,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndian;
 
 public class BinaryDictionary
-        extends Dictionary
+        implements Dictionary
 {
     private final Binary[] content;
 
@@ -37,7 +37,6 @@ public class BinaryDictionary
     public BinaryDictionary(DictionaryPage dictionaryPage, Integer length)
             throws IOException
     {
-        super(dictionaryPage.getEncoding());
         content = new Binary[dictionaryPage.getDictionarySize()];
 
         byte[] dictionaryBytes;

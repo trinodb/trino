@@ -29,7 +29,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
 
@@ -45,6 +44,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFi
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
+import static io.trino.plugin.hive.util.HiveUtil.unescapePathName;
 import static java.util.stream.Collectors.toList;
 
 public class HivePartitionManager
@@ -154,17 +154,16 @@ public class HivePartitionManager
     public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Constraint constraint)
     {
         Optional<List<String>> partitionNames = partitions.getPartitionNames();
-        Optional<List<HivePartition>> partitionList = Optional.empty();
         TupleDomain<ColumnHandle> enforcedConstraint = handle.getEnforcedConstraint();
 
         // Partitions will be loaded if
-        // 1. Number of partitionNames is less than or equal to threshold value. Thereby generating additional filter criteria
-        //    that can be applied on other join side (if the join is based on partition column),
+        // 1. Number of filtered partitions is less than or equal to value of hive.max-partitions-for-eager-load property.
+        //    Thereby generating additional filter criteria that can be applied on other join side (if the join is based on partition column)
         // 2. If additional predicate is passed as a part of Constraint. (specified via loadPartition). This delays the partition checks
         //    until we have additional filtering based on Constraint
-        if (canPartitionsBeLoaded(partitions)) {
+        Optional<List<HivePartition>> partitionList = tryLoadPartitions(partitions);
+        if (partitionList.isPresent()) {
             partitionNames = Optional.empty();
-            partitionList = Optional.of(ImmutableList.copyOf(partitions.getPartitions()));
             List<HiveColumnHandle> partitionColumns = partitions.getPartitionColumns();
             enforcedConstraint = partitions.getEffectivePredicate().filter((column, domain) -> partitionColumns.contains(column));
         }
@@ -198,12 +197,19 @@ public class HivePartitionManager
         return table.getPartitions().map(List::iterator).orElseGet(() -> getPartitions(metastore, table, new Constraint(summary)).getPartitions());
     }
 
-    public boolean canPartitionsBeLoaded(HivePartitionResult partitionResult)
+    public Optional<List<HivePartition>> tryLoadPartitions(HivePartitionResult partitionResult)
     {
-        if (partitionResult.getPartitionNames().isPresent()) {
-            return partitionResult.getPartitionNames().orElseThrow().size() <= maxPartitionsForEagerLoad;
+        ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
+        Iterator<HivePartition> iterator = partitionResult.getPartitions();
+        int partitionCount = 0;
+        while (iterator.hasNext()) {
+            partitionCount++;
+            if (partitionCount > maxPartitionsForEagerLoad) {
+                return Optional.empty();
+            }
+            partitions.add(iterator.next());
         }
-        return true;
+        return Optional.of(partitions.build());
     }
 
     private Optional<HivePartition> parseValuesAndFilterPartition(
@@ -288,13 +294,13 @@ public class HivePartitionManager
             }
             else if (current == '/') {
                 checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
-                values.add(FileUtils.unescapePathName(partitionName.substring(valueStart, i)));
+                values.add(unescapePathName(partitionName.substring(valueStart, i)));
                 inKey = true;
                 valueStart = -1;
             }
         }
         checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
-        values.add(FileUtils.unescapePathName(partitionName.substring(valueStart)));
+        values.add(unescapePathName(partitionName.substring(valueStart)));
 
         return values.build();
     }

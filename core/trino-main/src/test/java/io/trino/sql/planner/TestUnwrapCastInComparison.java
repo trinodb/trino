@@ -38,37 +38,37 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a = DOUBLE '1'", "a = BIGINT '1'");
 
         // non-representable
-        testUnwrap("smallint", "a = DOUBLE '1.1'", "a IS NULL AND NULL");
-        testUnwrap("smallint", "a = DOUBLE '1.9'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '1.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
+        testUnwrap("smallint", "a = DOUBLE '1.9'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("bigint", "a = DOUBLE '1.1'", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a = DOUBLE '1.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // below top of range
         testUnwrap("smallint", "a = DOUBLE '32766'", "a = SMALLINT '32766'");
 
         // round to top of range
-        testUnwrap("smallint", "a = DOUBLE '32766.9'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '32766.9'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // top of range
         testUnwrap("smallint", "a = DOUBLE '32767'", "a = SMALLINT '32767'");
 
         // above range
-        testUnwrap("smallint", "a = DOUBLE '32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a = DOUBLE '-32767'", "a = SMALLINT '-32767'");
 
         // round to bottom of range
-        testUnwrap("smallint", "a = DOUBLE '-32767.9'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '-32767.9'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // bottom of range
         testUnwrap("smallint", "a = DOUBLE '-32768'", "a = SMALLINT '-32768'");
 
         // below range
-        testUnwrap("smallint", "a = DOUBLE '-32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = DOUBLE '-32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // -2^64 constant
-        testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a = DOUBLE '-18446744073709551616'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // shorter varchar and char
         testNoUnwrap("varchar(1)", "= CAST('abc' AS char(3))", "char(3)");
@@ -92,37 +92,37 @@ public class TestUnwrapCastInComparison
         testUnwrap("bigint", "a <> DOUBLE '1'", "a <> BIGINT '1'");
 
         // non-representable
-        testUnwrap("smallint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR NULL");
-        testUnwrap("smallint", "a <> DOUBLE '1.9'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
+        testUnwrap("smallint", "a <> DOUBLE '1.9'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("bigint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("bigint", "a <> DOUBLE '1.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // below top of range
         testUnwrap("smallint", "a <> DOUBLE '32766'", "a <> SMALLINT '32766'");
 
         // round to top of range
-        testUnwrap("smallint", "a <> DOUBLE '32766.9'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '32766.9'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // top of range
         testUnwrap("smallint", "a <> DOUBLE '32767'", "a <> SMALLINT '32767'");
 
         // above range
-        testUnwrap("smallint", "a <> DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // 2^64 constant
-        testUnwrap("bigint", "a <> DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("bigint", "a <> DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a <> DOUBLE '-32767'", "a <> SMALLINT '-32767'");
 
         // round to bottom of range
-        testUnwrap("smallint", "a <> DOUBLE '-32767.9'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '-32767.9'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // bottom of range
         testUnwrap("smallint", "a <> DOUBLE '-32768'", "a <> SMALLINT '-32768'");
 
         // below range
-        testUnwrap("smallint", "a <> DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> DOUBLE '-32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -150,7 +150,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a < DOUBLE '32767'", "a <> SMALLINT '32767'");
 
         // above range
-        testUnwrap("smallint", "a < DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a < DOUBLE '32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a < DOUBLE '-32767'", "a < SMALLINT '-32767'");
@@ -159,13 +159,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a < DOUBLE '-32767.9'", "a = SMALLINT '-32768'");
 
         // bottom of range
-        testUnwrap("smallint", "a < DOUBLE '-32768'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a < DOUBLE '-32768'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // below range
-        testUnwrap("smallint", "a < DOUBLE '-32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a < DOUBLE '-32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // -2^64 constant
-        testUnwrap("bigint", "a < DOUBLE '-18446744073709551616'", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a < DOUBLE '-18446744073709551616'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -190,13 +190,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a <= DOUBLE '32766.9'", "a < SMALLINT '32767'");
 
         // top of range
-        testUnwrap("smallint", "a <= DOUBLE '32767'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <= DOUBLE '32767'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // above range
-        testUnwrap("smallint", "a <= DOUBLE '32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <= DOUBLE '32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // 2^64 constant
-        testUnwrap("bigint", "a <= DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("bigint", "a <= DOUBLE '18446744073709551616'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a <= DOUBLE '-32767'", "a <= SMALLINT '-32767'");
@@ -208,7 +208,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a <= DOUBLE '-32768'", "a = SMALLINT '-32768'");
 
         // below range
-        testUnwrap("smallint", "a <= DOUBLE '-32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a <= DOUBLE '-32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -233,13 +233,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a > DOUBLE '32766.9'", "a = SMALLINT '32767'");
 
         // top of range
-        testUnwrap("smallint", "a > DOUBLE '32767'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a > DOUBLE '32767'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // above range
-        testUnwrap("smallint", "a > DOUBLE '32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a > DOUBLE '32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // 2^64 constant
-        testUnwrap("bigint", "a > DOUBLE '18446744073709551616'", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a > DOUBLE '18446744073709551616'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a > DOUBLE '-32767'", "a > SMALLINT '-32767'");
@@ -251,7 +251,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a > DOUBLE '-32768'", "a <> SMALLINT '-32768'");
 
         // below range
-        testUnwrap("smallint", "a > DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a > DOUBLE '-32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -279,7 +279,7 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a >= DOUBLE '32767'", "a = SMALLINT '32767'");
 
         // above range
-        testUnwrap("smallint", "a >= DOUBLE '32768.1'", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a >= DOUBLE '32768.1'", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
         // above bottom of range
         testUnwrap("smallint", "a >= DOUBLE '-32767'", "a >= SMALLINT '-32767'");
@@ -288,13 +288,13 @@ public class TestUnwrapCastInComparison
         testUnwrap("smallint", "a >= DOUBLE '-32767.9'", "a > SMALLINT '-32768' ");
 
         // bottom of range
-        testUnwrap("smallint", "a >= DOUBLE '-32768'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a >= DOUBLE '-32768'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // below range
-        testUnwrap("smallint", "a >= DOUBLE '-32768.1'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a >= DOUBLE '-32768.1'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         // -2^64 constant
-        testUnwrap("bigint", "a >= DOUBLE '-18446744073709551616'", "NOT (a IS NULL) OR NULL");
+        testUnwrap("bigint", "a >= DOUBLE '-18446744073709551616'", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
     }
 
     @Test
@@ -365,23 +365,23 @@ public class TestUnwrapCastInComparison
     @Test
     public void testNaN()
     {
-        testUnwrap("smallint", "a = nan()", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a = nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("bigint", "a = nan()", "a IS NULL AND NULL");
+        testUnwrap("bigint", "a = nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("smallint", "a < nan()", "a IS NULL AND NULL");
+        testUnwrap("smallint", "a < nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("smallint", "a <> nan()", "NOT (a IS NULL) OR NULL");
+        testUnwrap("smallint", "a <> nan()", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         testRemoveFilter("smallint", "a IS DISTINCT FROM nan()");
 
         testRemoveFilter("bigint", "a IS DISTINCT FROM nan()");
 
-        testUnwrap("real", "a = nan()", "a IS NULL AND NULL");
+        testUnwrap("real", "a = nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("real", "a < nan()", "a IS NULL AND NULL");
+        testUnwrap("real", "a < nan()", "a IS NULL AND CAST(NULL AS BOOLEAN)");
 
-        testUnwrap("real", "a <> nan()", "NOT (a IS NULL) OR NULL");
+        testUnwrap("real", "a <> nan()", "NOT (a IS NULL) OR CAST(NULL AS BOOLEAN)");
 
         testUnwrap("real", "a IS DISTINCT FROM nan()", "a IS DISTINCT FROM CAST(nan() AS REAL)");
     }
@@ -414,6 +414,100 @@ public class TestUnwrapCastInComparison
                 output(
                         filter("A = REAL '1.0'",
                                 values("A"))));
+    }
+
+    @Test
+    public void testCastDateToTimestampWithTimeZone()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+
+        Session utcSession = withZone(session, TimeZoneKey.UTC_KEY);
+        // east of Greenwich
+        Session warsawSession = withZone(session, TimeZoneKey.getTimeZoneKey("Europe/Warsaw"));
+        // west of Greenwich
+        Session losAngelesSession = withZone(session, TimeZoneKey.getTimeZoneKey("America/Los_Angeles"));
+
+        // same zone
+        testUnwrap(utcSession, "date", "a > TIMESTAMP '2020-10-26 11:02:18 UTC'", "a > DATE '2020-10-26'");
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-10-26 11:02:18 Europe/Warsaw'", "a > DATE '2020-10-26'");
+        testUnwrap(losAngelesSession, "date", "a > TIMESTAMP '2020-10-26 11:02:18 America/Los_Angeles'", "a > DATE '2020-10-26'");
+
+        // different zone
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-10-26 11:02:18 UTC'", "a > DATE '2020-10-26'");
+        testUnwrap(losAngelesSession, "date", "a > TIMESTAMP '2020-10-26 11:02:18 UTC'", "a > DATE '2020-10-26'");
+
+        // maximum precision
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", "a > DATE '2020-10-26'");
+        testUnwrap(losAngelesSession, "date", "a > TIMESTAMP '2020-10-26 11:02:18.123456789321 UTC'", "a > DATE '2020-10-26'");
+
+        // DST forward -- Warsaw changed clock 1h forward on 2020-03-29T01:00 UTC (2020-03-29T02:00 local time)
+        // Note that in given session input TIMESTAMP values  2020-03-29 02:31 and 2020-03-29 03:31 produce the same value 2020-03-29 01:31 UTC (conversion is not monotonic)
+        // last before
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-03-29 00:59:59 UTC'", "a > DATE '2020-03-29'");
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-03-29 00:59:59.999 UTC'", "a > DATE '2020-03-29'");
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-03-29 00:59:59.13 UTC'", "a > DATE '2020-03-29'");
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-03-29 00:59:59.999999 UTC'", "a > DATE '2020-03-29'");
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-03-29 00:59:59.999999999 UTC'", "a > DATE '2020-03-29'");
+        testUnwrap(warsawSession, "date", "a > TIMESTAMP '2020-03-29 00:59:59.999999999999 UTC'", "a > DATE '2020-03-29'");
+
+        // equal
+        testUnwrap(utcSession, "date", "a = TIMESTAMP '1981-06-22 00:00:00 UTC'", "a = DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a = TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", "a = DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a = TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a = DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a = TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a = DATE '1981-06-22'");
+
+        // not equal
+        testUnwrap(utcSession, "date", "a <> TIMESTAMP '1981-06-22 00:00:00 UTC'", "a <> DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a <> TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", "a <> DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a <> TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a <> DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a <> TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a <> DATE '1981-06-22'");
+
+        // less than
+        testUnwrap(utcSession, "date", "a < TIMESTAMP '1981-06-22 00:00:00 UTC'", "a < DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a < TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", "a < DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a < TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a < DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a < TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a < DATE '1981-06-22'");
+
+        // less than or equal
+        testUnwrap(utcSession, "date", "a <= TIMESTAMP '1981-06-22 00:00:00 UTC'", "a <= DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a <= TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", "a <= DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a <= TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a <= DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a <= TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a <= DATE '1981-06-22'");
+
+        // greater than
+        testUnwrap(utcSession, "date", "a > TIMESTAMP '1981-06-22 00:00:00 UTC'", "a > DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a > TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", "a > DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a > TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a > DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a > TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a > DATE '1981-06-22'");
+
+        // greater than or equal
+        testUnwrap(utcSession, "date", "a >= TIMESTAMP '1981-06-22 00:00:00 UTC'", "a >= DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a >= TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", "a >= DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a >= DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a >= TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a >= DATE '1981-06-22'");
+
+        // is distinct
+        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00 UTC'", "a IS DISTINCT FROM DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", "a IS DISTINCT FROM DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a IS DISTINCT FROM DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a IS DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a IS DISTINCT FROM DATE '1981-06-22'");
+
+        // is not distinct
+        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00 UTC'", "a IS NOT DISTINCT FROM DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000 UTC'", "a IS NOT DISTINCT FROM DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000 UTC'", "a IS NOT DISTINCT FROM DATE '1981-06-22'");
+        testUnwrap(utcSession, "date", "a IS NOT DISTINCT FROM TIMESTAMP '1981-06-22 00:00:00.000000000000 UTC'", "a IS NOT DISTINCT FROM DATE '1981-06-22'");
+
+        // null date literal
+        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) = NULL", "CAST(NULL AS BOOLEAN)");
+        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) < NULL", "CAST(NULL AS BOOLEAN)");
+        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) <= NULL", "CAST(NULL AS BOOLEAN)");
+        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) > NULL", "CAST(NULL AS BOOLEAN)");
+        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) >= NULL", "CAST(NULL AS BOOLEAN)");
+        testUnwrap("date", "CAST(a AS TIMESTAMP WITH TIME ZONE) IS DISTINCT FROM NULL", "NOT(CAST(a AS TIMESTAMP WITH TIME ZONE) IS NULL)");
+
+        // timestamp with time zone value on the left
+        testUnwrap(utcSession, "date", "TIMESTAMP '1981-06-22 00:00:00 UTC' = a", "a = DATE '1981-06-22'");
     }
 
     @Test
@@ -534,12 +628,16 @@ public class TestUnwrapCastInComparison
         // INTEGER->REAL implicit cast is not injective if the real constant is >= 2^23 and <= 2^31 - 1
         testUnwrap("integer", "a = REAL '8388608'", "CAST(a AS REAL) = REAL '8388608.0'");
 
-        testUnwrap("integer", "a = REAL '2147483647'", "CAST(a AS REAL) = REAL '2.14748365E9'");
+        testUnwrap("integer", "a = REAL '2147483647'", Runtime.version().feature() >= 19
+                ? "CAST(a AS REAL) = REAL '2.1474836E9'"
+                : "CAST(a AS REAL) = REAL '2.14748365E9'");
 
         // INTEGER->REAL implicit cast is not injective if the real constant is <= -2^23 and >= -2^31 + 1
         testUnwrap("integer", "a = REAL '-8388608'", "CAST(a AS REAL) = REAL '-8388608.0'");
 
-        testUnwrap("integer", "a = REAL '-2147483647'", "CAST(a AS REAL) = REAL '-2.14748365E9'");
+        testUnwrap("integer", "a = REAL '-2147483647'", Runtime.version().feature() >= 19
+                ? "CAST(a AS REAL) = REAL '-2.1474836E9'"
+                : "CAST(a AS REAL) = REAL '-2.14748365E9'");
 
         // DECIMAL(p)->DOUBLE not injective for p > 15
         testUnwrap("decimal(16)", "a = DOUBLE '1'", "CAST(a AS DOUBLE) = 1E0");
@@ -693,32 +791,19 @@ public class TestUnwrapCastInComparison
 
     private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)
     {
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE a %s", inputType, inputPredicate);
-        try {
-            assertPlan(sql,
-                    session,
-                    output(
-                            filter(format("CAST(a AS %s) %s", expectedCastType, inputPredicate),
-                                    values("a"))));
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("Query: " + sql));
-            throw e;
-        }
+        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE a %s", inputType, inputPredicate),
+                session,
+                output(
+                        filter(format("CAST(a AS %s) %s", expectedCastType, inputPredicate),
+                                values("a"))));
     }
 
     private void testRemoveFilter(String inputType, String inputPredicate)
     {
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate);
-        try {
-            assertPlan(sql,
-                    output(
-                            values("a")));
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("Query: " + sql));
-            throw e;
-        }
+        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s AND rand() = 42", inputType, inputPredicate),
+                output(
+                        filter("rand() = 42e0",
+                                values("a"))));
     }
 
     private void testUnwrap(String inputType, String inputPredicate, String expectedPredicate)
@@ -728,18 +813,11 @@ public class TestUnwrapCastInComparison
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
     {
-        String sql = format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s", inputType, inputPredicate);
-        try {
-            assertPlan(sql,
-                    session,
-                    output(
-                            filter(expectedPredicate,
-                                    values("a"))));
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("Query: " + sql));
-            throw e;
-        }
+        assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42", inputType, inputPredicate),
+                session,
+                output(
+                        filter(format("%s OR rand() = 42e0", expectedPredicate),
+                                values("a"))));
     }
 
     private static Session withZone(Session session, TimeZoneKey timeZoneKey)

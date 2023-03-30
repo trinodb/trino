@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
@@ -89,11 +90,11 @@ import static java.util.Collections.emptySet;
 public interface ConnectorAccessControl
 {
     /**
-     * Check if identity is allowed to create the specified schema.
+     * Check if identity is allowed to create the specified schema with properties.
      *
      * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
+    default void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
         denyCreateSchema(schemaName);
     }
@@ -292,6 +293,16 @@ public interface ConnectorAccessControl
     default void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         denyAddColumn(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to alter columns for the specified table.
+     *
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        denyAlterColumn(tableName.toString());
     }
 
     /**
@@ -648,13 +659,24 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Get column masks associated with the given table, column and identity.
+     * Get column mask associated with the given table, column and identity.
      * <p>
-     * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *
-     * @return the list of masks, or empty list if not applicable
+     * @return the mask if present, or empty if not applicable
      */
+    default Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        List<ViewExpression> masks = getColumnMasks(context, tableName, columnName, type);
+        if (masks.size() > 1) {
+            throw new UnsupportedOperationException("Multiple masks on a single column are no longer supported");
+        }
+
+        return masks.stream().findFirst();
+    }
+
+    @Deprecated
     default List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         return emptyList();

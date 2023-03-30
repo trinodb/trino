@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
@@ -50,6 +51,9 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotUpdate;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
@@ -57,7 +61,6 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
-import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
@@ -73,6 +76,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -80,13 +84,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_FPP_KEY;
@@ -96,15 +103,19 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
-import static io.trino.plugin.iceberg.TrinoTypes.getNextValue;
-import static io.trino.plugin.iceberg.TrinoTypes.getPreviousValue;
+import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
+import static io.trino.plugin.iceberg.SortFieldUtils.toSortFields;
+import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
+import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -128,8 +139,10 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.parseFloat;
+import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -147,8 +160,12 @@ import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
 public final class IcebergUtil
 {
+    private static final Logger log = Logger.get(IcebergUtil.class);
+
+    public static final String METADATA_FOLDER_NAME = "metadata";
     public static final String METADATA_FILE_EXTENSION = ".metadata.json";
     private static final Pattern SIMPLE_NAME = Pattern.compile("[a-z][a-z0-9]*");
+    static final String TRINO_QUERY_ID_NAME = "trino_query_id";
 
     private IcebergUtil() {}
 
@@ -166,7 +183,7 @@ public final class IcebergUtil
                 table.getTableName(),
                 Optional.empty(),
                 Optional.empty());
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Table getIcebergTableWithMetadata(
@@ -184,7 +201,7 @@ public final class IcebergUtil
                 Optional.empty(),
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
-        return new BaseTable(operations, quotedTableName(table));
+        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
@@ -193,6 +210,13 @@ public final class IcebergUtil
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
         if (!icebergTable.spec().fields().isEmpty()) {
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
+        }
+
+        SortOrder sortOrder = icebergTable.sortOrder();
+        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
+        if (sortOrder.isSorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
+            List<String> sortColumnNames = toSortFields(sortOrder);
+            properties.put(SORTED_BY_PROPERTY, sortColumnNames);
         }
 
         if (!icebergTable.location().isEmpty()) {
@@ -236,7 +260,7 @@ public final class IcebergUtil
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)
     {
         List<NestedField> icebergColumns = columns.stream()
-                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType())))
+                .map(column -> NestedField.optional(column.getId(), column.getName(), toIcebergType(column.getType(), column.getColumnIdentity())))
                 .collect(toImmutableList());
         return new Schema(StructType.of(icebergColumns).asStructType().fields());
     }
@@ -382,14 +406,14 @@ public final class IcebergUtil
         }
         if (!range.isLowUnbounded()) {
             Object boundedValue = range.getLowBoundedValue();
-            Optional<Object> adjacentValue = range.isLowInclusive() ? getPreviousValue(type, boundedValue) : getNextValue(type, boundedValue);
+            Optional<Object> adjacentValue = range.isLowInclusive() ? type.getPreviousValue(boundedValue) : type.getNextValue(boundedValue);
             if (adjacentValue.isEmpty() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
                 return false;
             }
         }
         if (!range.isHighUnbounded()) {
             Object boundedValue = range.getHighBoundedValue();
-            Optional<Object> adjacentValue = range.isHighInclusive() ? getNextValue(type, boundedValue) : getPreviousValue(type, boundedValue);
+            Optional<Object> adjacentValue = range.isHighInclusive() ? type.getNextValue(boundedValue) : type.getPreviousValue(boundedValue);
             if (adjacentValue.isEmpty() || yieldSamePartitioningValue(field, transform, type, boundedValue, adjacentValue.get(), targetTypeEqualOperator)) {
                 return false;
             }
@@ -459,9 +483,8 @@ public final class IcebergUtil
             if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return timestampTzFromMicros(parseLong(valueString));
             }
-            if (type instanceof VarcharType) {
+            if (type instanceof VarcharType varcharType) {
                 Slice value = utf8Slice(valueString);
-                VarcharType varcharType = (VarcharType) type;
                 if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(value) > varcharType.getBoundedLength()) {
                     throw new IllegalArgumentException();
                 }
@@ -475,7 +498,7 @@ public final class IcebergUtil
             }
             if (type instanceof DecimalType decimalType) {
                 BigDecimal decimal = new BigDecimal(valueString);
-                decimal = decimal.setScale(decimalType.getScale(), BigDecimal.ROUND_UNNECESSARY);
+                decimal = decimal.setScale(decimalType.getScale(), UNNECESSARY);
                 if (decimal.precision() > decimalType.getPrecision()) {
                     throw new IllegalArgumentException();
                 }
@@ -521,7 +544,7 @@ public final class IcebergUtil
                 String partitionValue;
                 if (type.typeId() == FIXED || type.typeId() == BINARY) {
                     // this is safe because Iceberg PartitionData directly wraps the byte array
-                    partitionValue = Base64.getEncoder().encodeToString(((ByteBuffer) value).array());
+                    partitionValue = Base64.getEncoder().encodeToString(getWrappedBytes(((ByteBuffer) value)));
                 }
                 else {
                     partitionValue = value.toString();
@@ -545,17 +568,17 @@ public final class IcebergUtil
     public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
     {
         List<NestedField> icebergColumns = new ArrayList<>();
+        int visibleColumnCount = (int) columns.stream().filter(column -> !column.isHidden()).count();
+        AtomicInteger nextFieldId = new AtomicInteger(visibleColumnCount + 1);
         for (ColumnMetadata column : columns) {
             if (!column.isHidden()) {
-                int index = icebergColumns.size();
-                org.apache.iceberg.types.Type type = toIcebergType(column.getType());
+                int index = icebergColumns.size() + 1;
+                org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(column.getType(), nextFieldId);
                 NestedField field = NestedField.of(index, column.isNullable(), column.getName(), type, column.getComment());
                 icebergColumns.add(field);
             }
         }
         org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
-        AtomicInteger nextFieldId = new AtomicInteger(1);
-        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
         return new Schema(icebergSchema.asStructType().fields());
     }
 
@@ -564,6 +587,7 @@ public final class IcebergUtil
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
@@ -585,7 +609,59 @@ public final class IcebergUtil
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, targetPath, propertiesBuilder.buildOrThrow());
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, propertiesBuilder.buildOrThrow());
+    }
+
+    /**
+     * Find the first snapshot in the table. First snapshot is the last snapshot
+     * in snapshot parents chain starting at {@link Table#currentSnapshot()}.
+     *
+     * @return First (oldest) Snapshot reachable from {@link Table#currentSnapshot()} or empty if table history
+     * expiration makes it impossible to find the snapshot.
+     * @throws IllegalArgumentException when table has no snapshot.
+     */
+    public static Optional<Snapshot> firstSnapshot(Table table)
+    {
+        Snapshot current = table.currentSnapshot();
+        checkArgument(current != null, "No current snapshot in %s when looking for the first snapshot", table);
+
+        while (true) {
+            if (current.parentId() == null) {
+                return Optional.of(current);
+            }
+            current = table.snapshot(current.parentId());
+            if (current == null) {
+                // History expired
+                return Optional.empty();
+            }
+        }
+    }
+
+    /**
+     * @return First (oldest) snapshot that is reachable from {@link Table#currentSnapshot()} but is not
+     * reachable from snapshot with id {@code baseSnapshotId}. Returns empty if table history
+     * expiration makes it impossible to find the snapshot.
+     * @throws IllegalArgumentException when table has no snapshot,
+     * {@code baseSnapshotId} is not a valid snapshot in the table or
+     * the {@code baseSnapshotId} is the current snapshot.
+     */
+    public static Optional<Snapshot> firstSnapshotAfter(Table table, long baseSnapshotId)
+    {
+        Snapshot current = table.currentSnapshot();
+        checkArgument(current != null, "No current snapshot in %s when looking for the first snapshot after %s", table, baseSnapshotId);
+        checkArgument(current.snapshotId() != baseSnapshotId, "No snapshot after %s in %s, current snapshot is %s", baseSnapshotId, table, current);
+
+        while (true) {
+            checkArgument(current.parentId() != null, "Snapshot id %s is not valid in table %s, snapshot %s has no parent", baseSnapshotId, table, current);
+            if (current.parentId() == baseSnapshotId) {
+                return Optional.of(current);
+            }
+            current = table.snapshot(current.parentId());
+            if (current == null) {
+                // History expired
+                return Optional.empty();
+            }
+        }
     }
 
     public static long getSnapshotIdAsOfTime(Table table, long epochMillis)
@@ -626,6 +702,23 @@ public final class IcebergUtil
         }
     }
 
+    public static OptionalInt parseVersion(String metadataLocation)
+            throws TrinoException
+    {
+        int versionStart = metadataLocation.lastIndexOf('/') + 1; // if '/' isn't found, this will be 0
+        int versionEnd = metadataLocation.indexOf('-', versionStart);
+        if (versionStart == 0 || versionEnd == -1) {
+            throw new TrinoException(ICEBERG_BAD_DATA, "Invalid metadata location: " + metadataLocation);
+        }
+        try {
+            return OptionalInt.of(parseInt(metadataLocation.substring(versionStart, versionEnd)));
+        }
+        catch (NumberFormatException e) {
+            log.warn(e, "Unable to parse version from metadata location: %s", metadataLocation);
+            return OptionalInt.empty();
+        }
+    }
+
     public static String fixBrokenMetadataLocation(String location)
     {
         // Version 393-394 stored metadata location with double slash https://github.com/trinodb/trino/commit/e95fdcc7d1ec110b10977d17458e06fc4e6f217d#diff-9bbb7c0b6168f0e6b4732136f9a97f820aa082b04efb5609b6138afc118831d7R46
@@ -645,5 +738,11 @@ public final class IcebergUtil
     public static String fileName(String path)
     {
         return path.substring(path.lastIndexOf('/') + 1);
+    }
+
+    public static void commit(SnapshotUpdate<?> update, ConnectorSession session)
+    {
+        update.set(TRINO_QUERY_ID_NAME, session.getQueryId());
+        update.commit();
     }
 }

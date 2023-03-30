@@ -21,6 +21,7 @@ import io.trino.plugin.mongodb.MongoColumnHandle;
 import io.trino.plugin.mongodb.MongoMetadata;
 import io.trino.plugin.mongodb.MongoSession;
 import io.trino.plugin.mongodb.MongoTableHandle;
+import io.trino.plugin.mongodb.RemoteTableName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
@@ -61,26 +62,29 @@ public class Query
     public static final String NAME = "query";
 
     private final MongoMetadata metadata;
+    private final MongoSession session;
 
     @Inject
     public Query(MongoSession session)
     {
         requireNonNull(session, "session is null");
         this.metadata = new MongoMetadata(session);
+        this.session = session;
     }
 
     @Override
     public ConnectorTableFunction get()
     {
-        return new QueryFunction(metadata);
+        return new QueryFunction(metadata, session);
     }
 
     public static class QueryFunction
             extends AbstractConnectorTableFunction
     {
         private final MongoMetadata metadata;
+        private final MongoSession mongoSession;
 
-        public QueryFunction(MongoMetadata metadata)
+        public QueryFunction(MongoMetadata metadata, MongoSession mongoSession)
         {
             super(
                     SCHEMA_NAME,
@@ -100,6 +104,7 @@ public class Query
                                     .build()),
                     GENERIC_TABLE);
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
         }
 
         @Override
@@ -108,15 +113,17 @@ public class Query
             String database = ((Slice) ((ScalarArgument) arguments.get("DATABASE")).getValue()).toStringUtf8();
             String collection = ((Slice) ((ScalarArgument) arguments.get("COLLECTION")).getValue()).toStringUtf8();
             String filter = ((Slice) ((ScalarArgument) arguments.get("FILTER")).getValue()).toStringUtf8();
-            // TODO https://github.com/trinodb/trino/issues/14591 Support case insensitive name matching
             if (!database.equals(database.toLowerCase(ENGLISH))) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase database name is supported");
             }
             if (!collection.equals(collection.toLowerCase(ENGLISH))) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
             }
+            RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(new SchemaTableName(database, collection));
+            // Don't store Document object to MongoTableHandle for avoiding serialization issue
+            parseFilter(filter);
 
-            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), Optional.of(parseFilter(filter)));
+            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(filter));
             ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
             Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> columns = tableSchema.getColumns().stream()
@@ -139,7 +146,7 @@ public class Query
         }
     }
 
-    private static Document parseFilter(String filter)
+    public static Document parseFilter(String filter)
     {
         try {
             return Document.parse(filter);

@@ -260,24 +260,6 @@ public final class Decimals
     }
 
     /**
-     * @deprecated Use {@link DecimalType#isShort()}
-     */
-    @Deprecated
-    public static boolean isShortDecimal(Type type)
-    {
-        return type instanceof ShortDecimalType;
-    }
-
-    /**
-     * @deprecated Use {@link DecimalType#isShort()}
-     */
-    @Deprecated
-    public static boolean isLongDecimal(Type type)
-    {
-        return type instanceof LongDecimalType;
-    }
-
-    /**
      * Converts {@link BigDecimal} to {@link Int128} representing it for long {@link DecimalType}.
      * It is caller responsibility to ensure that {@code value.scale()} equals to {@link DecimalType#getScale()}.
      */

@@ -30,6 +30,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.trino.plugin.geospatial.BingTile.fromCoordinates;
@@ -645,7 +646,7 @@ public class TestBingTileFunctions
         String filePath = new File(getResource("too_large_polygon.txt").toURI()).getPath();
         String largeWkt;
         try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
-            largeWkt = lines.findFirst().get();
+            largeWkt = lines.collect(onlyElement());
         }
         assertTrinoExceptionThrownBy(() -> assertions.expression("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)").evaluate())
                 .hasMessage("The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");

@@ -26,7 +26,6 @@ import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
@@ -56,6 +55,7 @@ import io.trino.server.DynamicFilterService;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -77,6 +77,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -112,10 +113,7 @@ import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
 import static io.trino.SystemSessionProperties.getRetryInitialDelay;
 import static io.trino.SystemSessionProperties.getRetryMaxDelay;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
-import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.getWriterMinSize;
-import static io.trino.SystemSessionProperties.isTaskScaleWritersEnabled;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.scheduler.PipelinedStageExecution.createPipelinedStageExecution;
 import static io.trino.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
@@ -135,7 +133,9 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -224,7 +224,6 @@ public class PipelinedQueryScheduler
                 metadata,
                 remoteTaskFactory,
                 nodeTaskMap,
-                queryExecutor,
                 schedulerStats,
                 plan,
                 summarizeTaskInfo);
@@ -582,7 +581,7 @@ public class PipelinedQueryScheduler
 
         private static PipelinedOutputBufferManager createSingleStreamOutputBuffer(SqlStage stage)
         {
-            PartitioningHandle partitioningHandle = stage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
+            PartitioningHandle partitioningHandle = stage.getFragment().getOutputPartitioningScheme().getPartitioning().getHandle();
             checkArgument(partitioningHandle.isSingleNode(), "partitioning is expected to be single node: " + partitioningHandle);
             return new PartitionedPipelinedOutputBufferManager(partitioningHandle, 1);
         }
@@ -845,9 +844,13 @@ public class PipelinedQueryScheduler
         {
             DistributedStagesSchedulerStateMachine stateMachine = new DistributedStagesSchedulerStateMachine(queryStateMachine.getQueryId(), executor);
 
-            Map<PartitioningHandle, NodePartitionMap> partitioningCacheMap = new HashMap<>();
-            Function<PartitioningHandle, NodePartitionMap> partitioningCache = partitioningHandle ->
-                    partitioningCacheMap.computeIfAbsent(partitioningHandle, handle -> nodePartitioningManager.getNodePartitioningMap(queryStateMachine.getSession(), handle));
+            Map<PartitioningKey, NodePartitionMap> partitioningCacheMap = new HashMap<>();
+            Function<PartitioningKey, NodePartitionMap> partitioningCache = partitioningKey ->
+                    partitioningCacheMap.computeIfAbsent(partitioningKey, partitioning -> nodePartitioningManager.getNodePartitioningMap(
+                            queryStateMachine.getSession(),
+                            // TODO: support hash distributed writer scaling (https://github.com/trinodb/trino/issues/10791)
+                            partitioning.handle.equals(SCALED_WRITER_HASH_DISTRIBUTION) ? FIXED_HASH_DISTRIBUTION : partitioning.handle,
+                            partitioning.partitionCount));
 
             Map<PlanFragmentId, Optional<int[]>> bucketToPartitionMap = createBucketToPartitionMap(
                     coordinatorStagesScheduler.getBucketToPartitionForStagesConsumedByCoordinator(),
@@ -870,7 +873,8 @@ public class PipelinedQueryScheduler
                 });
             }
 
-            Map<StageId, StageExecution> stageExecutions = new HashMap<>();
+            // Preserve topological ordering in stageExecutionsMap
+            Map<StageId, StageExecution> stageExecutions = new LinkedHashMap<>();
             for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 Optional<SqlStage> parentStage = stageManager.getParent(stage.getStageId());
                 TaskLifecycleListener taskLifecycleListener;
@@ -932,13 +936,18 @@ public class PipelinedQueryScheduler
         private static Map<PlanFragmentId, Optional<int[]>> createBucketToPartitionMap(
                 Map<PlanFragmentId, Optional<int[]>> bucketToPartitionForStagesConsumedByCoordinator,
                 StageManager stageManager,
-                Function<PartitioningHandle, NodePartitionMap> partitioningCache)
+                Function<PartitioningKey, NodePartitionMap> partitioningCache)
         {
             ImmutableMap.Builder<PlanFragmentId, Optional<int[]>> result = ImmutableMap.builder();
             result.putAll(bucketToPartitionForStagesConsumedByCoordinator);
             for (SqlStage stage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 PlanFragment fragment = stage.getFragment();
-                Optional<int[]> bucketToPartition = getBucketToPartition(fragment.getPartitioning(), partitioningCache, fragment.getRoot(), fragment.getRemoteSourceNodes());
+                Optional<int[]> bucketToPartition = getBucketToPartition(
+                        fragment.getPartitioning(),
+                        partitioningCache,
+                        fragment.getRoot(),
+                        fragment.getRemoteSourceNodes(),
+                        fragment.getPartitionCount());
                 for (SqlStage childStage : stageManager.getChildren(stage.getStageId())) {
                     result.put(childStage.getFragment().getId(), bucketToPartition);
                 }
@@ -948,11 +957,12 @@ public class PipelinedQueryScheduler
 
         private static Optional<int[]> getBucketToPartition(
                 PartitioningHandle partitioningHandle,
-                Function<PartitioningHandle, NodePartitionMap> partitioningCache,
+                Function<PartitioningKey, NodePartitionMap> partitioningCache,
                 PlanNode fragmentRoot,
-                List<RemoteSourceNode> remoteSourceNodes)
+                List<RemoteSourceNode> remoteSourceNodes,
+                Optional<Integer> partitionCount)
         {
-            if (partitioningHandle.equals(SOURCE_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+            if (partitioningHandle.equals(SOURCE_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
                 return Optional.of(new int[1]);
             }
             if (searchFrom(fragmentRoot).where(node -> node instanceof TableScanNode).findFirst().isPresent()) {
@@ -960,10 +970,10 @@ public class PipelinedQueryScheduler
                     return Optional.empty();
                 }
                 // remote source requires nodePartitionMap
-                NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+                NodePartitionMap nodePartitionMap = partitioningCache.apply(new PartitioningKey(partitioningHandle, partitionCount));
                 return Optional.of(nodePartitionMap.getBucketToPartition());
             }
-            NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+            NodePartitionMap nodePartitionMap = partitioningCache.apply(new PartitioningKey(partitioningHandle, partitionCount));
             List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
             // todo this should asynchronously wait a standard timeout period before failing
             checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
@@ -980,13 +990,13 @@ public class PipelinedQueryScheduler
             for (SqlStage parentStage : stageManager.getDistributedStagesInTopologicalOrder()) {
                 for (SqlStage childStage : stageManager.getChildren(parentStage.getStageId())) {
                     PlanFragmentId fragmentId = childStage.getFragment().getId();
-                    PartitioningHandle partitioningHandle = childStage.getFragment().getPartitioningScheme().getPartitioning().getHandle();
+                    PartitioningHandle partitioningHandle = childStage.getFragment().getOutputPartitioningScheme().getPartitioning().getHandle();
 
                     PipelinedOutputBufferManager outputBufferManager;
                     if (partitioningHandle.equals(FIXED_BROADCAST_DISTRIBUTION)) {
                         outputBufferManager = new BroadcastPipelinedOutputBufferManager();
                     }
-                    else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+                    else if (partitioningHandle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
                         outputBufferManager = new ScaledPipelinedOutputBufferManager();
                     }
                     else {
@@ -1006,7 +1016,7 @@ public class PipelinedQueryScheduler
                 StageExecution stageExecution,
                 SplitSourceFactory splitSourceFactory,
                 List<StageExecution> childStageExecutions,
-                Function<PartitioningHandle, NodePartitionMap> partitioningCache,
+                Function<PartitioningKey, NodePartitionMap> partitioningCache,
                 NodeScheduler nodeScheduler,
                 NodePartitioningManager nodePartitioningManager,
                 int splitBatchSize,
@@ -1017,6 +1027,7 @@ public class PipelinedQueryScheduler
             Session session = queryStateMachine.getSession();
             PlanFragment fragment = stageExecution.getFragment();
             PartitioningHandle partitioningHandle = fragment.getPartitioning();
+            Optional<Integer> partitionCount = fragment.getPartitionCount();
             Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(session, fragment);
             if (!splitSources.isEmpty()) {
                 queryStateMachine.addStateChangeListener(new StateChangeListener<>()
@@ -1058,13 +1069,14 @@ public class PipelinedQueryScheduler
                         () -> childStageExecutions.stream().anyMatch(StageExecution::isAnyTaskBlocked));
             }
 
-            if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
+            if (partitioningHandle.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
                 Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
                         .map(StageExecution::getTaskStatuses)
                         .flatMap(List::stream)
                         .collect(toImmutableList());
                 Supplier<Collection<TaskStatus>> writerTasksProvider = stageExecution::getTaskStatuses;
 
+                checkState(partitionCount.isPresent(), "Partition count cannot be empty when scale writers is used");
                 ScaledWriterScheduler scheduler = new ScaledWriterScheduler(
                         stageExecution,
                         sourceTasksProvider,
@@ -1072,7 +1084,7 @@ public class PipelinedQueryScheduler
                         nodeScheduler.createNodeSelector(session, Optional.empty()),
                         executor,
                         getWriterMinSize(session),
-                        isTaskScaleWritersEnabled(session) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session));
+                        partitionCount.get());
 
                 whenAllStages(childStageExecutions, StageExecution.State::isDone)
                         .addListener(scheduler::finish, directExecutor());
@@ -1082,7 +1094,7 @@ public class PipelinedQueryScheduler
 
             if (splitSources.isEmpty()) {
                 // all sources are remote
-                NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+                NodePartitionMap nodePartitionMap = partitioningCache.apply(new PartitioningKey(partitioningHandle, partitionCount));
                 List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
@@ -1104,7 +1116,7 @@ public class PipelinedQueryScheduler
             }
             else {
                 // remote source requires nodePartitionMap
-                NodePartitionMap nodePartitionMap = partitioningCache.apply(partitioningHandle);
+                NodePartitionMap nodePartitionMap = partitioningCache.apply(new PartitioningKey(partitioningHandle, partitionCount));
                 stageNodeList = nodePartitionMap.getPartitionToNode();
                 bucketNodeMap = nodePartitionMap.asBucketNodeMap();
             }
@@ -1518,6 +1530,15 @@ public class PipelinedQueryScheduler
         public Optional<StageId> getFailedStageId()
         {
             return failedStageId;
+        }
+    }
+
+    private record PartitioningKey(PartitioningHandle handle, Optional<Integer> partitionCount)
+    {
+        public PartitioningKey(PartitioningHandle handle, Optional<Integer> partitionCount)
+        {
+            this.handle = requireNonNull(handle, "handle cannot be null");
+            this.partitionCount = requireNonNull(partitionCount, "partitionCount cannot be null");
         }
     }
 }

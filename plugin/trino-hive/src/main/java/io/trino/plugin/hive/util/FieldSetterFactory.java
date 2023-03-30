@@ -113,18 +113,17 @@ public final class FieldSetterFactory
         if (DATE.equals(type)) {
             return new DateFieldSetter(rowInspector, row, field);
         }
-        if (type instanceof TimestampType) {
-            return new TimestampFieldSetter(rowInspector, row, field, (TimestampType) type, timeZone);
+        if (type instanceof TimestampType timestampType) {
+            return new TimestampFieldSetter(rowInspector, row, field, timestampType, timeZone);
         }
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             return new DecimalFieldSetter(rowInspector, row, field, decimalType);
         }
-        if (type instanceof ArrayType) {
-            return new ArrayFieldSetter(rowInspector, row, field, ((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return new ArrayFieldSetter(rowInspector, row, field, arrayType.getElementType());
         }
-        if (type instanceof MapType) {
-            return new MapFieldSetter(rowInspector, row, field, ((MapType) type).getKeyType(), ((MapType) type).getValueType());
+        if (type instanceof MapType mapType) {
+            return new MapFieldSetter(rowInspector, row, field, mapType.getKeyType(), mapType.getValueType());
         }
         if (type instanceof RowType) {
             return new RowFieldSetter(rowInspector, row, field, type.getTypeParameters());

@@ -34,9 +34,7 @@ public class TestWebUiConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("web-ui.enabled", "false")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("web-ui.enabled", "false");
 
         WebUiConfig expected = new WebUiConfig()
                 .setEnabled(false);

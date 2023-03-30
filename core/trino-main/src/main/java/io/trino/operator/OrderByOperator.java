@@ -18,7 +18,6 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spiller.Spiller;
@@ -157,7 +156,7 @@ public class OrderByOperator
 
     private Optional<Spiller> spiller = Optional.empty();
     private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
-    private Runnable finishMemoryRevoke = () -> {};
+    private Optional<Runnable> finishMemoryRevoke = Optional.empty();
 
     private Iterator<Optional<Page>> sortedPages;
 
@@ -205,6 +204,9 @@ public class OrderByOperator
             return;
         }
         checkSuccess(spillInProgress, "spilling failed");
+        if (finishMemoryRevoke.isPresent()) {
+            return;
+        }
 
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
@@ -220,7 +222,8 @@ public class OrderByOperator
                     // spill since revocable memory could not be converted to user memory immediately
                     // TODO: this should be asynchronous
                     getFutureValue(spillToDisk());
-                    finishMemoryRevoke.run();
+                    finishMemoryRevoke.orElseThrow().run();
+                    finishMemoryRevoke = Optional.empty();
                 }
             }
 
@@ -282,11 +285,7 @@ public class OrderByOperator
             return null;
         }
         Page nextPage = next.get();
-        Block[] blocks = new Block[outputChannels.length];
-        for (int i = 0; i < outputChannels.length; i++) {
-            blocks[i] = nextPage.getBlock(outputChannels[i]);
-        }
-        return new Page(nextPage.getPositionCount(), blocks);
+        return nextPage.getColumns(outputChannels);
     }
 
     @Override
@@ -302,7 +301,7 @@ public class OrderByOperator
 
         if (revocableMemoryContext.getBytes() == 0) {
             verify(pageIndex.getPositionCount() == 0 || state == State.HAS_OUTPUT);
-            finishMemoryRevoke = () -> {};
+            finishMemoryRevoke = Optional.of(() -> {});
             return immediateVoidFuture();
         }
 
@@ -317,10 +316,10 @@ public class OrderByOperator
 
         pageIndex.sort(sortChannels, sortOrder);
         spillInProgress = spiller.get().spill(pageIndex.getSortedPages());
-        finishMemoryRevoke = () -> {
+        finishMemoryRevoke = Optional.of(() -> {
             pageIndex.clear();
             updateMemoryUsage();
-        };
+        });
 
         return spillInProgress;
     }
@@ -328,8 +327,8 @@ public class OrderByOperator
     @Override
     public void finishMemoryRevoke()
     {
-        finishMemoryRevoke.run();
-        finishMemoryRevoke = () -> {};
+        finishMemoryRevoke.orElseThrow().run();
+        finishMemoryRevoke = Optional.empty();
     }
 
     private List<WorkProcessor<Page>> getSpilledPages()

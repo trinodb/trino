@@ -18,6 +18,7 @@ import io.trino.spi.Experimental;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;
+import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
 @Experimental(eta = "2023-01-01")
@@ -61,7 +62,7 @@ public interface Exchange
      * @return ExchangeSinkInstanceHandle to be sent to a worker that is needed to create an {@link ExchangeSink} instance using
      * {@link ExchangeManager#createSink(ExchangeSinkInstanceHandle)}
      */
-    ExchangeSinkInstanceHandle instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId);
+    CompletableFuture<ExchangeSinkInstanceHandle> instantiateSink(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
     /**
      * Update {@link ExchangeSinkInstanceHandle}. Update is requested by {@link ExchangeSink}.
@@ -71,7 +72,7 @@ public interface Exchange
      * @param taskAttemptId - attempt id
      * @return updated handle
      */
-    ExchangeSinkInstanceHandle updateSinkInstanceHandle(ExchangeSinkHandle sinkHandle, int taskAttemptId);
+    CompletableFuture<ExchangeSinkInstanceHandle> updateSinkInstanceHandle(ExchangeSinkHandle sinkHandle, int taskAttemptId);
 
     /**
      * Called by the engine when an attempt finishes successfully.

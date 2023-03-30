@@ -1110,9 +1110,7 @@ public class TestAvroDecoder
                         null));
         data = new GenericRecordBuilder(schema)
                 .set("f10", array)
-                .set("f11", ImmutableMap.builder()
-                        .put("key1", new GenericRecordBuilder(schema.getField("f11").schema().getTypes().get(1).getValueType().getTypes().get(1)).build())
-                        .buildOrThrow())
+                .set("f11", ImmutableMap.of("key1", new GenericRecordBuilder(schema.getField("f11").schema().getTypes().get(1).getValueType().getTypes().get(1)).build()))
                 .set("f12", new GenericRecordBuilder(schema.getField("f12").schema().getTypes().get(1)).build())
                 .build();
         decodedRow = buildAndDecodeColumn(row, "record_field", schema.toString(), data);

@@ -34,8 +34,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.apache.hadoop.fs.Path;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -54,10 +52,10 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
@@ -66,10 +64,10 @@ public class SortingFileWriter
 {
     private static final Logger log = Logger.get(SortingFileWriter.class);
 
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SortingFileWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(SortingFileWriter.class);
 
     private final TrinoFileSystem fileSystem;
-    private final Path tempFilePrefix;
+    private final String tempFilePrefix;
     private final int maxOpenTempFiles;
     private final List<Type> types;
     private final List<Integer> sortFields;
@@ -83,7 +81,7 @@ public class SortingFileWriter
 
     public SortingFileWriter(
             TrinoFileSystem fileSystem,
-            Path tempFilePrefix,
+            String tempFilePrefix,
             FileWriter outputWriter,
             DataSize maxMemory,
             int maxOpenTempFiles,

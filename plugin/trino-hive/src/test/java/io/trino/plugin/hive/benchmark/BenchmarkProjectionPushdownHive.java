@@ -281,8 +281,7 @@ public class BenchmarkProjectionPushdownHive
                 }
                 return builder.build();
             }
-            if (type instanceof ArrayType) {
-                ArrayType arrayType = (ArrayType) type;
+            if (type instanceof ArrayType arrayType) {
                 Type elementType = arrayType.getElementType();
 
                 BlockBuilder blockBuilder = type.createBlockBuilder(null, rowCount);

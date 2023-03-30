@@ -54,7 +54,7 @@ public class CassandraPartitionManager
         this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
     }
 
-    public CassandraPartitionResult getPartitions(CassandraTableHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
+    public CassandraPartitionResult getPartitions(CassandraNamedRelationHandle cassandraTableHandle, TupleDomain<ColumnHandle> tupleDomain)
     {
         // TODO support repeated applyFilter
         checkArgument(cassandraTableHandle.getPartitions().isEmpty(), "getPartitions() currently does not take into account table handle's partitions");
@@ -82,7 +82,7 @@ public class CassandraPartitionManager
                                 .flatMap(partitionTupleDomain -> partitionTupleDomain.getDomains()
                                         .map(Map::keySet)
                                         .map(Set::stream))
-                                .orElse(Stream.empty()))
+                                .orElseGet(Stream::empty))
                         .collect(toImmutableSet());
                 remainingTupleDomain = tupleDomain.filter((column, domain) -> !usedPartitionColumns.contains(column));
             }

@@ -109,7 +109,7 @@ public class TestWindowNode
                 Optional.empty());
 
         PlanNodeId id = newId();
-        WindowNode.Specification specification = new WindowNode.Specification(
+        DataOrganizationSpecification specification = new DataOrganizationSpecification(
                 ImmutableList.of(columnA),
                 Optional.of(new OrderingScheme(
                         ImmutableList.of(columnB),

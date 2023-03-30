@@ -42,6 +42,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
@@ -85,19 +86,21 @@ public class DistributedQueryRunner
     private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
 
-    private final TestingDiscoveryServer discoveryServer;
-    private final TestingTrinoServer coordinator;
-    private final Optional<TestingTrinoServer> backupCoordinator;
-    private final Runnable registerNewWorker;
+    private TestingDiscoveryServer discoveryServer;
+    private TestingTrinoServer coordinator;
+    private Optional<TestingTrinoServer> backupCoordinator;
+    private Runnable registerNewWorker;
     private final List<TestingTrinoServer> servers = new CopyOnWriteArrayList<>();
     private final List<FunctionBundle> functionBundles = new CopyOnWriteArrayList<>(ImmutableList.of(AbstractTestQueries.CUSTOM_FUNCTIONS));
     private final List<Plugin> plugins = new CopyOnWriteArrayList<>();
 
     private final Closer closer = Closer.create();
 
-    private final TestingTrinoClient trinoClient;
+    private TestingTrinoClient trinoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+
+    private boolean closed;
 
     public static Builder<?> builder(Session defaultSession)
     {
@@ -176,7 +179,7 @@ public class DistributedQueryRunner
         }
 
         // copy session using property manager in coordinator
-        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials());
+        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials(), defaultSession.getExchangeEncryptionKey());
         this.trinoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
 
         waitForAllNodesGloballyVisible();
@@ -234,8 +237,7 @@ public class DistributedQueryRunner
                 .put("node-manager.http-client.min-threads", "1") // default 8
                 .put("exchange.page-buffer-client.max-callback-threads", "5") // default 25
                 .put("exchange.http-client.idle-timeout", "1h")
-                .put("task.max-index-memory", "16kB") // causes index joins to fault load
-                .put("distributed-index-joins-enabled", "true");
+                .put("task.max-index-memory", "16kB"); // causes index joins to fault load
         if (coordinator) {
             propertiesBuilder.put("node-scheduler.include-coordinator", "true");
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
@@ -358,6 +360,12 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public ExchangeManager getExchangeManager()
+    {
+        return coordinator.getExchangeManager();
+    }
+
+    @Override
     public PageSourceManager getPageSourceManager()
     {
         return coordinator.getPageSourceManager();
@@ -382,7 +390,7 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public TestingGroupProvider getGroupProvider()
+    public TestingGroupProviderManager getGroupProvider()
     {
         return coordinator.getGroupProvider();
     }
@@ -476,17 +484,7 @@ public class DistributedQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        lock.readLock().lock();
-        try {
-            return trinoClient.execute(session, sql).getResult();
-        }
-        catch (Throwable e) {
-            e.addSuppressed(new Exception("SQL: " + sql));
-            throw e;
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        return executeWithQueryId(session, sql).getResult();
     }
 
     public MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
@@ -495,6 +493,10 @@ public class DistributedQueryRunner
         try {
             ResultWithQueryId<MaterializedResult> result = trinoClient.execute(session, sql);
             return new MaterializedResultWithQueryId(result.getQueryId(), result.getResult());
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("SQL: " + sql));
+            throw e;
         }
         finally {
             lock.readLock().unlock();
@@ -559,6 +561,9 @@ public class DistributedQueryRunner
     @Override
     public final void close()
     {
+        if (closed) {
+            return;
+        }
         cancelAllQueries();
         try {
             closer.close();
@@ -566,6 +571,17 @@ public class DistributedQueryRunner
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        discoveryServer = null;
+        coordinator = null;
+        backupCoordinator = Optional.empty();
+        registerNewWorker = () -> {
+            throw new IllegalStateException("Already closed");
+        };
+        servers.clear();
+        functionBundles.clear();
+        plugins.clear();
+        trinoClient = null;
+        closed = true;
     }
 
     private void cancelAllQueries()
@@ -602,7 +618,7 @@ public class DistributedQueryRunner
         private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
         private Optional<Map<String, String>> backupCoordinatorProperties = Optional.empty();
-        private Consumer<QueryRunner> additionalSetup = querRunner -> {};
+        private Consumer<QueryRunner> additionalSetup = queryRunner -> {};
         private String environment = ENVIRONMENT;
         private Module additionalModule = EMPTY_MODULE;
         private Optional<Path> baseDataDir = Optional.empty();

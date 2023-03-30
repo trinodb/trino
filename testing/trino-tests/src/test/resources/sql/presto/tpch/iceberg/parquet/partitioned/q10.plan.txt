@@ -1,0 +1,20 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (acctbal, address, comment_5, custkey_4, name, name_9, phone)
+            local exchange (GATHER, SINGLE, [])
+                partial aggregation over (acctbal, address, comment_5, custkey_4, name, name_9, phone)
+                    join (INNER, REPLICATED):
+                        join (INNER, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["custkey_4"])
+                                scan customer
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["custkey"])
+                                    join (INNER, PARTITIONED):
+                                        remote exchange (REPARTITION, HASH, ["orderkey"])
+                                            scan lineitem
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["orderkey_0"])
+                                                scan orders
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan nation

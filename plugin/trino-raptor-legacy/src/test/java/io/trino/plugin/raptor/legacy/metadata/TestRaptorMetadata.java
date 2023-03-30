@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Ticker.systemTicker;
@@ -112,6 +111,7 @@ public class TestRaptorMetadata
     public void cleanupDatabase()
     {
         dummyHandle.close();
+        dummyHandle = null;
     }
 
     @Test
@@ -650,17 +650,6 @@ public class TestRaptorMetadata
     }
 
     @Test
-    public void testTransactionSelect()
-    {
-        metadata.createTable(SESSION, getOrdersTable(), false);
-
-        // reads do not create a transaction
-        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
-        assertInstanceOf(tableHandle, RaptorTableHandle.class);
-        assertFalse(((RaptorTableHandle) tableHandle).getTransactionId().isPresent());
-    }
-
-    @Test
     public void testTransactionTableWrite()
     {
         // start table creation
@@ -696,48 +685,6 @@ public class TestRaptorMetadata
 
         // commit insert
         metadata.finishInsert(SESSION, insertHandle, ImmutableList.of(), ImmutableList.of());
-        assertTrue(transactionExists(transactionId));
-        assertTrue(transactionSuccessful(transactionId));
-    }
-
-    @Test
-    public void testTransactionDelete()
-    {
-        // creating a table allocates a transaction
-        long transactionId = 1;
-        metadata.createTable(SESSION, getOrdersTable(), false);
-        assertTrue(transactionSuccessful(transactionId));
-
-        // start delete
-        transactionId++;
-        ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
-        tableHandle = metadata.beginDelete(SESSION, tableHandle, NO_RETRIES);
-
-        // verify transaction is assigned for deletion handle
-        assertInstanceOf(tableHandle, RaptorTableHandle.class);
-        RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        assertEquals(raptorTableHandle.getTableId(), 1);
-        assertEquals(raptorTableHandle.getTransactionId(), OptionalLong.of(transactionId));
-
-        // transaction is in progress
-        assertTrue(transactionExists(transactionId));
-        assertNull(transactionSuccessful(transactionId));
-
-        // rollback delete
-        metadata.rollback();
-        assertTrue(transactionExists(transactionId));
-        assertFalse(transactionSuccessful(transactionId));
-
-        // start another delete
-        transactionId++;
-        tableHandle = metadata.beginDelete(SESSION, tableHandle, NO_RETRIES);
-
-        // transaction is in progress
-        assertTrue(transactionExists(transactionId));
-        assertNull(transactionSuccessful(transactionId));
-
-        // commit delete
-        metadata.finishDelete(SESSION, tableHandle, ImmutableList.of());
         assertTrue(transactionExists(transactionId));
         assertTrue(transactionSuccessful(transactionId));
     }

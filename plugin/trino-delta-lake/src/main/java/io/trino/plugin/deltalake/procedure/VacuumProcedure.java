@@ -35,10 +35,10 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
-import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -46,6 +46,7 @@ import javax.inject.Provider;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -55,6 +56,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
@@ -68,6 +70,7 @@ public class VacuumProcedure
         implements Provider<Procedure>
 {
     private static final Logger log = Logger.get(VacuumProcedure.class);
+    private static final int DELETE_BATCH_SIZE = 1000;
 
     private static final MethodHandle VACUUM;
 
@@ -127,7 +130,7 @@ public class VacuumProcedure
         }
         catch (Exception e) {
             // This is not categorized as TrinoException. All possible external failures should be handled explicitly.
-            throw new RuntimeException(format("Failure when vacuuming %s.%s with retention %s", schema, table, retention), e);
+            throw new RuntimeException(format("Failure when vacuuming %s.%s with retention %s: %s", schema, table, retention, e), e);
         }
     }
 
@@ -161,15 +164,16 @@ public class VacuumProcedure
 
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
         SchemaTableName tableName = new SchemaTableName(schema, table);
-        DeltaLakeTableHandle handle = metadata.getTableHandle(session, tableName);
-        checkProcedureArgument(handle != null, "Table '%s' does not exist", tableName);
+        ConnectorTableHandle connectorTableHandle = metadata.getTableHandle(session, tableName);
+        checkProcedureArgument(connectorTableHandle != null, "Table '%s' does not exist", tableName);
+        DeltaLakeTableHandle handle = checkValidTableHandle(connectorTableHandle);
 
         accessControl.checkCanInsertIntoTable(null, tableName);
         accessControl.checkCanDeleteFromTable(null, tableName);
 
-        TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(tableName, new Path(handle.getLocation()), session);
-        Path tableLocation = tableSnapshot.getTableLocation();
-        Path transactionLogDir = getTransactionLogDir(tableLocation);
+        TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(tableName, handle.getLocation(), session);
+        String tableLocation = tableSnapshot.getTableLocation();
+        String transactionLogDir = getTransactionLogDir(tableLocation);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         String commonPathPrefix = tableLocation + "/";
         String queryId = session.getQueryId();
@@ -209,16 +213,17 @@ public class VacuumProcedure
         long retainedUnknownFiles = 0;
         long removedFiles = 0;
 
+        List<String> filesToDelete = new ArrayList<>();
         FileIterator listing = fileSystem.listFiles(tableLocation.toString());
         while (listing.hasNext()) {
             FileEntry entry = listing.next();
-            String path = entry.path();
+            String location = entry.location();
             checkState(
-                    path.startsWith(commonPathPrefix),
+                    location.startsWith(commonPathPrefix),
                     "Unexpected path [%s] returned when listing files under [%s]",
-                    path,
+                    location,
                     tableLocation);
-            String relativePath = path.substring(commonPathPrefix.length());
+            String relativePath = location.substring(commonPathPrefix.length());
             if (relativePath.isEmpty()) {
                 // A file returned for "tableLocation/", might be possible on S3.
                 continue;
@@ -227,35 +232,38 @@ public class VacuumProcedure
 
             // ignore tableLocation/_delta_log/**
             if (relativePath.equals(TRANSACTION_LOG_DIRECTORY) || relativePath.startsWith(TRANSACTION_LOG_DIRECTORY + "/")) {
-                log.debug("[%s] skipping a file inside transaction log dir: %s", queryId, path);
+                log.debug("[%s] skipping a file inside transaction log dir: %s", queryId, location);
                 transactionLogFiles++;
                 continue;
             }
 
             // skip retained files
             if (retainedPaths.contains(relativePath)) {
-                log.debug("[%s] retaining a known file: %s", queryId, path);
+                log.debug("[%s] retaining a known file: %s", queryId, location);
                 retainedKnownFiles++;
                 continue;
             }
 
             // ignore recently created files
-            long modificationTime = entry.lastModified();
-            Instant modificationInstant = Instant.ofEpochMilli(modificationTime);
-            if (!modificationInstant.isBefore(threshold)) {
-                log.debug("[%s] retaining an unknown file %s with modification time %s (%s)", queryId, path, modificationTime, modificationInstant);
+            Instant modificationTime = entry.lastModified();
+            if (!modificationTime.isBefore(threshold)) {
+                log.debug("[%s] retaining an unknown file %s with modification time %s", queryId, location, modificationTime);
                 retainedUnknownFiles++;
                 continue;
             }
 
-            log.debug(
-                    "[%s] deleting file [%s] with modification time %s (%s)",
-                    queryId,
-                    path,
-                    modificationTime,
-                    modificationInstant);
-            fileSystem.deleteFile(path);
-            removedFiles++;
+            log.debug("[%s] deleting file [%s] with modification time %s", queryId, location, modificationTime);
+            filesToDelete.add(location);
+            if (filesToDelete.size() == DELETE_BATCH_SIZE) {
+                fileSystem.deleteFiles(filesToDelete);
+                removedFiles += filesToDelete.size();
+                filesToDelete.clear();
+            }
+        }
+
+        if (!filesToDelete.isEmpty()) {
+            fileSystem.deleteFiles(filesToDelete);
+            removedFiles += filesToDelete.size();
         }
 
         log.info(

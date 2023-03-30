@@ -105,6 +105,7 @@ public class TestJdbcCompatibility
             throws IOException
     {
         server.close();
+        server = null;
     }
 
     @Test

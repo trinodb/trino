@@ -14,6 +14,7 @@
 package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.Experimental;
 import io.trino.spi.TrinoException;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
@@ -34,6 +35,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -44,6 +46,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -59,6 +62,8 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 public interface ConnectorMetadata
 {
+    String MODIFYING_ROWS_MESSAGE = "This connector does not support modifying table rows";
+
     /**
      * Checks if a schema exists. The connector may have schemas that exist
      * but are not enumerable via {@link #listSchemaNames}.
@@ -217,6 +222,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
+    @Deprecated // ... and optimized implementations already removed
     default SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
     {
         return getTableSchema(session, table).getTable();
@@ -428,6 +434,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set the specified column type
+     */
+    @Experimental(eta = "2023-04-01")
+    default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    /**
      * Sets the user/role on the specified table.
      */
     default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
@@ -449,6 +464,17 @@ public interface ConnectorMetadata
     default void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+    }
+
+    /**
+     * Drop the specified field, potentially nested, from a row.
+     *
+     * @param fieldPath path to a field within the column, without leading column name.
+     */
+    @Experimental(eta = "2023-05-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping fields");
     }
 
     /**
@@ -620,89 +646,11 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the column handle that will generate row IDs for the delete operation.
-     * These IDs will be passed to the {@code deleteRows()} method of the
-     * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
-     */
-    default ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Get the column handle that will generate row IDs for the update operation.
-     * These IDs will be passed to the {@code updateRows() method of the
-     * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
-     */
-    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
-    }
-
-    /**
-     * Begin delete query.
-     *
-     * <p/>
-     * If connector does not support execution with retries, the method should throw:
-     * <pre>
-     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
-     * </pre>
-     * unless {@code retryMode} is set to {@code NO_RETRIES}.
-     */
-    default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Finish delete query
-     *
-     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
-     */
-    default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Do whatever is necessary to start an UPDATE query, returning the {@link ConnectorTableHandle}
-     * instance that will be passed to split generation, and to the {@link #finishUpdate} method.
-     *
-     * <p/>
-     * If connector does not support execution with retries, the method should throw:
-     * <pre>
-     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
-     * </pre>
-     * unless {@code retryMode} is set to {@code NO_RETRIES}.
-     *
-     * @param session The session in which to start the update operation.
-     * @param tableHandle A ConnectorTableHandle for the table to be updated.
-     * @param updatedColumns A list of the ColumnHandles of columns that will be updated by this UPDATE
-     * operation, in table column order.
-     * @return a ConnectorTableHandle that will be passed to split generation, and to the
-     * {@link #finishUpdate} method.
-     */
-    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
-    }
-
-    /**
-     * Finish an update query
-     *
-     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
-     */
-    default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
-    }
-
-    /**
      * Return the row change paradigm supported by the connector on the table.
      */
     default RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support merges");
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
     /**
@@ -712,7 +660,7 @@ public interface ConnectorMetadata
      */
     default ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support merges");
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
     /**
@@ -731,14 +679,15 @@ public interface ConnectorMetadata
      */
     default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support merges");
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
     /**
      * Finish a merge query
+     *
      * @param session The session
      * @param tableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
-     * @param fragments All fragments returned by {@link UpdatablePageSource#finish()}
+     * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
      */
     default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
@@ -1485,5 +1434,10 @@ public interface ConnectorMetadata
     default boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
         return false;
+    }
+
+    default OptionalInt getMaxWriterTasks(ConnectorSession session)
+    {
+        return OptionalInt.empty();
     }
 }

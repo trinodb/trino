@@ -48,6 +48,7 @@ public class TestPrometheusCaseInsensitiveNameMatching
     {
         if (prometheusHttpServer != null) {
             prometheusHttpServer.stop();
+            prometheusHttpServer = null;
         }
     }
 

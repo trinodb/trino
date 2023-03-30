@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import io.trino.spi.connector.CatalogHandle;
 
 import java.util.Set;
 

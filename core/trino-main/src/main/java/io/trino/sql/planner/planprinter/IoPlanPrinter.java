@@ -40,11 +40,9 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.CreateReference;
 import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
-import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
-import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
@@ -669,8 +667,7 @@ public class IoPlanPrinter
         public Void visitFilter(FilterNode node, IoPlanBuilder context)
         {
             PlanNode source = node.getSource();
-            if (source instanceof TableScanNode) {
-                TableScanNode tableScanNode = (TableScanNode) source;
+            if (source instanceof TableScanNode tableScanNode) {
                 DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(
                         plannerContext,
                         session,
@@ -696,31 +693,15 @@ public class IoPlanPrinter
         public Void visitTableFinish(TableFinishNode node, IoPlanBuilder context)
         {
             WriterTarget writerTarget = node.getTarget();
-            if (writerTarget instanceof CreateTarget) {
-                CreateTarget target = (CreateTarget) writerTarget;
+            if (writerTarget instanceof CreateTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof InsertTarget) {
-                InsertTarget target = (InsertTarget) writerTarget;
+            else if (writerTarget instanceof InsertTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getHandle().getCatalogHandle().getCatalogName(),
-                        target.getSchemaTableName().getSchemaName(),
-                        target.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof DeleteTarget) {
-                DeleteTarget target = (DeleteTarget) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandleOrElseThrow().getCatalogHandle().getCatalogName(),
-                        target.getSchemaTableName().getSchemaName(),
-                        target.getSchemaTableName().getTableName()));
-            }
-            else if (writerTarget instanceof UpdateTarget) {
-                UpdateTarget target = (UpdateTarget) writerTarget;
-                context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandleOrElseThrow().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
@@ -730,8 +711,7 @@ public class IoPlanPrinter
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget) {
-                TableWriterNode.RefreshMaterializedViewTarget target = (TableWriterNode.RefreshMaterializedViewTarget) writerTarget;
+            else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
                         target.getInsertHandle().getCatalogHandle().getCatalogName(),
                         target.getSchemaTableName().getSchemaName(),

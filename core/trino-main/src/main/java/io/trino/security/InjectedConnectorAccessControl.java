@@ -53,10 +53,10 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateSchema(securityContext, getCatalogSchemaName(schemaName));
+        accessControl.checkCanCreateSchema(securityContext, getCatalogSchemaName(schemaName), properties);
     }
 
     @Override
@@ -218,6 +218,13 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanRenameColumn(securityContext, getQualifiedObjectName(tableName));
+    }
+
+    @Override
+    public void checkCanAlterColumn(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanAlterColumn(securityContext, getQualifiedObjectName(tableName));
     }
 
     @Override
@@ -485,13 +492,19 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         checkArgument(context == null, "context must be null");
-        if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columnName, type).isEmpty()) {
-            return ImmutableList.of();
+        if (accessControl.getColumnMask(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columnName, type).isEmpty()) {
+            return Optional.empty();
         }
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)

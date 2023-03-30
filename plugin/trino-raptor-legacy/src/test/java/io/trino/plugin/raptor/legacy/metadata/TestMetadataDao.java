@@ -48,6 +48,7 @@ public class TestMetadataDao
     public void tearDown()
     {
         dummyHandle.close();
+        dummyHandle = null;
     }
 
     @Test

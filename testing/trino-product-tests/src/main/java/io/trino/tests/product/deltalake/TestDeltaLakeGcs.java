@@ -20,9 +20,9 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_GCS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
@@ -36,7 +36,7 @@ public class TestDeltaLakeGcs
     @Test(groups = {DELTA_LAKE_GCS, PROFILE_SPECIFIC_TESTS})
     public void testCreateAndSelectNationTable()
     {
-        String tableName = "nation_" + randomTableSuffix();
+        String tableName = "nation_" + randomNameSuffix();
         onTrino().executeQuery(format(
                 "CREATE TABLE delta.default.%1$s WITH (location = '%2$s/%1$s') AS SELECT * FROM tpch.tiny.nation",
                 tableName,
@@ -49,7 +49,7 @@ public class TestDeltaLakeGcs
     @Test(groups = {DELTA_LAKE_GCS, PROFILE_SPECIFIC_TESTS})
     public void testBasicWriteOperations()
     {
-        String tableName = "table_write_operations_" + randomTableSuffix();
+        String tableName = "table_write_operations_" + randomNameSuffix();
         onTrino().executeQuery(format(
                 "CREATE TABLE delta.default.%1$s (a_bigint bigint, a_varchar varchar) WITH (location = '%2$s/%1$s')",
                 tableName,

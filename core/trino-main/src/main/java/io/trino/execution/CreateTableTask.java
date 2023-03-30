@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
-import io.trino.connector.CatalogHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.QualifiedObjectName;
@@ -29,6 +28,7 @@ import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.AccessDeniedException;
@@ -55,11 +55,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
@@ -73,13 +77,12 @@ import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.trino.sql.ParameterUtils.parameterExtractor;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class CreateTableTask
@@ -124,7 +127,7 @@ public class CreateTableTask
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
-        Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
+        Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle;
         try {
@@ -150,8 +153,7 @@ public class CreateTableTask
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
         for (TableElement element : statement.getElements()) {
-            if (element instanceof ColumnDefinition) {
-                ColumnDefinition column = (ColumnDefinition) element;
+            if (element instanceof ColumnDefinition column) {
                 String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type;
                 try {
@@ -187,8 +189,7 @@ public class CreateTableTask
                         .setProperties(columnProperties)
                         .build());
             }
-            else if (element instanceof LikeClause) {
-                LikeClause likeClause = (LikeClause) element;
+            else if (element instanceof LikeClause likeClause) {
                 QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
                 if (plannerContext.getMetadata().getCatalogHandle(session, originalLikeTableName.getCatalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", originalLikeTableName.getCatalogName());
@@ -201,11 +202,18 @@ public class CreateTableTask
                 LikeClause.PropertiesOption propertiesOption = likeClause.getPropertiesOption().orElse(EXCLUDING);
                 QualifiedObjectName likeTableName = redirection.getRedirectedTableName().orElse(originalLikeTableName);
                 if (propertiesOption == INCLUDING && !catalogName.equals(likeTableName.getCatalogName())) {
-                    String message = "CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported";
                     if (!originalLikeTableName.equals(likeTableName)) {
-                        message += format(". LIKE table '%s' redirected to '%s'.", originalLikeTableName, likeTableName);
+                        throw semanticException(
+                                NOT_SUPPORTED,
+                                statement,
+                                "CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported. LIKE table '%s' redirected to '%s'.",
+                                originalLikeTableName,
+                                likeTableName);
                     }
-                    throw semanticException(NOT_SUPPORTED, statement, message);
+                    throw semanticException(
+                            NOT_SUPPORTED,
+                            statement,
+                            "CREATE TABLE LIKE table INCLUDING PROPERTIES across catalogs is not supported");
                 }
 
                 TableMetadata likeTableMetadata = plannerContext.getMetadata().getTableMetadata(session, likeTable);
@@ -261,13 +269,17 @@ public class CreateTableTask
                 parameterLookup,
                 true);
 
-        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, properties);
-
         Set<String> specifiedPropertyKeys = statement.getProperties().stream()
-                .map(property -> property.getName().getValue())
+                // property names are case-insensitive and normalized to lower case
+                .map(property -> property.getName().getValue().toLowerCase(ENGLISH))
                 .collect(toImmutableSet());
-        Map<String, Object> finalProperties = combineProperties(specifiedPropertyKeys, properties, inheritedProperties);
+        Map<String, Object> explicitlySetProperties = properties.keySet().stream()
+                .peek(key -> verify(key.equals(key.toLowerCase(ENGLISH)), "Property name '%s' not in lower-case", key))
+                .filter(specifiedPropertyKeys::contains)
+                .collect(toImmutableMap(Function.identity(), properties::get));
+        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName, explicitlySetProperties);
 
+        Map<String, Object> finalProperties = combineProperties(specifiedPropertyKeys, properties, inheritedProperties);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
             plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, statement.isNotExists());

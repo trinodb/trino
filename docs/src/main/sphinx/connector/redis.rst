@@ -29,8 +29,8 @@ Configuration
 -------------
 
 To configure the Redis connector, create a catalog properties file
-``etc/catalog/redis.properties`` with the following content,
-replacing the properties as appropriate:
+``etc/catalog/example.properties`` with the following content, replacing the
+properties as appropriate:
 
 .. code-block:: text
 
@@ -284,6 +284,8 @@ following sections.
 
 Pushdown
 ^^^^^^^^
+
+.. include:: pushdown-correctness-behavior.fragment
 
 .. _redis-predicate-pushdown:
 

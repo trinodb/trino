@@ -23,6 +23,7 @@ import org.assertj.core.api.RecursiveComparisonAssert;
 import org.assertj.core.api.ThrowableAssertAlternative;
 import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.assertj.core.presentation.StandardRepresentation;
+import org.intellij.lang.annotations.Language;
 
 import java.util.function.Function;
 
@@ -50,12 +51,12 @@ public class ParserAssert
         return createAssertion(new SqlParser()::createType, sql);
     }
 
-    public static AssertProvider<ParserAssert> expression(String sql)
+    public static AssertProvider<ParserAssert> expression(@Language("SQL") String sql)
     {
         return createAssertion(ParserAssert::createExpression, sql);
     }
 
-    public static AssertProvider<ParserAssert> statement(String sql)
+    public static AssertProvider<ParserAssert> statement(@Language("SQL") String sql)
     {
         return createAssertion(ParserAssert::createStatement, sql);
     }
@@ -75,14 +76,14 @@ public class ParserAssert
         return new SqlParser().createStatement(statement, new ParsingOptions(AS_DECIMAL));
     }
 
-    public static ThrowableAssertAlternative<ParsingException> assertExpressionIsInvalid(String sql)
+    public static ThrowableAssertAlternative<ParsingException> assertExpressionIsInvalid(@Language("SQL") String sql)
     {
         return assertThatExceptionOfType(ParsingException.class)
                 .as("expression: %s", sql)
                 .isThrownBy(() -> createExpression(sql));
     }
 
-    public static ThrowableAssertAlternative<ParsingException> assertStatementIsInvalid(String sql)
+    public static ThrowableAssertAlternative<ParsingException> assertStatementIsInvalid(@Language("SQL") String sql)
     {
         return assertThatExceptionOfType(ParsingException.class)
                 .as("statement: %s", sql)

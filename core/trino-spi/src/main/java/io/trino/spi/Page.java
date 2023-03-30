@@ -16,7 +16,6 @@ package io.trino.spi;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,15 +23,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Page
 {
-    public static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Page.class).instanceSize());
+    public static final int INSTANCE_SIZE = instanceSize(Page.class);
     private static final Block[] EMPTY_BLOCKS = new Block[0];
+
+    public static long getInstanceSizeInBytes(int blockCount)
+    {
+        return INSTANCE_SIZE + sizeOfObjectArray(blockCount);
+    }
 
     /**
      * Visible to give trusted classes like {@link PageBuilder} access to a constructor that doesn't
@@ -202,8 +206,7 @@ public final class Page
 
         for (int i = 0; i < blocks.length; i++) {
             Block block = blocks[i];
-            if (block instanceof DictionaryBlock) {
-                DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
+            if (block instanceof DictionaryBlock dictionaryBlock) {
                 relatedDictionaryBlocks.computeIfAbsent(dictionaryBlock.getDictionarySourceId(), id -> new DictionaryBlockIndexes())
                         .addBlock(dictionaryBlock, i);
             }
@@ -344,7 +347,7 @@ public final class Page
 
     private long updateRetainedSize()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(blocks);
+        long retainedSizeInBytes = getInstanceSizeInBytes(blocks.length);
         for (Block block : blocks) {
             retainedSizeInBytes += block.getRetainedSizeInBytes();
         }

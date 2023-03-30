@@ -119,11 +119,10 @@ public class TransformCorrelatedInPredicateToJoin
             return Result.empty();
         }
         Expression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
-        if (!(assignmentExpression instanceof InPredicate)) {
+        if (!(assignmentExpression instanceof InPredicate inPredicate)) {
             return Result.empty();
         }
 
-        InPredicate inPredicate = (InPredicate) assignmentExpression;
         Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
 
         return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator(), context.getSession());

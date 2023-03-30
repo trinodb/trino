@@ -143,6 +143,21 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     }
 
     @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
+    public void testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    {
+        // orderkey has high cardinality, suppkey has low cardinality due to filter
+        assertQueryDynamicFilters(
+                noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
+                "SELECT * FROM lineitem l1 " +
+                        "JOIN tpch.tiny.lineitem l2 ON l1.orderkey = l2.orderkey AND l1.suppkey = l2.suppkey " +
+                        "WHERE l2.suppkey BETWEEN 1 AND 10",
+                Set.of(ORDERKEY_HANDLE, SUPP_KEY_HANDLE),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        multipleValues(BIGINT, LongStream.rangeClosed(1L, 10L).boxed().collect(toImmutableList())))));
+    }
+
+    @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
     public void testJoinWithSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
     {
         assertQueryDynamicFilters(

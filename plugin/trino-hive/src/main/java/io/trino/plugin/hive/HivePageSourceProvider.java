@@ -20,18 +20,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.orc.metadata.ColumnMetadata;
-import io.trino.orc.metadata.OrcColumnId;
-import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.hive.HivePageSource.BucketValidator;
 import io.trino.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithProjections;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.orc.OrcFileWriterFactory;
-import io.trino.plugin.hive.orc.OrcPageSource;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -50,7 +45,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.inject.Inject;
 
@@ -70,20 +64,16 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static io.trino.plugin.hive.AbstractHiveAcidWriters.ORIGINAL_FILE_PATH_MATCHER;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
-import static io.trino.plugin.hive.HiveUpdatablePageSource.ACID_ROW_STRUCT_COLUMN_ID;
-import static io.trino.plugin.hive.HiveUpdatablePageSource.ORIGINAL_FILE_PATH_MATCHER;
-import static io.trino.plugin.hive.orc.OrcTypeToHiveTypeTranslator.fromOrcTypeToHiveType;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
-import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -91,19 +81,11 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    // We partitions the rowId space between splits assigning each split 2^42 ids.
-    // As we need to encode the split number in id it allows us to have at most 2^22 splits per query
-    private static final int PER_SPLIT_ROW_ID_BITS = 42;
-    private static final int SPLIT_ID_BITS = 64 - PER_SPLIT_ROW_ID_BITS;
-    private static final long MAX_NUMBER_OF_ROWS_PER_SPLIT = 1L << PER_SPLIT_ROW_ID_BITS;
-    private static final long MAX_NUMBER_OF_SPLITS = 1L << SPLIT_ID_BITS;
-
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final int domainCompactionThreshold;
     private final Set<HivePageSourceFactory> pageSourceFactories;
     private final Set<HiveRecordCursorProvider> cursorProviders;
-    private final Optional<OrcFileWriterFactory> orcFileWriterFactory;
 
     @Inject
     public HivePageSourceProvider(
@@ -112,20 +94,7 @@ public class HivePageSourceProvider
             HiveConfig hiveConfig,
             Set<HivePageSourceFactory> pageSourceFactories,
             Set<HiveRecordCursorProvider> cursorProviders,
-            GenericHiveRecordCursorProvider genericCursorProvider,
-            OrcFileWriterFactory orcFileWriterFactory)
-    {
-        this(typeManager, hdfsEnvironment, hiveConfig, pageSourceFactories, cursorProviders, genericCursorProvider, Optional.of(orcFileWriterFactory));
-    }
-
-    public HivePageSourceProvider(
-            TypeManager typeManager,
-            HdfsEnvironment hdfsEnvironment,
-            HiveConfig hiveConfig,
-            Set<HivePageSourceFactory> pageSourceFactories,
-            Set<HiveRecordCursorProvider> cursorProviders,
-            GenericHiveRecordCursorProvider genericCursorProvider,
-            Optional<OrcFileWriterFactory> orcFileWriterFactory)
+            GenericHiveRecordCursorProvider genericCursorProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -135,7 +104,6 @@ public class HivePageSourceProvider
                 .addAll(requireNonNull(cursorProviders, "cursorProviders is null"))
                 .add(genericCursorProvider) // generic should be last, as a fallback option
                 .build();
-        this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
     }
 
     @Override
@@ -157,16 +125,6 @@ public class HivePageSourceProvider
         List<HiveColumnHandle> hiveColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
-
-        List<HiveColumnHandle> dependencyColumns = hiveColumns.stream()
-                .filter(HiveColumnHandle::isBaseColumn)
-                .collect(toImmutableList());
-
-        if (hiveTable.isAcidUpdate()) {
-            hiveColumns = hiveTable.getUpdateProcessor()
-                    .orElseThrow(() -> new IllegalArgumentException("update processor not present"))
-                    .mergeWithNonUpdatedColumns(hiveColumns);
-        }
 
         Path path = new Path(hiveSplit.getPath());
         boolean originalFile = ORIGINAL_FILE_PATH_MATCHER.matcher(path.toString()).matches();
@@ -216,40 +174,7 @@ public class HivePageSourceProvider
                 columnMappings);
 
         if (pageSource.isPresent()) {
-            ConnectorPageSource source = pageSource.get();
-            if (hiveTable.isAcidDelete() || hiveTable.isAcidUpdate()) {
-                checkArgument(orcFileWriterFactory.isPresent(), "orcFileWriterFactory not supplied but required for DELETE and UPDATE");
-                HivePageSource hivePageSource = (HivePageSource) source;
-                OrcPageSource orcPageSource = (OrcPageSource) hivePageSource.getDelegate();
-                ColumnMetadata<OrcType> columnMetadata = orcPageSource.getColumnTypes();
-                int acidRowColumnId = originalFile ? 0 : ACID_ROW_STRUCT_COLUMN_ID;
-                HiveType rowType = fromOrcTypeToHiveType(columnMetadata.get(new OrcColumnId(acidRowColumnId)), columnMetadata);
-
-                long currentSplitNumber = hiveSplit.getSplitNumber();
-                if (currentSplitNumber >= MAX_NUMBER_OF_SPLITS) {
-                    throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, format("Number of splits is higher than maximum possible number of splits %d", MAX_NUMBER_OF_SPLITS));
-                }
-                long initialRowId = currentSplitNumber << PER_SPLIT_ROW_ID_BITS;
-                return new HiveUpdatablePageSource(
-                        hiveTable,
-                        hiveSplit.getPartitionName(),
-                        hiveSplit.getStatementId(),
-                        source,
-                        typeManager,
-                        hiveSplit.getTableBucketNumber(),
-                        path,
-                        originalFile,
-                        orcFileWriterFactory.get(),
-                        configuration,
-                        session,
-                        rowType,
-                        dependencyColumns,
-                        hiveTable.getTransaction().getOperation(),
-                        initialRowId,
-                        MAX_NUMBER_OF_ROWS_PER_SPLIT);
-            }
-
-            return source;
+            return pageSource.get();
         }
         throw new RuntimeException("Could not find a file reader for split " + hiveSplit);
     }

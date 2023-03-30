@@ -21,7 +21,6 @@ import com.google.common.io.Closer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
@@ -30,6 +29,7 @@ import io.trino.connector.TestingTableFunctions.MonomorphicStaticReturnTypeFunct
 import io.trino.connector.TestingTableFunctions.OnlyPassThroughFunction;
 import io.trino.connector.TestingTableFunctions.PassThroughFunction;
 import io.trino.connector.TestingTableFunctions.PolymorphicStaticReturnTypeFunction;
+import io.trino.connector.TestingTableFunctions.RequiredColumnsFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentFunction;
 import io.trino.connector.TestingTableFunctions.TableArgumentRowSemanticsFunction;
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
@@ -64,6 +64,7 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
@@ -99,6 +100,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -120,6 +122,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
@@ -224,7 +227,7 @@ public class TestAnalyzer
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
-    private final Closer closer = Closer.create();
+    private Closer closer;
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private PlannerContext plannerContext;
@@ -6622,9 +6625,40 @@ public class TestAnalyzer
                 .hasMessage("line 1:23: Column 'table_alias.a' cannot be resolved");
     }
 
+    @Test
+    public void testTableFunctionRequiredColumns()
+    {
+        // the function required_column_function specifies columns 0 and 1 from table argument "INPUT" as required.
+        analyze("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(t1)))
+                """);
+
+        analyze("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(SELECT 1, 2, 3)))
+                """);
+
+        assertFails("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(SELECT 1)))
+                """)
+                .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
+                .hasMessage("Invalid index: 1 of required column from table argument INPUT");
+
+        // table s1.t5 has two columns. The second column is hidden. Table function cannot require a hidden column.
+        assertFails("""
+                SELECT * FROM TABLE(system.required_columns_function(
+                    input => TABLE(s1.t5)))
+                """)
+                .hasErrorCode(FUNCTION_IMPLEMENTATION_ERROR)
+                .hasMessage("Invalid index: 1 of required column from table argument INPUT");
+    }
+
     @BeforeClass
     public void setup()
     {
+        closer = Closer.create();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
         closer.register(queryRunner);
         transactionManager = queryRunner.getTransactionManager();
@@ -6716,6 +6750,7 @@ public class TestAnalyzer
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                Optional.of(Duration.ZERO),
                 Optional.of("comment"),
                 Identity.ofUser("user"),
                 Optional.empty(),
@@ -6844,6 +6879,7 @@ public class TestAnalyzer
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
+                        Optional.of(Duration.ZERO),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
@@ -6894,6 +6930,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
+                        Optional.empty(),
                         Identity.ofUser("some user"),
                         // t3 has a, b column and hidden column x
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
@@ -6912,6 +6949,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
                         Optional.empty(),
+                        Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
@@ -6928,6 +6966,7 @@ public class TestAnalyzer
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("c", BIGINT.getTypeId(), Optional.empty())),
+                        Optional.empty(),
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
@@ -6946,6 +6985,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty()), new ViewColumn("b", RowType.anonymousRow(TINYINT).getTypeId(), Optional.empty())),
                         Optional.empty(),
+                        Optional.empty(),
                         Identity.ofUser("some user"),
                         Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
                         ImmutableMap.of()),
@@ -6959,6 +6999,12 @@ public class TestAnalyzer
             throws Exception
     {
         closer.close();
+        closer = null;
+        transactionManager = null;
+        accessControl = null;
+        plannerContext = null;
+        tablePropertyManager = null;
+        analyzePropertyManager = null;
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -6983,6 +7029,7 @@ public class TestAnalyzer
         StatementAnalyzerFactory statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,
                 new SqlParser(),
+                SessionTimeProvider.DEFAULT,
                 accessControl,
                 new NoOpTransactionManager()
                 {
@@ -7004,7 +7051,8 @@ public class TestAnalyzer
                         new OnlyPassThroughFunction(),
                         new MonomorphicStaticReturnTypeFunction(),
                         new PolymorphicStaticReturnTypeFunction(),
-                        new PassThroughFunction()))),
+                        new PassThroughFunction(),
+                        new RequiredColumnsFunction()))),
                 new SessionPropertyManager(),
                 tablePropertyManager,
                 analyzePropertyManager,

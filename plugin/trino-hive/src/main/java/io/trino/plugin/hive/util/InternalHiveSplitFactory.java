@@ -25,6 +25,9 @@ import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.TableToPartitionMapping;
 import io.trino.plugin.hive.fs.BlockLocation;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
+import io.trino.plugin.hive.orc.OrcPageSourceFactory;
+import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.spi.HostAddress;
 import io.trino.spi.predicate.Domain;
@@ -58,7 +61,7 @@ public class InternalHiveSplitFactory
     private final FileSystem fileSystem;
     private final String partitionName;
     private final InputFormat<?, ?> inputFormat;
-    private final Properties schema;
+    private final Properties strippedSchema;
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -90,7 +93,7 @@ public class InternalHiveSplitFactory
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
-        this.schema = requireNonNull(schema, "schema is null");
+        this.strippedSchema = stripUnnecessaryProperties(requireNonNull(schema, "schema is null"));
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
         this.partitionMatchSupplier = requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
@@ -102,6 +105,15 @@ public class InternalHiveSplitFactory
         this.minimumTargetSplitSizeInBytes = minimumTargetSplitSize.toBytes();
         this.maxSplitFileSize = requireNonNull(maxSplitFileSize, "maxSplitFileSize is null");
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
+    }
+
+    private static Properties stripUnnecessaryProperties(Properties schema)
+    {
+        // Sending the full schema with every split is costly and can be avoided for formats supported natively
+        schema = OrcPageSourceFactory.stripUnnecessaryProperties(schema);
+        schema = ParquetPageSourceFactory.stripUnnecessaryProperties(schema);
+        schema = RcFilePageSourceFactory.stripUnnecessaryProperties(schema);
+        return schema;
     }
 
     public String getPartitionName()
@@ -208,7 +220,7 @@ public class InternalHiveSplitFactory
                 start + length,
                 estimatedFileSize,
                 fileModificationTime,
-                schema,
+                strippedSchema,
                 partitionKeys,
                 blocks,
                 readBucketNumber,

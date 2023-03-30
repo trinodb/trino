@@ -63,11 +63,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -159,6 +162,8 @@ public class TestHttpEventListener
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
+                0L,
                 0L,
                 0L,
                 0L,
@@ -234,6 +239,7 @@ public class TestHttpEventListener
         catch (IOException ignored) {
             // MockWebServer.close() method sometimes throws 'Gave up waiting for executor to shut down'
         }
+        server = null;
     }
 
     /**
@@ -455,7 +461,9 @@ public class TestHttpEventListener
         assertFalse(body.isEmpty(), "Body is empty");
 
         ObjectMapper objectMapper = new ObjectMapper();
-        assertEquals(objectMapper.readTree(body), objectMapper.readTree(eventJson), format("Json value is wrong, expected %s but found %s", eventJson, body));
+        assertThat(objectMapper.readTree(body))
+                .as("Json value is wrong, expected %s but found %s", eventJson, body)
+                .isEqualTo(objectMapper.readTree(eventJson));
     }
 
     private void setupServerTLSCertificate()
@@ -466,8 +474,9 @@ public class TestHttpEventListener
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(keyStore);
 
-        X509TrustManager x509TrustManager = (X509TrustManager) List.of(trustManagerFactory.getTrustManagers()).stream().filter(tm -> tm instanceof X509TrustManager)
-                .findFirst().get();
+        X509TrustManager x509TrustManager = (X509TrustManager) Stream.of(trustManagerFactory.getTrustManagers())
+                .filter(tm -> tm instanceof X509TrustManager)
+                .collect(onlyElement());
 
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keyManagerFactory.init(keyStore, "testing-ssl".toCharArray());

@@ -38,7 +38,7 @@ public class TestJmxStats
     public void testJmxStatsExposure()
             throws Exception
     {
-        Plugin plugin = new JdbcPlugin("base-jdbc", new TestingH2JdbcModule());
+        Plugin plugin = new JdbcPlugin("base_jdbc", new TestingH2JdbcModule());
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", ImmutableMap.of("connection-url", "jdbc:driver:"), new TestingConnectorContext());
         MBeanServer mbeanServer = getPlatformMBeanServer();

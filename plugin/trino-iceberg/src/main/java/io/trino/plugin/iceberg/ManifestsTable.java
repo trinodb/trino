@@ -151,9 +151,9 @@ public class ManifestsTable
                 BOOLEAN.writeBoolean(rowBuilder, containsNan);
             }
             VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
-                    Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
+                    nestedType, Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
             VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
-                    Conversions.fromByteBuffer(nestedType, summary.upperBound())));
+                    nestedType, Conversions.fromByteBuffer(nestedType, summary.upperBound())));
             singleArrayWriter.closeEntry();
         }
         arrayBlockBuilder.closeEntry();

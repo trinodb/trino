@@ -17,11 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.HdfsContext;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
@@ -57,7 +56,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -83,14 +82,14 @@ public class TestIcebergSplitSource
         File tempDir = Files.createTempDirectory("test_iceberg_split_source").toFile();
         this.metastoreDir = new File(tempDir, "iceberg_data");
         HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         this.catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
-                memoizeMetastore(metastore, 1000),
-                fileSystemFactory,
+                cachingHiveMetastore,
+                new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
+                HDFS_FILE_SYSTEM_FACTORY,
                 new TestingTypeManager(),
-                new FileMetastoreTableOperationsProvider(fileSystemFactory),
-                "test",
+                new FileMetastoreTableOperationsProvider(HDFS_FILE_SYSTEM_FACTORY),
                 false,
                 false,
                 false);
@@ -121,6 +120,7 @@ public class TestIcebergSplitSource
                 TableType.DATA,
                 Optional.empty(),
                 SchemaParser.toJson(nationTable.schema()),
+                ImmutableList.of(),
                 Optional.of(PartitionSpecParser.toJson(nationTable.spec())),
                 1,
                 TupleDomain.all(),
@@ -130,13 +130,12 @@ public class TestIcebergSplitSource
                 nationTable.location(),
                 nationTable.properties(),
                 NO_RETRIES,
-                ImmutableList.of(),
                 false,
                 Optional.empty());
 
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
-                HDFS_ENVIRONMENT,
-                new HdfsContext(SESSION),
+                HDFS_FILE_SYSTEM_FACTORY,
+                SESSION,
                 tableHandle,
                 nationTable.newScan(),
                 Optional.empty(),

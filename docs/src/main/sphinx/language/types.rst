@@ -377,7 +377,7 @@ HyperLogLog
 -----------
 
 Calculating the approximate distinct count can be done much more cheaply than an exact count using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
+`HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_ data sketch. See :doc:`/functions/hyperloglog`.
 
 .. _hyperloglog_type:
 
@@ -404,13 +404,13 @@ SetDigest
 ^^^^^^^^^^^^^
 
 A SetDigest (setdigest) is a data sketch structure used
-in calculating `Jaccard similarity coefficient <https://en.wikipedia.org/wiki/Jaccard_index>`_
+in calculating `Jaccard similarity coefficient <https://wikipedia.org/wiki/Jaccard_index>`_
 between two sets.
 
 SetDigest encapsulates the following components:
 
-- `HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_
-- `MinHash with a single hash function <http://en.wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+- `HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
 
 The HyperLogLog structure is used for the approximation of the distinct elements
 in the original set.

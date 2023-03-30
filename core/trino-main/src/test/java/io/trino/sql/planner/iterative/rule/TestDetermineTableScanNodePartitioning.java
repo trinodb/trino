@@ -20,7 +20,6 @@ import io.trino.cost.StatsProvider;
 import io.trino.cost.TaskCountEstimator;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.MatchResult;
@@ -39,16 +38,13 @@ import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_A;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_B;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_HANDLE_A;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_HANDLE_B;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_PARTITIONED_TABLE_HANDLE;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_UNPARTITIONED_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.FIXED_PARTITIONED_TABLE_HANDLE;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.PARTITIONED_TABLE_HANDLE;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.SINGLE_BUCKET_TABLE_HANDLE;
-import static io.trino.sql.planner.TestTableScanNodePartitioning.UNPARTITIONED_TABLE_HANDLE;
+import static io.trino.sql.planner.TestTableScanNodePartitioning.FIXED_PARTITIONED_TABLE;
+import static io.trino.sql.planner.TestTableScanNodePartitioning.PARTITIONED_TABLE;
+import static io.trino.sql.planner.TestTableScanNodePartitioning.SINGLE_BUCKET_TABLE;
+import static io.trino.sql.planner.TestTableScanNodePartitioning.TEST_SCHEMA;
+import static io.trino.sql.planner.TestTableScanNodePartitioning.UNPARTITIONED_TABLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.createMockFactory;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -77,8 +73,7 @@ public class TestDetermineTableScanNodePartitioning
     {
         testPlanWithTableNodePartitioning(
                 ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
-                PARTITIONED_TABLE_HANDLE,
-                CONNECTOR_PARTITIONED_TABLE_HANDLE,
+                PARTITIONED_TABLE,
                 BUCKET_COUNT,
                 true);
     }
@@ -88,8 +83,7 @@ public class TestDetermineTableScanNodePartitioning
     {
         testPlanWithTableNodePartitioning(
                 DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
-                PARTITIONED_TABLE_HANDLE,
-                CONNECTOR_PARTITIONED_TABLE_HANDLE,
+                PARTITIONED_TABLE,
                 BUCKET_COUNT,
                 false);
     }
@@ -99,8 +93,7 @@ public class TestDetermineTableScanNodePartitioning
     {
         testPlanWithTableNodePartitioning(
                 ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
-                UNPARTITIONED_TABLE_HANDLE,
-                CONNECTOR_UNPARTITIONED_TABLE_HANDLE,
+                UNPARTITIONED_TABLE,
                 BUCKET_COUNT,
                 false);
     }
@@ -110,8 +103,7 @@ public class TestDetermineTableScanNodePartitioning
     {
         testPlanWithTableNodePartitioning(
                 DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
-                FIXED_PARTITIONED_TABLE_HANDLE,
-                CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE,
+                FIXED_PARTITIONED_TABLE,
                 BUCKET_COUNT,
                 true);
     }
@@ -121,45 +113,43 @@ public class TestDetermineTableScanNodePartitioning
     {
         testPlanWithTableNodePartitioning(
                 ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
-                PARTITIONED_TABLE_HANDLE,
-                CONNECTOR_PARTITIONED_TABLE_HANDLE,
+                PARTITIONED_TABLE,
                 BUCKET_COUNT * 2,
                 true);
 
         testPlanWithTableNodePartitioning(
                 ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
-                PARTITIONED_TABLE_HANDLE,
-                CONNECTOR_PARTITIONED_TABLE_HANDLE,
+                PARTITIONED_TABLE,
                 BUCKET_COUNT * 2 + 1,
                 false);
 
         testPlanWithTableNodePartitioning(
                 ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
-                SINGLE_BUCKET_TABLE_HANDLE,
-                CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE,
+                SINGLE_BUCKET_TABLE,
                 3,
                 false);
     }
 
     private void testPlanWithTableNodePartitioning(
             Session session,
-            TableHandle tableHandle,
-            ConnectorTableHandle connectorTableHandle,
+            String tableName,
             int numberOfTasks,
             boolean expectedEnabled)
     {
+        TableHandle tableHandle = tester.getCurrentCatalogTableHandle(TEST_SCHEMA, tableName);
         tester.assertThat(new DetermineTableScanNodePartitioning(tester.getMetadata(), tester.getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> numberOfTasks)))
                 .on(p -> {
                     Symbol a = p.symbol(COLUMN_A);
                     Symbol b = p.symbol(COLUMN_B);
-                    return p.tableScan(tableHandle,
+                    return p.tableScan(
+                            tableHandle,
                             ImmutableList.of(a, b),
                             ImmutableMap.of(a, COLUMN_HANDLE_A, b, COLUMN_HANDLE_B));
                 })
                 .withSession(session)
                 .matches(
                         tableScan(
-                                connectorTableHandle::equals,
+                                tableHandle.getConnectorHandle()::equals,
                                 TupleDomain.all(),
                                 ImmutableMap.of(
                                         "A", COLUMN_HANDLE_A::equals,

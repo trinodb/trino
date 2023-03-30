@@ -41,7 +41,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -152,14 +152,14 @@ public class TestJsonDecoder
         for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time")) {
             singleColumnDecoder(DATE, dataFormat);
             singleColumnDecoder(TIME_MILLIS, dataFormat);
-            singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
+            singleColumnDecoder(TIME_TZ_MILLIS, dataFormat);
             singleColumnDecoder(TIMESTAMP_MILLIS, dataFormat);
             singleColumnDecoder(TIMESTAMP_TZ_MILLIS, dataFormat);
         }
 
         for (String dataFormat : ImmutableSet.of("seconds-since-epoch", "milliseconds-since-epoch")) {
             singleColumnDecoder(TIME_MILLIS, dataFormat);
-            singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
+            singleColumnDecoder(TIME_TZ_MILLIS, dataFormat);
             singleColumnDecoder(TIMESTAMP_MILLIS, dataFormat);
             singleColumnDecoder(TIMESTAMP_TZ_MILLIS, dataFormat);
         }
@@ -172,7 +172,7 @@ public class TestJsonDecoder
         // temporal types are not supported for default field decoder
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(DATE, null));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME_MILLIS, null));
-        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME_WITH_TIME_ZONE, null));
+        assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIME_TZ_MILLIS, null));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_MILLIS, null));
         assertUnsupportedColumnTypeException(() -> singleColumnDecoder(TIMESTAMP_TZ_MILLIS, null));
 

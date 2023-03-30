@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.operator.scalar.AbstractTestFunctions.asMap;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -61,6 +60,7 @@ import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.MoreMaps.asMap;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -278,7 +278,9 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1e-323,1e308,nan()], ARRAY[-323,308,null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1.0E-323\":-323,\"1.0E308\":308,\"NaN\":null}");
+                .isEqualTo(Runtime.version().feature() >= 19
+                        ? "{\"1.0E308\":308,\"9.9E-324\":-323,\"NaN\":null}"
+                        : "{\"1.0E-323\":-323,\"1.0E308\":308,\"NaN\":null}");
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[DECIMAL '3.14', DECIMAL '0.01'], ARRAY[0.14, null])"))
@@ -329,7 +331,9 @@ public class TestMapOperators
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2, 3, 5, 8, 13, 21], ARRAY[3.14E0, 1e-323, 1e308, nan(), infinity(), -infinity(), null])"))
                 .hasType(JSON)
-                .isEqualTo("{\"1\":3.14,\"13\":\"-Infinity\",\"2\":1.0E-323,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
+                .isEqualTo(Runtime.version().feature() >= 19
+                        ? "{\"1\":3.14,\"13\":\"-Infinity\",\"2\":9.9E-324,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}"
+                        : "{\"1\":3.14,\"13\":\"-Infinity\",\"2\":1.0E-323,\"21\":null,\"3\":1.0E308,\"5\":\"NaN\",\"8\":\"Infinity\"}");
 
         assertThat(assertions.expression("cast(a as JSON)")
                 .binding("a", "MAP(ARRAY[1, 2], ARRAY[DECIMAL '3.14', null])"))

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Match;
 import io.trino.plugin.base.expression.ConnectorExpressionRule.RewriteContext;
 import io.trino.spi.connector.ColumnHandle;
@@ -48,8 +49,9 @@ public class TestGenericRewrite
                         new Variable("first", createDecimalType(10, 2)),
                         new Variable("second", BIGINT)));
 
-        Optional<String> rewritten = apply(rewrite, expression);
-        assertThat(rewritten).hasValue("(\"first\") + (\"second\")::decimal(21,2)");
+        ParameterizedExpression rewritten = apply(rewrite, expression).orElseThrow();
+        assertThat(rewritten.expression()).isEqualTo("(\"first\") + (\"second\")::decimal(21,2)");
+        assertThat(rewritten.parameters()).isEqualTo(List.of());
     }
 
     @Test
@@ -63,8 +65,9 @@ public class TestGenericRewrite
                 new FunctionName("add"),
                 List.of(
                         new Variable("first", INTEGER),
-                        new Variable("second", BIGINT)))))
-                .hasValue("(\"first\") + (\"second\")");
+                        new Variable("second", BIGINT))))
+                .orElseThrow().expression())
+                .isEqualTo("(\"first\") + (\"second\")");
 
         // argument type not in class
         assertThat(apply(rewrite, new Call(
@@ -85,7 +88,7 @@ public class TestGenericRewrite
                 .isEmpty();
     }
 
-    private static Optional<String> apply(GenericRewrite rewrite, ConnectorExpression expression)
+    private static Optional<ParameterizedExpression> apply(GenericRewrite rewrite, ConnectorExpression expression)
     {
         Optional<Match> match = rewrite.getPattern().match(expression).collect(toOptional());
         if (match.isEmpty()) {
@@ -106,10 +109,10 @@ public class TestGenericRewrite
             }
 
             @Override
-            public Optional<String> defaultRewrite(ConnectorExpression expression1)
+            public Optional<ParameterizedExpression> defaultRewrite(ConnectorExpression expression)
             {
-                if (expression1 instanceof Variable) {
-                    return Optional.of("\"" + ((Variable) expression1).getName().replace("\"", "\"\"") + "\"");
+                if (expression instanceof Variable) {
+                    return Optional.of(new ParameterizedExpression("\"" + ((Variable) expression).getName().replace("\"", "\"\"") + "\"", ImmutableList.of()));
                 }
                 return Optional.empty();
             }

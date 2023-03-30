@@ -21,7 +21,7 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -47,7 +47,7 @@ public class TestHiveAnalyzeCorruptStatistics
     @Test
     public void testAnalyzeCorruptColumnStatisticsOnEmptyTable()
     {
-        String tableName = "test_analyze_corrupt_column_statistics_" + randomTableSuffix();
+        String tableName = "test_analyze_corrupt_column_statistics_" + randomNameSuffix();
 
         // Concurrent ANALYZE statements generate duplicated rows in Thrift metastore's TAB_COL_STATS table when column statistics is empty
         prepareBrokenColumnStatisticsTable(tableName);
@@ -57,7 +57,7 @@ public class TestHiveAnalyzeCorruptStatistics
 
         // ANALYZE and drop_stats are unsupported for tables having broken column statistics
         assertThatThrownBy(() -> query("ANALYZE " + tableName))
-                .hasMessage(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString()) // Thrift metastore doesn't throw helpful message
+                .hasMessage("%s: Socket is closed by peer.", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                 .hasStackTraceContaining("ThriftHiveMetastore.setTableColumnStatistics");
 
         assertThatThrownBy(() -> query("CALL system.drop_stats('tpch', '" + tableName + "')"))

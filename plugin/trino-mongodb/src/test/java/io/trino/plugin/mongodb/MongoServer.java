@@ -14,6 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.mongodb.ConnectionString;
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.MongoDBContainer;
 
 import java.io.Closeable;
@@ -25,7 +26,7 @@ public class MongoServer
 
     public MongoServer()
     {
-        this("4.0.0");
+        this("4.2.0");
     }
 
     public MongoServer(String mongoVersion)
@@ -46,5 +47,11 @@ public class MongoServer
     public void close()
     {
         dockerContainer.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }

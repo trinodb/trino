@@ -43,9 +43,7 @@ public class TestStaticCredentialsConfig
     @Test
     public void testExplicitPropertyMappingsWithCredentialsKey()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("bigquery.credentials-key", "key")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("bigquery.credentials-key", "key");
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
@@ -60,9 +58,7 @@ public class TestStaticCredentialsConfig
         try {
             Path file = Files.createTempFile("config", ".json");
 
-            Map<String, String> properties = ImmutableMap.<String, String>builder()
-                    .put("bigquery.credentials-file", file.toString())
-                    .buildOrThrow();
+            Map<String, String> properties = ImmutableMap.of("bigquery.credentials-file", file.toString());
 
             ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
             StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);

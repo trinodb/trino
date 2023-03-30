@@ -42,6 +42,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -84,12 +85,30 @@ public abstract class BaseCostBasedPlanTest
 
     private static final String CATALOG_NAME = "local";
 
+    private final String schemaName;
+    private final Optional<String> fileFormatName;
+    private final boolean partitioned;
+    protected boolean smallFiles;
+
+    public BaseCostBasedPlanTest(String schemaName, Optional<String> fileFormatName, boolean partitioned)
+    {
+        this(schemaName, fileFormatName, partitioned, false);
+    }
+
+    public BaseCostBasedPlanTest(String schemaName, Optional<String> fileFormatName, boolean partitioned, boolean smallFiles)
+    {
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.fileFormatName = requireNonNull(fileFormatName, "fileFormatName is null");
+        this.partitioned = partitioned;
+        this.smallFiles = smallFiles;
+    }
+
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
     {
         SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_NAME)
-                .setSchema(getSchema())
+                .setSchema(schemaName)
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
@@ -104,8 +123,6 @@ public abstract class BaseCostBasedPlanTest
     }
 
     protected abstract ConnectorFactory createConnectorFactory();
-
-    protected abstract String getSchema();
 
     @BeforeClass
     public abstract void prepareTables()
@@ -128,13 +145,17 @@ public abstract class BaseCostBasedPlanTest
 
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
-        String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName();
-        String subDir = isPartitioned() ? "partitioned" : "unpartitioned";
-        Path tempPath = Paths.get(queryResourcePath.replaceAll("\\.sql$", ".plan.txt"));
-        return Paths.get(tempPath.getParent().toString(), connectorName, subDir, tempPath.getFileName().toString()).toString();
+        Path queryPath = Paths.get(queryResourcePath);
+        String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
+        Path directory = queryPath.getParent();
+        directory = directory.resolve(connectorName + (smallFiles ? "_small_files" : ""));
+        if (fileFormatName.isPresent()) {
+            directory = directory.resolve(fileFormatName.get());
+        }
+        directory = directory.resolve(partitioned ? "partitioned" : "unpartitioned");
+        String planResourceName = queryPath.getFileName().toString().replaceAll("\\.sql$", ".plan.txt");
+        return directory.resolve(planResourceName).toString();
     }
-
-    protected abstract boolean isPartitioned();
 
     protected void generate()
     {
@@ -207,15 +228,14 @@ public abstract class BaseCostBasedPlanTest
     {
         Path workingDir = Paths.get(System.getProperty("user.dir"));
         verify(isDirectory(workingDir), "Working directory is not a directory");
-        String topDirectoryName = workingDir.getFileName().toString();
-        switch (topDirectoryName) {
-            case "trino-tests":
-                return workingDir;
-            case "trino":
-                return workingDir.resolve("testing/trino-tests");
-            default:
-                throw new IllegalStateException("This class must be executed from trino-tests or Trino source directory");
+        if (isDirectory(workingDir.resolve(".git"))) {
+            // Top-level of the repo
+            return workingDir.resolve("testing/trino-tests");
         }
+        if (workingDir.getFileName().toString().equals("trino-tests")) {
+            return workingDir;
+        }
+        throw new IllegalStateException("This class must be executed from trino-tests or Trino source directory");
     }
 
     private class JoinOrderPrinter

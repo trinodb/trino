@@ -456,7 +456,7 @@ public class TestUnnestOperator
                         arrayBlockOf(elementType, Collections.nCopies(999, nonNullRowValue).toArray()))
                 .row(
                         "def",
-                        arrayBlockOf(elementType, new Integer[]{null, null}))
+                        arrayBlockOf(elementType, null, null))
                 .build();
 
         testUnnest(input, ImmutableList.of(replicatedType), ImmutableList.of(unnestType), false, false);

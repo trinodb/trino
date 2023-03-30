@@ -26,6 +26,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -37,6 +38,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -99,6 +101,7 @@ import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
 import io.trino.sql.tree.SetRole;
@@ -151,7 +154,6 @@ import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -325,7 +327,11 @@ public final class SqlFormatter
         protected Void visitTableArgument(TableFunctionTableArgument node, Integer indent)
         {
             Relation relation = node.getTable();
-            Relation unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            Node unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            if (unaliased instanceof TableSubquery) {
+                // unpack the relation from TableSubquery to avoid adding another pair of parentheses
+                unaliased = ((TableSubquery) unaliased).getQuery();
+            }
             builder.append("TABLE(");
             process(unaliased, indent);
             builder.append(")");
@@ -1005,6 +1011,8 @@ public final class SqlFormatter
             }
 
             builder.append(formatName(node.getName()));
+            node.getGracePeriod().ifPresent(interval ->
+                    builder.append("\nGRACE PERIOD ").append(formatExpression(interval)));
             node.getComment().ifPresent(comment -> builder
                     .append("\nCOMMENT ")
                     .append(formatStringLiteral(comment)));
@@ -1239,6 +1247,40 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateCatalog(CreateCatalog node, Integer indent)
+        {
+            builder.append("CREATE CATALOG ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getCatalogName()));
+            builder.append(" USING ").append(formatName(node.getConnectorName()));
+            node.getComment().ifPresent(comment -> builder
+                    .append("\nCOMMENT ")
+                    .append(formatStringLiteral(comment)));
+            node.getPrincipal().ifPresent(principal -> builder
+                    .append("\nAUTHORIZATION ")
+                    .append(formatPrincipal(principal)));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropCatalog(DropCatalog node, Integer indent)
+        {
+            builder.append("DROP CATALOG ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getCatalogName()))
+                    .append(" ")
+                    .append(node.isCascade() ? "CASCADE" : "RESTRICT");
+
+            return null;
+        }
+
+        @Override
         protected Void visitCreateSchema(CreateSchema node, Integer indent)
         {
             builder.append("CREATE SCHEMA ");
@@ -1300,10 +1342,9 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
 
             node.getColumnAliases().ifPresent(columnAliases -> {
-                String columnList = columnAliases.stream()
+                builder.append(columnAliases.stream()
                         .map(SqlFormatter::formatName)
-                        .collect(joining(", "));
-                builder.append(format("( %s )", columnList));
+                        .collect(joining(", ", "( ", " )")));
             });
 
             node.getComment().ifPresent(comment -> builder
@@ -1426,7 +1467,7 @@ public final class SqlFormatter
                     return principal.getName().toString();
                 case USER:
                 case ROLE:
-                    return format("%s %s", type.name(), principal.getName());
+                    return type.name() + " " + principal.getName();
             }
             throw new IllegalArgumentException("Unsupported principal type: " + type);
         }
@@ -1549,7 +1590,7 @@ public final class SqlFormatter
             if (node.isColumnExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(formatName(node.getColumn()));
+            builder.append(formatName(node.getField()));
 
             return null;
         }
@@ -1596,6 +1637,22 @@ public final class SqlFormatter
                 builder.append("IF NOT EXISTS ");
             }
             builder.append(formatColumnDefinition(node.getColumn()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSetColumnType(SetColumnType node, Integer context)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()))
+                    .append(" ALTER COLUMN ")
+                    .append(formatName(node.getColumnName()))
+                    .append(" SET DATA TYPE ")
+                    .append(node.getType().toString());
 
             return null;
         }

@@ -18,31 +18,28 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
 public class EmptyPageSource
-        implements UpdatablePageSource
+        implements ConnectorPageSource
 {
-    @Override
+    @Deprecated // This method has been removed from the API
     public void deleteRows(Block rowIds)
     {
         throw new UnsupportedOperationException("deleteRows called on EmptyPageSource");
     }
 
-    @Override
+    @Deprecated // This method has been removed from the API
     public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels)
     {
         throw new UnsupportedOperationException("updateRows called on EmptyPageSource");
     }
 
-    @Override
+    @Deprecated // This method has been removed from the API
     public CompletableFuture<Collection<Slice>> finish()
     {
-        return completedFuture(Collections.emptyList());
+        throw new UnsupportedOperationException("finish called on EmptyPageSource");
     }
 
     @Override

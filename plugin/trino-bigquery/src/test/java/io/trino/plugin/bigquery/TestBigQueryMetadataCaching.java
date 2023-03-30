@@ -13,13 +13,14 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.testng.Assert.assertEquals;
 
 public class TestBigQueryMetadataCaching
@@ -34,13 +35,14 @@ public class TestBigQueryMetadataCaching
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of("bigquery.metadata.cache-ttl", "5m"));
+                ImmutableMap.of("bigquery.metadata.cache-ttl", "5m"),
+                ImmutableList.of());
     }
 
     @Test
     public void testMetadataCaching()
     {
-        String schema = "test_metadata_caching_" + randomTableSuffix();
+        String schema = "test_metadata_caching_" + randomNameSuffix();
         try {
             getQueryRunner().execute("CREATE SCHEMA " + schema);
             assertEquals(getQueryRunner().execute("SHOW SCHEMAS IN bigquery LIKE '" + schema + "'").getOnlyValue(), schema);

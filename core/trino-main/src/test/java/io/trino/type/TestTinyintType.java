@@ -17,7 +17,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type.Range;
 
+import java.util.Optional;
+
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestTinyintType
@@ -57,5 +60,45 @@ public class TestTinyintType
         Range range = type.getRange().orElseThrow();
         assertEquals(range.getMin(), (long) Byte.MIN_VALUE);
         assertEquals(range.getMax(), (long) Byte.MAX_VALUE);
+    }
+
+    @Override
+    public void testPreviousValue()
+    {
+        long minValue = Byte.MIN_VALUE;
+        long maxValue = Byte.MAX_VALUE;
+
+        assertThat(type.getPreviousValue(minValue))
+                .isEqualTo(Optional.empty());
+        assertThat(type.getPreviousValue(minValue + 1))
+                .isEqualTo(Optional.of(minValue));
+
+        assertThat(type.getPreviousValue(getSampleValue()))
+                .isEqualTo(Optional.of(110L));
+
+        assertThat(type.getPreviousValue(maxValue - 1))
+                .isEqualTo(Optional.of(maxValue - 2));
+        assertThat(type.getPreviousValue(maxValue))
+                .isEqualTo(Optional.of(maxValue - 1));
+    }
+
+    @Override
+    public void testNextValue()
+    {
+        long minValue = Byte.MIN_VALUE;
+        long maxValue = Byte.MAX_VALUE;
+
+        assertThat(type.getNextValue(minValue))
+                .isEqualTo(Optional.of(minValue + 1));
+        assertThat(type.getNextValue(minValue + 1))
+                .isEqualTo(Optional.of(minValue + 2));
+
+        assertThat(type.getNextValue(getSampleValue()))
+                .isEqualTo(Optional.of(112L));
+
+        assertThat(type.getNextValue(maxValue - 1))
+                .isEqualTo(Optional.of(maxValue));
+        assertThat(type.getNextValue(maxValue))
+                .isEqualTo(Optional.empty());
     }
 }

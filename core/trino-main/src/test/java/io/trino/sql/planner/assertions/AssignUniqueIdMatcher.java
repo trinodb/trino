@@ -29,11 +29,9 @@ public class AssignUniqueIdMatcher
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof AssignUniqueId)) {
+        if (!(node instanceof AssignUniqueId assignUniqueIdNode)) {
             return Optional.empty();
         }
-
-        AssignUniqueId assignUniqueIdNode = (AssignUniqueId) node;
 
         return Optional.of(assignUniqueIdNode.getIdColumn());
     }

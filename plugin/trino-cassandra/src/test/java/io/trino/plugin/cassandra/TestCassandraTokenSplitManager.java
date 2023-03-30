@@ -50,6 +50,9 @@ public class TestCassandraTokenSplitManager
     public void tearDown()
     {
         server.close();
+        server = null;
+        session.close();
+        session = null;
     }
 
     @Test

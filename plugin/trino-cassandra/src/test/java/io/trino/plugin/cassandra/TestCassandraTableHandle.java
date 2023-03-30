@@ -23,13 +23,24 @@ public class TestCassandraTableHandle
     private final JsonCodec<CassandraTableHandle> codec = JsonCodec.jsonCodec(CassandraTableHandle.class);
 
     @Test
-    public void testRoundTrip()
+    public void testRoundTripNamedRelationHandle()
     {
-        CassandraTableHandle expected = new CassandraTableHandle("schema", "table");
+        CassandraTableHandle expected = new CassandraTableHandle(new CassandraNamedRelationHandle("schema", "table"));
 
         String json = codec.toJson(expected);
         CassandraTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertEquals(actual.getRequiredNamedRelation().getSchemaTableName(), expected.getRequiredNamedRelation().getSchemaTableName());
+    }
+
+    @Test
+    public void testRoundTripQueryRelationHandle()
+    {
+        CassandraTableHandle expected = new CassandraTableHandle(new CassandraQueryRelationHandle("SELECT * FROM tpch.region"));
+
+        String json = codec.toJson(expected);
+        CassandraTableHandle actual = codec.fromJson(json);
+
+        assertEquals(actual.getRelationHandle(), new CassandraQueryRelationHandle("SELECT * FROM tpch.region"));
     }
 }

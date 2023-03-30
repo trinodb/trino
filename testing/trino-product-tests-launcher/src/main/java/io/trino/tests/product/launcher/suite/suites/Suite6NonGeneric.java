@@ -16,11 +16,7 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafka;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSaslPlaintext;
-import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSsl;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodePhoenix5;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenodeCassandra;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsImpersonation;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsImpersonationWithCredentialCache;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosKmsHdfsNoImpersonation;
@@ -53,18 +49,6 @@ public class Suite6NonGeneric
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosKmsHdfsImpersonationWithCredentialCache.class)
                         .withGroups("configured_features", "storage_formats")
-                        .build(),
-                testOnEnvironment(EnvSinglenodeCassandra.class)
-                        .withGroups("configured_features", "cassandra")
-                        .build(),
-                testOnEnvironment(EnvMultinodeKafka.class)
-                        .withGroups("configured_features", "kafka")
-                        .build(),
-                testOnEnvironment(EnvMultinodeKafkaSsl.class)
-                        .withGroups("configured_features", "kafka")
-                        .build(),
-                testOnEnvironment(EnvMultinodeKafkaSaslPlaintext.class)
-                        .withGroups("configured_features", "kafka")
                         .build(),
                 testOnEnvironment(EnvMultinodePhoenix5.class)
                         .withGroups("configured_features", "phoenix")

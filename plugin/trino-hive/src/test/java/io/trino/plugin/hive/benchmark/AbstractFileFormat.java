@@ -129,8 +129,7 @@ public abstract class AbstractFileFormat
                 new HiveConfig(),
                 getHivePageSourceFactory(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
                 getHiveRecordCursorProvider(hdfsEnvironment).map(ImmutableSet::of).orElse(ImmutableSet.of()),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, new HiveConfig()),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, new HiveConfig()));
 
         Properties schema = createSchema(getFormat(), schemaColumnNames, schemaColumnTypes);
 

@@ -34,9 +34,7 @@ public class TestRubixEnabledConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.cache.enabled", "true")
-                .buildOrThrow();
+        Map<String, String> properties = ImmutableMap.of("hive.cache.enabled", "true");
 
         RubixEnabledConfig expected = new RubixEnabledConfig()
                 .setCacheEnabled(true);

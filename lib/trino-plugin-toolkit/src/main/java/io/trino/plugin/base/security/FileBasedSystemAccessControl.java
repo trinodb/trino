@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.trino.spi.TrinoException;
@@ -37,35 +35,33 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.nio.file.Paths;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.regex.Pattern;
 
-import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
+import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.OWNER;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
-import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
-import static io.trino.plugin.base.util.JsonUtils.parseJson;
-import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -75,6 +71,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
@@ -120,13 +117,10 @@ import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInforma
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class FileBasedSystemAccessControl
         implements SystemAccessControl
 {
-    private static final Logger log = Logger.get(FileBasedSystemAccessControl.class);
-
     public static final String NAME = "file";
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
@@ -216,77 +210,15 @@ public class FileBasedSystemAccessControl
             requireNonNull(config, "config is null");
 
             Bootstrap bootstrap = new Bootstrap(
-                    binder -> configBinder(binder).bindConfig(FileBasedAccessControlConfig.class));
+                    binder -> configBinder(binder).bindConfig(FileBasedAccessControlConfig.class),
+                    new FileBasedSystemAccessControlModule());
+
             Injector injector = bootstrap
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
-            FileBasedAccessControlConfig fileBasedAccessControlConfig = injector.getInstance(FileBasedAccessControlConfig.class);
-            String configFileName = fileBasedAccessControlConfig.getConfigFile().getPath();
 
-            if (config.containsKey(SECURITY_REFRESH_PERIOD)) {
-                Duration refreshPeriod;
-                try {
-                    refreshPeriod = fileBasedAccessControlConfig.getRefreshPeriod();
-                }
-                catch (IllegalArgumentException e) {
-                    throw invalidRefreshPeriodException(config, configFileName);
-                }
-                if (refreshPeriod.toMillis() == 0) {
-                    throw invalidRefreshPeriodException(config, configFileName);
-                }
-                return ForwardingSystemAccessControl.of(memoizeWithExpiration(
-                        () -> {
-                            log.info("Refreshing system access control from %s", configFileName);
-                            return create(configFileName);
-                        },
-                        refreshPeriod.toMillis(),
-                        MILLISECONDS));
-            }
-            return create(configFileName);
-        }
-
-        private static TrinoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
-        {
-            return new TrinoException(
-                    CONFIGURATION_INVALID,
-                    format("Invalid duration value '%s' for property '%s' in '%s'", config.get(SECURITY_REFRESH_PERIOD), SECURITY_REFRESH_PERIOD, configFileName));
-        }
-
-        private static SystemAccessControl create(String configFileName)
-        {
-            FileBasedSystemAccessControlRules rules = parseJson(Paths.get(configFileName), FileBasedSystemAccessControlRules.class);
-            List<CatalogAccessControlRule> catalogAccessControlRules;
-            if (rules.getCatalogRules().isPresent()) {
-                ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
-                catalogRulesBuilder.addAll(rules.getCatalogRules().get());
-
-                // Hack to allow Trino Admin to access the "system" catalog for retrieving server status.
-                // todo Change userRegex from ".*" to one particular user that Trino Admin will be restricted to run as
-                catalogRulesBuilder.add(new CatalogAccessControlRule(
-                        ALL,
-                        Optional.of(Pattern.compile(".*")),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(Pattern.compile("system"))));
-                catalogAccessControlRules = catalogRulesBuilder.build();
-            }
-            else {
-                // if no rules are defined then all access is allowed
-                catalogAccessControlRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
-            }
-            return FileBasedSystemAccessControl.builder()
-                    .setCatalogRules(catalogAccessControlRules)
-                    .setQueryAccessRules(rules.getQueryAccessRules())
-                    .setImpersonationRules(rules.getImpersonationRules())
-                    .setPrincipalUserMatchRules(rules.getPrincipalUserMatchRules())
-                    .setSystemInformationRules(rules.getSystemInformationRules())
-                    .setSchemaRules(rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)))
-                    .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
-                    .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))
-                    .setCatalogSessionPropertyRules(rules.getCatalogSessionPropertyRules().orElse(ImmutableList.of(CatalogSessionPropertyAccessControlRule.ALLOW_ALL)))
-                    .setFunctionRules(rules.getFunctionRules().orElse(ImmutableList.of(CatalogFunctionAccessControlRule.ALLOW_ALL)))
-                    .build();
+            return injector.getInstance(SystemAccessControl.class);
         }
     }
 
@@ -445,6 +377,22 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SystemSecurityContext context, String catalogName)
+    {
+        if (!canAccessCatalog(context, catalogName, OWNER)) {
+            denyCreateCatalog(catalogName);
+        }
+    }
+
+    @Override
+    public void checkCanDropCatalog(SystemSecurityContext context, String catalogName)
+    {
+        if (!canAccessCatalog(context, catalogName, OWNER)) {
+            denyDropCatalog(catalogName);
+        }
+    }
+
+    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
@@ -457,7 +405,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
+    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
     {
         if (!isSchemaOwner(context, schema)) {
             denyCreateSchema(schema.toString());
@@ -663,6 +611,14 @@ public class FileBasedSystemAccessControl
     {
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denyRenameColumn(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        if (!checkTablePermission(context, table, OWNERSHIP)) {
+            denyAlterColumn(table.toString());
         }
     }
 
@@ -1009,7 +965,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
+                .map(rule -> rule.getFilter(table.getCatalogName(), tableName.getSchemaName()))
                 // we return the first one we find
                 .findFirst()
                 .stream()
@@ -1018,26 +974,42 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
     {
         SchemaTableName tableName = table.getSchemaTableName();
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
 
         Identity identity = context.getIdentity();
-        return tableRules.stream()
+        List<ViewExpression> masks = tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
+                .map(rule -> rule.getColumnMask(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
                 // we return the first one we find
                 .findFirst()
                 .stream()
                 .flatMap(Optional::stream)
-                .collect(toImmutableList());
+                .toList();
+
+        if (masks.size() > 1) {
+            throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", table, columnName));
+        }
+
+        return masks.stream().findFirst();
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
     {
+        if (canAccessCatalog(context, catalogName, OWNER)) {
+            return true;
+        }
+
         Identity identity = context.getIdentity();
         return canAccessCatalog(context, catalogName, READ_ONLY) &&
                 anyCatalogPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), catalogName));

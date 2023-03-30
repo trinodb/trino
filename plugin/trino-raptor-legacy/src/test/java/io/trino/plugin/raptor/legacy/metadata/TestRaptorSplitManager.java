@@ -133,6 +133,7 @@ public class TestRaptorSplitManager
             throws IOException
     {
         dummyHandle.close();
+        dummyHandle = null;
         deleteRecursively(temporary, ALLOW_INSECURE);
     }
 

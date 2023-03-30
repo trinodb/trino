@@ -24,7 +24,7 @@ import java.util.Optional;
 import static io.trino.memory.LowMemoryKillerTestingUtils.taskId;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
 {
@@ -34,10 +34,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
     public void testMemoryPoolHasNoReservation()
     {
         int memoryPool = 12;
-        Map<String, Map<String, Long>> queries = ImmutableMap.<String, Map<String, Long>>builder()
-                .put("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L))
-                .buildOrThrow();
-
+        Map<String, Map<String, Long>> queries = ImmutableMap.of("q_1", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries),
@@ -99,8 +96,9 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                 .put("q_3", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 11L, "n4", 0L, "n5", 0L))
                 .buildOrThrow();
 
-        Map<String, Map<String, Map<Integer, Long>>> tasks = ImmutableMap.<String, Map<String, Map<Integer, Long>>>builder()
-                .put("q_2", ImmutableMap.of(
+        Map<String, Map<String, Map<Integer, Long>>> tasks = ImmutableMap.of(
+                "q_2",
+                ImmutableMap.of(
                         "n1", ImmutableMap.of(
                                 1, 1L,
                                 2, 3L),
@@ -112,8 +110,7 @@ public class TestTotalReservationOnBlockedNodesTaskLowMemoryKiller
                         "n4", ImmutableMap.of(
                                 7, 2L,
                                 8, 2L),
-                        "n5", ImmutableMap.of())
-                ).buildOrThrow();
+                        "n5", ImmutableMap.of()));
 
         assertEquals(
                 lowMemoryKiller.chooseTargetToKill(

@@ -19,10 +19,10 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
@@ -38,14 +38,14 @@ public class TestIcebergHiveTablesCompatibility
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testIcebergSelectFromHiveTable()
     {
-        String tableName = "test_iceberg_select_from_hive_" + randomTableSuffix();
+        String tableName = "test_iceberg_select_from_hive_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE hive.default." + tableName + "(a bigint)");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default." + tableName))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not an Iceberg table: default." + tableName);
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.\"" + tableName + "$data\""))
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not an Iceberg table: default." + tableName);
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'iceberg.default." + tableName + "$data' does not exist");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.\"" + tableName + "$files\""))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'iceberg.default." + tableName + "$files' does not exist");
@@ -56,7 +56,7 @@ public class TestIcebergHiveTablesCompatibility
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testHiveSelectFromIcebergTable()
     {
-        String tableName = "test_hive_select_from_iceberg_" + randomTableSuffix();
+        String tableName = "test_hive_select_from_iceberg_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE iceberg.default." + tableName + "(a bigint)");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hive.default." + tableName))
@@ -74,7 +74,7 @@ public class TestIcebergHiveTablesCompatibility
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testIcebergCannotCreateTableNamesakeToHiveTable()
     {
-        String tableName = "test_iceberg_create_namesake_hive_table_" + randomTableSuffix();
+        String tableName = "test_iceberg_create_namesake_hive_table_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE hive.default." + tableName + "(a bigint)");
 
         assertQueryFailure(() -> onTrino().executeQuery("CREATE TABLE iceberg.default." + tableName + "(a bigint)"))
@@ -86,7 +86,7 @@ public class TestIcebergHiveTablesCompatibility
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testHiveCannotCreateTableNamesakeToIcebergTable()
     {
-        String tableName = "test_hive_create_namesake_iceberg_table_" + randomTableSuffix();
+        String tableName = "test_hive_create_namesake_iceberg_table_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE iceberg.default." + tableName + "(a bigint)");
 
         assertQueryFailure(() -> onTrino().executeQuery("CREATE TABLE hive.default." + tableName + "(a bigint)"))
@@ -98,10 +98,10 @@ public class TestIcebergHiveTablesCompatibility
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testHiveSelectTableColumns()
     {
-        String hiveTableName = "test_hive_table_columns_table_" + randomTableSuffix();
+        String hiveTableName = "test_hive_table_columns_table_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE hive.default." + hiveTableName + "(a bigint)");
 
-        String icebergTableName = "test_iceberg_table_columns_table_" + randomTableSuffix();
+        String icebergTableName = "test_iceberg_table_columns_table_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE iceberg.default." + icebergTableName + "(a bigint)");
 
         assertThat(onTrino().executeQuery(
@@ -119,7 +119,7 @@ public class TestIcebergHiveTablesCompatibility
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testHiveListsIcebergTable()
     {
-        String tableName = "test_hive_lists_iceberg_table_" + randomTableSuffix();
+        String tableName = "test_hive_lists_iceberg_table_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE iceberg.default." + tableName + "(a bigint)");
         assertThat(onTrino().executeQuery("SHOW TABLES FROM hive.default")).contains(row(tableName));
         onTrino().executeQuery("DROP TABLE iceberg.default." + tableName);
@@ -128,7 +128,7 @@ public class TestIcebergHiveTablesCompatibility
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testIcebergListsHiveTable()
     {
-        String tableName = "test_iceberg_lists_hive_table_" + randomTableSuffix();
+        String tableName = "test_iceberg_lists_hive_table_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE hive.default." + tableName + "(a bigint)");
         assertThat(onTrino().executeQuery("SHOW TABLES FROM iceberg.default")).contains(row(tableName));
         onTrino().executeQuery("DROP TABLE hive.default." + tableName);

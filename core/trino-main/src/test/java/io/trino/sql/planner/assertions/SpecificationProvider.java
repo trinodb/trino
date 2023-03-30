@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.OrderingScheme;
-import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 
 import java.util.List;
 import java.util.Map;
@@ -29,7 +29,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class SpecificationProvider
-        implements ExpectedValueProvider<WindowNode.Specification>
+        implements ExpectedValueProvider<DataOrganizationSpecification>
 {
     private final List<SymbolAlias> partitionBy;
     private final List<SymbolAlias> orderBy;
@@ -46,7 +46,7 @@ public class SpecificationProvider
     }
 
     @Override
-    public WindowNode.Specification getExpectedValue(SymbolAliases aliases)
+    public DataOrganizationSpecification getExpectedValue(SymbolAliases aliases)
     {
         Optional<OrderingScheme> orderingScheme = Optional.empty();
         if (!orderBy.isEmpty()) {
@@ -61,7 +61,7 @@ public class SpecificationProvider
                             .collect(toImmutableMap(entry -> entry.getKey().toSymbol(aliases), Map.Entry::getValue))));
         }
 
-        return new WindowNode.Specification(
+        return new DataOrganizationSpecification(
                 partitionBy
                         .stream()
                         .map(alias -> alias.toSymbol(aliases))

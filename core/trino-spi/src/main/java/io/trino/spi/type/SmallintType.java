@@ -119,6 +119,28 @@ public final class SmallintType
     }
 
     @Override
+    public Optional<Object> getPreviousValue(Object object)
+    {
+        long value = (long) object;
+        checkValueValid(value);
+        if (value == Short.MIN_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value - 1);
+    }
+
+    @Override
+    public Optional<Object> getNextValue(Object object)
+    {
+        long value = (long) object;
+        checkValueValid(value);
+        if (value == Short.MAX_VALUE) {
+            return Optional.empty();
+        }
+        return Optional.of(value + 1);
+    }
+
+    @Override
     public Optional<Stream<?>> getDiscreteValues(Range range)
     {
         return Optional.of(LongStream.rangeClosed((long) range.getMin(), (long) range.getMax()).boxed());
@@ -144,14 +166,18 @@ public final class SmallintType
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
+        checkValueValid(value);
+        blockBuilder.writeShort((int) value).closeEntry();
+    }
+
+    private void checkValueValid(long value)
+    {
         if (value > Short.MAX_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT", value));
         }
         if (value < Short.MIN_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT", value));
         }
-
-        blockBuilder.writeShort((int) value).closeEntry();
     }
 
     @Override

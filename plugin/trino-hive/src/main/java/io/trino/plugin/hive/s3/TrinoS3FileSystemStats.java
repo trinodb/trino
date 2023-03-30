@@ -40,9 +40,11 @@ public class TrinoS3FileSystemStats
     private final CounterStat socketTimeoutExceptions = new CounterStat();
     private final CounterStat getObjectErrors = new CounterStat();
     private final CounterStat getMetadataErrors = new CounterStat();
+    private final CounterStat initiateMultipartUploadErrors = new CounterStat();
     private final CounterStat getObjectRetries = new CounterStat();
     private final CounterStat getMetadataRetries = new CounterStat();
     private final CounterStat readRetries = new CounterStat();
+    private final CounterStat initiateMultipartUploadRetries = new CounterStat();
 
     // see AWSRequestMetrics
     private final AwsSdkClientCoreStats clientCoreStats = new AwsSdkClientCoreStats();
@@ -119,6 +121,13 @@ public class TrinoS3FileSystemStats
 
     @Managed
     @Nested
+    public CounterStat getInitiateMultipartUploadErrors()
+    {
+        return initiateMultipartUploadErrors;
+    }
+
+    @Managed
+    @Nested
     public CounterStat getOtherReadErrors()
     {
         return otherReadErrors;
@@ -171,6 +180,13 @@ public class TrinoS3FileSystemStats
     public CounterStat getReadRetries()
     {
         return readRetries;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getInitiateMultipartUploadRetries()
+    {
+        return initiateMultipartUploadRetries;
     }
 
     public RequestMetricCollector newRequestMetricCollector()
@@ -249,6 +265,11 @@ public class TrinoS3FileSystemStats
         getMetadataErrors.update(1);
     }
 
+    public void newInitiateMultipartUploadError()
+    {
+        initiateMultipartUploadErrors.update(1);
+    }
+
     public void newGetObjectRetry()
     {
         getObjectRetries.update(1);
@@ -262,5 +283,10 @@ public class TrinoS3FileSystemStats
     public void newReadRetry()
     {
         readRetries.update(1);
+    }
+
+    public void newInitiateMultipartUploadRetry()
+    {
+        initiateMultipartUploadRetries.update(1);
     }
 }

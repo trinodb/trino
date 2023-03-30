@@ -13,6 +13,7 @@
  */
 package io.trino.connector;
 
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 
@@ -45,7 +46,7 @@ public class LazyCatalogFactory
     }
 
     @Override
-    public CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector)
+    public CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector)
     {
         return getDelegate().createCatalog(catalogHandle, connectorName, connector);
     }

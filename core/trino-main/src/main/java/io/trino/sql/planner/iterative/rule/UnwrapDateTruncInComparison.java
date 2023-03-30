@@ -16,7 +16,6 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.base.Enums;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.math.LongMath;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
@@ -63,7 +62,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.sql.ExpressionUtils.or;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -79,7 +77,6 @@ import static io.trino.type.DateTimes.scaleFactor;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
-import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -279,8 +276,8 @@ public class UnwrapDateTruncInComparison
                         case MONTH -> dateTime.plusMonths(1);
                         case YEAR -> dateTime.plusYears(1);
                     };
-                    long endExclusiveMicros = endExclusive.toEpochSecond(ZoneOffset.UTC) * MICROSECONDS_PER_SECOND
-                            + LongMath.divide(endExclusive.getNano(), NANOSECONDS_PER_MICROSECOND, UNNECESSARY);
+                    verify(endExclusive.getNano() == 0, "Unexpected nanos in %s, value not rounded to %s", endExclusive, rangeUnit);
+                    long endExclusiveMicros = endExclusive.toEpochSecond(ZoneOffset.UTC) * MICROSECONDS_PER_SECOND;
                     return endExclusiveMicros - scaleFactor(timestampType.getPrecision(), 6);
                 }
                 LongTimestamp longTimestamp = (LongTimestamp) rangeStart;

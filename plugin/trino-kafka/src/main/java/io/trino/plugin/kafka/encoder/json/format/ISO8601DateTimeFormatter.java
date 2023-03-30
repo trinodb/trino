@@ -37,7 +37,7 @@ import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.sca
 import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToNanos;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.time.ZoneOffset.UTC;
@@ -51,7 +51,7 @@ public class ISO8601DateTimeFormatter
     {
         return type.equals(DATE) ||
                 type.equals(TIME_MILLIS) ||
-                type.equals(TIME_WITH_TIME_ZONE) ||
+                type.equals(TIME_TZ_MILLIS) ||
                 type.equals(TIMESTAMP_MILLIS) ||
                 type.equals(TIMESTAMP_TZ_MILLIS);
     }

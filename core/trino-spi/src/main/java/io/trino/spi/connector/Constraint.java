@@ -28,6 +28,9 @@ import static java.util.Objects.requireNonNull;
 
 public class Constraint
 {
+    private static final Constraint ALWAYS_TRUE = new Constraint(TupleDomain.all());
+    private static final Constraint ALWAYS_FALSE = new Constraint(TupleDomain.none(), bindings -> false, Set.of());
+
     private final TupleDomain<ColumnHandle> summary;
     private final ConnectorExpression expression;
     private final Map<String, ColumnHandle> assignments;
@@ -36,12 +39,12 @@ public class Constraint
 
     public static Constraint alwaysTrue()
     {
-        return new Constraint(TupleDomain.all());
+        return ALWAYS_TRUE;
     }
 
     public static Constraint alwaysFalse()
     {
-        return new Constraint(TupleDomain.none(), bindings -> false, Set.of());
+        return ALWAYS_FALSE;
     }
 
     public Constraint(TupleDomain<ColumnHandle> summary)

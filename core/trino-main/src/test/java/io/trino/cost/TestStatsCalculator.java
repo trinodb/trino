@@ -22,6 +22,8 @@ import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
@@ -32,11 +34,12 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestStatsCalculator
 {
-    private final LocalQueryRunner queryRunner;
+    private LocalQueryRunner queryRunner;
 
-    public TestStatsCalculator()
+    @BeforeClass
+    public void setUp()
     {
-        this.queryRunner = LocalQueryRunner.create(testSessionBuilder()
+        queryRunner = LocalQueryRunner.create(testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
@@ -46,6 +49,13 @@ public class TestStatsCalculator
                 queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        queryRunner.close();
+        queryRunner = null;
     }
 
     @Test

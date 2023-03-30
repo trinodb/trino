@@ -39,13 +39,13 @@ public class BigQueryTableHandle
 {
     private final BigQueryRelationHandle relationHandle;
     private final TupleDomain<ColumnHandle> constraint;
-    private final Optional<List<ColumnHandle>> projectedColumns;
+    private final Optional<List<BigQueryColumnHandle>> projectedColumns;
 
     @JsonCreator
     public BigQueryTableHandle(
             @JsonProperty("relationHandle") BigQueryRelationHandle relationHandle,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns)
+            @JsonProperty("projectedColumns") Optional<List<BigQueryColumnHandle>> projectedColumns)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
@@ -79,7 +79,7 @@ public class BigQueryTableHandle
     }
 
     @JsonProperty
-    public Optional<List<ColumnHandle>> getProjectedColumns()
+    public Optional<List<BigQueryColumnHandle>> getProjectedColumns()
     {
         return projectedColumns;
     }
@@ -145,7 +145,7 @@ public class BigQueryTableHandle
         return new BigQueryTableHandle(relationHandle, newConstraint, projectedColumns);
     }
 
-    public BigQueryTableHandle withProjectedColumns(List<ColumnHandle> newProjectedColumns)
+    public BigQueryTableHandle withProjectedColumns(List<BigQueryColumnHandle> newProjectedColumns)
     {
         return new BigQueryTableHandle(relationHandle, constraint, Optional.of(newProjectedColumns));
     }
@@ -160,8 +160,7 @@ public class BigQueryTableHandle
 
     public static Optional<BigQueryPartitionType> getPartitionType(TableDefinition definition)
     {
-        if (definition instanceof StandardTableDefinition) {
-            StandardTableDefinition standardTableDefinition = (StandardTableDefinition) definition;
+        if (definition instanceof StandardTableDefinition standardTableDefinition) {
             RangePartitioning rangePartition = standardTableDefinition.getRangePartitioning();
             if (rangePartition != null) {
                 return Optional.of(BigQueryPartitionType.RANGE);

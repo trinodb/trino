@@ -76,6 +76,7 @@ public class TestPlannerWarnings
     public void tearDown()
     {
         queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
@@ -161,8 +162,7 @@ public class TestPlannerWarnings
         @Override
         public Result apply(ProjectNode node, Captures captures, Context context)
         {
-            warnings.stream()
-                    .forEach(context.getWarningCollector()::add);
+            warnings.forEach(context.getWarningCollector()::add);
             return Result.empty();
         }
     }

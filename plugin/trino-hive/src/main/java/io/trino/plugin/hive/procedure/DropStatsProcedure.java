@@ -39,13 +39,14 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.metastore.utils.FileUtils.makePartName;
 
 /**
  * A procedure that drops statistics.  It can be invoked for a subset of partitions (e.g.
@@ -96,6 +97,9 @@ public class DropStatsProcedure
 
     private void doDropStats(ConnectorSession session, ConnectorAccessControl accessControl, String schema, String table, List<?> partitionValues)
     {
+        checkProcedureArgument(schema != null, "schema_name cannot be null");
+        checkProcedureArgument(table != null, "table_name cannot be null");
+
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create(session.getIdentity(), true);
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {

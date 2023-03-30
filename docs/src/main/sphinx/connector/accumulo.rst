@@ -13,7 +13,7 @@ Installing the iterator dependency
 ----------------------------------
 
 The Accumulo connector uses custom Accumulo iterators in
-order to push various information in a SQL predicate clause to Accumulo for
+order to push various information in SQL predicate clauses to Accumulo for
 server-side filtering, known as *predicate pushdown*. In order
 for the server-side iterators to work, you need to add the ``trino-accumulo-iterators``
 JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
@@ -37,9 +37,9 @@ To connect to Accumulo, you need:
 Connector configuration
 -----------------------
 
-Create ``etc/catalog/accumulo.properties``
-to mount the ``accumulo`` connector as the ``accumulo`` catalog,
-replacing the ``accumulo.xxx`` properties as required:
+Create ``etc/catalog/example.properties`` to mount the ``accumulo`` connector as
+the ``example`` catalog, with the following connector properties as appropriate
+for your setup:
 
 .. code-block:: text
 
@@ -48,6 +48,8 @@ replacing the ``accumulo.xxx`` properties as required:
     accumulo.zookeepers=xxx
     accumulo.username=username
     accumulo.password=password
+
+Replace the ``accumulo.xxx`` properties as required.
 
 Configuration variables
 -----------------------
@@ -79,7 +81,7 @@ clause of your table definition.
 
 Simply issue a ``CREATE TABLE`` statement to create a new Trino/Accumulo table::
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -88,7 +90,7 @@ Simply issue a ``CREATE TABLE`` statement to create a new Trino/Accumulo table::
 
 .. code-block:: sql
 
-    DESCRIBE myschema.scientists;
+    DESCRIBE example_schema.scientists;
 
 .. code-block:: text
 
@@ -122,7 +124,7 @@ For example:
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -134,7 +136,7 @@ For example:
 
 .. code-block:: sql
 
-    DESCRIBE myschema.scientists;
+    DESCRIBE example_schema.scientists;
 
 .. code-block:: text
 
@@ -156,13 +158,13 @@ You can then issue ``INSERT`` statements to put data into Accumulo.
 
 .. code-block:: sql
 
-    INSERT INTO myschema.scientists VALUES
+    INSERT INTO example_schema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
 .. code-block:: sql
 
-    SELECT * FROM myschema.scientists;
+    SELECT * FROM example_schema.scientists;
 
 .. code-block:: text
 
@@ -180,14 +182,14 @@ little younger.)
 .. code-block:: bash
 
     $ accumulo shell -u root -p secret
-    root@default> table myschema.scientists
-    root@default myschema.scientists> insert row3 metadata name "Tim Berners-Lee"
-    root@default myschema.scientists> insert row3 metadata age 60
-    root@default myschema.scientists> insert row3 metadata date 5321
+    root@default> table example_schema.scientists
+    root@default example_schema.scientists> insert row3 metadata name "Tim Berners-Lee"
+    root@default example_schema.scientists> insert row3 metadata age 60
+    root@default example_schema.scientists> insert row3 metadata date 5321
 
 .. code-block:: sql
 
-    SELECT * FROM myschema.scientists;
+    SELECT * FROM example_schema.scientists;
 
 .. code-block:: text
 
@@ -205,7 +207,7 @@ tables.
 
 .. code-block:: sql
 
-    DROP TABLE myschema.scientists;
+    DROP TABLE example_schema.scientists;
 
 Indexing columns
 ----------------
@@ -236,7 +238,7 @@ should be using the default ``lexicoder`` serializer).
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -255,9 +257,9 @@ tables to store the index and metrics.
     root@default> tables
     accumulo.metadata
     accumulo.root
-    myschema.scientists
-    myschema.scientists_idx
-    myschema.scientists_idx_metrics
+    example_schema.scientists
+    example_schema.scientists_idx
+    example_schema.scientists_idx_metrics
     trace
 
 After inserting data, we can look at the index table and see there are
@@ -266,13 +268,13 @@ queries this index table
 
 .. code-block:: sql
 
-    INSERT INTO myschema.scientists VALUES
+    INSERT INTO example_schema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09'),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23');
 
 .. code-block:: text
 
-    root@default> scan -t myschema.scientists_idx
+    root@default> scan -t example_schema.scientists_idx
     -21011 metadata_date:row2 []
     -23034 metadata_date:row1 []
     103 metadata_age:row2 []
@@ -290,7 +292,7 @@ scans the data table.
 
 .. code-block:: sql
 
-    SELECT * FROM myschema.scientists WHERE age = 109;
+    SELECT * FROM example_schema.scientists WHERE age = 109;
 
 .. code-block:: text
 
@@ -428,7 +430,7 @@ Table property usage example:
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -463,7 +465,7 @@ Session properties
 You can change the default value of a session property by using :doc:`/sql/set-session`.
 Note that session properties are prefixed with the catalog name::
 
-    SET SESSION accumulo.column_filter_optimizations_enabled = false;
+    SET SESSION example.column_filter_optimizations_enabled = false;
 
 ============================================= ============= =======================================================================================================
 Property name                                 Default value Description
@@ -520,7 +522,7 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.scientists (
+    CREATE TABLE example_schema.scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -533,13 +535,13 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    INSERT INTO myschema.scientists VALUES
+    INSERT INTO example_schema.scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
 .. code-block:: text
 
-    root@default> scan -t myschema.scientists
+    root@default> scan -t example_schema.scientists
     row1 metadata:age []    \x08\x80\x00\x00\x00\x00\x00\x00m
     row1 metadata:date []    \x08\x7F\xFF\xFF\xFF\xFF\xFF\xA6\x06
     row1 metadata:name []    Grace Hopper
@@ -549,7 +551,7 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.stringy_scientists (
+    CREATE TABLE example_schema.stringy_scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,
@@ -562,13 +564,13 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    INSERT INTO myschema.stringy_scientists VALUES
+    INSERT INTO example_schema.stringy_scientists VALUES
     ('row1', 'Grace Hopper', 109, DATE '1906-12-09' ),
     ('row2', 'Alan Turing', 103, DATE '1912-06-23' );
 
 .. code-block:: text
 
-    root@default> scan -t myschema.stringy_scientists
+    root@default> scan -t example_schema.stringy_scientists
     row1 metadata:age []    109
     row1 metadata:date []    -23034
     row1 metadata:name []    Grace Hopper
@@ -578,7 +580,7 @@ specifying the fully-qualified Java class name in the connector configuration.
 
 .. code-block:: sql
 
-    CREATE TABLE myschema.custom_scientists (
+    CREATE TABLE example_schema.custom_scientists (
       recordkey VARCHAR,
       name VARCHAR,
       age BIGINT,

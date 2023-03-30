@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.CounterStat;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
@@ -63,7 +64,6 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.LongStream;
@@ -144,6 +144,7 @@ public class S3SelectTestHelper
                 this.hiveConfig,
                 new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
@@ -167,6 +168,7 @@ public class S3SelectTestHelper
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
+                new HdfsFileSystemFactory(hdfsEnvironment),
                 new NamenodeStats(),
                 hdfsEnvironment,
                 new BoundedExecutor(executorService, this.hiveConfig.getMaxSplitIteratorThreads()),
@@ -188,8 +190,7 @@ public class S3SelectTestHelper
                 this.hiveConfig,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, this.hiveConfig),
                 getDefaultHiveRecordCursorProviders(this.hiveConfig, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, this.hiveConfig),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, this.hiveConfig));
     }
 
     public S3SelectTestHelper(String host,

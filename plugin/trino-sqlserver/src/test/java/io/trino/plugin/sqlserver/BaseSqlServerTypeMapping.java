@@ -53,7 +53,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -492,7 +492,7 @@ public abstract class BaseSqlServerTypeMapping
     {
         // SQL Server does not support > 4 digit years, this test will fail once > 4 digit years support will be added
         String unsupportedDate = "\'11111-01-01\'";
-        String tableName = "test_date_unsupported" + randomTableSuffix();
+        String tableName = "test_date_unsupported" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (test_date date)", tableName));
         try {
             assertQueryFails(format("INSERT INTO %s VALUES (date %s)", tableName, unsupportedDate),
@@ -872,7 +872,7 @@ public abstract class BaseSqlServerTypeMapping
     private void assertSqlServerQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> onRemoteDatabase().execute(sql))
-                .getCause()
+                .cause()
                 .hasMessageContaining(expectedMessage);
     }
 

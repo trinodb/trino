@@ -24,7 +24,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
-import org.apache.hadoop.mapred.JobConf;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -32,9 +31,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -154,19 +151,15 @@ public class TestOrcDeletedRows
 
     private static OrcDeletedRows createOrcDeletedRows(AcidInfo acidInfo, String sourceFileName)
     {
-        JobConf configuration = new JobConf(newEmptyConfiguration());
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
-                ConnectorIdentity.ofUser("test"),
-                HDFS_FILE_SYSTEM_FACTORY,
                 new FileFormatDataSourceStats());
 
         OrcDeletedRows deletedRows = new OrcDeletedRows(
                 sourceFileName,
                 pageSourceFactory,
                 ConnectorIdentity.ofUser("test"),
-                configuration,
-                HDFS_ENVIRONMENT,
+                HDFS_FILE_SYSTEM_FACTORY,
                 acidInfo,
                 OptionalInt.of(0),
                 newSimpleAggregatedMemoryContext());

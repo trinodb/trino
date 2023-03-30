@@ -1,0 +1,276 @@
+{
+  "format-version" : 1,
+  "table-uuid" : "2d422038-c589-4f9d-92ce-cafc64b7fef4",
+  "location" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/promotion",
+  "last-updated-ms" : 1663710934563,
+  "last-column-id" : 19,
+  "schema" : {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "p_promo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "p_promo_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "p_start_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "p_end_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "p_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "p_cost",
+      "required" : false,
+      "type" : "decimal(15, 2)"
+    }, {
+      "id" : 7,
+      "name" : "p_response_targe",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "p_promo_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "p_channel_dmail",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "p_channel_email",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "p_channel_catalog",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "p_channel_tv",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "p_channel_radio",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "p_channel_press",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "p_channel_event",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "p_channel_demo",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "p_channel_details",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "p_purpose",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "p_discount_active",
+      "required" : false,
+      "type" : "string"
+    } ]
+  },
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "p_promo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "p_promo_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "p_start_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "p_end_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "p_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "p_cost",
+      "required" : false,
+      "type" : "decimal(15, 2)"
+    }, {
+      "id" : 7,
+      "name" : "p_response_targe",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 8,
+      "name" : "p_promo_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "p_channel_dmail",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "p_channel_email",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "p_channel_catalog",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "p_channel_tv",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 13,
+      "name" : "p_channel_radio",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 14,
+      "name" : "p_channel_press",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 15,
+      "name" : "p_channel_event",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 16,
+      "name" : "p_channel_demo",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 17,
+      "name" : "p_channel_details",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 18,
+      "name" : "p_purpose",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 19,
+      "name" : "p_discount_active",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "partition-spec" : [ ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "trino.stats.ndv.7.ndv" : "1",
+    "trino.stats.ndv.2.ndv" : "1543",
+    "trino.stats.ndv.16.ndv" : "1",
+    "trino.stats.ndv.4.ndv" : "669",
+    "trino.stats.ndv.19.ndv" : "1",
+    "trino.stats.ndv.5.ndv" : "1497",
+    "trino.stats.ndv.18.ndv" : "1",
+    "trino.stats.ndv.9.ndv" : "2",
+    "trino.stats.ndv.14.ndv" : "1",
+    "trino.stats.ndv.12.ndv" : "1",
+    "trino.stats.ndv.10.ndv" : "1",
+    "trino.stats.ndv.8.ndv" : "10",
+    "trino.stats.ndv.1.ndv" : "1483",
+    "trino.stats.ndv.15.ndv" : "1",
+    "trino.stats.ndv.6.ndv" : "1",
+    "trino.stats.ndv.3.ndv" : "675",
+    "write.format.default" : "PARQUET",
+    "trino.stats.ndv.17.ndv" : "1466",
+    "trino.stats.ndv.13.ndv" : "1",
+    "trino.stats.ndv.11.ndv" : "1"
+  },
+  "current-snapshot-id" : 629877963447712280,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 629877963447712280,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "snapshot-id" : 629877963447712280,
+    "timestamp-ms" : 1648057319541,
+    "summary" : {
+      "operation" : "append",
+      "added-data-files" : "4",
+      "added-records" : "1500",
+      "added-files-size" : "59165",
+      "changed-partition-count" : "1",
+      "total-records" : "1500",
+      "total-files-size" : "59165",
+      "total-data-files" : "4",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/promotion/metadata/snap-629877963447712280-1-0c427289-cf08-4939-a662-11b5a04a2a82.avro",
+    "schema-id" : 0
+  } ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1648057319541,
+    "snapshot-id" : 629877963447712280
+  } ],
+  "metadata-log" : [ {
+    "timestamp-ms" : 1648057319541,
+    "metadata-file" : "s3://starburst-benchmarks-data/iceberg-tpcds-sf1000-parquet/promotion/metadata/00000-5af8e1a7-435c-4809-84e5-8e799e983c8e.metadata.json"
+  } ]
+}

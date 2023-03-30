@@ -18,12 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -45,7 +42,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -54,8 +50,6 @@ public class TestPushTopNIntoTableScan
     private static final String TEST_SCHEMA = "test_schema";
     private static final String TEST_TABLE = "test_table";
     private static final SchemaTableName TEST_SCHEMA_TABLE = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
-
-    private static final TableHandle TEST_TABLE_HANDLE = createTableHandle(new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)));
 
     private static final Session MOCK_SESSION = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).setSchema(TEST_SCHEMA).build();
 
@@ -68,14 +62,6 @@ public class TestPushTopNIntoTableScan
             dimensionName, dimensionColumn,
             metricName, metricColumn);
 
-    private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)
-    {
-        return new TableHandle(
-                TEST_CATALOG_HANDLE,
-                tableHandle,
-                new ConnectorTransactionHandle() {});
-    }
-
     @Test
     public void testDoesNotFire()
     {
@@ -86,7 +72,7 @@ public class TestPushTopNIntoTableScan
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
                         return p.topN(1, ImmutableList.of(dimension),
-                                p.tableScan(TEST_TABLE_HANDLE,
+                                p.tableScan(ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(dimension, metric),
                                         ImmutableMap.of(
                                                 dimension, dimensionColumn,
@@ -111,7 +97,7 @@ public class TestPushTopNIntoTableScan
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
                         return p.topN(1, ImmutableList.of(dimension),
-                                p.tableScan(TEST_TABLE_HANDLE,
+                                p.tableScan(ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(dimension, metric),
                                         ImmutableMap.of(
                                                 dimension, dimensionColumn,
@@ -140,7 +126,7 @@ public class TestPushTopNIntoTableScan
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
                         return p.topN(1, ImmutableList.of(dimension),
-                                p.tableScan(TEST_TABLE_HANDLE,
+                                p.tableScan(ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(dimension, metric),
                                         ImmutableMap.of(
                                                 dimension, dimensionColumn,
@@ -173,7 +159,7 @@ public class TestPushTopNIntoTableScan
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
                         return p.topN(1, ImmutableList.of(dimension), TopNNode.Step.PARTIAL,
-                                p.tableScan(TEST_TABLE_HANDLE,
+                                p.tableScan(ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(dimension, metric),
                                         ImmutableMap.of(
                                                 dimension, dimensionColumn,
@@ -202,7 +188,7 @@ public class TestPushTopNIntoTableScan
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
                         return p.topN(1, ImmutableList.of(dimension), TopNNode.Step.PARTIAL,
-                                p.tableScan(TEST_TABLE_HANDLE,
+                                p.tableScan(ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(dimension, metric),
                                         ImmutableMap.of(
                                                 dimension, dimensionColumn,
@@ -253,7 +239,7 @@ public class TestPushTopNIntoTableScan
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
                         return p.topN(1, ImmutableList.of(dimension), TopNNode.Step.FINAL,
-                                p.tableScan(TEST_TABLE_HANDLE,
+                                p.tableScan(ruleTester.getCurrentCatalogTableHandle(TEST_SCHEMA, TEST_TABLE),
                                         ImmutableList.of(dimension, metric),
                                         ImmutableMap.of(
                                                 dimension, dimensionColumn,
@@ -276,7 +262,7 @@ public class TestPushTopNIntoTableScan
 
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
                 .withListSchemaNames(connectorSession -> ImmutableList.of(TEST_SCHEMA))
-                .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_SCHEMA_TABLE) : ImmutableList.of())
+                .withListTables((connectorSession, schema) -> TEST_SCHEMA.equals(schema) ? ImmutableList.of(TEST_TABLE) : ImmutableList.of())
                 .withGetColumns(schemaTableName -> metadata);
 
         if (applyTopN.isPresent()) {

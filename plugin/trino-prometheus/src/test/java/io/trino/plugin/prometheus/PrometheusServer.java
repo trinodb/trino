@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
+import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
@@ -66,5 +67,11 @@ public class PrometheusServer
     public void close()
     {
         dockerContainer.close();
+    }
+
+    @ResourcePresence
+    public boolean isRunning()
+    {
+        return dockerContainer.getContainerId() != null;
     }
 }

@@ -30,6 +30,7 @@ import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -85,6 +86,13 @@ public class TestDiscoveryNodeManager
                 new InternalNode(UUID.randomUUID().toString(), URI.create("https://192.0.4.9"), new NodeVersion("2"), false));
 
         selector.announceNodes(activeNodes, inactiveNodes);
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+    {
+        testHttpClient.close();
+        testHttpClient = null;
     }
 
     @Test

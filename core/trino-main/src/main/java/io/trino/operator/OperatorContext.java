@@ -28,7 +28,6 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
-import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -160,11 +159,6 @@ public class OperatorContext
     public Session getSession()
     {
         return driverContext.getSession();
-    }
-
-    public boolean isDone()
-    {
-        return driverContext.isDone();
     }
 
     void recordAddInput(OperationTimer operationTimer, Page page)
@@ -520,16 +514,6 @@ public class OperatorContext
                 "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds))));
     }
 
-    public static Metrics getConnectorMetrics(Metrics connectorMetrics, long physicalInputReadTimeNanos)
-    {
-        if (physicalInputReadTimeNanos == 0) {
-            return connectorMetrics;
-        }
-
-        return connectorMetrics.mergeWith(new Metrics(ImmutableMap.of(
-                "Physical input read time", new DurationTiming(new Duration(physicalInputReadTimeNanos, NANOSECONDS)))));
-    }
-
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
     {
         return visitor.visitOperatorContext(this, context);
@@ -577,7 +561,7 @@ public class OperatorContext
                         new Duration(addInputTiming.getCpuNanos() + getOutputTiming.getCpuNanos() + finishTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
                         new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
                         new Duration(blockedWallNanos.get(), NANOSECONDS).convertTo(SECONDS).getValue()),
-                getConnectorMetrics(connectorMetrics.get(), physicalInputReadTimeNanos.get()),
+                connectorMetrics.get(),
 
                 DataSize.ofBytes(physicalWrittenDataSize.get()),
 

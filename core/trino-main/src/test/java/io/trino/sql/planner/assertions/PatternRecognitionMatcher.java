@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
@@ -53,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class PatternRecognitionMatcher
         implements Matcher
 {
-    private final Optional<ExpectedValueProvider<WindowNode.Specification>> specification;
+    private final Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification;
     private final Optional<ExpectedValueProvider<WindowNode.Frame>> frame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<IrLabel> skipToLabel;
@@ -64,7 +65,7 @@ public class PatternRecognitionMatcher
     private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
 
     private PatternRecognitionMatcher(
-            Optional<ExpectedValueProvider<WindowNode.Specification>> specification,
+            Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification,
             Optional<ExpectedValueProvider<WindowNode.Frame>> frame,
             RowsPerMatch rowsPerMatch,
             Optional<IrLabel> skipToLabel,
@@ -179,7 +180,7 @@ public class PatternRecognitionMatcher
     public static class Builder
     {
         private final PlanMatchPattern source;
-        private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
+        private Optional<ExpectedValueProvider<DataOrganizationSpecification>> specification = Optional.empty();
         private final List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
         private final Map<String, Map.Entry<String, Type>> measures = new HashMap<>();
         private Optional<ExpectedValueProvider<WindowNode.Frame>> frame = Optional.empty();
@@ -198,7 +199,7 @@ public class PatternRecognitionMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder specification(ExpectedValueProvider<WindowNode.Specification> specification)
+        public Builder specification(ExpectedValueProvider<DataOrganizationSpecification> specification)
         {
             this.specification = Optional.of(specification);
             return this;

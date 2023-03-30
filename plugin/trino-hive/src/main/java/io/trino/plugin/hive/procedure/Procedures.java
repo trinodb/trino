@@ -16,12 +16,13 @@ package io.trino.plugin.hive.procedure;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 
 final class Procedures
@@ -30,11 +31,11 @@ final class Procedures
 
     public static void checkIsPartitionedTable(Table table)
     {
-        if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+        if (table.getTableType().equals(VIRTUAL_VIEW.name())) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is a view: " + table.getSchemaTableName());
         }
 
-        if (table.getTableType().equals(TableType.MATERIALIZED_VIEW.name())) {
+        if (table.getTableType().equals(MATERIALIZED_VIEW.name())) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is a materialized view: " + table.getSchemaTableName());
         }
 

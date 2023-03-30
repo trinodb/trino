@@ -32,7 +32,6 @@ import javax.inject.Inject;
 import java.util.Iterator;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 import java.util.UUID;
 
 import static io.trino.plugin.raptor.legacy.RaptorSessionProperties.getReaderMaxMergeDistance;
@@ -75,15 +74,13 @@ public class RaptorPageSourceProvider
                 .withTinyStripeThreshold(getReaderTinyStripeThreshold(session))
                 .withLazyReadSmallRanges(isReaderLazyReadSmallRanges(session));
 
-        OptionalLong transactionId = raptorSplit.getTransactionId();
-
         if (raptorSplit.getShardUuids().size() == 1) {
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
-            return createPageSource(shardUuid, bucketNumber, columns, predicate, options, transactionId);
+            return createPageSource(shardUuid, bucketNumber, columns, predicate, options);
         }
 
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
-                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, options, transactionId))
+                .map(shardUuid -> createPageSource(shardUuid, bucketNumber, columns, predicate, options))
                 .iterator();
 
         return new ConcatPageSource(iterator);
@@ -94,13 +91,12 @@ public class RaptorPageSourceProvider
             OptionalInt bucketNumber,
             List<ColumnHandle> columns,
             TupleDomain<RaptorColumnHandle> predicate,
-            OrcReaderOptions orcReaderOptions,
-            OptionalLong transactionId)
+            OrcReaderOptions orcReaderOptions)
     {
         List<RaptorColumnHandle> columnHandles = columns.stream().map(RaptorColumnHandle.class::cast).collect(toList());
         List<Long> columnIds = columnHandles.stream().map(RaptorColumnHandle::getColumnId).collect(toList());
         List<Type> columnTypes = columnHandles.stream().map(RaptorColumnHandle::getColumnType).collect(toList());
 
-        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, orcReaderOptions, transactionId);
+        return storageManager.getPageSource(shardUuid, bucketNumber, columnIds, columnTypes, predicate, orcReaderOptions);
     }
 }

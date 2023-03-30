@@ -17,7 +17,6 @@ package io.trino.operator.exchange;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
-import io.trino.operator.exchange.PageReference.PageReleasedListener;
 import io.trino.spi.Page;
 
 import java.util.List;
@@ -35,12 +34,11 @@ public class ScaleWriterExchanger
 {
     private static final Logger log = Logger.get(ScaleWriterExchanger.class);
 
-    private final List<Consumer<PageReference>> buffers;
+    private final List<Consumer<Page>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
     private final long maxBufferedBytes;
     private final Supplier<Long> physicalWrittenBytesSupplier;
     private final long writerMinSize;
-    private final PageReleasedListener onPageReleased;
 
     // Start with single writer and increase the writer count based on
     // physical written bytes and buffer utilization.
@@ -49,7 +47,7 @@ public class ScaleWriterExchanger
     private int nextWriterIndex = -1;
 
     public ScaleWriterExchanger(
-            List<Consumer<PageReference>> buffers,
+            List<Consumer<Page>> buffers,
             LocalExchangeMemoryManager memoryManager,
             long maxBufferedBytes,
             Supplier<Long> physicalWrittenBytesSupplier,
@@ -60,16 +58,14 @@ public class ScaleWriterExchanger
         this.maxBufferedBytes = maxBufferedBytes;
         this.physicalWrittenBytesSupplier = requireNonNull(physicalWrittenBytesSupplier, "physicalWrittenBytesSupplier is null");
         this.writerMinSize = writerMinSize.toBytes();
-        this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
     }
 
     @Override
     public void accept(Page page)
     {
-        Consumer<PageReference> buffer = buffers.get(getNextWriterIndex());
-        PageReference pageReference = new PageReference(page, 1, onPageReleased);
-        memoryManager.updateMemoryUsage(pageReference.getRetainedSizeInBytes());
-        buffer.accept(pageReference);
+        Consumer<Page> buffer = buffers.get(getNextWriterIndex());
+        memoryManager.updateMemoryUsage(page.getRetainedSizeInBytes());
+        buffer.accept(page);
     }
 
     private int getNextWriterIndex()

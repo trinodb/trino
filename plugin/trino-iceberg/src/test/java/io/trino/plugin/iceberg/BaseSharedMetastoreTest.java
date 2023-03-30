@@ -20,7 +20,7 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +30,7 @@ import static org.testng.Assert.assertEquals;
 public abstract class BaseSharedMetastoreTest
         extends AbstractTestQueryFramework
 {
-    protected final String schema = "test_shared_schema_" + randomTableSuffix();
+    protected final String schema = "test_shared_schema_" + randomNameSuffix();
 
     protected abstract String getExpectedHiveCreateSchema(String catalogName);
 
@@ -139,7 +139,7 @@ public abstract class BaseSharedMetastoreTest
     public void testTimeTravelWithRedirection()
             throws InterruptedException
     {
-        String testLocalSchema = "test_schema_" + randomTableSuffix();
+        String testLocalSchema = "test_schema_" + randomNameSuffix();
         try {
             assertUpdate("CREATE SCHEMA iceberg. " + testLocalSchema);
             assertUpdate(format("CREATE TABLE iceberg.%s.nation_test AS SELECT * FROM nation", testLocalSchema), 25);

@@ -18,8 +18,11 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.MinDataSize;
 import io.trino.parquet.ParquetReaderOptions;
 
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 @DefunctConfig({
@@ -59,6 +62,21 @@ public class ParquetReaderConfig
         return this;
     }
 
+    @Min(128)
+    @Max(65536)
+    public int getMaxReadBlockRowCount()
+    {
+        return options.getMaxReadBlockRowCount();
+    }
+
+    @Config("parquet.max-read-block-row-count")
+    @ConfigDescription("Maximum number of rows read in a batch")
+    public ParquetReaderConfig setMaxReadBlockRowCount(int length)
+    {
+        options = options.withMaxReadBlockRowCount(length);
+        return this;
+    }
+
     @NotNull
     public DataSize getMaxMergeDistance()
     {
@@ -73,6 +91,7 @@ public class ParquetReaderConfig
     }
 
     @NotNull
+    @MinDataSize("1MB")
     public DataSize getMaxBufferSize()
     {
         return options.getMaxBufferSize();
@@ -96,6 +115,45 @@ public class ParquetReaderConfig
     public boolean isUseColumnIndex()
     {
         return options.isUseColumnIndex();
+    }
+
+    @Config("parquet.optimized-reader.enabled")
+    @ConfigDescription("Use optimized Parquet reader")
+    public ParquetReaderConfig setOptimizedReaderEnabled(boolean optimizedReaderEnabled)
+    {
+        options = options.withBatchColumnReaders(optimizedReaderEnabled);
+        return this;
+    }
+
+    public boolean isOptimizedReaderEnabled()
+    {
+        return options.useBatchColumnReaders();
+    }
+
+    @Config("parquet.optimized-nested-reader.enabled")
+    @ConfigDescription("Use optimized Parquet reader for nested columns")
+    public ParquetReaderConfig setOptimizedNestedReaderEnabled(boolean optimizedNestedReaderEnabled)
+    {
+        options = options.withBatchNestedColumnReaders(optimizedNestedReaderEnabled);
+        return this;
+    }
+
+    public boolean isOptimizedNestedReaderEnabled()
+    {
+        return options.useBatchNestedColumnReaders();
+    }
+
+    @Config("parquet.use-bloom-filter")
+    @ConfigDescription("Enable using Parquet bloom filter")
+    public ParquetReaderConfig setUseBloomFilter(boolean useBloomFilter)
+    {
+        options = options.withBloomFilter(useBloomFilter);
+        return this;
+    }
+
+    public boolean isUseBloomFilter()
+    {
+        return options.useBloomFilter();
     }
 
     public ParquetReaderOptions toParquetReaderOptions()

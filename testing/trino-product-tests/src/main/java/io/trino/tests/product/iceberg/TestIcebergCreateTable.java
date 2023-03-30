@@ -22,10 +22,10 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
-import static io.trino.tests.product.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
@@ -51,7 +51,7 @@ public class TestIcebergCreateTable
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testCreateTable()
     {
-        String tableName = "iceberg.iceberg.test_create_table_" + randomTableSuffix();
+        String tableName = "iceberg.iceberg.test_create_table_" + randomNameSuffix();
         onTrino().executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
         try {
             onTrino().executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
@@ -72,7 +72,7 @@ public class TestIcebergCreateTable
     @Test(groups = {ICEBERG, STORAGE_FORMATS, HMS_ONLY})
     public void testCreateTableAsSelect()
     {
-        String tableName = "iceberg.iceberg.test_create_table_as_select_" + randomTableSuffix();
+        String tableName = "iceberg.iceberg.test_create_table_as_select_" + randomNameSuffix();
         onTrino().executeQuery("" +
                 "CREATE TABLE " + tableName + " AS " +
                 "SELECT * FROM (VALUES " +

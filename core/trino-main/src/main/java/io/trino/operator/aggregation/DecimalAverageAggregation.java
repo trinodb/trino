@@ -41,7 +41,7 @@ import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
 import static io.trino.spi.type.Int128Math.divideRoundUp;
-import static java.math.BigDecimal.ROUND_HALF_UP;
+import static java.math.RoundingMode.HALF_UP;
 
 @AggregationFunction("avg")
 @Description("Calculates the average value")
@@ -56,17 +56,13 @@ public final class DecimalAverageAggregation
     @LiteralParameters({"p", "s"})
     public static void inputShortDecimal(
             @AggregationState LongDecimalWithOverflowAndLongState state,
-            @BlockPosition @SqlType(value = "decimal(p, s)", nativeContainerType = long.class) Block block,
-            @BlockIndex int position)
+            @SqlType("decimal(p,s)") long rightLow)
     {
         state.addLong(1); // row counter
-
-        state.setNotNull();
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
 
-        long rightLow = block.getLong(position, 0);
         long rightHigh = rightLow >> 63;
 
         long overflow = addWithOverflow(
@@ -88,8 +84,6 @@ public final class DecimalAverageAggregation
             @BlockIndex int position)
     {
         state.addLong(1); // row counter
-
-        state.setNotNull();
 
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();
@@ -119,7 +113,7 @@ public final class DecimalAverageAggregation
         long[] otherDecimal = otherState.getDecimalArray();
         int otherOffset = otherState.getDecimalArrayOffset();
 
-        if (state.isNotNull()) {
+        if (state.getLong() > 0) {
             long overflow = addWithOverflow(
                     decimal[offset],
                     decimal[offset + 1],
@@ -130,7 +124,6 @@ public final class DecimalAverageAggregation
             state.addOverflow(overflow + otherState.getOverflow());
         }
         else {
-            state.setNotNull();
             decimal[offset] = otherDecimal[otherOffset];
             decimal[offset + 1] = otherDecimal[otherOffset + 1];
             state.setOverflow(otherState.getOverflow());
@@ -169,7 +162,7 @@ public final class DecimalAverageAggregation
             sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow))));
 
             BigDecimal count = BigDecimal.valueOf(state.getLong());
-            return Decimals.encodeScaledValue(sum.divide(count, type.getScale(), ROUND_HALF_UP), type.getScale());
+            return Decimals.encodeScaledValue(sum.divide(count, type.getScale(), HALF_UP), type.getScale());
         }
 
         Int128 result = divideRoundUp(decimal[offset], decimal[offset + 1], 0, 0, state.getLong(), 0);

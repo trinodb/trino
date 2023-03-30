@@ -15,12 +15,9 @@ package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import javax.crypto.SecretKey;
-
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 
 public interface FileSystemExchangeStorage
         extends AutoCloseable
@@ -29,7 +26,7 @@ public interface FileSystemExchangeStorage
 
     ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize);
 
-    ExchangeStorageWriter createExchangeStorageWriter(URI file, Optional<SecretKey> secretKey);
+    ExchangeStorageWriter createExchangeStorageWriter(URI file);
 
     ListenableFuture<Void> createEmptyFile(URI file);
 

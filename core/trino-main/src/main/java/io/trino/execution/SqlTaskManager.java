@@ -28,6 +28,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.connector.CatalogProperties;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.event.SplitMonitor;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -36,6 +37,7 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
+import io.trino.execution.executor.PrioritizedSplitRunner;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskExecutor.RunningSplitInfo;
 import io.trino.memory.LocalMemoryManager;
@@ -47,6 +49,7 @@ import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
@@ -63,6 +66,7 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -72,11 +76,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -314,6 +320,7 @@ public class SqlTaskManager
             }
         }
         taskNotificationExecutor.shutdownNow();
+        driverYieldExecutor.shutdownNow();
     }
 
     @Managed
@@ -400,17 +407,6 @@ public class SqlTaskManager
     }
 
     /**
-     * Gets the unique instance id of a task.  This can be used to detect a task
-     * that was destroyed and recreated.
-     */
-    public String getTaskInstanceId(TaskId taskId)
-    {
-        SqlTask sqlTask = tasks.getUnchecked(taskId);
-        sqlTask.recordHeartbeat();
-        return sqlTask.getTaskInstanceId();
-    }
-
-    /**
      * Gets future status for the task after the state changes from
      * {@code current state}. If the task has not been created yet, an
      * uninitialized task is created and the future is returned.  If the task
@@ -435,6 +431,26 @@ public class SqlTaskManager
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.acknowledgeAndGetNewDynamicFilterDomains(currentDynamicFiltersVersion);
+    }
+
+    private final ReentrantLock catalogsLock = new ReentrantLock();
+
+    public void pruneCatalogs(Set<CatalogHandle> activeCatalogs)
+    {
+        catalogsLock.lock();
+        try {
+            Set<CatalogHandle> catalogsInUse = new HashSet<>(activeCatalogs);
+            for (SqlTask task : tasks.asMap().values()) {
+                // add all catalogs being used by a non-done task
+                if (!task.getTaskState().isDone()) {
+                    catalogsInUse.addAll(task.getCatalogs().orElse(ImmutableSet.of()));
+                }
+            }
+            connectorServicesProvider.pruneCatalogs(catalogsInUse);
+        }
+        finally {
+            catalogsLock.unlock();
+        }
     }
 
     /**
@@ -492,7 +508,15 @@ public class SqlTaskManager
             }
         }
 
-        fragment.ifPresent(planFragment -> connectorServicesProvider.ensureCatalogsLoaded(session, planFragment.getActiveCatalogs()));
+        fragment.map(PlanFragment::getActiveCatalogs)
+                .ifPresent(activeCatalogs -> {
+                    Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
+                            .map(CatalogProperties::getCatalogHandle)
+                            .collect(toImmutableSet());
+                    if (sqlTask.setCatalogs(catalogHandles)) {
+                        connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
+                    }
+                });
 
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, splitAssignments, outputBuffers, dynamicFilterDomains);
@@ -506,14 +530,15 @@ public class SqlTaskManager
      * NOTE: this design assumes that only tasks and buffers that will
      * eventually exist are queried.
      */
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public SqlTaskWithResults getTaskResults(TaskId taskId, PipelinedOutputBuffers.OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
         requireNonNull(maxSize, "maxSize is null");
 
-        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+        SqlTask task = tasks.getUnchecked(taskId);
+        return new SqlTaskWithResults(task, task.getTaskResults(bufferId, startingSequenceId, maxSize));
     }
 
     /**
@@ -705,6 +730,31 @@ public class SqlTaskManager
                         taskExecutor));
     }
 
+    /**
+     * The class detects and interrupts runaway splits. It interrupts threads via failing the task that is holding the split
+     * and relying on {@link PrioritizedSplitRunner#destroy()} method to actually interrupt the responsible thread.
+     * The detection is invoked periodically with the frequency of {@link StuckSplitTasksInterrupter#stuckSplitsDetectionInterval}.
+     * A thread gets interrupted once the split processing continues beyond {@link StuckSplitTasksInterrupter#interruptStuckSplitTasksTimeout} and
+     * the split threaddump matches with {@link StuckSplitTasksInterrupter#stuckSplitStackTracePredicate}. <p>
+     *
+     * There is a potential race condition for this {@link StuckSplitTasksInterrupter} class. The problematic flow is that we may
+     * kill a task that is long-running, but not really stuck on the code that matches {@link StuckSplitTasksInterrupter#stuckSplitStackTracePredicate} (e.g. JONI code).
+     * Consider the following example:
+     * <ol>
+     * <li>We find long-running splits; we get A, B, C.</li>
+     * <li>None of those is actually running JONI code.</li>
+     * <li>just before when we investigate stack trace for A, the underlying thread already switched to some other unrelated split D; and D is actually running JONI</li>
+     * we get the stacktrace for what we believe is A, but it is for D, and we decide we should kill the task that A belongs to</li>
+     * <li>(clash!!!) wrong decision is made</li>
+     * </ol>
+     * A proposed fix and more details of this issue are at: <a href="https://github.com/trinodb/trino/pull/13272">pull/13272</a>.
+     * We decided not to fix the race condition due to
+     * <ol>
+     * <li>its extremely low chance of occurring</li>
+     * <li>potential low impact if it indeed happened</li>
+     * <li>extra synchronization complexity the patch would add</li>
+     * </ol>
+     */
     private class StuckSplitTasksInterrupter
     {
         private final Duration interruptStuckSplitTasksTimeout;
@@ -749,6 +799,41 @@ public class SqlTaskManager
             for (TaskId stuckSplitTaskId : stuckSplitTaskIds) {
                 failTask(stuckSplitTaskId, new TrinoException(GENERIC_USER_ERROR, format("Task %s is failed, due to containing long running stuck splits.", stuckSplitTaskId)));
             }
+        }
+    }
+
+    public static final class SqlTaskWithResults
+    {
+        private final SqlTask task;
+        private final ListenableFuture<BufferResult> resultsFuture;
+
+        public SqlTaskWithResults(SqlTask task, ListenableFuture<BufferResult> resultsFuture)
+        {
+            this.task = requireNonNull(task, "task is null");
+            this.resultsFuture = requireNonNull(resultsFuture, "resultsFuture is null");
+        }
+
+        public void recordHeartbeat()
+        {
+            task.recordHeartbeat();
+        }
+
+        public String getTaskInstanceId()
+        {
+            return task.getTaskInstanceId();
+        }
+
+        public boolean isTaskFailedOrFailing()
+        {
+            return switch (task.getTaskState()) {
+                case ABORTED, ABORTING, FAILED, FAILING -> true;
+                default -> false;
+            };
+        }
+
+        public ListenableFuture<BufferResult> getResultsFuture()
+        {
+            return resultsFuture;
         }
     }
 }

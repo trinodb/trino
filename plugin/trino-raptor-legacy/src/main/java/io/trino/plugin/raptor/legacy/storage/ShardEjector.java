@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toSet;
 
 public class ShardEjector
@@ -205,13 +205,11 @@ public class ShardEjector
         nodes = new HashMap<>(filterValues(nodes, size -> size <= averageSize));
 
         // get non-bucketed node shards by size, largest to smallest
-        List<ShardMetadata> shards = shardManager.getNodeShards(currentNode).stream()
+        Queue<ShardMetadata> queue = shardManager.getNodeShards(currentNode).stream()
                 .filter(shard -> shard.getBucketNumber().isEmpty())
                 .sorted(comparingLong(ShardMetadata::getCompressedSize).reversed())
-                .collect(toList());
-
-        // eject shards while current node is above max
-        Queue<ShardMetadata> queue = new ArrayDeque<>(shards);
+                // eject shards while current node is above max
+                .collect(toCollection(ArrayDeque::new));
         while ((nodeSize > maxSize) && !queue.isEmpty()) {
             ShardMetadata shard = queue.remove();
             long shardSize = shard.getCompressedSize();

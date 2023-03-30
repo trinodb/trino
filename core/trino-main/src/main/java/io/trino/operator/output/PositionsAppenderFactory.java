@@ -40,7 +40,7 @@ public class PositionsAppenderFactory
 
         return new UnnestingPositionsAppender(
                 new RleAwarePositionsAppender(
-                        blockTypeOperators.getEqualOperator(type),
+                        blockTypeOperators.getDistinctFromOperator(type),
                         createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes)));
     }
 

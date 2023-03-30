@@ -43,10 +43,10 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.OperatorAssertion.finishOperator;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -161,15 +161,11 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity should not change
                 assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
 
-                // Increased memory is no smaller than the hash table size and no greater than the hash table size + the memory used by aggregator
+                expectedReservedExtraBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
                 if (hashKeyType == BIGINT) {
-                    // groupIds and values double by hashCapacity; while valuesByGroupId double by maxFill = hashCapacity / 0.75
-                    expectedReservedExtraBytes = oldCapacity * (long) (Long.BYTES * 1.75 + Integer.BYTES) + page.getRetainedSizeInBytes();
+                    expectedReservedExtraBytes += page.getRetainedSizeInBytes();
                 }
-                else {
-                    // groupIdsByHash, and rawHashByHashPosition double by hashCapacity
-                    expectedReservedExtraBytes = oldCapacity * (long) (Integer.BYTES + Byte.BYTES);
-                }
+                // Increased memory is no smaller than the hash table size and no greater than the hash table size + the memory used by aggregator
                 assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, expectedReservedExtraBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
@@ -188,18 +184,20 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity has increased
                 assertGreaterThan(getHashCapacity.apply(operator), oldCapacity);
 
-                // Assert the estimated reserved memory before rehash is very close to the one after rehash
+                // Assert the estimated reserved memory after rehash is lower than the one before rehash (extra memory allocation has been released)
                 long rehashedMemoryUsage = operator.getOperatorContext().getDriverContext().getMemoryUsage();
+                long previousHashTableSizeInBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity);
+                long expectedMemoryUsageAfterRehash = newMemoryUsage - previousHashTableSizeInBytes;
                 double memoryUsageErrorUpperBound = 1.01;
-                double memoryUsageError = rehashedMemoryUsage * 1.0 / newMemoryUsage;
+                double memoryUsageError = rehashedMemoryUsage * 1.0 / expectedMemoryUsageAfterRehash;
                 if (memoryUsageError > memoryUsageErrorUpperBound) {
                     // Usually the error is < 1%, but since MultiChannelGroupByHash.getEstimatedSize
                     // accounts for changes in completedPagesMemorySize, which is increased if new page is
                     // added by addNewGroup (an even that cannot be predicted as it depends on the number of unique groups
                     // in the current page being processed), the difference includes size of the added new page.
                     // Lower bound is 1% lower than normal because additionalMemoryInBytes includes also aggregator state.
-                    assertBetweenInclusive(rehashedMemoryUsage * 1.0 / (newMemoryUsage + additionalMemoryInBytes), 0.98, memoryUsageErrorUpperBound,
-                            "rehashedMemoryUsage " + rehashedMemoryUsage + ", newMemoryUsage: " + newMemoryUsage);
+                    assertBetweenInclusive(rehashedMemoryUsage * 1.0 / (expectedMemoryUsageAfterRehash + additionalMemoryInBytes), 0.97, memoryUsageErrorUpperBound,
+                            "rehashedMemoryUsage " + rehashedMemoryUsage + ", expectedMemoryUsageAfterRehash: " + expectedMemoryUsageAfterRehash);
                 }
                 else {
                     assertBetweenInclusive(memoryUsageError, 0.99, memoryUsageErrorUpperBound);
@@ -213,6 +211,16 @@ public final class GroupByHashYieldAssertion
 
         result.addAll(finishOperator(operator));
         return new GroupByHashYieldResult(yieldCount, expectedReservedExtraBytes, result);
+    }
+
+    private static long getHashTableSizeInBytes(Type hashKeyType, int capacity)
+    {
+        if (hashKeyType == BIGINT) {
+            // groupIds and values double by hashCapacity; while valuesByGroupId double by maxFill = hashCapacity / 0.75
+            return capacity * (long) (Long.BYTES * 1.75 + Integer.BYTES);
+        }
+        // groupIdsByHash, and rawHashByHashPosition double by hashCapacity
+        return capacity * (long) (Integer.BYTES + Byte.BYTES);
     }
 
     public static final class GroupByHashYieldResult

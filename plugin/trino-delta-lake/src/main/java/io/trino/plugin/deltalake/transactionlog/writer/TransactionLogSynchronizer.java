@@ -20,6 +20,7 @@ public interface TransactionLogSynchronizer
 {
     /**
      * Performs atomic write of transaction log entry file.
+     *
      * @throws TransactionConflictException If file cannot be written because of conflict with other transaction
      * @throws RuntimeException If some other unexpected error occurs
      */
@@ -27,6 +28,7 @@ public interface TransactionLogSynchronizer
 
     /**
      * Whether or not writes using this Synchronizer need to be enabled with the "delta.enable-non-concurrent-writes" config property.
+     *
      * @return False if collision detection for writes from multiple clusters is supported, else true.
      */
     boolean isUnsafe();

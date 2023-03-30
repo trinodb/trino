@@ -226,16 +226,15 @@ public class PrometheusRecordCursor
 
     private static void writeObject(BlockBuilder builder, Type type, Object obj)
     {
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
             BlockBuilder arrayBuilder = builder.beginBlockEntry();
             for (Object item : (List<?>) obj) {
                 writeObject(arrayBuilder, elementType, item);
             }
             builder.closeEntry();
         }
-        else if (type instanceof MapType) {
-            MapType mapType = (MapType) type;
+        else if (type instanceof MapType mapType) {
             BlockBuilder mapBlockBuilder = builder.beginBlockEntry();
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
                 writeObject(mapBlockBuilder, mapType.getKeyType(), entry.getKey());

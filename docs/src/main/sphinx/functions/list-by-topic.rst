@@ -315,12 +315,16 @@ JSON
 For more details, see :doc:`json`
 
 * :func:`is_json_scalar`
+* :ref:`json_array() <json_array>`
 * :func:`json_array_contains`
+* :func:`json_array_get`
 * :func:`json_array_length`
 * :ref:`json_exists() <json_exists>`
 * :func:`json_extract`
+* :func:`json_extract_scalar`
 * :func:`json_format`
 * :func:`json_parse`
+* :ref:`json_object() <json_object>`
 * :ref:`json_query() <json_query>`
 * :func:`json_size`
 * :ref:`json_value() <json_value>`
@@ -408,6 +412,7 @@ For more details, see :doc:`math`
 * :func:`round`
 * :func:`sign`
 * :func:`sin`
+* :func:`sinh`
 * :func:`sqrt`
 * :func:`tan`
 * :func:`tanh`

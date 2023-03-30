@@ -19,7 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.BaseJdbcConnectionCreationTest;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -43,6 +42,7 @@ import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createSession;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
@@ -86,13 +86,13 @@ public class TestPostgreSqlJdbcConnectionCreation
                 {"SELECT * FROM information_schema.schemata", 1, Optional.empty()},
                 {"SELECT * FROM information_schema.tables", 1, Optional.empty()},
                 {"SELECT * FROM information_schema.columns", 1, Optional.empty()},
-                {"SELECT * FROM nation", 2, Optional.empty()},
+                {"SELECT * FROM nation", 3, Optional.empty()},
                 {"SELECT * FROM TABLE (system.query(query => 'SELECT * FROM tpch.nation'))", 2, Optional.empty()},
                 {"CREATE TABLE copy_of_nation AS SELECT * FROM nation", 6, Optional.empty()},
                 {"INSERT INTO copy_of_nation SELECT * FROM nation", 6, Optional.empty()},
                 {"DELETE FROM copy_of_nation WHERE nationkey = 3", 1, Optional.empty()},
-                {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.of("This connector does not support updates")},
-                {"MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 1, Optional.of("This connector does not support merges")},
+                {"UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.of(MODIFYING_ROWS_MESSAGE)},
+                {"MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 1, Optional.of(MODIFYING_ROWS_MESSAGE)},
                 {"DROP TABLE copy_of_nation", 1, Optional.empty()},
                 {"SHOW SCHEMAS", 1, Optional.empty()},
                 {"SHOW TABLES", 1, Optional.empty()},
@@ -145,7 +145,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory()
         {
             return connectionCountingConnectionFactory;
         }

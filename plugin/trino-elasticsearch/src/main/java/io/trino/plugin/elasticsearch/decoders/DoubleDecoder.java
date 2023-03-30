@@ -47,11 +47,10 @@ public class DoubleDecoder
         }
 
         double decoded;
-        if (value instanceof Number) {
-            decoded = ((Number) value).doubleValue();
+        if (value instanceof Number number) {
+            decoded = number.doubleValue();
         }
-        else if (value instanceof String) {
-            String stringValue = (String) value;
+        else if (value instanceof String stringValue) {
             if (stringValue.isEmpty()) {
                 output.appendNull();
                 return;

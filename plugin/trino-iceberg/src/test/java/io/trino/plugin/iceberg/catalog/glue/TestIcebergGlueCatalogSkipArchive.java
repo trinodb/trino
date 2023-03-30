@@ -42,7 +42,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /*
@@ -53,7 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergGlueCatalogSkipArchive
         extends AbstractTestQueryFramework
 {
-    private final String schemaName = "test_iceberg_skip_archive_" + randomTableSuffix();
+    private final String schemaName = "test_iceberg_skip_archive_" + randomNameSuffix();
     private AWSGlueAsync glueClient;
 
     @Override

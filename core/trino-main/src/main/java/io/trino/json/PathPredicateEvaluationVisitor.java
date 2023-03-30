@@ -469,8 +469,7 @@ class PathPredicateEvaluationVisitor
 
     private static Slice getText(Object object)
     {
-        if (object instanceof TypedValue) {
-            TypedValue typedValue = (TypedValue) object;
+        if (object instanceof TypedValue typedValue) {
             if (isCharacterStringType(typedValue.getType())) {
                 if (typedValue.getType() instanceof CharType) {
                     return padSpaces((Slice) typedValue.getObjectValue(), (CharType) typedValue.getType());

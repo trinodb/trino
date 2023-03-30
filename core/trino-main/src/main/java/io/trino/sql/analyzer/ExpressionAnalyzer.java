@@ -226,7 +226,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -627,7 +627,7 @@ public class ExpressionAnalyzer
                     if (node.getPrecision() != null) {
                         yield setExpressionType(node, createTimeWithTimeZoneType(node.getPrecision()));
                     }
-                    yield setExpressionType(node, TIME_WITH_TIME_ZONE);
+                    yield setExpressionType(node, TIME_TZ_MILLIS);
                 }
                 case LOCALTIME -> {
                     if (node.getPrecision() != null) {
@@ -746,11 +746,10 @@ public class ExpressionAnalyzer
             }
 
             Type baseType = process(node.getBase(), context);
-            if (!(baseType instanceof RowType)) {
+            if (!(baseType instanceof RowType rowType)) {
                 throw semanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
             }
 
-            RowType rowType = (RowType) baseType;
             Identifier field = node.getField().orElseThrow();
             String fieldName = field.getValue();
 
@@ -1294,7 +1293,9 @@ public class ExpressionAnalyzer
             for (int i = 0; i < argumentTypes.size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = signature.getArgumentTypes().get(i);
-                requireNonNull(expectedType, format("Type '%s' not found", signature.getArgumentTypes().get(i)));
+                if (expectedType == null) {
+                    throw new NullPointerException(format("Type '%s' not found", signature.getArgumentTypes().get(i)));
+                }
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
@@ -1711,10 +1712,9 @@ public class ExpressionAnalyzer
                     }
                     if (node.getArguments().size() == 1) {
                         Node argument = node.getArguments().get(0);
-                        if (!(argument instanceof Identifier)) {
+                        if (!(argument instanceof Identifier identifier)) {
                             throw semanticException(TYPE_MISMATCH, argument, "CLASSIFIER function argument should be primary pattern variable or subset name. Actual: %s", argument.getClass().getSimpleName());
                         }
-                        Identifier identifier = (Identifier) argument;
                         String label = label(identifier);
                         if (!context.getContext().getLabels().contains(label)) {
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "%s is not a primary pattern variable or subset name", identifier.getValue());
@@ -2070,8 +2070,8 @@ public class ExpressionAnalyzer
             if (parameters.size() == 0) {
                 throw semanticException(INVALID_PARAMETER_USAGE, node, "Query takes no parameters");
             }
-            if (node.getPosition() >= parameters.size()) {
-                throw semanticException(INVALID_PARAMETER_USAGE, node, "Invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
+            if (node.getId() >= parameters.size()) {
+                throw semanticException(INVALID_PARAMETER_USAGE, node, "Invalid parameter index %s, max value is %s", node.getId(), parameters.size() - 1);
             }
 
             Expression providedValue = parameters.get(NodeRef.of(node));
@@ -2251,8 +2251,7 @@ public class ExpressionAnalyzer
                         });
             }
 
-            if (valueList instanceof InListExpression) {
-                InListExpression inListExpression = (InListExpression) valueList;
+            if (valueList instanceof InListExpression inListExpression) {
                 Type type = coerceToSingleType(context,
                         "IN value and list items",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());

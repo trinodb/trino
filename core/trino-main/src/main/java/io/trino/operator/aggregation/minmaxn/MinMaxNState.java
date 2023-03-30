@@ -40,9 +40,8 @@ public interface MinMaxNState
 
     /**
      * Writes all values to the supplied block builder as an array entry.
-     * After this method is called, the current state will be empty.
      */
-    void popAll(BlockBuilder out);
+    void writeAll(BlockBuilder out);
 
     /**
      * Write this state to the specified block builder.

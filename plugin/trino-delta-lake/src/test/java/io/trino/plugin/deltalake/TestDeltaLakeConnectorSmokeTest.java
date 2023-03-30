@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
-import io.trino.plugin.deltalake.transactionlog.writer.S3TransactionLogSynchronizer;
+import io.trino.plugin.deltalake.transactionlog.writer.S3NativeTransactionLogSynchronizer;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
@@ -32,10 +32,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,7 +58,7 @@ public class TestDeltaLakeConnectorSmokeTest
                         .put("delta.enable-non-concurrent-writes", "true")
                         .put("hive.s3.max-connections", "2")
                         .buildOrThrow(),
-                hiveMinioDataLake.getMinioAddress(),
+                hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
     }
 
@@ -67,7 +66,7 @@ public class TestDeltaLakeConnectorSmokeTest
     public void testWritesLocked(String writeStatement)
             throws Exception
     {
-        String tableName = "test_writes_locked" + randomTableSuffix();
+        String tableName = "test_writes_locked" + randomNameSuffix();
         try {
             assertUpdate(
                     format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
@@ -77,7 +76,7 @@ public class TestDeltaLakeConnectorSmokeTest
                             tableName),
                     2);
 
-            Set<String> originalFiles = getTableFiles(tableName).stream().collect(toImmutableSet());
+            Set<String> originalFiles = ImmutableSet.copyOf(getTableFiles(tableName));
             assertThat(originalFiles).isNotEmpty(); // sanity check
 
             String lockFilePath = lockTable(tableName, java.time.Duration.ofMinutes(5));
@@ -113,7 +112,7 @@ public class TestDeltaLakeConnectorSmokeTest
     public void testWritesLockExpired(String writeStatement, String expectedValues)
             throws Exception
     {
-        String tableName = "test_writes_locked" + randomTableSuffix();
+        String tableName = "test_writes_locked" + randomNameSuffix();
         assertUpdate(
                 format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
                                 "VALUES (1, 'ala'), (2, 'ma')",
@@ -143,7 +142,7 @@ public class TestDeltaLakeConnectorSmokeTest
     @Test(dataProvider = "writesLockInvalidContentsValuesProvider")
     public void testWritesLockInvalidContents(String writeStatement, String expectedValues)
     {
-        String tableName = "test_writes_locked" + randomTableSuffix();
+        String tableName = "test_writes_locked" + randomNameSuffix();
         assertUpdate(
                 format("CREATE TABLE %s (a_number, a_string) WITH (location = 's3://%s/%s') AS " +
                                 "VALUES (1, 'ala'), (2, 'ma')",
@@ -161,33 +160,47 @@ public class TestDeltaLakeConnectorSmokeTest
     }
 
     @Test
-    public void testReadingTableWithDeltaColumnInvariant()
+    public void testDeltaColumnInvariant()
     {
-        assertThat(getQueryRunner().execute("SELECT * FROM invariants").getRowCount()).isEqualTo(1);
-        assertThatThrownBy(() -> query("INSERT INTO invariants VALUES(2)"))
-                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
-        assertThatThrownBy(() -> query("UPDATE invariants SET dummy = 3 WHERE dummy = 1"))
-                .hasMessageContaining("Updates are not supported for tables with delta invariants");
+        String tableName = "test_invariants_" + randomNameSuffix();
+        hiveMinioDataLake.copyResources("databricks/invariants", tableName);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(SCHEMA, tableName, getLocationForTable(bucketName, tableName)));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(2)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
+
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
+                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET dummy = 3 WHERE dummy = 1"))
+                .hasMessageContaining("Updating a table with a check constraint is not supported");
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
     }
 
     @Test
     public void testSchemaEvolutionOnTableWithColumnInvariant()
     {
-        String tableName = "test_schema_evolution_on_table_with_column_invariant_" + randomTableSuffix();
+        String tableName = "test_schema_evolution_on_table_with_column_invariant_" + randomNameSuffix();
         hiveMinioDataLake.copyResources("databricks/invariants", tableName);
-        getQueryRunner().execute(format("CREATE TABLE %s (ignored int) WITH (location = '%s')",
+        getQueryRunner().execute(format(
+                "CALL system.register_table('%s', '%s', '%s')",
+                SCHEMA,
                 tableName,
                 getLocationForTable(bucketName, tableName)));
 
-        assertThatThrownBy(() -> query("INSERT INTO invariants VALUES(2)"))
-                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
+                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INT");
         assertUpdate("COMMENT ON COLUMN " + tableName + ".c IS 'example column comment'");
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'example table comment'");
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(2, 2)"))
-                .hasMessageContaining("Inserts are not supported for tables with delta invariants");
+        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3, 30)"))
+                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, 20)");
     }
 
     @DataProvider
@@ -205,7 +218,7 @@ public class TestDeltaLakeConnectorSmokeTest
     {
         String lockFilePath = format("%s/00000000000000000001.json.sb-lock_blah", getLockFileDirectory(tableName));
         String lockFileContents = OBJECT_MAPPER.writeValueAsString(
-                new S3TransactionLogSynchronizer.LockFileContents("some_cluster", "some_query", Instant.now().plus(lockDuration).toEpochMilli()));
+                new S3NativeTransactionLogSynchronizer.LockFileContents("some_cluster", "some_query", Instant.now().plus(lockDuration).toEpochMilli()));
         hiveMinioDataLake.writeFile(lockFileContents.getBytes(UTF_8), lockFilePath);
         String lockUri = format("s3://%s/%s", bucketName, lockFilePath);
         assertThat(listLocks(tableName)).containsExactly(lockUri); // sanity check

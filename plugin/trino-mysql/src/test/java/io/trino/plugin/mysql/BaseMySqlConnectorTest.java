@@ -17,26 +17,29 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -71,6 +74,7 @@ public abstract class BaseMySqlConnectorTest
                 return false;
 
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_COMMENT_ON_COLUMN:
@@ -111,21 +115,7 @@ public abstract class BaseMySqlConnectorTest
     @Override
     public void testShowColumns()
     {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(255)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar(255)", "", "")
-                .row("clerk", "varchar(255)", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar(255)", "", "")
-                .build();
-
-        assertEquals(actual, expectedParametrizedVarchar);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Override
@@ -157,11 +147,10 @@ public abstract class BaseMySqlConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar(255)", "", "")
@@ -172,8 +161,6 @@ public abstract class BaseMySqlConnectorTest
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar(255)", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
@@ -197,7 +184,7 @@ public abstract class BaseMySqlConnectorTest
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: Unsupported delete");
+                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
     @Test
@@ -232,20 +219,11 @@ public abstract class BaseMySqlConnectorTest
     {
         onRemoteDatabase().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
-        MaterializedResult expected = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("c_tinyint", "tinyint", "", "")
-                .build();
-
-        assertEquals(actual, expected);
+        assertQuery("SHOW COLUMNS FROM mysql_test_tinyint1", "VALUES ('c_tinyint', 'tinyint', '', '')");
 
         onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
-        assertEquals(materializedRows.getRowCount(), 1);
-        MaterializedRow row = getOnlyElement(materializedRows);
-
-        assertEquals(row.getFields().size(), 1);
-        assertEquals(row.getField(0), (byte) 127);
+        assertEquals(materializedRows.getOnlyValue(), (byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
     }
@@ -253,13 +231,13 @@ public abstract class BaseMySqlConnectorTest
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return format("Failed to insert data: Data truncation: Incorrect date value: '%s' for column 'dt' at row 1", date);
+        return format("Failed to insert data: Data truncation: Incorrect datetime value: '%s'", date);
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return format("Failed to insert data: Data truncation: Incorrect date value: '%s' for column 'dt' at row 1", date);
+        return format("Failed to insert data: Data truncation: Incorrect datetime value: '%s'", date);
     }
 
     @Override
@@ -377,6 +355,21 @@ public abstract class BaseMySqlConnectorTest
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
+    @Test
+    public void testNativeQueryWithClause()
+    {
+        // MySQL JDBC driver < 8.0.29 didn't return metadata when the query contained a WITH clause
+        assertQuery(
+                    """
+                    SELECT * FROM TABLE(mysql.system.query(query => '
+                    WITH t AS (SELECT DISTINCT custkey FROM tpch.orders)
+                    SELECT custkey, name FROM tpch.customer
+                    WHERE custkey = 1
+                    '))
+                    """,
+                "VALUES (1, 'Customer#000000001')");
+    }
+
     private String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)
@@ -428,5 +421,35 @@ public abstract class BaseMySqlConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Test
+    public void verifyMySqlJdbcDriverNegativeDateHandling()
+            throws Exception
+    {
+        LocalDate negativeDate = LocalDate.of(-1, 1, 1);
+        try (TestTable table = new TestTable(onRemoteDatabase(), "tpch.verify_negative_date", "(dt DATE)")) {
+            // Direct insert to database fails due to validation on database side
+            assertThatThrownBy(() -> onRemoteDatabase().execute("INSERT INTO " + table.getName() + " VALUES (DATE '" + negativeDate + "')"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageMatching(".*\\QIncorrect DATE value: '" + negativeDate + "'\\E");
+
+            // Insert via prepared statement succeeds but writes incorrect value due to bug in driver
+            try (Connection connection = mySqlServer.createConnection();
+                    PreparedStatement insert = connection.prepareStatement("INSERT INTO " + table.getName() + " VALUES (?)")) {
+                insert.setObject(1, negativeDate);
+                int affectedRows = insert.executeUpdate();
+                assertThat(affectedRows).isEqualTo(1);
+            }
+
+            try (Connection connection = mySqlServer.createConnection();
+                    ResultSet resultSet = connection.createStatement().executeQuery("SELECT dt FROM " + table.getName())) {
+                while (resultSet.next()) {
+                    LocalDate dateReadBackFromMySql = resultSet.getObject(1, LocalDate.class);
+                    assertThat(dateReadBackFromMySql).isNotEqualTo(negativeDate);
+                    assertThat(dateReadBackFromMySql.toString()).isEqualTo("0002-01-01");
+                }
+            }
+        }
     }
 }

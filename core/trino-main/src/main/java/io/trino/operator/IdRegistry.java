@@ -16,9 +16,10 @@ package io.trino.operator;
 import io.airlift.slice.SizeOf;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.IntFunction;
+
+import static io.airlift.slice.SizeOf.instanceSize;
 
 /**
  * Object registration system that allows looking up objects via stable IDs.
@@ -27,7 +28,7 @@ import java.util.function.IntFunction;
  */
 public class IdRegistry<T>
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IdRegistry.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(IdRegistry.class);
 
     private final ObjectList<T> objects = new ObjectList<>();
     private final IntFIFOQueue emptySlots = new IntFIFOQueue();
@@ -73,7 +74,7 @@ public class IdRegistry<T>
     private static class IntFIFOQueue
             extends IntArrayFIFOQueue
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntFIFOQueue.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(IntFIFOQueue.class);
 
         public long sizeOf()
         {
@@ -84,7 +85,7 @@ public class IdRegistry<T>
     private static class ObjectList<T>
             extends ObjectArrayList<T>
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(ObjectList.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(ObjectList.class);
 
         public long sizeOf()
         {

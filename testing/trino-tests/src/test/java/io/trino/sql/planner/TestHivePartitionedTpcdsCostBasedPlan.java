@@ -31,16 +31,9 @@ public class TestHivePartitionedTpcdsCostBasedPlan
 
     public static final String PARTITIONED_TPCDS_METADATA_DIR = "/hive_metadata/partitioned_tpcds";
 
-    @Override
-    protected String getMetadataDir()
+    public TestHivePartitionedTpcdsCostBasedPlan()
     {
-        return PARTITIONED_TPCDS_METADATA_DIR;
-    }
-
-    @Override
-    protected boolean isPartitioned()
-    {
-        return true;
+        super(PARTITIONED_TPCDS_METADATA_DIR, true);
     }
 
     @Override

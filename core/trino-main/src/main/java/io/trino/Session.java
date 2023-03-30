@@ -18,15 +18,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.client.ProtocolHeaders;
-import io.trino.connector.CatalogHandle;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -82,6 +83,7 @@ public final class Session
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
     private final ProtocolHeaders protocolHeaders;
+    private final Optional<Slice> exchangeEncryptionKey;
 
     public Session(
             QueryId queryId,
@@ -106,7 +108,8 @@ public final class Session
             Map<String, Map<String, String>> catalogProperties,
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
-            ProtocolHeaders protocolHeaders)
+            ProtocolHeaders protocolHeaders,
+            Optional<Slice> exchangeEncryptionKey)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -130,6 +133,7 @@ public final class Session
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
         this.protocolHeaders = requireNonNull(protocolHeaders, "protocolHeaders is null");
+        this.exchangeEncryptionKey = requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
 
         requireNonNull(catalogProperties, "catalogProperties is null");
         ImmutableMap.Builder<String, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
@@ -284,6 +288,11 @@ public final class Session
         return protocolHeaders;
     }
 
+    public Optional<Slice> getExchangeEncryptionKey()
+    {
+        return exchangeEncryptionKey;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -346,7 +355,8 @@ public final class Session
                 connectorProperties.buildOrThrow(),
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders);
+                protocolHeaders,
+                exchangeEncryptionKey);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults, AccessControl accessControl)
@@ -392,7 +402,38 @@ public final class Session
                 catalogProperties,
                 sessionPropertyManager,
                 preparedStatements,
-                protocolHeaders);
+                protocolHeaders,
+                exchangeEncryptionKey);
+    }
+
+    public Session withExchangeEncryption(Slice encryptionKey)
+    {
+        checkState(exchangeEncryptionKey.isEmpty(), "exchangeEncryptionKey is already present");
+        return new Session(
+                queryId,
+                transactionId,
+                clientTransactionSupport,
+                identity,
+                source,
+                catalog,
+                schema,
+                path,
+                traceToken,
+                timeZoneKey,
+                locale,
+                remoteUserAddress,
+                userAgent,
+                clientInfo,
+                clientTags,
+                clientCapabilities,
+                resourceEstimates,
+                start,
+                systemProperties,
+                catalogProperties,
+                sessionPropertyManager,
+                preparedStatements,
+                protocolHeaders,
+                Optional.of(encryptionKey));
     }
 
     public ConnectorSession toConnectorSession()
@@ -566,6 +607,7 @@ public final class Session
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
             this.userAgent = session.userAgent.orElse(null);
             this.clientInfo = session.clientInfo.orElse(null);
+            this.clientCapabilities = ImmutableSet.copyOf(session.clientCapabilities);
             this.clientTags = ImmutableSet.copyOf(session.clientTags);
             this.start = session.start;
             this.systemProperties.putAll(session.systemProperties);
@@ -832,7 +874,8 @@ public final class Session
                     catalogSessionProperties,
                     sessionPropertyManager,
                     preparedStatements,
-                    protocolHeaders);
+                    protocolHeaders,
+                    Optional.empty());
         }
     }
 

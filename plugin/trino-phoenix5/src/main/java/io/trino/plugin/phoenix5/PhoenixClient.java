@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -173,8 +174,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.max;
@@ -212,7 +211,7 @@ public class PhoenixClient
     private final Configuration configuration;
 
     @Inject
-    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping)
+    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
             throws SQLException
     {
         super(
@@ -221,6 +220,7 @@ public class PhoenixClient
                 queryBuilder,
                 ImmutableSet.of(),
                 identifierMapping,
+                queryModifier,
                 false);
         this.configuration = newEmptyConfiguration();
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
@@ -302,7 +302,7 @@ public class PhoenixClient
                 columns,
                 ImmutableMap.of(),
                 split);
-        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.of(columns.size()));
     }
 
     @Override
@@ -546,10 +546,6 @@ public class PhoenixClient
         if (TIME_MILLIS.equals(type)) {
             return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime());
         }
-        // Phoenix doesn't support _WITH_TIME_ZONE
-        if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
-        }
         if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType().toUpperCase(ENGLISH);
@@ -738,6 +734,12 @@ public class PhoenixClient
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);
         }
         return properties.buildOrThrow();
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
     private static LongReadFunction dateReadFunction()

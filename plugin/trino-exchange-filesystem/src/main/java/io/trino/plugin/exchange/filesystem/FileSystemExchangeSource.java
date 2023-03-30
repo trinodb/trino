@@ -26,16 +26,12 @@ import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -347,16 +343,11 @@ public class FileSystemExchangeSource
     {
         return handles.stream()
                 .map(FileSystemExchangeSourceHandle.class::cast)
-                .map(handle -> {
-                    Optional<SecretKey> secretKey = handle.getSecretKey().map(key -> new SecretKeySpec(key, 0, key.length, "AES"));
-                    return new AbstractMap.SimpleEntry<>(handle, secretKey);
-                })
-                .flatMap(entry -> entry.getKey().getFiles().stream().map(sourceFile ->
+                .flatMap(handle -> handle.getFiles().stream().map(sourceFile ->
                         new ExchangeSourceFile(
                                 URI.create(sourceFile.getFilePath()),
-                                entry.getValue(),
                                 sourceFile.getFileSize(),
-                                entry.getKey().getExchangeId(),
+                                handle.getExchangeId(),
                                 sourceFile.getSourceTaskPartitionId(),
                                 sourceFile.getSourceTaskAttemptId())))
                 .collect(toImmutableList());

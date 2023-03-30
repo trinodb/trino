@@ -17,14 +17,17 @@ import com.google.cloud.bigquery.InsertAllRequest;
 import com.google.cloud.bigquery.TableId;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,15 +42,31 @@ public class BigQueryPageSink
     private final TableId tableId;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
+    private final ConnectorPageSinkId pageSinkId;
+    private final Optional<String> pageSinkIdColumnName;
 
-    public BigQueryPageSink(BigQueryClient client, RemoteTableName remoteTableName, List<String> columnNames, List<Type> columnTypes)
+    public BigQueryPageSink(
+            BigQueryClient client,
+            RemoteTableName remoteTableName,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            ConnectorPageSinkId pageSinkId,
+            Optional<String> temporaryTableName,
+            Optional<String> pageSinkIdColumnName)
     {
         this.client = requireNonNull(client, "client is null");
         requireNonNull(remoteTableName, "remoteTableName is null");
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes must have the same size");
-        this.tableId = remoteTableName.toTableId();
+        this.pageSinkId = requireNonNull(pageSinkId, "pageSinkId is null");
+        requireNonNull(temporaryTableName, "temporaryTableName is null");
+        this.pageSinkIdColumnName = requireNonNull(pageSinkIdColumnName, "pageSinkIdColumnName is null");
+        checkArgument(temporaryTableName.isPresent() == pageSinkIdColumnName.isPresent(),
+                "temporaryTableName.isPresent is not equal to pageSinkIdColumn.isPresent");
+        this.tableId = temporaryTableName
+                .map(tableName -> TableId.of(remoteTableName.getProjectId(), remoteTableName.getDatasetName(), tableName))
+                .orElseGet(remoteTableName::toTableId);
     }
 
     @Override
@@ -56,6 +75,7 @@ public class BigQueryPageSink
         InsertAllRequest.Builder batch = InsertAllRequest.newBuilder(tableId);
         for (int position = 0; position < page.getPositionCount(); position++) {
             Map<String, Object> row = new HashMap<>();
+            pageSinkIdColumnName.ifPresent(column -> row.put(column, pageSinkId.getId()));
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 row.put(columnNames.get(channel), readNativeValue(columnTypes.get(channel), page.getBlock(channel), position));
             }
@@ -69,7 +89,7 @@ public class BigQueryPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        return completedFuture(ImmutableList.of());
+        return completedFuture(ImmutableList.of(Slices.wrappedLongArray(pageSinkId.getId())));
     }
 
     @Override

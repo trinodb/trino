@@ -28,7 +28,6 @@ import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputInfo;
         @JsonSubTypes.Type(value = LocalExchangeBufferInfo.class, name = "localExchangeBuffer"),
         @JsonSubTypes.Type(value = TableFinishInfo.class, name = "tableFinish"),
         @JsonSubTypes.Type(value = SplitOperatorInfo.class, name = "splitOperator"),
-        @JsonSubTypes.Type(value = HashCollisionsInfo.class, name = "hashCollisionsInfo"),
         @JsonSubTypes.Type(value = PartitionedOutputInfo.class, name = "partitionedOutput"),
         @JsonSubTypes.Type(value = JoinOperatorInfo.class, name = "joinOperatorInfo"),
         @JsonSubTypes.Type(value = WindowInfo.class, name = "windowInfo"),

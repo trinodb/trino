@@ -13,16 +13,17 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.ImmutableLongArray;
 import io.trino.client.NodeVersion;
-import io.trino.connector.CatalogHandle;
+import io.trino.execution.scheduler.HashDistributionSplitAssigner.TaskPartition;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -30,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -39,18 +41,20 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Sets.difference;
-import static io.trino.connector.CatalogHandle.createRootCatalogHandle;
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+import static io.trino.execution.scheduler.HashDistributionSplitAssigner.createOutputPartitionToTaskPartition;
+import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 public class TestHashDistributionSplitAssigner
 {
-    private static final CatalogHandle TESTING_CATALOG_HANDLE = createRootCatalogHandle("testing");
-
     private static final PlanNodeId PARTITIONED_1 = new PlanNodeId("partitioned-1");
     private static final PlanNodeId PARTITIONED_2 = new PlanNodeId("partitioned-2");
     private static final PlanNodeId REPLICATED_1 = new PlanNodeId("replicated-1");
@@ -63,337 +67,399 @@ public class TestHashDistributionSplitAssigner
     @Test
     public void testEmpty()
     {
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true)),
-                10,
-                Optional.empty(),
-                1024,
-                ImmutableMap.of(),
-                false,
-                1);
-        testAssigner(
-                ImmutableSet.of(),
-                ImmutableSet.of(REPLICATED_1),
-                ImmutableList.of(new SplitBatch(REPLICATED_1, ImmutableListMultimap.of(), true)),
-                1,
-                Optional.empty(),
-                1024,
-                ImmutableMap.of(REPLICATED_1, new OutputDataSizeEstimate(ImmutableLongArray.builder().add(0).build())),
-                false,
-                1);
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(REPLICATED_1),
-                ImmutableList.of(
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true))
+                .withSplitPartitionCount(10)
+                .withTargetPartitionSizeInBytes(1024)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
+        testAssigner()
+                .withReplicatedSources(REPLICATED_1)
+                .withSplits(new SplitBatch(REPLICATED_1, ImmutableListMultimap.of(), true))
+                .withSplitPartitionCount(1)
+                .withTargetPartitionSizeInBytes(1024)
+                .withOutputDataSizeEstimates(ImmutableMap.of(REPLICATED_1, new OutputDataSizeEstimate(ImmutableLongArray.builder().add(0).build())))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withReplicatedSources(REPLICATED_1)
+                .withSplits(
                         new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true),
-                        new SplitBatch(REPLICATED_1, ImmutableListMultimap.of(), true)),
-                10,
-                Optional.empty(),
-                1024,
-                ImmutableMap.of(),
-                false,
-                1);
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1, PARTITIONED_2),
-                ImmutableSet.of(REPLICATED_1, REPLICATED_2),
-                ImmutableList.of(
+                        new SplitBatch(REPLICATED_1, ImmutableListMultimap.of(), true))
+                .withSplitPartitionCount(10)
+                .withTargetPartitionSizeInBytes(1024)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1, PARTITIONED_2)
+                .withReplicatedSources(REPLICATED_1, REPLICATED_2)
+                .withSplits(
                         new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true),
                         new SplitBatch(REPLICATED_1, ImmutableListMultimap.of(), true),
                         new SplitBatch(PARTITIONED_2, ImmutableListMultimap.of(), true),
-                        new SplitBatch(REPLICATED_2, ImmutableListMultimap.of(), true)),
-                10,
-                Optional.empty(),
-                1024,
-                ImmutableMap.of(),
-                false,
-                1);
+                        new SplitBatch(REPLICATED_2, ImmutableListMultimap.of(), true))
+                .withSplitPartitionCount(10)
+                .withTargetPartitionSizeInBytes(1024)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
     }
 
     @Test
     public void testExplicitPartitionToNodeMap()
     {
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 1), createSplit(3, 2)), true)),
-                3,
-                Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)),
-                1000,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                3);
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 1), createSplit(3, 2)), true))
+                .withSplitPartitionCount(3)
+                .withPartitionToNodeMap(Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)))
+                .withTargetPartitionSizeInBytes(1000)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(3)
+                .run();
         // some partitions missing
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), true)),
-                3,
-                Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)),
-                1000,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                1);
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), true))
+                .withSplitPartitionCount(3)
+                .withPartitionToNodeMap(Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)))
+                .withTargetPartitionSizeInBytes(1000)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
         // no splits
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
-                        new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true)),
-                3,
-                Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)),
-                1000,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                1);
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true))
+                .withSplitPartitionCount(3)
+                .withPartitionToNodeMap(Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)))
+                .withTargetPartitionSizeInBytes(1000)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
     }
 
     @Test
-    public void testPreserveOutputPartitioning()
+    public void testMergeNotAllowed()
     {
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 1), createSplit(3, 2)), true)),
-                3,
-                Optional.empty(),
-                1000,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                true,
-                3);
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 1), createSplit(3, 2)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(1000)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(false)
+                .withExpectedTaskCount(3)
+                .run();
         // some partitions missing
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), true)),
-                3,
-                Optional.empty(),
-                1000,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                true,
-                1);
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(1000)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(false)
+                .withExpectedTaskCount(1)
+                .run();
         // no splits
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
-                        new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true)),
-                3,
-                Optional.empty(),
-                1000,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                true,
-                1);
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(1000)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(false)
+                .withExpectedTaskCount(1)
+                .run();
     }
 
     @Test
     public void testMissingEstimates()
     {
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 1), createSplit(3, 2)), true)),
-                3,
-                Optional.empty(),
-                1000,
-                ImmutableMap.of(),
-                false,
-                3);
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 1), createSplit(3, 2)), true))
+                .withSplitPartitionCount(3)
+                .withPartitionToNodeMap(Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)))
+                .withTargetPartitionSizeInBytes(1000)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(3)
+                .run();
         // some partitions missing
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), true)),
-                3,
-                Optional.empty(),
-                1000,
-                ImmutableMap.of(),
-                false,
-                1);
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), true))
+                .withSplitPartitionCount(3)
+                .withPartitionToNodeMap(Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)))
+                .withTargetPartitionSizeInBytes(1000)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
         // no splits
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
-                        new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true)),
-                3,
-                Optional.empty(),
-                1000,
-                ImmutableMap.of(),
-                false,
-                1);
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, ImmutableListMultimap.of(), true))
+                .withSplitPartitionCount(3)
+                .withPartitionToNodeMap(Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)))
+                .withTargetPartitionSizeInBytes(1000)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
     }
 
     @Test
     public void testHappyPath()
     {
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(),
-                ImmutableList.of(
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 1), createSplit(3, 2)), true)),
-                3,
-                Optional.empty(),
-                3,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                1);
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(REPLICATED_1),
-                ImmutableList.of(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 1), createSplit(3, 2)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(3)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withReplicatedSources(REPLICATED_1)
+                .withSplits(
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(2, 0), createSplit(3, 2)), false),
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(4, 1), createSplit(5, 100)), true),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true)),
-                3,
-                Optional.empty(),
-                3,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                1);
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(REPLICATED_1),
-                ImmutableList.of(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(3)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withReplicatedSources(REPLICATED_1)
+                .withSplits(
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(2, 0), createSplit(3, 2)), false),
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(4, 1), createSplit(5, 100)), true),
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true)),
-                3,
-                Optional.empty(),
-                1,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                3);
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(REPLICATED_1),
-                ImmutableList.of(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(3)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withReplicatedSources(REPLICATED_1)
+                .withSplits(
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(2, 0), createSplit(3, 2)), false),
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(4, 1), createSplit(5, 100)), true),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true)),
-                3,
-                Optional.empty(),
-                1,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                3);
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1),
-                ImmutableSet.of(REPLICATED_1, REPLICATED_2),
-                ImmutableList.of(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(3)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withReplicatedSources(REPLICATED_1, REPLICATED_2)
+                .withSplits(
                         new SplitBatch(REPLICATED_2, createSplitMap(createSplit(11, 1), createSplit(12, 100)), true),
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(2, 0), createSplit(3, 2)), false),
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(4, 1), createSplit(5, 100)), true),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true)),
-                3,
-                Optional.empty(),
-                1,
-                ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                3);
-        testAssigner(
-                ImmutableSet.of(PARTITIONED_1, PARTITIONED_2),
-                ImmutableSet.of(REPLICATED_1, REPLICATED_2),
-                ImmutableList.of(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(3)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1, PARTITIONED_2)
+                .withReplicatedSources(REPLICATED_1, REPLICATED_2)
+                .withSplits(
                         new SplitBatch(REPLICATED_2, createSplitMap(createSplit(11, 1), createSplit(12, 100)), true),
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(2, 0), createSplit(3, 2)), false),
                         new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
                         new SplitBatch(PARTITIONED_2, createSplitMap(), true),
                         new SplitBatch(REPLICATED_1, createSplitMap(createSplit(4, 1), createSplit(5, 100)), true),
-                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true)),
-                3,
-                Optional.empty(),
-                1,
-                ImmutableMap.of(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(6, 1), createSplit(7, 2)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
                         PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1)),
-                        PARTITIONED_2, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))),
-                false,
-                3);
+                        PARTITIONED_2, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(3)
+                .run();
     }
 
-    private static void testAssigner(
-            Set<PlanNodeId> partitionedSources,
-            Set<PlanNodeId> replicatedSources,
-            List<SplitBatch> batches,
-            int splitPartitionCount,
-            Optional<List<InternalNode>> partitionToNodeMap,
-            long targetPartitionSizeInBytes,
-            Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
-            boolean preserveOutputPartitioning,
-            int expectedTaskCount)
+    @Test
+    public void testPartitionSplitting()
     {
-        FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(splitPartitionCount, partitionToNodeMap);
-        HashDistributionSplitAssigner assigner = new HashDistributionSplitAssigner(
-                Optional.of(TESTING_CATALOG_HANDLE),
-                partitionedSources,
-                replicatedSources,
-                targetPartitionSizeInBytes,
-                outputDataSizeEstimates,
-                partitioningScheme,
-                preserveOutputPartitioning);
-        TestingTaskSourceCallback callback = new TestingTaskSourceCallback();
-        SetMultimap<Integer, Integer> partitionedSplitIds = HashMultimap.create();
-        Set<Integer> replicatedSplitIds = new HashSet<>();
-        for (SplitBatch batch : batches) {
-            assigner.assign(batch.getPlanNodeId(), batch.getSplits(), batch.isNoMoreSplits()).update(callback);
-            boolean replicated = replicatedSources.contains(batch.getPlanNodeId());
-            callback.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits().values(), replicated);
-            for (Map.Entry<Integer, Split> entry : batch.getSplits().entries()) {
-                int splitId = TestingConnectorSplit.getSplitId(entry.getValue());
-                if (replicated) {
-                    assertThat(replicatedSplitIds).doesNotContain(splitId);
-                    replicatedSplitIds.add(splitId);
-                }
-                else {
-                    partitionedSplitIds.put(entry.getKey(), splitId);
-                }
-            }
-        }
-        assigner.finish().update(callback);
-        List<TaskDescriptor> taskDescriptors = callback.getTaskDescriptors();
-        assertThat(taskDescriptors).hasSize(expectedTaskCount);
-        for (TaskDescriptor taskDescriptor : taskDescriptors) {
-            int partitionId = taskDescriptor.getPartitionId();
-            NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
-            assertEquals(nodeRequirements.getCatalogHandle(), Optional.of(TESTING_CATALOG_HANDLE));
-            partitionToNodeMap.ifPresent(partitionToNode -> {
-                if (!taskDescriptor.getSplits().isEmpty()) {
-                    InternalNode node = partitionToNode.get(partitionId);
-                    assertThat(nodeRequirements.getAddresses()).containsExactly(node.getHostAndPort());
-                }
-            });
-            Set<Integer> taskDescriptorSplitIds = taskDescriptor.getSplits().values().stream()
-                    .map(TestingConnectorSplit::getSplitId)
-                    .collect(toImmutableSet());
-            assertThat(taskDescriptorSplitIds).containsAll(replicatedSplitIds);
-            Set<Integer> taskDescriptorPartitionedSplitIds = difference(taskDescriptorSplitIds, replicatedSplitIds);
-            Set<Integer> taskDescriptorSplitPartitions = new HashSet<>();
-            for (Split split : taskDescriptor.getSplits().values()) {
-                int splitId = TestingConnectorSplit.getSplitId(split);
-                if (taskDescriptorPartitionedSplitIds.contains(splitId)) {
-                    int splitPartition = partitioningScheme.getPartition(split);
-                    taskDescriptorSplitPartitions.add(splitPartition);
-                }
-            }
-            for (Integer splitPartition : taskDescriptorSplitPartitions) {
-                assertThat(taskDescriptorPartitionedSplitIds).containsAll(partitionedSplitIds.get(splitPartition));
-            }
-        }
+        // single splittable source
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 0), createSplit(3, 0)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(3)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(5, 1, 1))))
+                .withSplittableSources(PARTITIONED_1)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(2)
+                .run();
+
+        // largest source is not splittable
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 0), createSplit(3, 0)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(3)
+                .withOutputDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(5, 1, 1))))
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
+        // multiple sources
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1, PARTITIONED_2)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 0), createSplit(3, 0)), true),
+                        new SplitBatch(PARTITIONED_2, createSplitMap(createSplit(4, 0), createSplit(5, 1)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(30)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(50, 1, 1)),
+                        PARTITIONED_2, new OutputDataSizeEstimate(ImmutableLongArray.of(2, 1, 1))))
+                .withSplittableSources(PARTITIONED_1)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(3)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1, PARTITIONED_2)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 0), createSplit(3, 0)), true),
+                        new SplitBatch(PARTITIONED_2, createSplitMap(createSplit(4, 0), createSplit(5, 1)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(30)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(50, 1, 1)),
+                        PARTITIONED_2, new OutputDataSizeEstimate(ImmutableLongArray.of(2, 1, 1))))
+                .withSplittableSources(PARTITIONED_1, PARTITIONED_2)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(3)
+                .run();
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1, PARTITIONED_2)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 0), createSplit(3, 0)), true),
+                        new SplitBatch(PARTITIONED_2, createSplitMap(createSplit(4, 0), createSplit(5, 0)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(30)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(50, 1, 1)),
+                        PARTITIONED_2, new OutputDataSizeEstimate(ImmutableLongArray.of(2, 1, 1))))
+                .withSplittableSources(PARTITIONED_2)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(1)
+                .run();
+    }
+
+    @Test
+    public void testCreateOutputPartitionToTaskPartition()
+    {
+        testPartitionMapping()
+                .withSplitPartitionCount(3)
+                .withPartitionedSources(PARTITIONED_1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(50, 1, 1))))
+                .withTargetPartitionSizeInBytes(25)
+                .withSplittableSources(PARTITIONED_1)
+                .withMergeAllowed(true)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0), 3),
+                        new PartitionMapping(ImmutableSet.of(1, 2), 1))
+                .run();
+        testPartitionMapping()
+                .withSplitPartitionCount(3)
+                .withPartitionedSources(PARTITIONED_1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(50, 1, 1))))
+                .withTargetPartitionSizeInBytes(25)
+                .withMergeAllowed(true)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0), 1),
+                        new PartitionMapping(ImmutableSet.of(1, 2), 1))
+                .run();
+        testPartitionMapping()
+                .withSplitPartitionCount(3)
+                .withPartitionedSources(PARTITIONED_1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(50, 1, 1))))
+                .withTargetPartitionSizeInBytes(25)
+                .withMergeAllowed(false)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0), 1),
+                        new PartitionMapping(ImmutableSet.of(1), 1),
+                        new PartitionMapping(ImmutableSet.of(2), 1))
+                .run();
+        testPartitionMapping()
+                .withSplitPartitionCount(3)
+                .withPartitionedSources(PARTITIONED_1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(50, 1, 1))))
+                .withTargetPartitionSizeInBytes(25)
+                .withMergeAllowed(false)
+                .withSplittableSources(PARTITIONED_1)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0), 3),
+                        new PartitionMapping(ImmutableSet.of(1), 1),
+                        new PartitionMapping(ImmutableSet.of(2), 1))
+                .run();
+        testPartitionMapping()
+                .withSplitPartitionCount(4)
+                .withPartitionedSources(PARTITIONED_1)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(0, 0, 0, 60))))
+                .withTargetPartitionSizeInBytes(25)
+                .withMergeAllowed(false)
+                .withSplittableSources(PARTITIONED_1)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0), 1),
+                        new PartitionMapping(ImmutableSet.of(1), 1),
+                        new PartitionMapping(ImmutableSet.of(2), 1),
+                        new PartitionMapping(ImmutableSet.of(3), 3))
+                .run();
     }
 
     private static ListMultimap<Integer, Split> createSplitMap(Split... splits)
@@ -413,7 +479,7 @@ public class TestHashDistributionSplitAssigner
 
     private static Split createSplit(int id, int partition)
     {
-        return new Split(TESTING_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.of(partition), Optional.empty()));
+        return new Split(TEST_CATALOG_HANDLE, new TestingConnectorSplit(id, OptionalInt.of(partition), Optional.empty()));
     }
 
     private static class SplitBatch
@@ -442,6 +508,264 @@ public class TestHashDistributionSplitAssigner
         public boolean isNoMoreSplits()
         {
             return noMoreSplits;
+        }
+    }
+
+    public static AssignerTester testAssigner()
+    {
+        return new AssignerTester();
+    }
+
+    private static class AssignerTester
+    {
+        private Set<PlanNodeId> partitionedSources = ImmutableSet.of();
+        private Set<PlanNodeId> replicatedSources = ImmutableSet.of();
+        private List<SplitBatch> splits = ImmutableList.of();
+        private int splitPartitionCount;
+        private Optional<List<InternalNode>> partitionToNodeMap = Optional.empty();
+        private long targetPartitionSizeInBytes;
+        private Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates = ImmutableMap.of();
+        private Set<PlanNodeId> splittableSources = ImmutableSet.of();
+        private boolean mergeAllowed;
+        private int expectedTaskCount;
+
+        public AssignerTester withPartitionedSources(PlanNodeId... sources)
+        {
+            partitionedSources = ImmutableSet.copyOf(sources);
+            return this;
+        }
+
+        public AssignerTester withReplicatedSources(PlanNodeId... sources)
+        {
+            replicatedSources = ImmutableSet.copyOf(sources);
+            return this;
+        }
+
+        public AssignerTester withSplits(SplitBatch... splits)
+        {
+            this.splits = ImmutableList.copyOf(splits);
+            return this;
+        }
+
+        public AssignerTester withSplitPartitionCount(int splitPartitionCount)
+        {
+            this.splitPartitionCount = splitPartitionCount;
+            return this;
+        }
+
+        public AssignerTester withPartitionToNodeMap(Optional<List<InternalNode>> partitionToNodeMap)
+        {
+            this.partitionToNodeMap = partitionToNodeMap;
+            return this;
+        }
+
+        public AssignerTester withTargetPartitionSizeInBytes(long targetPartitionSizeInBytes)
+        {
+            this.targetPartitionSizeInBytes = targetPartitionSizeInBytes;
+            return this;
+        }
+
+        public AssignerTester withOutputDataSizeEstimates(Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
+        {
+            this.outputDataSizeEstimates = outputDataSizeEstimates;
+            return this;
+        }
+
+        public AssignerTester withSplittableSources(PlanNodeId... sources)
+        {
+            splittableSources = ImmutableSet.copyOf(sources);
+            return this;
+        }
+
+        public AssignerTester withMergeAllowed(boolean mergeAllowed)
+        {
+            this.mergeAllowed = mergeAllowed;
+            return this;
+        }
+
+        public AssignerTester withExpectedTaskCount(int expectedTaskCount)
+        {
+            this.expectedTaskCount = expectedTaskCount;
+            return this;
+        }
+
+        public void run()
+        {
+            FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(splitPartitionCount, partitionToNodeMap);
+            Map<Integer, TaskPartition> outputPartitionToTaskPartition = createOutputPartitionToTaskPartition(
+                    partitioningScheme,
+                    partitionedSources,
+                    outputDataSizeEstimates,
+                    targetPartitionSizeInBytes,
+                    splittableSources::contains,
+                    mergeAllowed);
+            HashDistributionSplitAssigner assigner = new HashDistributionSplitAssigner(
+                    Optional.of(TEST_CATALOG_HANDLE),
+                    partitionedSources,
+                    replicatedSources,
+                    partitioningScheme,
+                    outputPartitionToTaskPartition);
+            SplitAssignerTester tester = new SplitAssignerTester();
+            Map<Integer, ListMultimap<PlanNodeId, Integer>> partitionedSplitIds = new HashMap<>();
+            Set<Integer> replicatedSplitIds = new HashSet<>();
+            for (SplitBatch batch : splits) {
+                tester.update(assigner.assign(batch.getPlanNodeId(), batch.getSplits(), batch.isNoMoreSplits()));
+                boolean replicated = replicatedSources.contains(batch.getPlanNodeId());
+                tester.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits().values(), replicated);
+                for (Map.Entry<Integer, Split> entry : batch.getSplits().entries()) {
+                    int splitId = TestingConnectorSplit.getSplitId(entry.getValue());
+                    if (replicated) {
+                        assertThat(replicatedSplitIds).doesNotContain(splitId);
+                        replicatedSplitIds.add(splitId);
+                    }
+                    else {
+                        partitionedSplitIds.computeIfAbsent(entry.getKey(), key -> ArrayListMultimap.create()).put(batch.getPlanNodeId(), splitId);
+                    }
+                }
+            }
+            tester.update(assigner.finish());
+            Map<Integer, TaskDescriptor> taskDescriptors = tester.getTaskDescriptors().orElseThrow().stream()
+                    .collect(toImmutableMap(TaskDescriptor::getPartitionId, Function.identity()));
+            assertThat(taskDescriptors).hasSize(expectedTaskCount);
+
+            // validate node requirements and replicated splits
+            for (TaskDescriptor taskDescriptor : taskDescriptors.values()) {
+                int partitionId = taskDescriptor.getPartitionId();
+                NodeRequirements nodeRequirements = taskDescriptor.getNodeRequirements();
+                assertEquals(nodeRequirements.getCatalogHandle(), Optional.of(TEST_CATALOG_HANDLE));
+                partitionToNodeMap.ifPresent(partitionToNode -> {
+                    if (!taskDescriptor.getSplits().isEmpty()) {
+                        InternalNode node = partitionToNode.get(partitionId);
+                        assertThat(nodeRequirements.getAddresses()).containsExactly(node.getHostAndPort());
+                    }
+                });
+                Set<Integer> taskDescriptorSplitIds = taskDescriptor.getSplits().values().stream()
+                        .map(TestingConnectorSplit::getSplitId)
+                        .collect(toImmutableSet());
+                assertThat(taskDescriptorSplitIds).containsAll(replicatedSplitIds);
+            }
+
+            // validate partitioned splits
+            partitionedSplitIds.forEach((partitionId, sourceSplits) -> {
+                sourceSplits.forEach((source, splitId) -> {
+                    List<TaskDescriptor> descriptors = outputPartitionToTaskPartition.get(partitionId).getSubPartitions().stream()
+                            .filter(HashDistributionSplitAssigner.SubPartition::isIdAssigned)
+                            .map(HashDistributionSplitAssigner.SubPartition::getId)
+                            .map(taskDescriptors::get)
+                            .collect(toImmutableList());
+                    for (TaskDescriptor descriptor : descriptors) {
+                        Set<Integer> taskDescriptorSplitIds = descriptor.getSplits().values().stream()
+                                .map(TestingConnectorSplit::getSplitId)
+                                .collect(toImmutableSet());
+                        if (taskDescriptorSplitIds.contains(splitId) && splittableSources.contains(source)) {
+                            return;
+                        }
+                        if (!taskDescriptorSplitIds.contains(splitId) && !splittableSources.contains(source)) {
+                            fail("expected split not found: ." + splitId);
+                        }
+                    }
+                    if (splittableSources.contains(source)) {
+                        fail("expected split not found: ." + splitId);
+                    }
+                });
+            });
+        }
+    }
+
+    private static PartitionMappingTester testPartitionMapping()
+    {
+        return new PartitionMappingTester();
+    }
+
+    private static class PartitionMappingTester
+    {
+        private Set<PlanNodeId> partitionedSources = ImmutableSet.of();
+        private int splitPartitionCount;
+        private Optional<List<InternalNode>> partitionToNodeMap = Optional.empty();
+        private long targetPartitionSizeInBytes;
+        private Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates = ImmutableMap.of();
+        private Set<PlanNodeId> splittableSources = ImmutableSet.of();
+        private boolean mergeAllowed;
+        private Set<PartitionMapping> expectedMappings = ImmutableSet.of();
+
+        public PartitionMappingTester withPartitionedSources(PlanNodeId... sources)
+        {
+            partitionedSources = ImmutableSet.copyOf(sources);
+            return this;
+        }
+
+        public PartitionMappingTester withSplitPartitionCount(int splitPartitionCount)
+        {
+            this.splitPartitionCount = splitPartitionCount;
+            return this;
+        }
+
+        public PartitionMappingTester withPartitionToNodeMap(Optional<List<InternalNode>> partitionToNodeMap)
+        {
+            this.partitionToNodeMap = partitionToNodeMap;
+            return this;
+        }
+
+        public PartitionMappingTester withTargetPartitionSizeInBytes(long targetPartitionSizeInBytes)
+        {
+            this.targetPartitionSizeInBytes = targetPartitionSizeInBytes;
+            return this;
+        }
+
+        public PartitionMappingTester withOutputDataSizeEstimates(Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
+        {
+            this.outputDataSizeEstimates = outputDataSizeEstimates;
+            return this;
+        }
+
+        public PartitionMappingTester withSplittableSources(PlanNodeId... sources)
+        {
+            splittableSources = ImmutableSet.copyOf(sources);
+            return this;
+        }
+
+        public PartitionMappingTester withMergeAllowed(boolean mergeAllowed)
+        {
+            this.mergeAllowed = mergeAllowed;
+            return this;
+        }
+
+        public PartitionMappingTester withExpectedMappings(PartitionMapping... mappings)
+        {
+            expectedMappings = ImmutableSet.copyOf(mappings);
+            return this;
+        }
+
+        public void run()
+        {
+            FaultTolerantPartitioningScheme partitioningScheme = createPartitioningScheme(splitPartitionCount, partitionToNodeMap);
+            Map<Integer, TaskPartition> actual = createOutputPartitionToTaskPartition(
+                    partitioningScheme,
+                    partitionedSources,
+                    outputDataSizeEstimates,
+                    targetPartitionSizeInBytes,
+                    splittableSources::contains,
+                    mergeAllowed);
+            Set<PartitionMapping> actualGroups = extractMappings(actual);
+            assertEquals(actualGroups, expectedMappings);
+        }
+
+        private static Set<PartitionMapping> extractMappings(Map<Integer, TaskPartition> outputPartitionToTaskPartition)
+        {
+            SetMultimap<TaskPartition, Integer> grouped = outputPartitionToTaskPartition.entrySet().stream()
+                    .collect(toImmutableSetMultimap(Map.Entry::getValue, Map.Entry::getKey));
+            return Multimaps.asMap(grouped).entrySet().stream()
+                    .map(entry -> new PartitionMapping(entry.getValue(), entry.getKey().getSubPartitions().size()))
+                    .collect(toImmutableSet());
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private record PartitionMapping(Set<Integer> sourcePartitions, int taskPartitionCount)
+    {
+        private PartitionMapping
+        {
+            sourcePartitions = ImmutableSet.copyOf(requireNonNull(sourcePartitions, "sourcePartitions is null"));
         }
     }
 }

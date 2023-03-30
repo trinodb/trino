@@ -13,23 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableSet;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.plugin.hive.NodeVersion;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.annotations.AfterClass;
@@ -41,9 +30,11 @@ import java.nio.file.Files;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
-import static io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule.HIDE_DELTA_LAKE_TABLES_IN_ICEBERG;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -55,26 +46,13 @@ public class TestIcebergTableWithExternalLocation
 {
     private FileHiveMetastore metastore;
     private File metastoreDir;
-    private HdfsEnvironment hdfsEnvironment;
-    private HdfsContext hdfsContext;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
         metastoreDir = Files.createTempDirectory("test_iceberg").toFile();
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        FileHiveMetastoreConfig config = new FileHiveMetastoreConfig()
-                .setCatalogDirectory(metastoreDir.toURI().toString())
-                .setMetastoreUser("test");
-        hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
-        metastore = new FileHiveMetastore(
-                new NodeVersion("testversion"),
-                hdfsEnvironment,
-                HIDE_DELTA_LAKE_TABLES_IN_ICEBERG,
-                config);
+        metastore = createTestingFileHiveMetastore(metastoreDir);
 
         return IcebergQueryRunner.builder()
                 .setMetastoreDirectory(metastoreDir)
@@ -94,23 +72,23 @@ public class TestIcebergTableWithExternalLocation
     {
         String tableName = "test_table_external_create_and_drop";
         File tempDir = getDistributedQueryRunner().getCoordinator().getBaseDataDir().toFile();
-        String tempDirPath = tempDir.toURI().toASCIIString() + randomTableSuffix();
+        String tempDirPath = tempDir.toURI().toASCIIString() + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s ( x bigint) WITH (location = '%s')", tableName, tempDirPath));
         assertQuerySucceeds(format("INSERT INTO %s VALUES (1), (2), (3)", tableName));
 
         Table table = metastore.getTable("tpch", tableName).orElseThrow();
         assertThat(table.getTableType()).isEqualTo(TableType.EXTERNAL_TABLE.name());
         Path tableLocation = new Path(table.getStorage().getLocation());
-        FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
-        assertTrue(fileSystem.exists(tableLocation), "The directory corresponding to the table storage location should exist");
+        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        assertTrue(fileSystem.newInputFile(tableLocation.toString()).exists(), "The directory corresponding to the table storage location should exist");
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_table_external_create_and_drop$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord dataFile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
-        assertTrue(fileSystem.exists(new Path(dataFile.getFilePath())), "The data file should exist");
+        assertTrue(fileSystem.newInputFile(new Path(dataFile.getFilePath()).toString()).exists(), "The data file should exist");
 
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
         assertThat(metastore.getTable("tpch", tableName)).as("Table should be dropped").isEmpty();
-        assertFalse(fileSystem.exists(new Path(dataFile.getFilePath())), "The data file should have been removed");
-        assertFalse(fileSystem.exists(tableLocation), "The directory corresponding to the dropped Iceberg table should be removed as we don't allow shared locations.");
+        assertFalse(fileSystem.newInputFile(new Path(dataFile.getFilePath()).toString()).exists(), "The data file should have been removed");
+        assertFalse(fileSystem.newInputFile(tableLocation.toString()).exists(), "The directory corresponding to the dropped Iceberg table should be removed as we don't allow shared locations.");
     }
 }

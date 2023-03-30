@@ -16,6 +16,7 @@ package io.trino.server;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.SessionRepresentation;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.buffer.OutputBuffers;
@@ -39,6 +40,7 @@ public class TaskUpdateRequest
     private final List<SplitAssignment> splitAssignments;
     private final OutputBuffers outputIds;
     private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
+    private final Optional<Slice> exchangeEncryptionKey;
 
     @JsonCreator
     public TaskUpdateRequest(
@@ -47,7 +49,8 @@ public class TaskUpdateRequest
             @JsonProperty("fragment") Optional<PlanFragment> fragment,
             @JsonProperty("splitAssignments") List<SplitAssignment> splitAssignments,
             @JsonProperty("outputIds") OutputBuffers outputIds,
-            @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains,
+            @JsonProperty("exchangeEncryptionKey") Optional<Slice> exchangeEncryptionKey)
     {
         requireNonNull(session, "session is null");
         requireNonNull(extraCredentials, "extraCredentials is null");
@@ -55,6 +58,7 @@ public class TaskUpdateRequest
         requireNonNull(splitAssignments, "splitAssignments is null");
         requireNonNull(outputIds, "outputIds is null");
         requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null");
+        requireNonNull(exchangeEncryptionKey, "exchangeEncryptionKey is null");
 
         this.session = session;
         this.extraCredentials = extraCredentials;
@@ -62,6 +66,7 @@ public class TaskUpdateRequest
         this.splitAssignments = ImmutableList.copyOf(splitAssignments);
         this.outputIds = outputIds;
         this.dynamicFilterDomains = dynamicFilterDomains;
+        this.exchangeEncryptionKey = exchangeEncryptionKey;
     }
 
     @JsonProperty
@@ -100,6 +105,12 @@ public class TaskUpdateRequest
         return dynamicFilterDomains;
     }
 
+    @JsonProperty
+    public Optional<Slice> getExchangeEncryptionKey()
+    {
+        return exchangeEncryptionKey;
+    }
+
     @Override
     public String toString()
     {
@@ -110,6 +121,7 @@ public class TaskUpdateRequest
                 .add("splitAssignments", splitAssignments)
                 .add("outputIds", outputIds)
                 .add("dynamicFilterDomains", dynamicFilterDomains)
+                .add("exchangeEncryptionKey", exchangeEncryptionKey.map(key -> "[REDACTED]"))
                 .toString();
     }
 }

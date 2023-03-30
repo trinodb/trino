@@ -60,12 +60,6 @@ public class TestCanonicalizeExpressionRewriter
     }
 
     @Test
-    public void testRewriteYearExtract()
-    {
-        assertRewritten("EXTRACT(YEAR FROM DATE '2017-07-20')", "year(DATE '2017-07-20')");
-    }
-
-    @Test
     public void testCanonicalizeArithmetic()
     {
         assertRewritten("a + 1", "a + 1");

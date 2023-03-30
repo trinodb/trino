@@ -329,4 +329,29 @@ public class TestLikeFunctions
         assertEquals(unescapeLiteralLikePattern(utf8Slice("a##bc#_"), Optional.of(utf8Slice("#"))), utf8Slice("a#bc_"));
         assertEquals(unescapeLiteralLikePattern(utf8Slice("a###_bc"), Optional.of(utf8Slice("#"))), utf8Slice("a#_bc"));
     }
+
+    @Test
+    public void testLikeWithDynamicPattern()
+    {
+        assertThat(assertions.query("""
+                SELECT value FROM (
+                    VALUES
+                        ('a', 'a'),
+                        ('b', 'a'),
+                        ('c', '%')) t(value, pattern)
+                WHERE value LIKE pattern
+                """))
+                .matches("VALUES 'a', 'c'");
+
+        assertThat(assertions.query("""
+                SELECT value FROM (
+                    VALUES
+                        ('a%b', 'aX%b', 'X'),
+                        ('a0b', 'aX%b', 'X'),
+                        ('b_', 'aY_', 'Y'),
+                        ('c%', 'cZ%', 'Z')) t(value, pattern, esc)
+                WHERE value LIKE pattern ESCAPE esc
+                """))
+                .matches("VALUES 'a%b', 'c%'");
+    }
 }

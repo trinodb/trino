@@ -27,7 +27,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.Math.pow;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toList;
 
 public class TestTwoHives
 {
@@ -81,7 +80,6 @@ public class TestTwoHives
     {
         return CATALOGS.stream()
                 .map(catalog -> new Object[] {catalog})
-                .collect(toList())
-                .toArray(new Object[][] {});
+                .toArray(Object[][]::new);
     }
 }

@@ -13,26 +13,19 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.hdfs.HdfsContext;
-import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
 import java.io.File;
-import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
@@ -61,22 +54,12 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")
                         .put("hive.metastore.glue.region", "us-east-2")
-                        .put("hive.metastore.glue.default-warehouse-dir", metastoreDir.getPath())
+                        .put("hive.metastore.glue.default-warehouse-dir", metastoreDir.toURI().toString())
                         .buildOrThrow());
 
-        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
-                .setGlueRegion("us-east-2");
-        metastore = new GlueHiveMetastore(
-                HDFS_ENVIRONMENT,
-                glueConfig,
-                DefaultAWSCredentialsProviderChain.getInstance(),
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                Optional.empty(),
-                table -> true);
-        hdfsContext = new HdfsContext(queryRunner.getDefaultSession().toConnectorSession());
+        metastore = createTestingGlueHiveMetastore(metastoreDir.toPath());
 
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + metastoreDir.getPath() + "')");
+        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = '" + metastoreDir.toURI() + "')");
         return queryRunner;
     }
 

@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.getTables;
 
 public class TestHiveFaultTolerantExecutionOrderByQueries
@@ -36,7 +36,7 @@ public class TestHiveFaultTolerantExecutionOrderByQueries
     protected QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomTableSuffix());
+        this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
         return HiveQueryRunner.builder()

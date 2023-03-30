@@ -123,6 +123,9 @@ public class KuduSplitManager
                 return splitSourceFuture.get().isFinished();
             }
             catch (InterruptedException | ExecutionException e) {
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
                 throw new RuntimeException(e);
             }
         }

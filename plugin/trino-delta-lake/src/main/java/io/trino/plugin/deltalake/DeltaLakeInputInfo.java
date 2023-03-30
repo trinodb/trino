@@ -40,10 +40,9 @@ public class DeltaLakeInputInfo
         if (this == o) {
             return true;
         }
-        if (!(o instanceof DeltaLakeInputInfo)) {
+        if (!(o instanceof DeltaLakeInputInfo that)) {
             return false;
         }
-        DeltaLakeInputInfo that = (DeltaLakeInputInfo) o;
         return partitioned == that.partitioned;
     }
 

@@ -57,6 +57,7 @@ public class TestShardDao
     public void teardown()
     {
         dummyHandle.close();
+        dummyHandle = null;
     }
 
     @Test

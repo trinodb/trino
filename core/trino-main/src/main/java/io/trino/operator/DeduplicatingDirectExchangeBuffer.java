@@ -28,6 +28,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -39,6 +40,7 @@ import io.trino.spi.exchange.ExchangeId;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkHandle;
+import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 
@@ -81,12 +83,15 @@ import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DeduplicatingDirectExchangeBuffer
         implements DirectExchangeBuffer
 {
     private static final Logger log = Logger.get(DeduplicatingDirectExchangeBuffer.class);
+
+    private static final Duration SINK_INSTANCE_HANDLE_GET_TIMEOUT = Duration.succinctDuration(60, SECONDS);
 
     private final Executor executor;
     private final RetryPolicy retryPolicy;
@@ -265,6 +270,7 @@ public class DeduplicatingDirectExchangeBuffer
         checkInputFinished();
     }
 
+    @GuardedBy("this")
     private void checkInputFinished()
     {
         if (failure != null) {
@@ -281,7 +287,7 @@ public class DeduplicatingDirectExchangeBuffer
 
         Map<TaskId, Throwable> failures;
         switch (retryPolicy) {
-            case TASK: {
+            case TASK -> {
                 Set<Integer> allPartitions = allTasks.stream()
                         .map(TaskId::getPartitionId)
                         .collect(toImmutableSet());
@@ -315,9 +321,8 @@ public class DeduplicatingDirectExchangeBuffer
                         .filter(entry -> !successfulPartitions.contains(entry.getKey().getPartitionId()))
                         .filter(entry -> !runningPartitions.contains(entry.getKey().getPartitionId()))
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-                break;
             }
-            case QUERY: {
+            case QUERY -> {
                 Set<TaskId> latestAttemptTasks = allTasks.stream()
                         .filter(taskId -> taskId.getAttemptId() == maxAttemptId)
                         .collect(toImmutableSet());
@@ -331,10 +336,8 @@ public class DeduplicatingDirectExchangeBuffer
                 failures = failedTasks.entrySet().stream()
                         .filter(entry -> entry.getKey().getAttemptId() == maxAttemptId)
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-                break;
             }
-            default:
-                throw new UnsupportedOperationException("unexpected retry policy: " + retryPolicy);
+            default -> throw new UnsupportedOperationException("unexpected retry policy: " + retryPolicy);
         }
 
         Throwable failure = null;
@@ -398,18 +401,21 @@ public class DeduplicatingDirectExchangeBuffer
     }
 
     @Override
+    @GuardedBy("this")
     public int getBufferedPageCount()
     {
         return pageBuffer.getBufferedPageCount();
     }
 
     @Override
+    @GuardedBy("this")
     public long getSpilledBytes()
     {
         return pageBuffer.getSpilledBytes();
     }
 
     @Override
+    @GuardedBy("this")
     public int getSpilledPageCount()
     {
         return pageBuffer.getSpilledPageCount();
@@ -425,12 +431,14 @@ public class DeduplicatingDirectExchangeBuffer
         closeAndUnblock();
     }
 
+    @GuardedBy("this")
     private void fail(Throwable failure)
     {
         this.failure = failure;
         closeAndUnblock();
     }
 
+    @GuardedBy("this")
     private void throwIfFailed()
     {
         if (failure != null) {
@@ -439,6 +447,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
     }
 
+    @GuardedBy("this")
     private void closeAndUnblock()
     {
         try (Closer closer = Closer.create()) {
@@ -453,6 +462,7 @@ public class DeduplicatingDirectExchangeBuffer
         }
     }
 
+    @GuardedBy("this")
     private void updateMaxRetainedSize()
     {
         maxRetainedSizeInBytes = max(maxRetainedSizeInBytes, getRetainedSizeInBytes());
@@ -545,7 +555,18 @@ public class DeduplicatingDirectExchangeBuffer
 
                 sinkHandle = exchange.addSink(0);
                 exchange.noMoreSinks();
-                exchangeSink = exchangeManager.createSink(exchange.instantiateSink(sinkHandle, 0));
+                ExchangeSinkInstanceHandle sinkInstanceHandle;
+                try {
+                    sinkInstanceHandle = exchange.instantiateSink(this.sinkHandle, 0).get(SINK_INSTANCE_HANDLE_GET_TIMEOUT.toMillis(), MILLISECONDS);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+                catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                exchangeSink = exchangeManager.createSink(sinkInstanceHandle);
 
                 writeBuffer = new DynamicSliceOutput(DEFAULT_MAX_PAGE_SIZE_IN_BYTES);
             }
@@ -571,6 +592,7 @@ public class DeduplicatingDirectExchangeBuffer
             return result;
         }
 
+        @GuardedBy("this")
         private void writeToSink(TaskId taskId, List<Slice> pages)
         {
             verify(exchangeSink != null, "exchangeSink is expected to be initialized");
@@ -604,6 +626,7 @@ public class DeduplicatingDirectExchangeBuffer
             }
         }
 
+        @GuardedBy("this")
         private void updateSinkInstanceHandleIfNecessary()
         {
             verify(Thread.holdsLock(this), "this method is expected to be called under a lock");
@@ -612,7 +635,19 @@ public class DeduplicatingDirectExchangeBuffer
             verify(sinkHandle != null, "sinkHandle is null");
 
             if (exchangeSink.isHandleUpdateRequired()) {
-                exchangeSink.updateHandle(exchange.updateSinkInstanceHandle(sinkHandle, 0));
+                CompletableFuture<ExchangeSinkInstanceHandle> sinkInstanceHandleFuture = exchange.updateSinkInstanceHandle(sinkHandle, 0);
+                ExchangeSinkInstanceHandle sinkInstanceHandle;
+                try {
+                    sinkInstanceHandle = sinkInstanceHandleFuture.get(SINK_INSTANCE_HANDLE_GET_TIMEOUT.toMillis(), MILLISECONDS);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+                catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                exchangeSink.updateHandle(sinkInstanceHandle);
             }
         }
 

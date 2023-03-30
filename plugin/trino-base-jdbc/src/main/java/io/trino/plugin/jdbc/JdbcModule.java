@@ -21,6 +21,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifierModule;
 import io.trino.plugin.jdbc.mapping.IdentifierMappingModule;
 import io.trino.plugin.jdbc.procedure.FlushJdbcMetadataCacheProcedure;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -39,25 +40,17 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
         extends AbstractConfigurationAwareModule
 {
-    private final String catalogName;
-
-    public JdbcModule(String catalogName)
-    {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
-    }
-
     @Override
     public void setup(Binder binder)
     {
-        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
+        install(new RemoteQueryModifierModule());
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newOptionalBinder(binder, QueryBuilder.class).setDefault().to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
@@ -85,8 +78,9 @@ public class JdbcModule
         bindSessionPropertiesProvider(binder, JdbcDynamicFilteringSessionProperties.class);
 
         binder.bind(DynamicFilteringStats.class).in(Scopes.SINGLETON);
+        Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
         newExporter(binder).export(DynamicFilteringStats.class)
-                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName));
+                .as(generator -> generator.generatedNameOf(DynamicFilteringStats.class, catalogName.get().toString()));
 
         binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);
@@ -100,8 +94,8 @@ public class JdbcModule
                 .to(Key.get(ConnectionFactory.class, StatsCollecting.class))
                 .in(Scopes.SINGLETON);
         install(conditionalModule(
-                BaseJdbcConfig.class,
-                BaseJdbcConfig::isReuseConnection,
+                QueryConfig.class,
+                QueryConfig::isReuseConnection,
                 new ReusableConnectionFactoryModule(),
                 innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
 

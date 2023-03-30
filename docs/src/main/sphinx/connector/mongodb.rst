@@ -14,7 +14,7 @@ Requirements
 
 To connect to MongoDB, you need:
 
-* MongoDB 4.0 or higher.
+* MongoDB 4.2 or higher.
 * Network access from the Trino coordinator and workers to MongoDB.
   Port 27017 is the default port.
 * Write access to the :ref:`schema information collection <table-definition-label>`
@@ -24,7 +24,7 @@ Configuration
 -------------
 
 To configure the MongoDB connector, create a catalog properties file
-``etc/catalog/mongodb.properties`` with the following contents,
+``etc/catalog/example.properties`` with the following contents,
 replacing the properties as appropriate:
 
 .. code-block:: text
@@ -49,30 +49,25 @@ The following configuration properties are available:
 ========================================== ==============================================================
 Property name                              Description
 ========================================== ==============================================================
-``mongodb.seeds``                          List of all MongoDB servers
 ``mongodb.connection-url``                 The connection url that the driver uses to connect to a MongoDB deployment
 ``mongodb.schema-collection``              A collection which contains schema information
 ``mongodb.case-insensitive-name-matching`` Match database and collection names case insensitively
-``mongodb.credentials``                    List of credentials
 ``mongodb.min-connections-per-host``       The minimum size of the connection pool per host
 ``mongodb.connections-per-host``           The maximum size of the connection pool per host
 ``mongodb.max-wait-time``                  The maximum wait time
 ``mongodb.max-connection-idle-time``       The maximum idle time of a pooled connection
 ``mongodb.connection-timeout``             The socket connect timeout
 ``mongodb.socket-timeout``                 The socket timeout
-``mongodb.ssl.enabled``                    Use TLS/SSL for connections to mongod/mongos
+``mongodb.tls.enabled``                    Use TLS/SSL for connections to mongod/mongos
+``mongodb.tls.keystore-path``              Path to the PEM or JKS key store
+``mongodb.tls.truststore-path``            Path to the PEM or JKS trust store
+``mongodb.tls.keystore-password``          Password for the key store
+``mongodb.tls.truststore-password``        Password for the trust store
 ``mongodb.read-preference``                The read preference
 ``mongodb.write-concern``                  The write concern
 ``mongodb.required-replica-set``           The required replica set name
 ``mongodb.cursor-batch-size``              The number of elements to return in a batch
 ========================================== ==============================================================
-
-``mongodb.seeds``
-^^^^^^^^^^^^^^^^^
-
-Comma-separated list of ``hostname[:port]`` all MongoDB servers in the same replica set, or a list of MongoDB servers in the same sharded cluster. If a port is not specified, port 27017 will be used.
-
-This property is deprecated and will be removed in a future release. Use ``mongodb.connection-url`` property instead.
 
 ``mongodb.connection-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -88,7 +83,8 @@ used. The user/pass credentials must be for a user with write access to the
 
 See the `MongoDB Connection URI <https://docs.mongodb.com/drivers/java/sync/current/fundamentals/connection/#connection-uri>`_ for more information.
 
-This property is required; there is no default. A connection url or seeds must be provided to connect to a MongoDB deployment.
+This property is required; there is no default. A connection URL must be
+provided to connect to a MongoDB deployment.
 
 ``mongodb.schema-collection``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -109,13 +105,6 @@ This property is optional; the default is ``_schema``.
 Match database and collection names case insensitively.
 
 This property is optional; the default is ``false``.
-
-``mongodb.credentials``
-^^^^^^^^^^^^^^^^^^^^^^^
-
-A comma separated list of ``username:password@database`` credentials.
-
-This property is optional; no default value. The ``database`` should be the authentication database for the user (e.g. ``admin``).
 
 ``mongodb.min-connections-per-host``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -161,12 +150,40 @@ The socket timeout in milliseconds. It is used for I/O socket read and write ope
 
 This property is optional; the default is ``0`` and means no timeout.
 
-``mongodb.ssl.enabled``
+``mongodb.tls.enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-This flag enables SSL connections to MongoDB servers.
+This flag enables TLS connections to MongoDB servers.
 
 This property is optional; the default is ``false``.
+
+``mongodb.tls.keystore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the PEM or JKS key store. This file must be readable by the operating system user running Trino.
+
+This property is optional.
+
+``mongodb.tls.truststore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to PEM or JKS trust store. This file must be readable by the operating system user running Trino.
+
+This property is optional.
+
+``mongodb.tls.keystore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The key password for the key store specified by ``mongodb.tls.keystore-path``.
+
+This property is optional.
+
+``mongodb.tls.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The key password for the trust store specified by ``mongodb.tls.truststore-path``.
+
+This property is optional.
 
 ``mongodb.read-preference``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -191,7 +208,7 @@ The required replica set name. With this option set, the MongoClient instance pe
 
 #. Connect in replica set mode, and discover all members of the set based on the given servers
 #. Make sure that the set name reported by all members matches the required set name.
-#. Refuse to service any requests, if any member of the seed list is not part of a replica set with the required name.
+#. Refuse to service any requests, if authenticated user is not part of a replica set with the required name.
 
 This property is optional; no default value.
 
@@ -455,6 +472,7 @@ MongoDB. In addition to the :ref:`globally available
 statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
+* :doc:`/sql/delete`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
@@ -493,7 +511,7 @@ For example, get all rows where ``regionkey`` field is 0::
       *
     FROM
       TABLE(
-        mongodb.system.query(
+        example.system.query(
           database => 'tpch',
           collection => 'region',
           filter => '{ regionkey: 0 }'

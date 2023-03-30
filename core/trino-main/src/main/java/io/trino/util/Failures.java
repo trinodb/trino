@@ -134,12 +134,11 @@ public final class Failures
     private static ErrorLocation getErrorLocation(Throwable throwable)
     {
         // TODO: this is a big hack
-        if (throwable instanceof ParsingException) {
-            ParsingException e = (ParsingException) throwable;
-            return new ErrorLocation(e.getLineNumber(), e.getColumnNumber());
+        if (throwable instanceof ParsingException parsingException) {
+            return new ErrorLocation(parsingException.getLineNumber(), parsingException.getColumnNumber());
         }
-        if (throwable instanceof TrinoException) {
-            return ((TrinoException) throwable).getLocation()
+        if (throwable instanceof TrinoException trinoException) {
+            return trinoException.getLocation()
                     .map(location -> new ErrorLocation(location.getLineNumber(), location.getColumnNumber()))
                     .orElse(null);
         }
@@ -151,11 +150,11 @@ public final class Failures
     {
         requireNonNull(throwable);
 
-        if (throwable instanceof TrinoException) {
-            return ((TrinoException) throwable).getErrorCode();
+        if (throwable instanceof TrinoException trinoException) {
+            return trinoException.getErrorCode();
         }
-        if (throwable instanceof Failure && ((Failure) throwable).getErrorCode() != null) {
-            return ((Failure) throwable).getErrorCode();
+        if (throwable instanceof Failure failure && failure.getErrorCode() != null) {
+            return failure.getErrorCode();
         }
         if (throwable instanceof ParsingException) {
             return SYNTAX_ERROR.toErrorCode();

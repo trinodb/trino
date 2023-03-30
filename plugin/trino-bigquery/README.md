@@ -1,7 +1,7 @@
 # BigQuery Connector Developer Notes
 
 The BigQuery connector module has both unit tests and integration tests.
-The integration tests require access to a BigQuery instance in Google Cloud seeded with TPCH data.
+The integration tests require access to a BigQuery instance in Google Cloud.
 You can follow the steps below to be able to run the integration tests locally.
 
 ## Requirements
@@ -15,17 +15,16 @@ You can follow the steps below to be able to run the integration tests locally.
 
 * [Enable BigQuery in your Google Cloud account](https://console.cloud.google.com/flows/enableapi?apiid=bigquery).
 * Build the project by following the instructions [here](../../README.md).
-* Run Trino with the TPCH connector installed using Docker as `docker run --rm --name trino -it -p 8080:8080
-  trinodb/trino:latest`.
-* Run the script `plugin/trino-bigquery/bin/import-tpch-to-bigquery.sh` and pass your Google Cloud project id to it as
-  an argument. e.g. `plugin/trino-bigquery/bin/import-tpch-to-bigquery.sh trino-bigquery-07` where `trino-bigquery-07`
-  is your Google Cloud project id.
-* Run `gsutil cp src/test/resources/region.csv gs://DESTINATION_BUCKET_NAME/tpch/tiny/region.csv` 
+* Create a Google Cloud Storage bucket using `gsutil mb gs://DESTINATION_BUCKET_NAME`
+* Run `gsutil cp plugin/trino-bigquery/src/test/resources/region.csv gs://DESTINATION_BUCKET_NAME/tpch/tiny/region.csv` 
   (replace `DESTINATION_BUCKET_NAME` with the target bucket name).
-* [Create a service account](https://cloud.google.com/docs/authentication/getting-started) in Google Cloud with the
+* [Create a service account](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) in Google Cloud with the
   **BigQuery Admin** role assigned.
 * Get the base64 encoded text of the service account credentials file using `base64
   /path/to/service_account_credentials.json`.
-* Set the VM option `bigquery.credentials-key` in the IntelliJ "Run Configuration" (or on the CLI if using Maven
-  directly). It should look something like `-Dbigquery.credentials-key=base64-text`.
+* The `TestBigQueryWithDifferentProjectIdConnectorSmokeTest` requires an alternate project ID which is different from the
+  project ID attached to the service account but the service account still has access to.
+* Set the VM options `bigquery.credentials-key`, `testing.gcp-storage-bucket`, and `testing.alternate-bq-project-id` in the IntelliJ "Run Configuration"
+  (or on the CLI if using Maven directly). It should look something like
+  `-Dbigquery.credentials-key=base64-text -Dtesting.gcp-storage-bucket=DESTINATION_BUCKET_NAME -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate`.
 * Run any test of your choice.

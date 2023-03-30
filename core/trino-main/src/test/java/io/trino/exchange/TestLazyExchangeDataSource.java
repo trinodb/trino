@@ -15,7 +15,6 @@ package io.trino.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.SimpleLocalMemoryContext;
-import io.trino.metadata.ExchangeHandleResolver;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
@@ -40,7 +39,7 @@ public class TestLazyExchangeDataSource
                     throw new UnsupportedOperationException();
                 },
                 RetryPolicy.NONE,
-                new ExchangeManagerRegistry(new ExchangeHandleResolver()))) {
+                new ExchangeManagerRegistry())) {
             ListenableFuture<Void> first = source.isBlocked();
             ListenableFuture<Void> second = source.isBlocked();
             assertThat(first)

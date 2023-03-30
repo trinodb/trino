@@ -19,6 +19,7 @@ import org.joda.time.DateTimeZone;
 
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static java.lang.Math.addExact;
 import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
@@ -41,7 +42,7 @@ public final class TrinoTimestampEncoderFactory
     static LongTimestamp longTimestamp(long epochSecond, long fractionInPicos)
     {
         return new LongTimestamp(
-                multiplyExact(epochSecond, MICROSECONDS_PER_SECOND) + fractionInPicos / PICOSECONDS_PER_MICROSECOND,
+                addExact(multiplyExact(epochSecond, MICROSECONDS_PER_SECOND), fractionInPicos / PICOSECONDS_PER_MICROSECOND),
                 (int) (fractionInPicos % PICOSECONDS_PER_MICROSECOND));
     }
 }
