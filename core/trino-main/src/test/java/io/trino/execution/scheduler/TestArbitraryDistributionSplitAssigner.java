@@ -460,7 +460,7 @@ public class TestArbitraryDistributionSplitAssigner
                 partitionedSources,
                 ImmutableSet.of(),
                 1,
-                1.5,
+                1.2,
                 1,
                 4,
                 STANDARD_SPLIT_SIZE_IN_BYTES,
