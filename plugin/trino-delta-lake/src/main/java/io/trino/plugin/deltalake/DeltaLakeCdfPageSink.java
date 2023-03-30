@@ -19,6 +19,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -34,6 +35,7 @@ public class DeltaLakeCdfPageSink
     public static final String CHANGE_DATA_FOLDER_NAME = "_change_data";
 
     public DeltaLakeCdfPageSink(
+            TypeOperators typeOperators,
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
@@ -47,6 +49,7 @@ public class DeltaLakeCdfPageSink
             String trinoVersion)
     {
         super(
+                typeOperators,
                 inputColumns,
                 originalPartitionColumns,
                 pageIndexerFactory,
