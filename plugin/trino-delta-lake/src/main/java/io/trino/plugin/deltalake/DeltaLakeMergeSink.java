@@ -39,8 +39,8 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
@@ -61,7 +61,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -72,11 +71,11 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
+import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
@@ -95,6 +94,7 @@ public class DeltaLakeMergeSink
     public static final String UPDATE_PREIMAGE_CDF_LABEL = "update_preimage";
     public static final String UPDATE_POSTIMAGE_CDF_LABEL = "update_postimage";
 
+    private final TypeOperators typeOperators;
     private final TrinoFileSystem fileSystem;
     private final ConnectorSession session;
     private final DateTimeZone parquetDateTimeZone;
@@ -118,6 +118,7 @@ public class DeltaLakeMergeSink
     private DeltaLakeCdfPageSink cdfPageSink;
 
     public DeltaLakeMergeSink(
+            TypeOperators typeOperators,
             TrinoFileSystemFactory fileSystemFactory,
             ConnectorSession session,
             DateTimeZone parquetDateTimeZone,
@@ -132,6 +133,7 @@ public class DeltaLakeMergeSink
             Supplier<DeltaLakeCdfPageSink> cdfPageSinkSupplier,
             boolean cdfEnabled)
     {
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
         this.fileSystem = fileSystemFactory.create(session);
         this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
@@ -361,14 +363,7 @@ public class DeltaLakeMergeSink
             Closeable rollbackAction = () -> fileSystem.deleteFile(path);
 
             List<Type> parquetTypes = dataColumns.stream()
-                    .map(column -> {
-                        Type type = column.getType();
-                        if (type instanceof TimestampWithTimeZoneType timestamp) {
-                            verify(timestamp.getPrecision() == 3, "Unsupported type: %s", type);
-                            return TIMESTAMP_MILLIS;
-                        }
-                        return type;
-                    })
+                    .map(column -> toParquetType(typeOperators, column.getType()))
                     .collect(toImmutableList());
 
             List<String> dataColumnNames = dataColumns.stream()

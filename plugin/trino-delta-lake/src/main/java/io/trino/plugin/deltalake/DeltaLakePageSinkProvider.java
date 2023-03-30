@@ -90,6 +90,7 @@ public class DeltaLakePageSinkProvider
     {
         DeltaLakeOutputTableHandle tableHandle = (DeltaLakeOutputTableHandle) outputTableHandle;
         return new DeltaLakePageSink(
+                typeManager.getTypeOperators(),
                 tableHandle.getInputColumns(),
                 tableHandle.getPartitionedBy(),
                 pageIndexerFactory,
@@ -107,6 +108,7 @@ public class DeltaLakePageSinkProvider
     {
         DeltaLakeInsertTableHandle tableHandle = (DeltaLakeInsertTableHandle) insertTableHandle;
         return new DeltaLakePageSink(
+                typeManager.getTypeOperators(),
                 tableHandle.getInputColumns(),
                 tableHandle.getMetadataEntry().getOriginalPartitionColumns(),
                 pageIndexerFactory,
@@ -127,6 +129,7 @@ public class DeltaLakePageSinkProvider
             case OPTIMIZE:
                 DeltaTableOptimizeHandle optimizeHandle = (DeltaTableOptimizeHandle) executeHandle.getProcedureHandle();
                 return new DeltaLakePageSink(
+                        typeManager.getTypeOperators(),
                         optimizeHandle.getTableColumns(),
                         optimizeHandle.getOriginalPartitionColumns(),
                         pageIndexerFactory,
@@ -150,6 +153,7 @@ public class DeltaLakePageSinkProvider
         ConnectorPageSink pageSink = createPageSink(transactionHandle, session, tableHandle, pageSinkId);
 
         return new DeltaLakeMergeSink(
+                typeManager.getTypeOperators(),
                 fileSystemFactory,
                 session,
                 parquetDateTimeZone,
@@ -182,6 +186,7 @@ public class DeltaLakePageSinkProvider
                 .collect(toImmutableList());
 
         return new DeltaLakeCdfPageSink(
+                typeManager.getTypeOperators(),
                 allColumns,
                 metadataEntry.getOriginalPartitionColumns(),
                 pageIndexerFactory,
