@@ -255,7 +255,7 @@ Hive connector documentation.
       - JVM default
     * - ``hive.timestamp-precision``
       - Specifies the precision to use for Hive columns of type ``timestamp``.
-        Possible values are ``MILLISECONDS``, ``MICROSECONDS`` and``NANOSECONDS``.
+        Possible values are ``MILLISECONDS``, ``MICROSECONDS`` and ``NANOSECONDS``.
         Values with higher precision than configured are rounded.
       - ``MILLISECONDS``
     * - ``hive.temporary-staging-directory-enabled``
