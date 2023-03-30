@@ -23,7 +23,6 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.tempto.query.QueryResult;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.intellij.lang.annotations.Language;
 
 import java.time.temporal.ChronoUnit;
@@ -46,7 +45,7 @@ public final class DeltaLakeTestUtils
             "\\Q[Databricks][DatabricksJDBCDriver](500593) Communication link failure. Failed to connect to server. Reason: HTTP retry after response received with no Retry-After header, error: HTTP Response code: 503, Error message: Unknown.";
     private static final RetryPolicy<QueryResult> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.<QueryResult>builder()
             .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
-            .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof MetaException metaException && metaException.getMessage() != null && metaException.getMessage().contains("Table being modified concurrently"))
+            .handleIf(throwable -> throwable.getMessage() != null && throwable.getMessage().contains("Table being modified concurrently"))
             .withBackoff(1, 10, ChronoUnit.SECONDS)
             .withMaxRetries(3)
             .onRetry(event -> log.warn(event.getLastException(), "Query failed on attempt %d, will retry.", event.getAttemptCount()))
