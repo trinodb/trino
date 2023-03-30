@@ -52,6 +52,7 @@ class ArbitraryDistributionSplitAssigner
     private final Set<PlanNodeId> allSources;
     private final int adaptiveGrowthPeriod;
     private final double adaptiveGrowthFactor;
+    private final long minTargetPartitionSizeInBytes;
     private final long maxTargetPartitionSizeInBytes;
     private final long standardSplitSizeInBytes;
     private final int maxTaskSplitCount;
@@ -87,6 +88,7 @@ class ArbitraryDistributionSplitAssigner
                 .build();
         this.adaptiveGrowthPeriod = adaptiveGrowthPeriod;
         this.adaptiveGrowthFactor = adaptiveGrowthFactor;
+        this.minTargetPartitionSizeInBytes = minTargetPartitionSizeInBytes;
         this.maxTargetPartitionSizeInBytes = maxTargetPartitionSizeInBytes;
         this.standardSplitSizeInBytes = standardSplitSizeInBytes;
         this.maxTaskSplitCount = maxTaskSplitCount;
@@ -213,6 +215,8 @@ class ArbitraryDistributionSplitAssigner
                 adaptiveCounter++;
                 if (adaptiveCounter >= adaptiveGrowthPeriod) {
                     targetPartitionSizeInBytes = (long) min(maxTargetPartitionSizeInBytes, ceil(targetPartitionSizeInBytes * adaptiveGrowthFactor));
+                    // round to a multiple of minTargetPartitionSizeInBytes so work will be evenly distributed among drivers of a task
+                    targetPartitionSizeInBytes = (targetPartitionSizeInBytes + minTargetPartitionSizeInBytes - 1) / minTargetPartitionSizeInBytes * minTargetPartitionSizeInBytes;
                     adaptiveCounter = 0;
                 }
             }
