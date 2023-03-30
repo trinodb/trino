@@ -325,7 +325,7 @@ public class GroupedTopNRowNumberAccumulator
         for (long groupId = 0; groupId < groupIdToHeapBuffer.getTotalGroups(); groupId++) {
             long heapSize = groupIdToHeapBuffer.getHeapSize(groupId);
             long rootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
-            verify(rootNodeIndex == UNKNOWN_INDEX || calculateRootRowNumber(rootNodeIndex) <= topN, "Max heap has more values than needed");
+            verify(rootNodeIndex == UNKNOWN_INDEX || calculateRootRowNumber(groupId) <= topN, "Max heap has more values than needed");
             IntegrityStats integrityStats = verifyHeapIntegrity(rootNodeIndex);
             verify(integrityStats.getNodeCount() == heapSize, "Recorded heap size does not match actual heap size");
             totalHeapNodes += integrityStats.getNodeCount();
