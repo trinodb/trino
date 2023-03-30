@@ -267,12 +267,6 @@ public final class DeltaLakeSchemaSupport
 
     private static void validateType(Optional<Type> rootType, Type type)
     {
-        rootType.ifPresent(root -> {
-            if (type instanceof TimestampWithTimeZoneType) {
-                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Nested TIMESTAMP types are not supported, invalid type: " + root);
-            }
-        });
-
         if (HiveUtil.isStructuralType(type)) {
             validateStructuralType(Optional.of(rootType.orElse(type)), type);
         }
