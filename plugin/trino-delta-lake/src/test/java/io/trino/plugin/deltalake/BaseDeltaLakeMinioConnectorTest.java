@@ -62,8 +62,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 {
     private static final String SCHEMA = "test_schema";
 
-    protected String bucketName;
-    protected String resourcePath;
+    protected final String bucketName;
+    protected final String resourcePath;
     protected HiveMinioDataLake hiveMinioDataLake;
 
     public BaseDeltaLakeMinioConnectorTest(String bucketName, String resourcePath)
