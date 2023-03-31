@@ -74,11 +74,7 @@ public class TestIgniteConnectorTest
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
 
-            case SUPPORTS_ADD_COLUMN:
-            case SUPPORTS_DROP_COLUMN:
-                return true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
-                return false;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
@@ -93,12 +89,19 @@ public class TestIgniteConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN:
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return true;
 
             case SUPPORTS_NATIVE_QUERY:
+                return false;
+
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
+                return true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
                 return false;
 
             default:

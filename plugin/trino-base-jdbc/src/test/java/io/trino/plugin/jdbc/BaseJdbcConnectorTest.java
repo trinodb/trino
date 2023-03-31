@@ -130,6 +130,14 @@ public abstract class BaseJdbcConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_UPDATE: // not supported by any JDBC connector
+            case SUPPORTS_MERGE: // not supported by any JDBC connector
+                return false;
+
+            case SUPPORTS_CREATE_VIEW: // not supported by DefaultJdbcMetadata
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW: // not supported by DefaultJdbcMetadata
+                return false;
+
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
                 // TODO support pushdown of complex expressions in predicates
                 return false;
@@ -137,11 +145,8 @@ public abstract class BaseJdbcConnectorTest
             case SUPPORTS_DYNAMIC_FILTER_PUSHDOWN:
                 // Dynamic filters can be pushed down only if predicate push down is supported.
                 // It is possible for a connector to have predicate push down support but not push down dynamic filters.
+                // TODO default SUPPORTS_DYNAMIC_FILTER_PUSHDOWN to SUPPORTS_PREDICATE_PUSHDOWN
                 return super.hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN);
-
-            case SUPPORTS_DELETE:
-            case SUPPORTS_TRUNCATE:
-                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);

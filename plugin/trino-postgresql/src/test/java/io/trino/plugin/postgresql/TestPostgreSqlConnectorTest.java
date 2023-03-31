@@ -110,14 +110,6 @@ public class TestPostgreSqlConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
                 return true;
 
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-                return true;
-
             case SUPPORTS_JOIN_PUSHDOWN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
                 return true;
