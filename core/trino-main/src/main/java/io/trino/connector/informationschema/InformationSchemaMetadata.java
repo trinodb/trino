@@ -255,9 +255,14 @@ public class InformationSchemaMetadata
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        return listSchemaNames(session)
+        List<QualifiedTablePrefix> schemaNames = listSchemaNames(session).collect(toImmutableList());
+        Set<QualifiedTablePrefix> prefixes = schemaNames.stream()
                 .filter(prefix -> predicate.get().test(schemaAsFixedValues(prefix.getSchemaName().get())))
                 .collect(toImmutableSet());
+        if (prefixes.size() == schemaNames.size()) {
+            return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+        }
+        return prefixes;
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
