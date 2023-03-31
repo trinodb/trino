@@ -329,9 +329,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+        public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
         {
-            SchemaTableName tableName = getTableName(tableHandle);
+            SchemaTableName tableName = table.getSchemaTableName();
             ConnectorTableMetadata metadata = tables.get(tableName);
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size() + 1);
@@ -341,9 +341,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
+        public void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle columnHandle)
         {
-            SchemaTableName tableName = getTableName(tableHandle);
+            SchemaTableName tableName = table.getSchemaTableName();
             ConnectorTableMetadata metadata = tables.get(tableName);
             String columnName = ((TestingColumnHandle) columnHandle).getName();
 
@@ -354,9 +354,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
+        public void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target)
         {
-            SchemaTableName tableName = getTableName(tableHandle);
+            SchemaTableName tableName = table.getSchemaTableName();
             ConnectorTableMetadata metadata = tables.get(tableName);
             String columnName = ((TestingColumnHandle) source).getName();
 

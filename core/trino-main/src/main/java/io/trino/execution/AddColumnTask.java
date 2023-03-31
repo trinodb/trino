@@ -91,7 +91,8 @@ public class AddColumnTask
         TableHandle tableHandle = redirectionAwareTableHandle.getTableHandle().get();
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
 
-        accessControl.checkCanAddColumns(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
+        accessControl.checkCanAddColumns(session.toSecurityContext(), qualifiedTableName);
 
         Map<String, ColumnHandle> columnHandles = plannerContext.getMetadata().getColumnHandles(session, tableHandle);
 
@@ -133,7 +134,7 @@ public class AddColumnTask
                 .setProperties(columnProperties)
                 .build();
 
-        plannerContext.getMetadata().addColumn(session, tableHandle, column);
+        plannerContext.getMetadata().addColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), column);
 
         return immediateVoidFuture();
     }
