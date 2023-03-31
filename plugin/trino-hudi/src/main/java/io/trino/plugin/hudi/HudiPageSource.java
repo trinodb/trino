@@ -59,7 +59,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.PARTITION_TYPE_SIGNATURE;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.PATH_TYPE;
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
-import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
@@ -73,6 +72,7 @@ import static io.trino.plugin.hudi.coercer.NestedTypeCoercers.createListCoercer;
 import static io.trino.plugin.hudi.coercer.NestedTypeCoercers.createMapCoercer;
 import static io.trino.plugin.hudi.coercer.NestedTypeCoercers.createStructCoercer;
 import static io.trino.plugin.hudi.coercer.VarcharCoercers.createDoubleToVarcharCoercer;
+import static io.trino.plugin.hudi.coercer.VarcharCoercers.createFloatToVarcharCoercer;
 import static io.trino.plugin.hudi.coercer.VarcharCoercers.createVarcharToDateCoercer;
 import static io.trino.plugin.hudi.coercer.VarcharCoercers.createVarcharToDecimalCoercer;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -230,8 +230,7 @@ public class HudiPageSource
             if (fromHiveType.equals(HIVE_BYTE)
                     || fromHiveType.equals(HIVE_SHORT)
                     || fromHiveType.equals(HIVE_INT)
-                    || fromHiveType.equals(HIVE_LONG)
-                    || fromHiveType.equals(HIVE_FLOAT)) {
+                    || fromHiveType.equals(HIVE_LONG)) {
                 return Optional.of(new IntegerNumberToVarcharCoercer<>(fromType, toVarcharType));
             }
             else if (fromType instanceof DecimalType fromDecimalType) {
@@ -273,9 +272,12 @@ public class HudiPageSource
             log.warn(format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
         }
 
-        if (fromType instanceof RealType) {
+        if (fromType instanceof RealType fromRealType) {
             if (toType instanceof DoubleType) {
                 return Optional.of(new FloatToDoubleCoercer());
+            }
+            else if (toType instanceof VarcharType toVarcharType) {
+                return Optional.of(createFloatToVarcharCoercer(fromRealType, toVarcharType));
             }
             else if (toType instanceof DecimalType toDecimalType) {
                 return Optional.of(createRealToDecimalCoercer(toDecimalType));

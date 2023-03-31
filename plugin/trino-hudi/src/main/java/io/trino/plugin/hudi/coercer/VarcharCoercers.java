@@ -19,6 +19,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.RealType;
 import io.trino.spi.type.VarcharType;
 
 import java.time.LocalDate;
@@ -26,6 +27,7 @@ import java.util.function.Function;
 
 import static io.trino.spi.type.DecimalConversions.doubleToLongDecimal;
 import static io.trino.spi.type.DecimalConversions.doubleToShortDecimal;
+import static java.lang.Float.intBitsToFloat;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 
 public class VarcharCoercers
@@ -50,6 +52,11 @@ public class VarcharCoercers
     public static Function<Block, Block> createDoubleToVarcharCoercer(DoubleType fromType, VarcharType toType)
     {
         return new DoubleToVarcharCoercer(fromType, toType);
+    }
+
+    public static Function<Block, Block> createFloatToVarcharCoercer(RealType fromType, VarcharType toType)
+    {
+        return new FloatToVarcharCoercer(fromType, toType);
     }
 
     private static class VarcharToDateCoercer
@@ -121,6 +128,22 @@ public class VarcharCoercers
         {
             Double value = fromType.getDouble(block, position);
             toType.writeString(blockBuilder, value.toString());
+        }
+    }
+
+    private static class FloatToVarcharCoercer
+            extends TypeCoercer<RealType, VarcharType>
+    {
+        protected FloatToVarcharCoercer(RealType fromType, VarcharType toType)
+        {
+            super(fromType, toType);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            float value = intBitsToFloat((int) fromType.getLong(block, position));
+            toType.writeString(blockBuilder, String.valueOf(value));
         }
     }
 }
