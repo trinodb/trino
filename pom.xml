@@ -1987,7 +1987,7 @@
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-bom</artifactId>
                 <type>pom</type>
-                <version>9.4</version>
+                <version>9.5</version>
                 <scope>import</scope>
             </dependency>
 
