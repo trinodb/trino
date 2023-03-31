@@ -80,7 +80,8 @@ public class RenameColumnTask
         String source = statement.getSource().getValue().toLowerCase(ENGLISH);
         String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
 
-        accessControl.checkCanRenameColumn(session.toSecurityContext(), redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName));
+        QualifiedObjectName qualifiedTableName = redirectionAwareTableHandle.getRedirectedTableName().orElse(originalTableName);
+        accessControl.checkCanRenameColumn(session.toSecurityContext(), qualifiedTableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(source);
@@ -99,7 +100,7 @@ public class RenameColumnTask
             throw semanticException(NOT_SUPPORTED, statement, "Cannot rename hidden column");
         }
 
-        metadata.renameColumn(session, tableHandle, columnHandle, target);
+        metadata.renameColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), columnHandle, target);
 
         return immediateVoidFuture();
     }
