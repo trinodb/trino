@@ -18,8 +18,8 @@ To use the Hudi connector, you need:
 * Access to the Hive metastore service (HMS).
 * Network access from the Trino coordinator to the HMS.
 
-Configuration
--------------
+General configuration
+---------------------
 
 The connector requires a Hive metastore for table metadata and supports the same
 metastore configuration properties as the :doc:`Hive connector
@@ -37,7 +37,7 @@ service:
     connector.name=hudi
     hive.metastore.uri=thrift://example.net:9083
 
-Additionally, following configuration properties can be set depending on the use-case.
+Additionally, following configuration properties can be set depending on the use-case:
 
 .. list-table:: Hudi configuration properties
     :widths: 30, 55, 15
@@ -58,13 +58,13 @@ Additionally, following configuration properties can be set depending on the use
         are accessed using the index. Only applicable to Parquet file format.
       - ``true``
     * - ``parquet.optimized-reader.enabled``
-      - Whether batched column readers should be used when reading Parquet files
+      - Whether batched column readers must be used when reading Parquet files
         for improved performance. Set this property to ``false`` to disable the
         optimized parquet reader by default. The equivalent catalog session
         property is ``parquet_optimized_reader_enabled``.
       - ``true``
     * - ``parquet.optimized-nested-reader.enabled``
-      - Whether batched column readers should be used when reading ARRAY, MAP
+      - Whether batched column readers must be used when reading ARRAY, MAP
         and ROW types from Parquet files for improved performance. Set this
         property to ``false`` to disable the optimized parquet reader by default
         for structural data types. The equivalent catalog session property is
@@ -96,10 +96,6 @@ Additionally, following configuration properties can be set depending on the use
       - Maximum outstanding splits in a batch enqueued for processing.
       - ``1000``
 
-Supported file types
---------------------
-
-The connector supports Parquet file type.
 
 SQL support
 -----------
@@ -108,28 +104,12 @@ The connector provides read access to data in the Hudi table that has been synce
 Hive metastore. The :ref:`globally available <sql-globally-available>`
 and :ref:`read operation <sql-read-operations>` statements are supported.
 
-Supported query types
-^^^^^^^^^^^^^^^^^^^^^
+Basic usage examples
+^^^^^^^^^^^^^^^^^^^^
 
-Hudi supports `two types of tables <https://hudi.apache.org/docs/table_types>`_
-depending on how the data is indexed and laid out on the file system. The following
-table displays a support matrix of tables types and query types for the connector.
-
-=========================== =============================================
-Table type                  Supported query type
-=========================== =============================================
-Copy on write               Snapshot queries
-
-Merge on read               Read optimized queries
-=========================== =============================================
-
-Examples queries
-^^^^^^^^^^^^^^^^
-
-In the queries below, ``stock_ticks_cow`` is a Hudi copy-on-write table that we refer
-in the Hudi `quickstart <https://hudi.apache.org/docs/docker_demo/>`_ documentation.
-
-Here are some sample queries:
+In the following example queries, ``stock_ticks_cow`` is the Hudi copy-on-write
+table referred to in the Hudi `quickstart guide
+<https://hudi.apache.org/docs/docker_demo/>`_.
 
 .. code-block:: sql
 
@@ -165,6 +145,7 @@ Here are some sample queries:
     SELECT dt, count(*)
     FROM stock_ticks_cow
     GROUP BY dt;
+
 .. code-block:: text
 
         dt      | _col1 |
@@ -172,10 +153,28 @@ Here are some sample queries:
      2018-08-31 |  99  |
     (1 rows)
 
+Schema and table management
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Hudi supports `two types of tables <https://hudi.apache.org/docs/table_types>`_
+depending on how the data is indexed and laid out on the file system. The following
+table displays a support matrix of tables types and query types for the connector:
+
+.. list-table:: Hudi configuration properties
+    :widths: 45, 55
+    :header-rows: 1
+
+    * - Table type
+      - Supported query type
+    * - Copy on write
+      - Snapshot queries
+    * - Merge on read
+      - Read-optimized queries
+
 .. _hudi-metadata-tables:
 
 Metadata tables
----------------
+"""""""""""""""
 
 The connector exposes a metadata table for each Hudi table.
 The metadata table contains information about the internal structure
@@ -185,7 +184,7 @@ metadata table name to the table name::
    SELECT * FROM "test_table$timeline"
 
 ``$timeline`` table
-^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~
 
 The ``$timeline`` table provides a detailed view of meta-data instants
 in the Hudi table. Instants are specific points in time.
@@ -220,3 +219,8 @@ The output of the query has the following columns:
   * - ``state``
     - ``varchar``
     - Current state of the instant
+
+File formats
+------------
+
+The connector supports Parquet file format.
