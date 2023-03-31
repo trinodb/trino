@@ -23,8 +23,13 @@ public abstract class BaseJdbcConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-                return true;
+            case SUPPORTS_UPDATE: // not supported by any JDBC connector
+            case SUPPORTS_MERGE: // not supported by any JDBC connector
+                return false;
+
+            case SUPPORTS_CREATE_VIEW: // not supported by DefaultJdbcMetadata
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW: // not supported by DefaultJdbcMetadata
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);

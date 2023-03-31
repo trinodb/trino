@@ -76,6 +76,13 @@ public abstract class BaseBigQueryConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+            case SUPPORTS_TRUNCATE:
+                return true;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -90,11 +97,12 @@ public abstract class BaseBigQueryConnectorTest
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
-            case SUPPORTS_TRUNCATE:
-                return true;
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
 
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
