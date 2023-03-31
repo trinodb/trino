@@ -657,6 +657,12 @@ public abstract class BasePinotConnectorSmokeTest
             case SUPPORTS_CREATE_TABLE, SUPPORTS_RENAME_TABLE -> false;
 
             case SUPPORTS_INSERT -> false;
+            case SUPPORTS_UPDATE -> false;
+            case SUPPORTS_DELETE -> false;
+            case SUPPORTS_MERGE -> false;
+
+            case SUPPORTS_CREATE_VIEW -> false;
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW -> false;
 
             default -> super.hasBehavior(connectorBehavior);
         };

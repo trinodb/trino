@@ -86,6 +86,13 @@ public class TestMongoConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+                return true;
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
@@ -93,11 +100,12 @@ public class TestMongoConnectorTest
             case SUPPORTS_RENAME_COLUMN:
                 return false;
 
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
-            case SUPPORTS_DELETE:
-                return true;
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);

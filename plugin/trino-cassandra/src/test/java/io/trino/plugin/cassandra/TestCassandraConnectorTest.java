@@ -91,6 +91,14 @@ public class TestCassandraConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+
+            case SUPPORTS_DELETE:
+            case SUPPORTS_TRUNCATE:
+                return true;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -112,14 +120,11 @@ public class TestCassandraConnectorTest
                 return false;
 
             case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
-
-            case SUPPORTS_DELETE:
-            case SUPPORTS_TRUNCATE:
-                return true;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
