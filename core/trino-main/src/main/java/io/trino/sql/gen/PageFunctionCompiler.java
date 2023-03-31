@@ -62,6 +62,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -185,6 +186,7 @@ public class PageFunctionCompiler
         }
 
         PageFieldsToInputParametersRewriter.Result result = rewritePageFieldsToInputParameters(projection);
+        boolean isExpressionDeterministic = isDeterministic(result.getRewrittenExpression());
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
@@ -203,11 +205,12 @@ public class PageFunctionCompiler
             throw new TrinoException(COMPILER_ERROR, e);
         }
 
+        MethodHandle pageProjectionConstructor = constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class);
         return () -> new GeneratedPageProjection(
                 result.getRewrittenExpression(),
-                isDeterministic(result.getRewrittenExpression()),
+                isExpressionDeterministic,
                 result.getInputChannels(),
-                constructorMethodHandle(pageProjectionWorkClass, BlockBuilder.class, ConnectorSession.class, Page.class, SelectedPositions.class));
+                pageProjectionConstructor);
     }
 
     private static ParameterizedType generateProjectionWorkClassName(Optional<String> classNameSuffix)
