@@ -267,6 +267,7 @@ public class FailedDispatchQuery
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
                 0,
                 0,
                 0,

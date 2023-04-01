@@ -682,6 +682,7 @@ public class QueryStateMachine
                 queryStateTimer.getExecutionTime(),
                 queryStateTimer.getAnalysisTime(),
                 queryStateTimer.getPlanningTime(),
+                queryStateTimer.getPlanningCpuTime(),
                 queryStateTimer.getFinishingTime(),
 
                 totalTasks,
@@ -1268,6 +1269,7 @@ public class QueryStateMachine
                 queryStats.getExecutionTime(),
                 queryStats.getAnalysisTime(),
                 queryStats.getPlanningTime(),
+                queryStats.getPlanningCpuTime(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),
                 queryStats.getFailedTasks(),

@@ -37,6 +37,7 @@ public class QueryStatistics
     private final Optional<Duration> resourceWaitingTime;
     private final Optional<Duration> analysisTime;
     private final Optional<Duration> planningTime;
+    private final Optional<Duration> planningCpuTime;
     private final Optional<Duration> executionTime;
     private final Optional<Duration> inputBlockedTime;
     private final Optional<Duration> failedInputBlockedTime;
@@ -96,6 +97,7 @@ public class QueryStatistics
             Optional<Duration> resourceWaitingTime,
             Optional<Duration> analysisTime,
             Optional<Duration> planningTime,
+            Optional<Duration> planningCpuTime,
             Optional<Duration> executionTime,
             Optional<Duration> inputBlockedTime,
             Optional<Duration> failedInputBlockedTime,
@@ -138,6 +140,7 @@ public class QueryStatistics
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
+        this.planningCpuTime = requireNonNull(planningCpuTime, "planningCpuTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
         this.failedInputBlockedTime = requireNonNull(failedInputBlockedTime, "failedInputBlockedTime is null");
@@ -224,6 +227,12 @@ public class QueryStatistics
     public Optional<Duration> getPlanningTime()
     {
         return planningTime;
+    }
+
+    @JsonProperty
+    public Optional<Duration> getPlanningCpuTime()
+    {
+        return planningCpuTime;
     }
 
     @JsonProperty
