@@ -968,6 +968,15 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitJsonObjectMember(JsonObjectMember node, C context)
+    {
+        process(node.getKey(), context);
+        process(node.getValue(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitJsonArray(JsonArray node, C context)
     {
         for (JsonArrayElement element : node.getElements()) {
