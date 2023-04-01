@@ -1336,6 +1336,14 @@ export class QueryDetail extends React.Component {
                             </tr>
                             <tr>
                                 <td className="info-title">
+                                    Planning CPU Time
+                                </td>
+                                <td className="info-text">
+                                    {query.queryStats.planningCpuTime}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td className="info-title">
                                     Execution Time
                                 </td>
                                 <td className="info-text">
