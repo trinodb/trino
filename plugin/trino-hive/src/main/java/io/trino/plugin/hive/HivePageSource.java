@@ -387,7 +387,7 @@ public class HivePageSource
         return first.getLength() < second.getLength();
     }
 
-    public static class ListCoercer
+    private static class ListCoercer
             implements Function<Block, Block>
     {
         private final Optional<Function<Block, Block>> elementCoercer;
@@ -420,7 +420,7 @@ public class HivePageSource
         }
     }
 
-    public static class MapCoercer
+    private static class MapCoercer
             implements Function<Block, Block>
     {
         private final Type toType;
@@ -456,7 +456,7 @@ public class HivePageSource
         }
     }
 
-    public static class StructCoercer
+    private static class StructCoercer
             implements Function<Block, Block>
     {
         private final List<Optional<Function<Block, Block>>> coercers;

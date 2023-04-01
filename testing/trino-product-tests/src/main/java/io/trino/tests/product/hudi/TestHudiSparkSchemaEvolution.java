@@ -26,7 +26,6 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Map;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -223,7 +222,8 @@ public class TestHudiSparkSchemaEvolution
     }
 
     @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
-    public void testCopyOnWriteTableSchemaEvolutionAlterArrayNestedType() throws SQLException
+    public void testCopyOnWriteTableSchemaEvolutionAlterArrayNestedType()
+            throws SQLException
     {
         String arrayIntToArrayLong = "test_hudi_cow_schema_evolution_alter_array_int_to_array_long" + randomNameSuffix();
         String arrayIntToArrayFloat = "test_hudi_cow_schema_evolution_alter_array_int_to_array_float" + randomNameSuffix();
@@ -255,7 +255,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", 123L)
                                 .addField("start_date", "2018-12-12")
                                 .addField("birth", Date.valueOf("2018-12-12")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         Row rowValueSecond = rowBuilder()
@@ -263,7 +265,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", 123L)
                                 .addField("start_date", "2018-12-16")
                                 .addField("birth", Date.valueOf("2018-12-16")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueSecond.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueSecond.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
@@ -280,7 +284,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", 123F)
                                 .addField("start_date", "2018-12-12")
                                 .addField("birth", Date.valueOf("2018-12-12")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         Row rowValueSecond = rowBuilder()
@@ -288,7 +294,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", 123F)
                                 .addField("start_date", "2018-12-16")
                                 .addField("birth", Date.valueOf("2018-12-16")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueSecond.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueSecond.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
@@ -305,7 +313,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", 123D)
                                 .addField("start_date", "2018-12-12")
                                 .addField("birth", Date.valueOf("2018-12-12")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         Row rowValueSecond = rowBuilder()
@@ -313,7 +323,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", 123D)
                                 .addField("start_date", "2018-12-16")
                                 .addField("birth", Date.valueOf("2018-12-16")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueSecond.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueSecond.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
@@ -330,7 +342,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", "123")
                                 .addField("start_date", "2018-12-12")
                                 .addField("birth", Date.valueOf("2018-12-12")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         Row rowValueSecond = rowBuilder()
@@ -338,7 +352,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", "123")
                                 .addField("start_date", "2018-12-16")
                                 .addField("birth", Date.valueOf("2018-12-16")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueSecond.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueSecond.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
@@ -355,7 +371,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", new BigDecimal("123.00"))
                                 .addField("start_date", "2018-12-12")
                                 .addField("birth", Date.valueOf("2018-12-12")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         Row rowValueSecond = rowBuilder()
@@ -363,7 +381,9 @@ public class TestHudiSparkSchemaEvolution
                                 .addField("number", new BigDecimal("123.00"))
                                 .addField("start_date", "2018-12-16")
                                 .addField("birth", Date.valueOf("2018-12-16")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueSecond.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueSecond.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
@@ -377,18 +397,22 @@ public class TestHudiSparkSchemaEvolution
                     case 1:
                         Row rowValueFirst = rowBuilder()
                                 .addField("name", "2018-12-12")
-                                .addField("number", new BigDecimal("123.00"))
+                                .addField("number", 123)
                                 .addField("start_date", Date.valueOf("2018-12-12"))
                                 .addField("birth", Date.valueOf("2018-12-12")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         Row rowValueSecond = rowBuilder()
                                 .addField("name", "2018-12-16")
-                                .addField("number", new BigDecimal("123.00"))
+                                .addField("number", 123)
                                 .addField("start_date", Date.valueOf("2018-12-16"))
                                 .addField("birth", Date.valueOf("2018-12-16")).build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueSecond.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueSecond.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
@@ -402,18 +426,22 @@ public class TestHudiSparkSchemaEvolution
                     case 1:
                         Row rowValueFirst = rowBuilder()
                                 .addField("name", "2018-12-12")
-                                .addField("number", new BigDecimal("123.00"))
+                                .addField("number", 123)
                                 .addField("start_date", "2018-12-12")
                                 .addField("birth", "2018-12-12").build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         Row rowValueSecond = rowBuilder()
                                 .addField("name", "2018-12-16")
-                                .addField("number", new BigDecimal("123.00"))
+                                .addField("number", 123)
                                 .addField("start_date", "2018-12-16")
                                 .addField("birth", "2018-12-16").build();
-                        assertStructEquals((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)), rowValueSecond.getFields().toArray(new RowField[0]));
+                        assertStructEquals(
+                                ((Row) ((Object[]) (((TrinoArray) row.get(1)).getArray(1, 1)))[0]).getFields().toArray(new RowField[0]),
+                                rowValueSecond.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
@@ -430,7 +458,8 @@ public class TestHudiSparkSchemaEvolution
     }
 
     @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
-    public void testCopyOnWriteTableSchemaEvolutionAlterMapNestedType() throws SQLException
+    public void testCopyOnWriteTableSchemaEvolutionAlterMapNestedType()
+            throws SQLException
     {
         String tableName = "test_hudi_cow_schema_evolution_alter_map_nested_type_" + randomNameSuffix();
 
@@ -446,19 +475,19 @@ public class TestHudiSparkSchemaEvolution
                 switch (id) {
                     case 1:
                         Row rowValueFirst = rowBuilder()
-                                .addField("name", "2018-12-12")
+                                .addField("name", "STRUCT 1")
                                 .addField("number", 123L)
                                 .addField("start_date", "2018-12-12")
                                 .addField("birth", Date.valueOf("2018-12-12")).build();
-                        assertStructEquals(((Row) ((Map<String, Object>) row.get(1)).get("row key")).getFields().toArray(new RowField[0]), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(((Row) row.get(1)).getFields().toArray(new RowField[0]), rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         rowValueFirst = rowBuilder()
-                                .addField("name", "2018-12-16")
+                                .addField("name", "STRUCT 2")
                                 .addField("number", 123L)
                                 .addField("start_date", "2018-12-16")
                                 .addField("birth", Date.valueOf("2018-12-16")).build();
-                        assertStructEquals(((Row) ((Map<String, Object>) row.get(1)).get("row key")).getFields().toArray(new RowField[0]), rowValueFirst.getFields().toArray(new RowField[0]));
+                        assertStructEquals(((Row) row.get(1)).getFields().toArray(new RowField[0]), rowValueFirst.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
@@ -469,7 +498,8 @@ public class TestHudiSparkSchemaEvolution
     }
 
     @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
-    public void testCopyOnWriteTableSchemaEvolutionAlterStructNestedType() throws SQLException
+    public void testCopyOnWriteTableSchemaEvolutionAlterStructNestedType()
+            throws SQLException
     {
         String tableName = "test_hudi_cow_schema_evolution_alter_struct_nested_type_" + randomNameSuffix();
 
@@ -485,23 +515,19 @@ public class TestHudiSparkSchemaEvolution
                 switch (id) {
                     case 1:
                         Row employeeStructFirst = rowBuilder()
-                                .addField("name", "2018-12-12")
+                                .addField("name", "STRUCT 1")
                                 .addField("number", 123L)
                                 .addField("start_date", "2018-12-12")
                                 .addField("birth", Date.valueOf("2018-12-12")).build();
-                        Row structColumn = rowBuilder()
-                                .addField("employee", employeeStructFirst).build();
-                        assertStructEquals(((Row) row.get(1)).getFields().toArray(new RowField[0]), structColumn.getFields().toArray(new RowField[0]));
+                        assertStructEquals(((Row) row.get(1)).getFields().toArray(new RowField[0]), employeeStructFirst.getFields().toArray(new RowField[0]));
                         break;
                     case 2:
                         Row employeeStructSecond = rowBuilder()
-                                .addField("name", "2018-12-16")
+                                .addField("name", "STRUCT 2")
                                 .addField("number", 123L)
                                 .addField("start_date", "2018-12-16")
                                 .addField("birth", Date.valueOf("2018-12-16")).build();
-                        Row structColumnSecond = rowBuilder()
-                                .addField("employee", employeeStructSecond).build();
-                        assertStructEquals(((Row) row.get(1)).getFields().toArray(new RowField[0]), structColumnSecond.getFields().toArray(new RowField[0]));
+                        assertStructEquals(((Row) row.get(1)).getFields().toArray(new RowField[0]), employeeStructSecond.getFields().toArray(new RowField[0]));
                         break;
                 }
             }
