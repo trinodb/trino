@@ -987,6 +987,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitJsonArrayElement(JsonArrayElement node, C context)
+    {
+        process(node.getValue(), context);
+
+        return null;
+    }
+
+    @Override
     protected Void visitTableFunctionInvocation(TableFunctionInvocation node, C context)
     {
         for (TableFunctionArgument argument : node.getArguments()) {
