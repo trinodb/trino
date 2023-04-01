@@ -58,7 +58,6 @@ public class PrioritizedSplitRunner
 
     protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
 
-    protected final AtomicLong lastRun = new AtomicLong();
     private final AtomicLong lastReady = new AtomicLong();
     private final AtomicLong start = new AtomicLong();
 
@@ -170,7 +169,6 @@ public class PrioritizedSplitRunner
             scheduledNanos.addAndGet(quantaScheduledNanos);
 
             priority.set(taskHandle.addScheduledNanos(quantaScheduledNanos));
-            lastRun.set(endNanos);
 
             if (blocked == NOT_BLOCKED) {
                 unblockedQuantaWallTime.add(elapsed.getWall());
