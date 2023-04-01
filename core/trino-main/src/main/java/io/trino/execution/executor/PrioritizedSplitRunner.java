@@ -33,7 +33,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-public class PrioritizedSplitRunner
+public final class PrioritizedSplitRunner
         implements Comparable<PrioritizedSplitRunner>
 {
     private static final AtomicLong NEXT_WORKER_ID = new AtomicLong();
@@ -56,7 +56,7 @@ public class PrioritizedSplitRunner
 
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
-    protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
+    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
 
     private final AtomicLong lastReady = new AtomicLong();
     private final AtomicLong start = new AtomicLong();
@@ -91,7 +91,7 @@ public class PrioritizedSplitRunner
         this.blockedQuantaWallTime = requireNonNull(blockedQuantaWallTime, "blockedQuantaWallTime is null");
         this.unblockedQuantaWallTime = requireNonNull(unblockedQuantaWallTime, "unblockedQuantaWallTime is null");
 
-        this.updateLevelPriority();
+        updateLevelPriority();
     }
 
     public TaskHandle getTaskHandle()
