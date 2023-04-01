@@ -187,8 +187,7 @@ public final class PrioritizedSplitRunner
             ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
-            long endNanos = ticker.read();
-            long quantaScheduledNanos = endNanos - startNanos;
+            long quantaScheduledNanos = elapsed.getWall().roundTo(NANOSECONDS);
             scheduledNanos.addAndGet(quantaScheduledNanos);
 
             priority.set(taskHandle.addScheduledNanos(quantaScheduledNanos));
