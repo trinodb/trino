@@ -930,4 +930,175 @@ public class TestSynapseConnectorTest
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
+
+    @Override
+    public void testSelectFromProcedureFunction()
+    {
+        assertThatThrownBy(super::testSelectFromProcedureFunction)
+                .hasMessageStartingWith("Execution of 'actual' query failed:")
+                .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testSelectFromProcedureFunctionWithInputParameter()
+    {
+        assertThatThrownBy(super::testSelectFromProcedureFunctionWithInputParameter)
+                .hasMessageStartingWith("Execution of 'actual' query failed:")
+                .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testSelectFromProcedureFunctionWithOutputParameter()
+    {
+        assertThatThrownBy(super::testSelectFromProcedureFunctionWithOutputParameter)
+                .hasMessageMatching("\\QFailed to execute statement: [    CREATE PROCEDURE dbo.procedure\\E\\w+ @row_count bigint OUTPUT(?s:.*)");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testFilterPushdownRestrictedForProcedureFunction()
+    {
+        assertThatThrownBy(super::testFilterPushdownRestrictedForProcedureFunction)
+                .hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testAggregationPushdownRestrictedForProcedureFunction()
+    {
+        assertThatThrownBy(super::testAggregationPushdownRestrictedForProcedureFunction)
+                .hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testJoinPushdownRestrictedForProcedureFunction()
+    {
+        assertThatThrownBy(super::testJoinPushdownRestrictedForProcedureFunction)
+                .hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithSingleIfStatement()
+    {
+        assertThatThrownBy(super::testProcedureWithSingleIfStatement)
+                .hasMessageStartingWith("Execution of 'actual' query failed:")
+                .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithIfElseStatement()
+    {
+        assertThatThrownBy(super::testProcedureWithIfElseStatement)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "line 1:21: Table function system.procedure not registered"
+                        to match regex:
+                          "Procedure has multiple ResultSets for query: .*"
+                        but did not.""");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithMultipleResultSet()
+    {
+        assertThatThrownBy(super::testProcedureWithMultipleResultSet)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "line 1:21: Table function system.procedure not registered"
+                        to match regex:
+                          "Procedure has multiple ResultSets for query: .*"
+                        but did not.""");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithCreateOperation()
+    {
+        assertThatThrownBy(super::testProcedureWithCreateOperation)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "line 1:21: Table function system.procedure not registered"
+                        to match regex:
+                          "Failed to get table handle for procedure query. The statement did not return a result set."
+                        but did not.""");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithDropOperation()
+    {
+        assertThatThrownBy(super::testProcedureWithDropOperation)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "line 1:21: Table function system.procedure not registered"
+                        to match regex:
+                          "Failed to get table handle for procedure query. The statement did not return a result set."
+                        but did not.""");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithInsertOperation()
+    {
+        assertThatThrownBy(super::testProcedureWithInsertOperation)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "line 1:21: Table function system.procedure not registered"
+                        to match regex:
+                          "Failed to get table handle for procedure query. The statement did not return a result set."
+                        but did not.""");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithDeleteOperation()
+    {
+        assertThatThrownBy(super::testProcedureWithDeleteOperation)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "line 1:21: Table function system.procedure not registered"
+                        to match regex:
+                          "Failed to get table handle for procedure query. The statement did not return a result set."
+                        but did not.""");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithUpdateOperation()
+    {
+        assertThatThrownBy(super::testProcedureWithUpdateOperation)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "line 1:21: Table function system.procedure not registered"
+                        to match regex:
+                          "Failed to get table handle for procedure query. The statement did not return a result set."
+                        but did not.""");
+        throw new SkipException("procedure() PTF not registered");
+    }
+
+    @Override
+    public void testProcedureWithMergeOperation()
+    {
+        assertThatThrownBy(super::testProcedureWithMergeOperation)
+                .hasMessageStartingWith("""
+
+                        Expecting message:
+                          "line 1:21: Table function system.procedure not registered"
+                        to match regex:
+                          "Failed to get table handle for procedure query. The statement did not return a result set."
+                        but did not.""");
+        throw new SkipException("procedure() PTF not registered");
+    }
 }
