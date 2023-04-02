@@ -475,7 +475,7 @@ public class TestBinPackingNodeAllocator
             assertAcquired(acquire4, NODE_1);
             acquire4.attachTaskId(taskId(4));
 
-            // fifth allocation of 16 should should no longer fit on NODE_1. There is 16GB unreserved but only 15GB taking runtime usage into account
+            // fifth allocation of 16 should no longer fit on NODE_1. There is 16GB unreserved but only 15GB taking runtime usage into account
             NodeAllocator.NodeLease acquire5 = nodeAllocator.acquire(REQ_NONE, DataSize.of(16, GIGABYTE));
             assertNotAcquired(acquire5);
 
