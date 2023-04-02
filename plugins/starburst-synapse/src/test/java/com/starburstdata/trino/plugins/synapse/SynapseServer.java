@@ -9,10 +9,11 @@
  */
 package com.starburstdata.trino.plugins.synapse;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import io.airlift.log.Logger;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -20,8 +21,10 @@ import java.util.Arrays;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class SynapseServer
+        implements AutoCloseable
 {
     private static final Logger LOG = Logger.get(SynapseServer.class);
 
@@ -34,16 +37,23 @@ public class SynapseServer
 
     static final String JDBC_URL = "jdbc:sqlserver://" + ENDPOINT + ":" + PORT + ";database=" + DATABASE;
 
-    public static Connection createConnection(String url, String username, String password)
-            throws SQLException
+    private final HikariDataSource dataSource;
+
+    public SynapseServer()
     {
-        LOG.info("Initialize connection to %s", url);
-        return DriverManager.getConnection(url, username, password);
+        HikariConfig hikariConfig = new HikariConfig();
+        hikariConfig.setJdbcUrl(JDBC_URL);
+        hikariConfig.setUsername(USERNAME);
+        hikariConfig.setPassword(PASSWORD);
+        hikariConfig.setRegisterMbeans(false);
+        hikariConfig.setMaxLifetime(MINUTES.toMillis(1));
+
+        this.dataSource = new HikariDataSource(hikariConfig);
     }
 
     public void execute(String... query)
     {
-        try (Connection conn = openConnection();
+        try (Connection conn = dataSource.getConnection();
                 Statement statement = conn.createStatement()) {
             for (String sql : query) {
                 statement.execute(sql);
@@ -57,7 +67,7 @@ public class SynapseServer
     public <T> T executeQuery(String query, Function<ResultSet, T> resultConsumer)
     {
         LOG.debug("Executing query %s", query);
-        try (Connection conn = openConnection();
+        try (Connection conn = dataSource.getConnection();
                 Statement statement = conn.createStatement();
                 ResultSet resultSet = statement.executeQuery(query)) {
             return resultConsumer.apply(resultSet);
@@ -67,9 +77,10 @@ public class SynapseServer
         }
     }
 
-    private static Connection openConnection()
-            throws SQLException
+    @Override
+    public void close()
+            throws Exception
     {
-        return createConnection(JDBC_URL, USERNAME, PASSWORD);
+        dataSource.close();
     }
 }
