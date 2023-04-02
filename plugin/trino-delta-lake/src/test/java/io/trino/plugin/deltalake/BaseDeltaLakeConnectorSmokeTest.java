@@ -1439,7 +1439,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         registerTableFromResources(tableName, "databricks/pruning/parquet_struct_statistics", getQueryRunner());
         String transactionLogDirectory = format("%s/_delta_log", tableName);
 
-        // there should should be one checkpoint already (created by DB)
+        // there should be one checkpoint already (created by DB)
         assertThat(listCheckpointFiles(transactionLogDirectory)).hasSize(1);
         testCountQuery(format("SELECT count(*) FROM %s WHERE l = 0", tableName), 3, 3);
 
