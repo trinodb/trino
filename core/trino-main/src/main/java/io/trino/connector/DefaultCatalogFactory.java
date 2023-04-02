@@ -14,6 +14,8 @@
 package io.trino.connector;
 
 import io.airlift.node.NodeInfo;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.informationschema.InformationSchemaConnector;
 import io.trino.connector.system.CoordinatorSystemTablesProvider;
 import io.trino.connector.system.StaticSystemTablesProvider;
@@ -66,6 +68,7 @@ public class DefaultCatalogFactory
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
     private final VersionEmbedder versionEmbedder;
+    private final OpenTelemetry openTelemetry;
     private final TransactionManager transactionManager;
     private final TypeManager typeManager;
 
@@ -83,6 +86,7 @@ public class DefaultCatalogFactory
             PageIndexerFactory pageIndexerFactory,
             NodeInfo nodeInfo,
             VersionEmbedder versionEmbedder,
+            OpenTelemetry openTelemetry,
             TransactionManager transactionManager,
             TypeManager typeManager,
             NodeSchedulerConfig nodeSchedulerConfig)
@@ -95,6 +99,7 @@ public class DefaultCatalogFactory
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
@@ -149,12 +154,16 @@ public class DefaultCatalogFactory
 
     private CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
     {
+        Tracer tracer = openTelemetry.getTracer("trino.catalog." + catalogHandle.getCatalogName());
+
         ConnectorServices catalogConnector = new ConnectorServices(
+                tracer,
                 catalogHandle,
                 connector,
                 destroy);
 
         ConnectorServices informationSchemaConnector = new ConnectorServices(
+                tracer,
                 createInformationSchemaCatalogHandle(catalogHandle),
                 new InformationSchemaConnector(catalogHandle.getCatalogName(), nodeManager, metadata, accessControl),
                 () -> {});
@@ -172,6 +181,7 @@ public class DefaultCatalogFactory
         }
 
         ConnectorServices systemConnector = new ConnectorServices(
+                tracer,
                 createSystemTablesCatalogHandle(catalogHandle),
                 new SystemConnector(
                         nodeManager,
