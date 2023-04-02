@@ -1313,7 +1313,8 @@ public class TracingMetadata
 
     private Span startSpan(String methodName)
     {
-        return tracer.spanBuilder("Metadata." + methodName).startSpan();
+        return tracer.spanBuilder("Metadata." + methodName)
+                .startSpan();
     }
 
     private Span startSpan(String methodName, String catalogName)

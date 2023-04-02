@@ -20,6 +20,7 @@ import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.FeaturesConfig;
@@ -409,6 +410,7 @@ public class LocalQueryRunner
                 pageIndexerFactory,
                 nodeInfo,
                 testingVersionEmbedder(),
+                OpenTelemetry.noop(),
                 transactionManager,
                 typeManager,
                 nodeSchedulerConfig));
