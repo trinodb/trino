@@ -643,7 +643,7 @@ public class TestSynapseConnectorTest
     @SuppressWarnings({"deprecation", "DeprecatedApi"})
     private boolean expectVarcharJoinPushdown(String operator)
     {
-        if ("IS NOT DISTINCT FROM" .equals(operator)) {
+        if ("IS NOT DISTINCT FROM".equals(operator)) {
             return false;
         }
         else {
