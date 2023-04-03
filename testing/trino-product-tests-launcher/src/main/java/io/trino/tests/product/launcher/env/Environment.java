@@ -14,8 +14,6 @@
 package io.trino.tests.product.launcher.env;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
@@ -38,6 +36,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.MountableFile;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -45,6 +44,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
@@ -657,18 +657,19 @@ public final class Environment
             DockerContainer testContainer = containers.get(TESTS);
             // write a custom tempto config with list of connectors the environment declares to have configured
             // since it's needed in TestConfiguredFeatures
-            ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory());
             File tempFile;
             try {
                 tempFile = File.createTempFile("tempto-configured-features-", ".yaml");
-                objectMapper.writeValue(tempFile,
-                        Map.of("databases",
-                                Map.of("presto",
-                                        Map.of(
-                                                "configured_connectors",
-                                                configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
-                                                "configured_password_authenticators",
-                                                configuredFeatures.asMap().getOrDefault(PASSWORD_AUTHENTICATOR, ImmutableList.of())))));
+                try (PrintWriter writer = new PrintWriter(tempFile)) {
+                    Yaml yaml = new Yaml();
+                    yaml.dump(Map.of("databases",
+                            Map.of("presto",
+                                    Map.of(
+                                            "configured_connectors",
+                                            configuredFeatures.asMap().getOrDefault(CONNECTOR, ImmutableList.of()),
+                                            "configured_password_authenticators",
+                                            configuredFeatures.asMap().getOrDefault(PASSWORD_AUTHENTICATOR, ImmutableList.of())))), writer);
+                }
             }
             catch (IOException e) {
                 throw new RuntimeException(e);
