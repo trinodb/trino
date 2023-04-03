@@ -198,6 +198,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.getHudiCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getIcebergCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
+import static io.trino.plugin.hive.HiveSessionProperties.getMaxPartitionsPerScan;
 import static io.trino.plugin.hive.HiveSessionProperties.getQueryPartitionFilterRequiredSchemas;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
@@ -544,7 +545,7 @@ public class HiveMetadata
 
             handle = handle.withAnalyzePartitionValues(list);
             HivePartitionResult partitions = partitionManager.getPartitions(handle, list);
-            handle = partitionManager.applyPartitionResult(handle, partitions, alwaysTrue());
+            handle = partitionManager.applyPartitionResult(handle, partitions, alwaysTrue(), getMaxPartitionsPerScan(session));
         }
 
         if (analyzeColumnNames.isPresent()) {
@@ -859,7 +860,7 @@ public class HiveMetadata
         // If partitions are not loaded, then don't generate table statistics.
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
-        Optional<List<HivePartition>> partitions = partitionManager.tryLoadPartitions(partitionResult);
+        Optional<List<HivePartition>> partitions = partitionManager.tryLoadPartitions(partitionResult, getMaxPartitionsPerScan(session));
         if (partitions.isPresent()) {
             return hiveStatisticsProvider.getTableStatistics(session, hiveTableHandle.getSchemaTableName(), columns, columnTypes, partitions.get());
         }
@@ -2823,7 +2824,7 @@ public class HiveMetadata
                         // Note that the computation is not persisted in the table handle, so can be redone many times
                         // TODO: https://github.com/trinodb/trino/issues/10980.
                         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
-                        return partitionManager.tryLoadPartitions(partitionResult);
+                        return partitionManager.tryLoadPartitions(partitionResult, getMaxPartitionsPerScan(session));
                     });
 
             if (partitions.isPresent()) {
@@ -2889,7 +2890,7 @@ public class HiveMetadata
         checkArgument(handle.getAnalyzePartitionValues().isEmpty() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, handle, constraint);
-        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint);
+        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult, constraint, getMaxPartitionsPerScan(session));
 
         if (handle.getPartitions().equals(newHandle.getPartitions()) &&
                 handle.getPartitionNames().equals(newHandle.getPartitionNames()) &&
