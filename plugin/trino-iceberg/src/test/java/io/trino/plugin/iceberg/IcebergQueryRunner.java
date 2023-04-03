@@ -18,11 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.airlift.http.server.testing.TestingHttpServer;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
@@ -205,9 +207,9 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static final class IcebergMinIoHiveMetastoreQueryRunnerMain
+    public static final class IcebergMinioHiveMetastoreQueryRunnerMain
     {
-        private IcebergMinIoHiveMetastoreQueryRunnerMain() {}
+        private IcebergMinioHiveMetastoreQueryRunnerMain() {}
 
         public static void main(String[] args)
                 throws Exception
@@ -237,7 +239,46 @@ public final class IcebergQueryRunner
                     .build();
 
             Thread.sleep(10);
-            Logger log = Logger.get(IcebergMinIoHiveMetastoreQueryRunnerMain.class);
+            Logger log = Logger.get(IcebergMinioHiveMetastoreQueryRunnerMain.class);
+            log.info("======== SERVER STARTED ========");
+            log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+        }
+    }
+
+    public static final class IcebergMinioQueryRunnerMain
+    {
+        private IcebergMinioQueryRunnerMain() {}
+
+        public static void main(String[] args)
+                throws Exception
+        {
+            Logging.initialize();
+
+            String bucketName = "test-bucket";
+            Minio minio = Minio.builder().build();
+            minio.start();
+            minio.createBucket(bucketName);
+
+            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                    .setCoordinatorProperties(Map.of(
+                            "http-server.http.port", "8080"))
+                    .setIcebergProperties(Map.of(
+                            "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                            "hive.metastore.catalog.dir", "s3://%s/".formatted(bucketName),
+                            "hive.s3.aws-access-key", MINIO_ACCESS_KEY,
+                            "hive.s3.aws-secret-key", MINIO_SECRET_KEY,
+                            "hive.s3.endpoint", "http://" + minio.getMinioApiEndpoint(),
+                            "hive.s3.path-style-access", "true",
+                            "hive.s3.streaming.part-size", "5MB"))
+                    .setSchemaInitializer(
+                            SchemaInitializer.builder()
+                                    .withSchemaName("tpch")
+                                    .withClonedTpchTables(TpchTable.getTables())
+                                    .build())
+                    .build();
+
+            Thread.sleep(10);
+            Logger log = Logger.get(IcebergMinioQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
