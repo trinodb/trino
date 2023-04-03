@@ -206,7 +206,7 @@ public class KuduPageSink
     public void storeMergedRows(Page page)
     {
         // The last channel in the page is the rowId block, the next-to-last is the operation block
-        int columnCount = columnTypes.size();
+        int columnCount = originalColumnTypes.size();
         checkArgument(page.getChannelCount() == 2 + columnCount, "The page size should be 2 + columnCount (%s), but is %s", columnCount, page.getChannelCount());
         Block operationBlock = page.getBlock(columnCount);
         Block rowIds = page.getBlock(columnCount + 1);
