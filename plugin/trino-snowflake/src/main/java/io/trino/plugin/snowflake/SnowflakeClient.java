@@ -108,7 +108,6 @@ public class SnowflakeClient
 {
     private final Type jsonType;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
-    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
 
     /* TIME supports an optional precision parameter for fractional seconds, e.g. TIME(3). Time precision can range from 0 (seconds) to 9 (nanoseconds). The default precision is 9.
       All TIME values must be between 00:00:00 and 23:59:59.999999999. TIME internally stores “wallclock” time, and all operations on TIME values are performed without taking any time zone into consideration.
@@ -266,12 +265,12 @@ public class SnowflakeClient
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+        ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .build();
 
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
-                this.connectorExpressionRewriter,
+                connectorExpressionRewriter,
                 ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
@@ -316,6 +315,8 @@ public class SnowflakeClient
 //        }
 
         // Code should never reach here so throw an error.
+        log.debug("SnowflakeClient.toWriteMapping: SNOWFLAKE_CONNECTOR_COLUMN_TYPE_NOT_SUPPORTED: Unsupported column type(" + type +
+            "):" + jdbcTypeName);
         throw new TrinoException(NOT_SUPPORTED, "SNOWFLAKE_CONNECTOR_COLUMN_TYPE_NOT_SUPPORTED: Unsupported column type(" + type +
                 "):" + jdbcTypeName);
     }
@@ -335,6 +336,8 @@ public class SnowflakeClient
         if (writeMappingFunction != null) {
             return writeMappingFunction.convert(type);
         }
+
+        log.debug("SnowflakeClient.toWriteMapping: SNOWFLAKE_CONNECTOR_COLUMN_TYPE_NOT_SUPPORTED: Unsupported column type: " + type.getDisplayName() + ", simple:" + simple);
 
         throw new TrinoException(NOT_SUPPORTED, "SNOWFLAKE_CONNECTOR_COLUMN_TYPE_NOT_SUPPORTED: Unsupported column type: " + type.getDisplayName() + ", simple:" + simple);
     }
@@ -380,6 +383,7 @@ public class SnowflakeClient
     private static ColumnMapping columnMappingPushdown(ColumnMapping mapping)
     {
         if (mapping.getPredicatePushdownController() == PredicatePushdownController.DISABLE_PUSHDOWN) {
+            log.debug("SnowflakeClient.columnMappingPushdown: NOT_SUPPORTED mapping.getPredicatePushdownController() is DISABLE_PUSHDOWN. Type was " + mapping.getType());
             throw new TrinoException(NOT_SUPPORTED, "mapping.getPredicatePushdownController() is DISABLE_PUSHDOWN. Type was " + mapping.getType());
         }
 
