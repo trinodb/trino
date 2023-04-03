@@ -24,7 +24,7 @@ Certificate
 
 .. _glossCA:
 
-Certificate Authority (CA)
+Certificate authority (CA)
     A trusted organization that signs and issues certificates. Its signatures
     can be used to verify the validity of :ref:`certificates <glossCert>`.
 
@@ -103,7 +103,7 @@ Key
 
 .. _glossLB:
 
-Load Balancer (LB)
+Load balancer (LB)
     Software or a hardware device that sits on a network edge and accepts
     network connections on behalf of servers behind that wall, distributing
     traffic across network and server infrastructure to balance the load on
@@ -163,7 +163,7 @@ Presto and PrestoSQL
     `the history
     <https://wikipedia.org/wiki/Trino_(SQL_query_engine)#History>`_.
 
-Query Federation
+Query federation
   A type of :ref:`data virtualization <glossDataVirtualization>` that provides a
   common access point and data model across two or more heterogeneous data
   sources. A popular data model used by many query federation engines is
