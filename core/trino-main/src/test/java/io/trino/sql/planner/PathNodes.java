@@ -23,6 +23,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrComparisonPredicate;
 import io.trino.json.ir.IrConjunctionPredicate;
 import io.trino.json.ir.IrContextVariable;
+import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrDoubleMethod;
 import io.trino.json.ir.IrExistsPredicate;
@@ -187,6 +188,11 @@ public class PathNodes
     public static IrPathNode memberAccessor(IrPathNode base, String key)
     {
         return new IrMemberAccessor(base, Optional.of(key), Optional.empty());
+    }
+
+    public static IrPathNode descendantMemberAccessor(IrPathNode base, String key)
+    {
+        return new IrDescendantMemberAccessor(base, key, Optional.empty());
     }
 
     public static IrPathNode jsonVariable(int index)

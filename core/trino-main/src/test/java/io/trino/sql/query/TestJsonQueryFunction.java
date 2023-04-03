@@ -423,4 +423,18 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $var' PASSING null FORMAT JSON AS \"var\" EMPTY ARRAY ON EMPTY)"))
                 .matches("VALUES cast('[]' AS  varchar)");
     }
+
+    @Test
+    public void testDescendantMemberAccessor()
+    {
+        assertThat(assertions.query("""
+                SELECT json_query(
+                                '{"a" : {"b" : 1}, "c" :  [true, {"c" : {"c" : null}}]}',
+                                'lax $..c'
+                                WITH ARRAY WRAPPER)
+                """))
+                .matches("""
+                        VALUES cast('[[true,{"c":{"c":null}}],{"c":null},null]'AS varchar)
+                        """);
+    }
 }

@@ -26,6 +26,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrConstantJsonSequence;
 import io.trino.json.ir.IrContextVariable;
 import io.trino.json.ir.IrDatetimeMethod;
+import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDoubleMethod;
 import io.trino.json.ir.IrFloorMethod;
 import io.trino.json.ir.IrJsonNull;
@@ -148,6 +149,12 @@ public class TestJsonPath2016TypeSerialization
 
         // accessor by field name
         assertJsonRoundTrip(new IrJsonPath(true, new IrMemberAccessor(new IrJsonNull(), Optional.of("some_key"), Optional.of(BIGINT))));
+    }
+
+    @Test
+    public void testDescendantMemberAccessor()
+    {
+        assertJsonRoundTrip(new IrJsonPath(true, new IrDescendantMemberAccessor(new IrJsonNull(), "some_key", Optional.empty())));
     }
 
     @Test
