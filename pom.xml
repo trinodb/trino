@@ -2149,7 +2149,15 @@
                                 <excludes combine.children="append">
                                     <!-- We don't use log4j2, additionally versions < 2.15.0 are vulnerable to the RCE Log4Shell (CVE-2021-44228) -->
                                     <exclude>org.apache.logging.log4j:log4j-core</exclude>
+                                    <!-- 1.x versions are banned due to https://www.cve.org/CVERecord?id=CVE-2022-1471 -->
+                                    <exclude>org.yaml:snakeyaml</exclude>
                                 </excludes>
+                                <includes combine.children="append">
+                                    <!-- 2.x versions are not affected by CVE-2022-1471 -->
+                                    <include>org.yaml:snakeyaml:2.0</include>
+                                    <!-- allow in test scope (tempto and benchto are using old versions) -->
+                                    <include>org.yaml:snakeyaml:*:jar:test</include>
+                                </includes>
                             </bannedDependencies>
                         </rules>
                     </configuration>
