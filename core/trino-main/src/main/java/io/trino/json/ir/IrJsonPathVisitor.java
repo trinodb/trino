@@ -102,6 +102,11 @@ public abstract class IrJsonPathVisitor<R, C>
         return visitIrMethod(node, context);
     }
 
+    protected R visitIrDescendantMemberAccessor(IrDescendantMemberAccessor node, C context)
+    {
+        return visitIrAccessor(node, context);
+    }
+
     protected R visitIrDoubleMethod(IrDoubleMethod node, C context)
     {
         return visitIrMethod(node, context);

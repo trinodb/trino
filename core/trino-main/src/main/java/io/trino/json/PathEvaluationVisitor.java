@@ -35,6 +35,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrConstantJsonSequence;
 import io.trino.json.ir.IrContextVariable;
 import io.trino.json.ir.IrDatetimeMethod;
+import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDoubleMethod;
 import io.trino.json.ir.IrFilter;
 import io.trino.json.ir.IrFloorMethod;
@@ -646,6 +647,37 @@ class PathEvaluationVisitor
     protected List<Object> visitIrDatetimeMethod(IrDatetimeMethod node, PathEvaluationContext context) // TODO
     {
         throw new UnsupportedOperationException("date method is not yet supported");
+    }
+
+    @Override
+    protected List<Object> visitIrDescendantMemberAccessor(IrDescendantMemberAccessor node, PathEvaluationContext context)
+    {
+        List<Object> sequence = process(node.getBase(), context);
+
+        ImmutableList.Builder<Object> builder = ImmutableList.builder();
+        sequence.stream()
+                .forEach(object -> descendants(object, node.getKey(), builder));
+
+        return builder.build();
+    }
+
+    private void descendants(Object object, String key, ImmutableList.Builder<Object> builder)
+    {
+        if (object instanceof JsonNode jsonNode && jsonNode.isObject()) {
+            // prefix order: visit the enclosing object first
+            JsonNode boundValue = jsonNode.get(key);
+            if (boundValue != null) {
+                builder.add(boundValue);
+            }
+            // recurse into child nodes
+            ImmutableList.copyOf(jsonNode.fields()).stream()
+                    .forEach(field -> descendants(field.getValue(), key, builder));
+        }
+        if (object instanceof JsonNode jsonNode && jsonNode.isArray()) {
+            for (int index = 0; index < jsonNode.size(); index++) {
+                descendants(jsonNode.get(index), key, builder);
+            }
+        }
     }
 
     @Override
