@@ -41,6 +41,9 @@ public final class TrinoAttributes
     public static final AttributeKey<String> CATALOG = stringKey("trino.catalog");
     public static final AttributeKey<String> SCHEMA = stringKey("trino.schema");
     public static final AttributeKey<String> TABLE = stringKey("trino.table");
+    public static final AttributeKey<String> PROCEDURE = stringKey("trino.procedure");
+    public static final AttributeKey<String> FUNCTION = stringKey("trino.function");
+    public static final AttributeKey<String> HANDLE = stringKey("trino.handle");
 
     public static final AttributeKey<String> OPTIMIZER_NAME = stringKey("trino.optimizer");
     public static final AttributeKey<List<String>> OPTIMIZER_RULES = stringArrayKey("trino.optimizer.rules");
