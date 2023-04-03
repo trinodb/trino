@@ -24,7 +24,7 @@ Certificate
 
 .. _glossCA:
 
-Certificate authority (CA)
+Certificate Authority (CA)
     A trusted organization that signs and issues certificates. Its signatures
     can be used to verify the validity of :ref:`certificates <glossCert>`.
 
@@ -103,7 +103,7 @@ Key
 
 .. _glossLB:
 
-Load balancer (LB)
+Load Balancer (LB)
     Software or a hardware device that sits on a network edge and accepts
     network connections on behalf of servers behind that wall, distributing
     traffic across network and server infrastructure to balance the load on
