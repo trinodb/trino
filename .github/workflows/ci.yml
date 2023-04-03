@@ -553,6 +553,7 @@ jobs:
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-redshift }
             - { modules: plugin/trino-redshift, profile: cloud-tests }
+            - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
@@ -613,6 +614,7 @@ jobs:
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
+          && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
       - name: Cloud Delta Lake Tests
@@ -694,7 +696,7 @@ jobs:
             -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
             -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESS_KEY}"
-      - name: Cloud Redshift Tests
+      - name: Cloud Redshift Tests ${{ matrix.profile }}
         env:
           AWS_REGION: ${{ vars.REDSHIFT_AWS_REGION }}
           AWS_ACCESS_KEY_ID: ${{ secrets.REDSHIFT_AWS_ACCESS_KEY_ID }}
@@ -704,12 +706,13 @@ jobs:
           REDSHIFT_VPC_SECURITY_GROUP_IDS: ${{ vars.REDSHIFT_VPC_SECURITY_GROUP_IDS }}
           REDSHIFT_S3_TPCH_TABLES_ROOT: ${{ vars.REDSHIFT_S3_TPCH_TABLES_ROOT }}
         if: >-
-          contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests') &&
+          contains(matrix.modules, 'trino-redshift') &&
+          (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
           (env.AWS_ACCESS_KEY_ID != '' || env.REDSHIFT_SUBNET_GROUP_NAME != '')
         run: |
           source .github/bin/redshift/setup-aws-redshift.sh
 
-          $MAVEN test ${MAVEN_TEST} -pl :trino-redshift ${{ format('-P {0}', matrix.profile) }} \
+          $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ format('-P {0}', matrix.profile) }} \
             -Dtest.redshift.jdbc.user="${REDSHIFT_USER}" \
             -Dtest.redshift.jdbc.password="${REDSHIFT_PASSWORD}" \
             -Dtest.redshift.jdbc.endpoint="${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT}/" \
