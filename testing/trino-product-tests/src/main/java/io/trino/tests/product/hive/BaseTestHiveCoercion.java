@@ -111,6 +111,9 @@ public abstract class BaseTestHiveCoercion
                 "varchar_to_smaller_varchar",
                 "char_to_bigger_char",
                 "char_to_smaller_char",
+                "timestamp_to_string",
+                "timestamp_to_bounded_varchar",
+                "timestamp_to_smaller_varchar",
                 "id");
 
         Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal, floatToDecimalVal);
@@ -167,6 +170,9 @@ public abstract class BaseTestHiveCoercion
                         "  'abc', " +
                         "  'abc', " +
                         "  'abc', " +
+                        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
+                        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
+                        "  TIMESTAMP '2121-07-15 15:30:12.123', " +
                         "  1), " +
                         "(" +
                         "  CAST(ROW (NULL, 1, -100, -2323, -12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
@@ -197,6 +203,9 @@ public abstract class BaseTestHiveCoercion
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
                         "  '\uD83D\uDCB0\uD83D\uDCB0\uD83D\uDCB0', " +
+                        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
+                        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
+                        "  TIMESTAMP '1970-01-01 00:00:00.123', " +
                         "  1)",
                 tableName,
                 floatToDoubleType));
@@ -340,6 +349,15 @@ public abstract class BaseTestHiveCoercion
                 .put("char_to_smaller_char", ImmutableList.of(
                         "ab",
                         "\uD83D\uDCB0\uD83D\uDCB0"))
+                .put("timestamp_to_string", ImmutableList.of(
+                        "2121-07-15 15:30:12.123",
+                        "1970-01-01 00:00:00.123"))
+                .put("timestamp_to_bounded_varchar", ImmutableList.of(
+                        "2121-07-15 15:30:12.123",
+                        "1970-01-01 00:00:00.123"))
+                .put("timestamp_to_smaller_varchar", ImmutableList.of(
+                        "2121",
+                        "1970"))
                 .put("id", ImmutableList.of(
                         1,
                         1))
@@ -564,6 +582,9 @@ public abstract class BaseTestHiveCoercion
                 row("varchar_to_smaller_varchar", "varchar(2)"),
                 row("char_to_bigger_char", "char(4)"),
                 row("char_to_smaller_char", "char(2)"),
+                row("timestamp_to_string", "varchar"),
+                row("timestamp_to_bounded_varchar", "varchar(30)"),
+                row("timestamp_to_smaller_varchar", "varchar(4)"),
                 row("id", "bigint"));
     }
 
@@ -612,6 +633,9 @@ public abstract class BaseTestHiveCoercion
                 .put("char_to_smaller_char", CHAR)
                 .put("id", BIGINT)
                 .put("nested_field", BIGINT)
+                .put("timestamp_to_string", VARCHAR)
+                .put("timestamp_to_bounded_varchar", VARCHAR)
+                .put("timestamp_to_smaller_varchar", VARCHAR)
                 .buildOrThrow();
 
         assertThat(queryResult)
@@ -650,6 +674,9 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_smaller_varchar varchar_to_smaller_varchar varchar(2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_bigger_char char_to_bigger_char char(4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN char_to_smaller_char char_to_smaller_char char(2)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_bounded_varchar timestamp_to_bounded_varchar varchar(30)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_smaller_varchar timestamp_to_smaller_varchar varchar(4)", tableName));
     }
 
     protected static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)
