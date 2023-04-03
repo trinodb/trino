@@ -34,6 +34,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
+import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -68,7 +69,7 @@ public final class HiveCoercionPolicy
             return toType instanceof CharType;
         }
         if (toType instanceof VarcharType) {
-            return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG) || fromType instanceof DecimalType;
+            return fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG) || fromHiveType.equals(HIVE_TIMESTAMP) || fromType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_BYTE)) {
             return toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG);

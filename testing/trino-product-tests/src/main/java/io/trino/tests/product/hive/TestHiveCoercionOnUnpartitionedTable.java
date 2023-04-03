@@ -72,6 +72,9 @@ public class TestHiveCoercionOnUnpartitionedTable
                             varchar_to_smaller_varchar         VARCHAR(3),
                             char_to_bigger_char                CHAR(3),
                             char_to_smaller_char               CHAR(3),
+                            timestamp_to_string                TIMESTAMP,
+                            timestamp_to_bounded_varchar       TIMESTAMP,
+                            timestamp_to_smaller_varchar       TIMESTAMP,
                             id                                 BIGINT)
                        STORED AS\s""" + fileFormat);
     }
