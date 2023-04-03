@@ -36,6 +36,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = IrConstantJsonSequence.class, name = "jsonsequence"),
         @JsonSubTypes.Type(value = IrContextVariable.class, name = "contextvariable"),
         @JsonSubTypes.Type(value = IrDatetimeMethod.class, name = "datetime"),
+        @JsonSubTypes.Type(value = IrDescendantMemberAccessor.class, name = "descendantmemberaccessor"),
         @JsonSubTypes.Type(value = IrDisjunctionPredicate.class, name = "disjunction"),
         @JsonSubTypes.Type(value = IrDoubleMethod.class, name = "double"),
         @JsonSubTypes.Type(value = IrExistsPredicate.class, name = "exists"),

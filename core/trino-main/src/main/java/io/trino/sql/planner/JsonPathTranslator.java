@@ -25,6 +25,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrComparisonPredicate;
 import io.trino.json.ir.IrConjunctionPredicate;
 import io.trino.json.ir.IrContextVariable;
+import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDisjunctionPredicate;
 import io.trino.json.ir.IrDoubleMethod;
 import io.trino.json.ir.IrExistsPredicate;
@@ -59,6 +60,7 @@ import io.trino.sql.jsonpath.tree.ComparisonPredicate;
 import io.trino.sql.jsonpath.tree.ConjunctionPredicate;
 import io.trino.sql.jsonpath.tree.ContextVariable;
 import io.trino.sql.jsonpath.tree.DatetimeMethod;
+import io.trino.sql.jsonpath.tree.DescendantMemberAccessor;
 import io.trino.sql.jsonpath.tree.DisjunctionPredicate;
 import io.trino.sql.jsonpath.tree.DoubleMethod;
 import io.trino.sql.jsonpath.tree.ExistsPredicate;
@@ -224,6 +226,13 @@ class JsonPathTranslator
 
 //            IrPathNode base = process(node.getBase());
 //            return new IrDatetimeMethod(base, /*parsed format*/, Optional.ofNullable(types.get(PathNodeRef.of(node))));
+        }
+
+        @Override
+        protected IrPathNode visitDescendantMemberAccessor(DescendantMemberAccessor node, Void context)
+        {
+            IrPathNode base = process(node.getBase());
+            return new IrDescendantMemberAccessor(base, node.getKey(), Optional.ofNullable(types.get(PathNodeRef.of(node))));
         }
 
         @Override
