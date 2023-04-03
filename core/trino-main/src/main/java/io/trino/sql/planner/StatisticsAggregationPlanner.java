@@ -32,6 +32,7 @@ import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.trino.sql.tree.QualifiedName;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,8 +71,13 @@ public class StatisticsAggregationPlanner
                 .map(columnToSymbolMap::get)
                 .collect(toImmutableList());
 
+        List<Symbol> distinctGroupingSymbols = new ArrayList<>();
         for (int i = 0; i < groupingSymbols.size(); i++) {
-            descriptor.addGrouping(groupingColumns.get(i), groupingSymbols.get(i));
+            Symbol symbol = groupingSymbols.get(i);
+            if (!distinctGroupingSymbols.contains(symbol)) {
+                distinctGroupingSymbols.add(symbol);
+                descriptor.addGrouping(groupingColumns.get(i), groupingSymbols.get(i));
+            }
         }
 
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> aggregations = ImmutableMap.builder();
@@ -114,7 +120,7 @@ public class StatisticsAggregationPlanner
             descriptor.addColumnStatistic(columnStatisticMetadata, symbol);
         }
 
-        StatisticAggregations aggregation = new StatisticAggregations(aggregations.buildOrThrow(), groupingSymbols);
+        StatisticAggregations aggregation = new StatisticAggregations(aggregations.buildOrThrow(), distinctGroupingSymbols);
         return new TableStatisticAggregation(aggregation, descriptor.build());
     }
 
