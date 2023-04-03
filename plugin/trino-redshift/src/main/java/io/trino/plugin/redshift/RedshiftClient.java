@@ -243,7 +243,7 @@ public class RedshiftClient
             RemoteQueryModifier queryModifier,
             RedshiftConfig redshiftConfig)
     {
-        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.disableAutomaticFetchSize = redshiftConfig.isDisableAutomaticFetchSize();
         this.legacyTypeMapping = redshiftConfig.isLegacyTypeMapping();
         ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()

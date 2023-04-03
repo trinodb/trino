@@ -118,6 +118,19 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
         </dependency>
@@ -190,6 +203,7 @@
                                 <exclude>**/TestRedshiftConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestRedshiftTableStatisticsReader.java</exclude>
                                 <exclude>**/TestRedshiftTypeMapping.java</exclude>
+                                <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -213,6 +227,27 @@
                                 <!-- locations of GitHub runners which can lead to increased client latency on the -->
                                 <!-- JDBC operations performed on the ephemeral AWS Redshift cluster.  -->
                                 <include>**/TestRedshiftConnectorSmokeTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>fte-tests</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <!-- Failure recovery tests spend most of the time waiting for a retry -->
+                            <threadCount>4</threadCount>
+                            <includes>
+                                <include>**/Test*FailureRecoveryTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
