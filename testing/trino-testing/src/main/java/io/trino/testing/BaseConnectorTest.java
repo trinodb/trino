@@ -5215,6 +5215,36 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test
+    public void testMergeDeleteWithCTAS()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String target = "merge_target_with_ctas_" + randomNameSuffix();
+        String source = "merge_source_with_ctas_" + randomNameSuffix();
+        @Language("SQL") String createTableSql = """
+                CREATE TABLE %s AS
+                SELECT * FROM (
+                        VALUES
+                        (1, 'a', 'aa'),
+                        (2, 'b', 'bb'),
+                        (3, 'c', 'cc'),
+                        (4, 'd', 'dd')
+                ) AS t (id, name, value)
+                """;
+        assertUpdate(createTableSql.formatted(target), 4);
+        assertUpdate(createTableSql.formatted(source), 4);
+
+        assertQuery("SELECT COUNT(*) FROM " + target, "VALUES 4");
+        assertUpdate("DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE id > 2)".formatted(target, source), 2);
+        assertQuery("SELECT * FROM " + target, "VALUES (1, 'a', 'aa'), (2, 'b', 'bb')");
+        assertUpdate("MERGE INTO %s t USING %s s ON (t.id = s.id) WHEN MATCHED AND s.id > 1 THEN DELETE".formatted(target, source), 1);
+        assertQuery("SELECT * FROM " + target, "VALUES (1, 'a', 'aa')");
+
+        assertUpdate("DROP TABLE " + target);
+        assertUpdate("DROP TABLE " + source);
+    }
+
     protected String createTableForWrites(String createTable)
     {
         return createTable;
