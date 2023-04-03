@@ -765,18 +765,40 @@ public interface ConnectorMetadata
 
     /**
      * Gets the schema properties for the specified schema.
+     *
+     * @deprecated use {@link #getSchemaProperties(ConnectorSession, String)}
      */
+    @Deprecated(forRemoval = true)
     default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
         return Map.of();
     }
 
     /**
-     * Get the schema properties for the specified schema.
+     * Gets the schema properties for the specified schema.
      */
+    default Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
+    {
+        return getSchemaProperties(session, new CatalogSchemaName("invalid", schemaName));
+    }
+
+    /**
+     * Get the schema properties for the specified schema.
+     *
+     * @deprecated use {@link #getSchemaOwner(ConnectorSession, String)}
+     */
+    @Deprecated(forRemoval = true)
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Get the schema properties for the specified schema.
+     */
+    default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
+    {
+        return getSchemaOwner(session, new CatalogSchemaName("invalid", schemaName));
     }
 
     /**
