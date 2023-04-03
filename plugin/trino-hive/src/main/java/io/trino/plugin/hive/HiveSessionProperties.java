@@ -134,6 +134,7 @@ public final class HiveSessionProperties
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String NON_TRANSACTIONAL_OPTIMIZE_ENABLED = "non_transactional_optimize_enabled";
+    public static final String MAX_PARTITIONS_PER_SCAN = "max_partitions_per_scan";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -623,7 +624,12 @@ public final class HiveSessionProperties
                         hiveConfig.getHudiCatalogName().orElse(null),
                         // Session-level redirections configuration does not work well with views, as view body is analyzed in context
                         // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
-                        true));
+                        true),
+                integerProperty(
+                        MAX_PARTITIONS_PER_SCAN,
+                        "Maximum allowed partitions for a single table scan. Must be greater than 0.",
+                        hiveConfig.getMaxPartitionsPerScan(),
+                        false));
     }
 
     @Override
@@ -1041,5 +1047,14 @@ public final class HiveSessionProperties
     public static Optional<String> getHudiCatalogName(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(HUDI_CATALOG_NAME, String.class));
+    }
+
+    public static int getMaxPartitionsPerScan(ConnectorSession session)
+    {
+        int maxPartitionsPerScan = session.getProperty(MAX_PARTITIONS_PER_SCAN, Integer.class);
+        if (maxPartitionsPerScan < 1) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", MAX_PARTITIONS_PER_SCAN, maxPartitionsPerScan));
+        }
+        return maxPartitionsPerScan;
     }
 }

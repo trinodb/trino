@@ -181,8 +181,7 @@ public class S3SelectTestHelper
                 this.hiveConfig.getSplitLoaderConcurrency(),
                 this.hiveConfig.getMaxSplitsPerSecond(),
                 this.hiveConfig.getRecursiveDirWalkerEnabled(),
-                TESTING_TYPE_MANAGER,
-                this.hiveConfig.getMaxPartitionsPerScan());
+                TESTING_TYPE_MANAGER);
 
         pageSourceProvider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,

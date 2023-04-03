@@ -905,8 +905,7 @@ public abstract class AbstractTestHive
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
                 false,
-                TESTING_TYPE_MANAGER,
-                hiveConfig.getMaxPartitionsPerScan());
+                TESTING_TYPE_MANAGER);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment),

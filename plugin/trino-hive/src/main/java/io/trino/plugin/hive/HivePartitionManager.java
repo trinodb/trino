@@ -151,17 +151,19 @@ public class HivePartitionManager
         return new HivePartitionResult(partitionColumns, Optional.empty(), partitionList, TupleDomain.all(), TupleDomain.all(), bucketHandle, Optional.empty());
     }
 
-    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Constraint constraint)
+    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions, Constraint constraint, Integer sessionMaxPartitionsPerScan)
     {
         Optional<List<String>> partitionNames = partitions.getPartitionNames();
         TupleDomain<ColumnHandle> enforcedConstraint = handle.getEnforcedConstraint();
 
         // Partitions will be loaded if
         // 1. Number of filtered partitions is less than or equal to value of hive.max-partitions-for-eager-load property.
+        //                                                -or-
+        //    Number of filtered partitions is less than or equal to value of hive.max-partitions-per-scan property.
         //    Thereby generating additional filter criteria that can be applied on other join side (if the join is based on partition column)
         // 2. If additional predicate is passed as a part of Constraint. (specified via loadPartition). This delays the partition checks
         //    until we have additional filtering based on Constraint
-        Optional<List<HivePartition>> partitionList = tryLoadPartitions(partitions);
+        Optional<List<HivePartition>> partitionList = tryLoadPartitions(partitions, sessionMaxPartitionsPerScan);
         if (partitionList.isPresent()) {
             partitionNames = Optional.empty();
             List<HiveColumnHandle> partitionColumns = partitions.getPartitionColumns();
@@ -197,14 +199,14 @@ public class HivePartitionManager
         return table.getPartitions().map(List::iterator).orElseGet(() -> getPartitions(metastore, table, new Constraint(summary)).getPartitions());
     }
 
-    public Optional<List<HivePartition>> tryLoadPartitions(HivePartitionResult partitionResult)
+    public Optional<List<HivePartition>> tryLoadPartitions(HivePartitionResult partitionResult, Integer sessionMaxPartitionsPerScan)
     {
         ImmutableList.Builder<HivePartition> partitions = ImmutableList.builder();
         Iterator<HivePartition> iterator = partitionResult.getPartitions();
         int partitionCount = 0;
         while (iterator.hasNext()) {
             partitionCount++;
-            if (partitionCount > maxPartitionsForEagerLoad) {
+            if (partitionCount > maxPartitionsForEagerLoad || partitionCount > sessionMaxPartitionsPerScan) {
                 return Optional.empty();
             }
             partitions.add(iterator.next());
