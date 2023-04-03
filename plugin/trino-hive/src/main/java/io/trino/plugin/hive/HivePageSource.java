@@ -21,6 +21,8 @@ import io.trino.plugin.hive.coercions.DoubleToFloatCoercer;
 import io.trino.plugin.hive.coercions.FloatToDoubleCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
+import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
+import io.trino.plugin.hive.coercions.TimestampCoercer.ShortTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.VarcharCoercer;
 import io.trino.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
 import io.trino.plugin.hive.type.Category;
@@ -48,6 +50,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
@@ -296,7 +299,7 @@ public class HivePageSource
         return delegate;
     }
 
-    private static Optional<Function<Block, Block>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+    public static Optional<Function<Block, Block>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
     {
         if (fromHiveType.equals(toHiveType)) {
             return Optional.empty();
@@ -355,6 +358,12 @@ public class HivePageSource
         }
         if (fromType == REAL && toType instanceof DecimalType toDecimalType) {
             return Optional.of(createRealToDecimalCoercer(toDecimalType));
+        }
+        if (fromType instanceof TimestampType timestampType && toType instanceof VarcharType varcharType) {
+            if (timestampType.isShort()) {
+                return Optional.of(new ShortTimestampToVarcharCoercer(timestampType, varcharType));
+            }
+            return Optional.of(new LongTimestampToVarcharCoercer(timestampType, varcharType));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return Optional.of(new ListCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision));
