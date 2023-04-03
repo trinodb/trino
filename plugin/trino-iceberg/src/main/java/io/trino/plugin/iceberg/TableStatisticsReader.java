@@ -19,6 +19,7 @@ import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
@@ -59,6 +60,7 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -288,8 +290,11 @@ public final class TableStatisticsReader
                     .collect(toMap(
                             StatisticsFile::snapshotId,
                             identity(),
-                            (a, b) -> {
-                                throw new IllegalStateException("Unexpected duplicate statistics files %s, %s".formatted(a, b));
+                            (file1, file2) -> {
+                                throw new TrinoException(
+                                        ICEBERG_INVALID_METADATA,
+                                        "Table '%s' has duplicate statistics files '%s' and '%s' for snapshot ID %s"
+                                                .formatted(icebergTable, file1.path(), file2.path(), file1.snapshotId()));
                             },
                             HashMap::new));
 
