@@ -58,7 +58,8 @@ public class TestSnowflakeTypeMapping
     @BeforeClass
     public void setUp()
     {
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        String zone = jvmZone.getId();
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         checkIsGap(jvmZone, LocalDate.of(1970, 1, 1));
         checkIsGap(vilnius, LocalDate.of(1983, 4, 1));
         verify(vilnius.getRules().getValidOffsets(LocalDate.of(1983, 10, 1).atStartOfDay().minusMinutes(1)).size() == 2);
