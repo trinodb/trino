@@ -623,6 +623,7 @@ public class ClassLoaderSafeConnectorMetadata
         }
     }
 
+    @SuppressWarnings("removal")
     @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
@@ -632,11 +633,24 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
+    {
+        return delegate.getSchemaProperties(session, schemaName);
+    }
+
+    @SuppressWarnings("removal")
+    @Override
     public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSchemaOwner(session, schemaName);
         }
+    }
+
+    @Override
+    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
+    {
+        return delegate.getSchemaOwner(session, schemaName);
     }
 
     @Override
