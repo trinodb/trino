@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.deltalake.expression;
 
+import java.util.Objects;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -36,6 +38,26 @@ public class Identifier
     public <R, C> R accept(SparkExpressionTreeVisitor<R, C> visitor, C context)
     {
         return visitor.visitIdentifier(this, context);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Identifier that = (Identifier) o;
+        return Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(value);
     }
 
     @Override
