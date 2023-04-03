@@ -655,7 +655,6 @@ public abstract class BaseFailureRecoveryTest
             else {
                 assertThat(failedTasksCount).withFailMessage("expected no task failures; got %s", failedTasksCount).isEqualTo(0);
             }
-            assertEquals(failedTasksCount, expectTaskFailures ? 1 : 0);
             MaterializedResult actualQueryResult = actual.getQueryResult();
 
             boolean isAnalyze = expectedQueryResult.getUpdateType().isPresent() && expectedQueryResult.getUpdateType().get().equals("ANALYZE");
