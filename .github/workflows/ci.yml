@@ -58,7 +58,7 @@ jobs:
         java-version:
           - 17
           - 20
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v3
         with:
