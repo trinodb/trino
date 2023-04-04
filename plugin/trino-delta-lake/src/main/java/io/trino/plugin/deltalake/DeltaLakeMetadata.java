@@ -99,6 +99,8 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.GeneratedColumn;
+import io.trino.spi.connector.GeneratedExpression;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
@@ -207,6 +209,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFe
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
+import static io.trino.plugin.deltalake.expression.SparkExpressionParser.toTrinoValueExpression;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
@@ -351,6 +354,7 @@ public class DeltaLakeMetadata
             .build();
 
     private static final String CHECK_CONSTRAINT_CONVERT_FAIL_EXPRESSION = "CAST(fail('Failed to convert Delta check constraints to Trino expression') AS boolean)";
+    private static final String GENERATED_COLUMN_CONVERT_FAIL_EXPRESSION = "CAST(fail('Failed to convert Delta generated columns to Trino expression') AS boolean)";
 
     private final DeltaLakeMetastore metastore;
     private final TransactionLogAccess transactionLogAccess;
@@ -3426,8 +3430,23 @@ public class DeltaLakeMetadata
                 .setHidden(column.getColumnType() == SYNTHESIZED)
                 .setComment(Optional.ofNullable(comment))
                 .setNullable(nullability)
+                .setGeneratedColumn(toGenerationDefinition(generation))
                 .setExtraInfo(generation == null ? Optional.empty() : Optional.of("generated: " + generation))
                 .build();
+    }
+
+    private static Optional<GeneratedColumn> toGenerationDefinition(@Nullable String sparkGeneration)
+    {
+        if (sparkGeneration == null) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(new GeneratedExpression(toTrinoValueExpression(sparkGeneration)));
+        }
+        catch (ParsingException e) {
+            return Optional.of(new GeneratedExpression(GENERATED_COLUMN_CONVERT_FAIL_EXPRESSION));
+        }
     }
 
     public static DeltaLakeTableHandle checkValidTableHandle(ConnectorTableHandle tableHandle)

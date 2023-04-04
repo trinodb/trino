@@ -57,6 +57,22 @@ public final class SparkExpressionParser
         }
     }
 
+    public static String toTrinoValueExpression(String sparkExpression)
+    {
+        SparkExpression expression = createValueExpression(sparkExpression);
+        return SparkExpressionConverter.toTrinoExpression(expression);
+    }
+
+    private static SparkExpression createValueExpression(String expression)
+    {
+        try {
+            return (SparkExpression) invokeParser(expression, SparkExpressionBaseParser::valueExpression);
+        }
+        catch (Exception e) {
+            throw new ParsingException("Cannot parse Spark expression [%s]: %s".formatted(expression, firstNonNull(e.getMessage(), e)), e);
+        }
+    }
+
     private static Object invokeParser(String input, Function<SparkExpressionBaseParser, ParserRuleContext> parseFunction)
     {
         try {

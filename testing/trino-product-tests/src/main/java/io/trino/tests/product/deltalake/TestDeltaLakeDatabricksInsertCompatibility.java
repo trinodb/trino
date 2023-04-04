@@ -457,29 +457,63 @@ public class TestDeltaLakeDatabricksInsertCompatibility
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testWritesToTableWithGeneratedColumnFails()
+    public void testWritesToTableWithGeneratedColumn()
     {
         String tableName = "test_writes_into_table_with_generated_column_" + randomNameSuffix();
         try {
-            onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b BOOLEAN GENERATED ALWAYS AS (CAST(true AS BOOLEAN))) " +
+            onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b BOOLEAN GENERATED ALWAYS AS (true)) " +
                     "USING DELTA " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
 
-            onDelta().executeQuery("INSERT INTO default." + tableName + " (a) VALUES (1), (2), (3)");
-
+            onDelta().executeQuery("INSERT INTO default." + tableName + " (a) VALUES (1)");
             assertThat(onTrino().executeQuery("SELECT a, b FROM " + tableName))
-                    .containsOnly(row(1, true), row(2, true), row(3, true));
+                    .containsOnly(row(1, true));
+
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " (a) VALUES (2)");
+            assertThat(onTrino().executeQuery("SELECT a, b FROM " + tableName))
+                    .containsOnly(row(1, true), row(2, true));
+
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 2");
+            assertThat(onTrino().executeQuery("SELECT a, b FROM " + tableName))
+                    .containsOnly(row(1, true));
 
             // Disallowing all statements just in case though some statements may not unrelated to generated columns
-            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, false)"))
-                    .hasMessageContaining("Writing to tables with generated columns is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = 3 WHERE b = true"))
-                    .hasMessageContaining("Writing to tables with generated columns is not supported");
-            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 3"))
-                    .hasMessageContaining("Writing to tables with generated columns is not supported");
+                    .hasMessageContaining("Updating a table with a generated column is not supported");
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
                     "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = false"))
-                    .hasMessageContaining("Writing to tables with generated columns is not supported");
+                    .hasMessageContaining("Cannot merge into a table with generated columns");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testUnsupportedGeneratedColumnExpression()
+    {
+        String tableName = "test_writes_into_table_with_generated_column_" + randomNameSuffix();
+        // This generated expression should be changed to a new one if the connector supports the syntax
+        onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT GENERATED ALWAYS AS (abs(a))) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " (a) VALUES (-1)");
+            assertThat(onTrino().executeQuery("SELECT a, b FROM " + tableName))
+                    .containsOnly(row(-1, 1));
+
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " (a) VALUES (2)"))
+                    .hasMessageContaining("Failed to convert Delta generated columns to Trino expression");
+            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 2"))
+                    .hasMessageContaining("Failed to convert Delta generated columns to Trino expression");
+
+            // Verify these operations succeed even if generated expressions have unsupported syntax
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".c IS 'example column comment'");
+            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'example table comment'");
+            assertThat(onTrino().executeQuery("SELECT a, b FROM " + tableName))
+                    .containsOnly(row(-1, 1));
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
