@@ -79,7 +79,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: rm -rf ~/.m2/repository/io/trino/trino-*
 
-  artifact-checks:
+  server-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
