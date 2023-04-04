@@ -751,7 +751,7 @@ public final class HiveWriteUtils
         return HiveDecimal.create(unscaledValue, decimalType.getScale());
     }
 
-    private static Timestamp getHiveTimestamp(DateTimeZone localZone, TimestampType type, Block block, int position)
+    public static Timestamp getHiveTimestamp(DateTimeZone localZone, TimestampType type, Block block, int position)
     {
         verify(type.getPrecision() <= HiveTimestampPrecision.MAX.getPrecision(), "Timestamp precision too high for Hive");
 

@@ -26,11 +26,11 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
+import io.trino.plugin.deltalake.util.DeltaLakeWriteUtils;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.util.HiveUtil;
-import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
@@ -440,7 +440,7 @@ public abstract class AbstractDeltaLakePageSink
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
     {
-        return HiveWriteUtils.createPartitionValues(partitionColumnTypes, partitionColumns, position).stream()
+        return DeltaLakeWriteUtils.createPartitionValues(partitionColumnTypes, partitionColumns, position).stream()
                 .map(value -> value.equals(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION) ? null : value)
                 .collect(toList());
     }

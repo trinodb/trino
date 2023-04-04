@@ -30,7 +30,11 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
+import org.apache.hadoop.hive.common.type.TimestampTZ;
+import org.apache.hadoop.hive.common.type.TimestampTZUtil;
 
 import javax.annotation.Nullable;
 
@@ -152,7 +156,20 @@ public final class TransactionLogParser
     @Nullable
     public static Object deserializePartitionValue(DeltaLakeColumnHandle column, Optional<String> valueString)
     {
-        return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestamp)).orElse(null);
+        if (column.getPhysicalType() instanceof TimestampType) {
+            return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestamp)).orElse(null);
+        }
+        else if (column.getPhysicalType() instanceof TimestampWithTimeZoneType) {
+            return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestampTZ)).orElse(null);
+        }
+        return null;
+    }
+
+    private static Long readPartitionTimestampTZ(String timestampTZ)
+    {
+        TimestampTZ timestampTimeZone = TimestampTZUtil.parse(timestampTZ);
+        ZonedDateTime zonedDateTime = timestampTimeZone.getZonedDateTime();
+        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
     }
 
     private static Long readPartitionTimestamp(String timestamp)
