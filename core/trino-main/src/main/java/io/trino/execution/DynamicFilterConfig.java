@@ -45,7 +45,13 @@ public class DynamicFilterConfig
     private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(20, KILOBYTE);
     private int smallBroadcastRangeRowLimitPerDriver = 400;
     private DataSize smallBroadcastMaxSizePerOperator = DataSize.of(200, KILOBYTE);
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
+     */
     private int smallPartitionedMaxDistinctValuesPerDriver = 20;
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
+     */
     private DataSize smallPartitionedMaxSizePerDriver = DataSize.of(10, KILOBYTE);
     private int smallPartitionedRangeRowLimitPerDriver = 100;
     private DataSize smallPartitionedMaxSizePerOperator = DataSize.of(100, KILOBYTE);
@@ -55,7 +61,13 @@ public class DynamicFilterConfig
     private DataSize largeBroadcastMaxSizePerDriver = DataSize.of(500, KILOBYTE);
     private int largeBroadcastRangeRowLimitPerDriver = 10_000;
     private DataSize largeBroadcastMaxSizePerOperator = DataSize.of(5, MEGABYTE);
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
+     */
     private int largePartitionedMaxDistinctValuesPerDriver = 500;
+    /**
+     * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
+     */
     private DataSize largePartitionedMaxSizePerDriver = DataSize.of(50, KILOBYTE);
     private int largePartitionedRangeRowLimitPerDriver = 1_000;
     private DataSize largePartitionedMaxSizePerOperator = DataSize.of(500, KILOBYTE);
@@ -331,5 +343,13 @@ public class DynamicFilterConfig
     {
         this.largeMaxSizePerFilter = largeMaxSizePerFilter;
         return this;
+    }
+
+    public void applyFaultTolerantExecutionDefaults()
+    {
+        smallPartitionedMaxDistinctValuesPerDriver = 100_000;
+        smallPartitionedMaxSizePerDriver = DataSize.of(100, KILOBYTE);
+        largePartitionedMaxDistinctValuesPerDriver = 1_000_000;
+        largePartitionedMaxSizePerDriver = DataSize.of(500, KILOBYTE);
     }
 }

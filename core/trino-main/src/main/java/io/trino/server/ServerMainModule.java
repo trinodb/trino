@@ -472,6 +472,9 @@ public class ServerMainModule
 
         // Dynamic Filtering
         configBinder(binder).bindConfig(DynamicFilterConfig.class);
+        if (retryPolicy == TASK) {
+            configBinder(binder).bindConfigDefaults(DynamicFilterConfig.class, DynamicFilterConfig::applyFaultTolerantExecutionDefaults);
+        }
 
         // dispatcher
         // TODO remove dispatcher fromm ServerMainModule, and bind dependent components only on coordinators
