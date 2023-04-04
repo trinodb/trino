@@ -167,6 +167,19 @@ configuration properties as the Hive connector's Glue setup. See
     connector.name=iceberg
     iceberg.catalog.type=glue
 
+.. list-table:: Iceberg Glue catalog configuration properties
+  :widths: 35, 50, 15
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default
+  * - ``iceberg.glue.skip-archive``
+    - Skip archiving an old table version when creating a new version in a
+      commit. See `AWS Glue Skip Archive
+      <https://iceberg.apache.org/docs/latest/aws/#skip-archive>`_.
+    - ``false``
+
 .. _iceberg-rest-catalog:
 
 REST catalog
