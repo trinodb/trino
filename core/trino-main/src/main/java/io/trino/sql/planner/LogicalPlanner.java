@@ -47,6 +47,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.GeneratedExpression;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.CharType;
@@ -494,6 +495,7 @@ public class LogicalPlanner
             }
         }
         List<Symbol> visibleFieldMappings = builder.build();
+        Map<String, Expression> generations = analysis.getGeneratedColumns(table);
 
         Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, tableHandle);
         Assignments.Builder assignments = Assignments.builder();
@@ -509,20 +511,34 @@ public class LogicalPlanner
             Type tableType = column.getType();
             int index = insertColumns.indexOf(columns.get(column.getName()));
             if (index < 0) {
-                if (supportsMissingColumnsOnInsert) {
+                if (supportsMissingColumnsOnInsert && column.getGeneratedColumn().isEmpty()) {
                     continue;
                 }
-                expression = new Cast(new NullLiteral(), toSqlType(column.getType()));
-            }
-            else {
-                Symbol input = visibleFieldMappings.get(index);
-                Type queryType = symbolAllocator.getTypes().get(input);
-
-                if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
-                    expression = input.toSymbolReference();
+                if (column.getGeneratedColumn().isPresent()) {
+                    verify(column.getGeneratedColumn().get() instanceof GeneratedExpression);
+                    // There are two modes of generated columns ("stored" and "virtual") in actual databases or query engines though it's not defined in SQL standard
+                    // Connectors should provide generated column expressions for INSERT statement in case of "stored" so that engine can inject the expression here
+                    Expression generation = generations.get(column.getName());
+                    expression = new Cast(generation, toSqlType(column.getType()));
                 }
                 else {
-                    expression = noTruncationCast(input.toSymbolReference(), queryType, tableType);
+                    expression = new Cast(new NullLiteral(), toSqlType(column.getType()));
+                }
+            }
+            else {
+                if (column.getGeneratedColumn().isPresent()) {
+                    throw new TrinoException(NOT_SUPPORTED, "Cannot specify a value for a column with GENERATED ALWAYS: " + column.getName());
+                }
+                else {
+                    Symbol input = visibleFieldMappings.get(index);
+                    Type queryType = symbolAllocator.getTypes().get(input);
+
+                    if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
+                        expression = input.toSymbolReference();
+                    }
+                    else {
+                        expression = noTruncationCast(input.toSymbolReference(), queryType, tableType);
+                    }
                 }
             }
             if (!column.isNullable()) {

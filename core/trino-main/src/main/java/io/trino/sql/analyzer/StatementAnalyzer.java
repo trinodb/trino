@@ -67,6 +67,8 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.GeneratedColumn;
+import io.trino.spi.connector.GeneratedExpression;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
 import io.trino.spi.connector.SchemaTableName;
@@ -306,6 +308,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_CHECK_CONSTRAINT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_COPARTITIONING;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_GENERATED_EXPRESSION;
 import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
@@ -372,6 +375,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.planner.DeterminismEvaluator.containsCurrentTimeFunctions;
+import static io.trino.sql.planner.DeterminismEvaluator.containsSubquery;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -563,6 +567,9 @@ class StatementAnalyzer
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
             List<String> checkConstraints = tableSchema.getTableSchema().getCheckConstraints();
+            Map<String, GeneratedColumn> generatedColumns = columns.stream()
+                    .filter(column -> column.getGeneratedColumn().isPresent())
+                    .collect(toImmutableMap(ColumnSchema::getName, e -> e.getGeneratedColumn().orElseThrow()));
 
             for (ColumnSchema column : columns) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isPresent()) {
@@ -577,6 +584,7 @@ class StatementAnalyzer
                     .build();
             analyzeFiltersAndMasks(insert.getTable(), targetTable, new RelationType(tableFields), accessControlScope);
             analyzeCheckConstraints(insert.getTable(), targetTable, accessControlScope, checkConstraints);
+            analyzeGeneratedColumns(insert.getTable(), targetTable, accessControlScope, generatedColumns);
             analysis.registerTable(insert.getTable(), targetTableHandle, targetTable, session.getIdentity().getUser(), accessControlScope);
 
             List<String> tableColumns = columns.stream()
@@ -2340,6 +2348,16 @@ class StatementAnalyzer
             }
         }
 
+        private void analyzeGeneratedColumns(Table table, QualifiedObjectName name, Scope accessControlScope, Map<String, GeneratedColumn> generations)
+        {
+            for (Map.Entry<String, GeneratedColumn> entry : generations.entrySet()) {
+                // TODO: Add support for GENERATED ALWAYS AS IDENTITY
+                verify(entry.getValue() instanceof GeneratedExpression);
+                ViewExpression expression = new ViewExpression(session.getIdentity().getUser(), Optional.of(name.getCatalogName()), Optional.of(name.getSchemaName()), ((GeneratedExpression) entry.getValue()).expression());
+                analyzeGeneratedColumn(table, name, entry.getKey(), accessControlScope, expression);
+            }
+        }
+
         private boolean checkCanSelectFromColumn(QualifiedObjectName name, String column)
         {
             try {
@@ -3284,6 +3302,9 @@ class StatementAnalyzer
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, update, "Updating a table with a row filter is not supported");
             }
+            if (tableSchema.getColumns().stream().anyMatch(column -> column.getGeneratedColumn().isPresent())) {
+                throw semanticException(NOT_SUPPORTED, update, "Updating a table with a generated column is not supported");
+            }
 
             // TODO: how to deal with connectors that need to see the pre-image of rows to perform the update without
             //       flowing that data through the masking logic
@@ -3420,6 +3441,10 @@ class StatementAnalyzer
             Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
             analyzeCheckConstraints(table, tableName, targetTableScope, tableSchema.getTableSchema().getCheckConstraints());
             analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), targetTableScope);
+
+            if (tableSchema.getColumns().stream().anyMatch(column -> column.getGeneratedColumn().isPresent())) {
+                throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with generated columns");
+            }
 
             for (ColumnSchema column : dataColumnSchemas) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), tableName, column.getName(), column.getType()).isPresent()) {
@@ -4801,6 +4826,47 @@ class StatementAnalyzer
             }
 
             analysis.addCheckConstraints(table, expression);
+        }
+
+        private void analyzeGeneratedColumn(Table table, QualifiedObjectName name, String column, Scope scope, ViewExpression generation)
+        {
+            Expression expression;
+            try {
+                expression = sqlParser.createExpression(generation.getExpression(), createParsingOptions(session));
+            }
+            catch (ParsingException e) {
+                throw new TrinoException(INVALID_GENERATED_EXPRESSION, extractLocation(table), format("Invalid generated expression for '%s': %s", name, e.getErrorMessage()), e);
+            }
+
+            verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, format("Generated expression for '%s'", name));
+
+            try {
+                ExpressionAnalyzer.analyzeExpression(
+                        session,
+                        plannerContext,
+                        statementAnalyzerFactory,
+                        accessControl,
+                        scope,
+                        analysis,
+                        expression,
+                        warningCollector,
+                        correlationSupport);
+            }
+            catch (TrinoException e) {
+                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid generated expression for '%s': %s", name, e.getRawMessage()), e);
+            }
+
+            if (!isDeterministic(expression, this::getResolvedFunction)) {
+                throw semanticException(INVALID_GENERATED_EXPRESSION, expression, "Generated expression should be deterministic: " + column);
+            }
+            if (containsCurrentTimeFunctions(expression)) {
+                throw semanticException(INVALID_GENERATED_EXPRESSION, expression, "Generated expression should not contain temporal expression: " + column);
+            }
+            if (containsSubquery(expression)) {
+                throw semanticException(INVALID_GENERATED_EXPRESSION, expression, "Generated expression should not contain subquery: " + column);
+            }
+
+            analysis.addGeneratedColumns(table, column, expression);
         }
 
         private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, Field field, Scope scope, ViewExpression mask)

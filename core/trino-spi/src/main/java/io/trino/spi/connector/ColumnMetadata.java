@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -36,17 +37,19 @@ public class ColumnMetadata
     private final String extraInfo;
     private final boolean hidden;
     private final Map<String, Object> properties;
+    private final Optional<GeneratedColumn> generation;
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, true, null, null, false, emptyMap());
+        this(name, type, true, null, null, false, emptyMap(), Optional.empty());
     }
 
-    private ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    private ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties, Optional<GeneratedColumn> generation)
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
         requireNonNull(properties, "properties is null");
+        requireNonNull(generation, "generation is null");
 
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;
@@ -55,6 +58,7 @@ public class ColumnMetadata
         this.hidden = hidden;
         this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
         this.nullable = nullable;
+        this.generation = generation;
     }
 
     public String getName()
@@ -92,6 +96,15 @@ public class ColumnMetadata
     public Map<String, Object> getProperties()
     {
         return properties;
+    }
+
+    /**
+     * This expression would be used only for write operations
+     */
+    @Experimental(eta = "2023-06-01")
+    public Optional<GeneratedColumn> getGeneratedColumn()
+    {
+        return generation;
     }
 
     public ColumnSchema getColumnSchema()
@@ -166,6 +179,7 @@ public class ColumnMetadata
         private Optional<String> extraInfo = Optional.empty();
         private boolean hidden;
         private Map<String, Object> properties = emptyMap();
+        private Optional<GeneratedColumn> generation = Optional.empty();
 
         private Builder() {}
 
@@ -178,6 +192,7 @@ public class ColumnMetadata
             this.extraInfo = Optional.ofNullable(columnMetadata.getExtraInfo());
             this.hidden = columnMetadata.isHidden();
             this.properties = columnMetadata.getProperties();
+            this.generation = columnMetadata.getGeneratedColumn();
         }
 
         public Builder setName(String name)
@@ -222,6 +237,12 @@ public class ColumnMetadata
             return this;
         }
 
+        public Builder setGeneratedColumn(Optional<GeneratedColumn> generation)
+        {
+            this.generation = requireNonNull(generation, "generation is null");
+            return this;
+        }
+
         public ColumnMetadata build()
         {
             return new ColumnMetadata(
@@ -231,7 +252,8 @@ public class ColumnMetadata
                     comment.orElse(null),
                     extraInfo.orElse(null),
                     hidden,
-                    properties);
+                    properties,
+                    generation);
         }
     }
 }

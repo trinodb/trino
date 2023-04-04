@@ -214,6 +214,7 @@ public class Analysis
     private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
     private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Map<String, Expression>> generations = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
@@ -1079,6 +1080,12 @@ public class Analysis
                 .add(constraint);
     }
 
+    public void addGeneratedColumns(Table table, String column, Expression generation)
+    {
+        generations.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>())
+                .put(column, generation);
+    }
+
     public List<Expression> getRowFilters(Table node)
     {
         return unmodifiableList(rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of()));
@@ -1087,6 +1094,11 @@ public class Analysis
     public List<Expression> getCheckConstraints(Table node)
     {
         return unmodifiableList(checkConstraints.getOrDefault(NodeRef.of(node), ImmutableList.of()));
+    }
+
+    public Map<String, Expression> getGeneratedColumns(Table node)
+    {
+        return unmodifiableMap(generations.getOrDefault(NodeRef.of(node), ImmutableMap.of()));
     }
 
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)

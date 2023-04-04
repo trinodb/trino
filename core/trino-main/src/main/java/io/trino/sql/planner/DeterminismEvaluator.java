@@ -19,6 +19,7 @@ import io.trino.sql.tree.CurrentTime;
 import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -84,6 +85,26 @@ public final class DeterminismEvaluator
         protected Void visitCurrentTime(CurrentTime node, AtomicBoolean currentTime)
         {
             currentTime.set(true);
+            return null;
+        }
+    }
+
+    public static boolean containsSubquery(Expression expression)
+    {
+        requireNonNull(expression, "expression is null");
+
+        AtomicBoolean subquery = new AtomicBoolean(false);
+        new SubqueryVisitor().process(expression, subquery);
+        return subquery.get();
+    }
+
+    private static class SubqueryVisitor
+            extends DefaultExpressionTraversalVisitor<AtomicBoolean>
+    {
+        @Override
+        protected Void visitSubqueryExpression(SubqueryExpression node, AtomicBoolean subquery)
+        {
+            subquery.set(true);
             return null;
         }
     }

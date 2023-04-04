@@ -13,9 +13,11 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
@@ -26,15 +28,18 @@ public final class ColumnSchema
     private final String name;
     private final Type type;
     private final boolean hidden;
+    private final Optional<GeneratedColumn> generation;
 
-    private ColumnSchema(String name, Type type, boolean hidden)
+    private ColumnSchema(String name, Type type, boolean hidden, Optional<GeneratedColumn> generation)
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
+        requireNonNull(generation, "generation is null");
 
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;
         this.hidden = hidden;
+        this.generation = generation;
     }
 
     public String getName()
@@ -52,6 +57,15 @@ public final class ColumnSchema
         return hidden;
     }
 
+    /**
+     * This expression would be used only for write operations
+     */
+    @Experimental(eta = "2023-06-01")
+    public Optional<GeneratedColumn> getGeneratedColumn()
+    {
+        return generation;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -64,7 +78,8 @@ public final class ColumnSchema
         ColumnSchema that = (ColumnSchema) o;
         return hidden == that.hidden
                 && name.equals(that.name)
-                && type.equals(that.type);
+                && type.equals(that.type)
+                && generation.equals(that.generation);
     }
 
     @Override
@@ -80,6 +95,7 @@ public final class ColumnSchema
                 .append("name='").append(name).append('\'')
                 .append(", type=").append(type)
                 .append(", hidden=").append(hidden)
+                .append(", generation=").append(generation)
                 .append('}')
                 .toString();
     }
@@ -99,6 +115,7 @@ public final class ColumnSchema
         private String name;
         private Type type;
         private boolean hidden;
+        private Optional<GeneratedColumn> generation = Optional.empty();
 
         private Builder() {}
 
@@ -107,6 +124,7 @@ public final class ColumnSchema
             this.name = columnMetadata.getName();
             this.type = columnMetadata.getType();
             this.hidden = columnMetadata.isHidden();
+            this.generation = columnMetadata.getGeneratedColumn();
         }
 
         public Builder setName(String name)
@@ -129,7 +147,7 @@ public final class ColumnSchema
 
         public ColumnSchema build()
         {
-            return new ColumnSchema(name, type, hidden);
+            return new ColumnSchema(name, type, hidden, generation);
         }
     }
 }
