@@ -154,7 +154,7 @@ public class DefaultCatalogFactory
 
     private CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector, Runnable destroy, Optional<CatalogProperties> catalogProperties)
     {
-        Tracer tracer = openTelemetry.getTracer("trino.catalog." + catalogHandle.getCatalogName());
+        Tracer tracer = createTracer(catalogHandle);
 
         ConnectorServices catalogConnector = new ConnectorServices(
                 tracer,
@@ -207,6 +207,8 @@ public class DefaultCatalogFactory
     {
         ConnectorContext context = new ConnectorContextInstance(
                 catalogHandle,
+                openTelemetry,
+                createTracer(catalogHandle),
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogHandle, schedulerIncludeCoordinator),
                 versionEmbedder,
                 typeManager,
@@ -218,6 +220,11 @@ public class DefaultCatalogFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
             return connectorFactory.create(catalogName, properties, context);
         }
+    }
+
+    private Tracer createTracer(CatalogHandle catalogHandle)
+    {
+        return openTelemetry.getTracer("trino.catalog." + catalogHandle.getCatalogName());
     }
 
     private static class InternalConnectorFactory
