@@ -47,7 +47,7 @@ public class Analyzer
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
-    private PlanOptimizersStatsCollector planOptimizersStatsCollector;
+    private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final StatementRewrite statementRewrite;
 
     Analyzer(
