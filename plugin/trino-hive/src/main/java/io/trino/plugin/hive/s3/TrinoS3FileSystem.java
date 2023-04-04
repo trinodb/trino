@@ -18,6 +18,8 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
+import com.amazonaws.Request;
+import com.amazonaws.Response;
 import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
@@ -32,6 +34,7 @@ import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
 import com.amazonaws.event.ProgressListener;
+import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.regions.Region;
@@ -83,9 +86,12 @@ import com.google.common.net.MediaType;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.awssdk.v1_11.AwsSdkTelemetry;
 import io.trino.hdfs.FSDataInputStreamTail;
 import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.MemoryAwareFileSystem;
+import io.trino.hdfs.OpenTelemetryAwareFileSystem;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import org.apache.hadoop.conf.Configurable;
@@ -181,7 +187,7 @@ import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
 
 public class TrinoS3FileSystem
         extends FileSystem
-        implements FileSystemWithBatchDelete, MemoryAwareFileSystem
+        implements FileSystemWithBatchDelete, MemoryAwareFileSystem, OpenTelemetryAwareFileSystem
 {
     public static final String S3_USER_AGENT_PREFIX = "trino.s3.user-agent-prefix";
     public static final String S3_CREDENTIALS_PROVIDER = "trino.s3.credentials-provider";
@@ -275,6 +281,7 @@ public class TrinoS3FileSystem
     private String s3RoleSessionName;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
+    private final ForwardingRequestHandler forwardingRequestHandler = new ForwardingRequestHandler();
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -384,6 +391,17 @@ public class TrinoS3FileSystem
             throws IOException
     {
         super.close();
+    }
+
+    @Override
+    public void setOpenTelemetry(OpenTelemetry openTelemetry)
+    {
+        requireNonNull(openTelemetry, "openTelemetry is null");
+        forwardingRequestHandler.setDelegateIfAbsent(() ->
+                AwsSdkTelemetry.builder(openTelemetry)
+                        .setCaptureExperimentalSpanAttributes(true)
+                        .build()
+                        .newRequestHandler());
     }
 
     @Override
@@ -1076,6 +1094,8 @@ public class TrinoS3FileSystem
             clientBuilder.withRegion(US_EAST_1);
             clientBuilder.setForceGlobalBucketAccessEnabled(true);
         }
+
+        clientBuilder.setRequestHandlers(forwardingRequestHandler);
 
         return clientBuilder.build();
     }
@@ -2047,5 +2067,42 @@ public class TrinoS3FileSystem
         NO_KEYS_FOUND,
         ALL_KEYS_DELETED,
         DELETE_KEYS_FAILURE
+    }
+
+    private static class ForwardingRequestHandler
+            extends RequestHandler2
+    {
+        private volatile RequestHandler2 delegate;
+
+        public synchronized void setDelegateIfAbsent(Supplier<RequestHandler2> supplier)
+        {
+            if (delegate == null) {
+                delegate = supplier.get();
+            }
+        }
+
+        @Override
+        public void beforeRequest(Request<?> request)
+        {
+            if (delegate != null) {
+                delegate.beforeRequest(request);
+            }
+        }
+
+        @Override
+        public void afterResponse(Request<?> request, Response<?> response)
+        {
+            if (delegate != null) {
+                delegate.afterResponse(request, response);
+            }
+        }
+
+        @Override
+        public void afterError(Request<?> request, Response<?> response, Exception e)
+        {
+            if (delegate != null) {
+                delegate.afterError(request, response, e);
+            }
+        }
     }
 }
