@@ -1291,16 +1291,6 @@ public class CachingHiveMetastore
         }
     }
 
-    private interface CacheFactory
-    {
-        <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader);
-
-        <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> reloader);
-
-        // use AtomicReference as value placeholder so that it's possible to avoid race between getAll and invalidate
-        <K, V> Cache<K, AtomicReference<V>> buildBulkCache();
-    }
-
     private static CacheFactory cacheFactory(
             OptionalLong expiresAfterWriteMillis,
             OptionalLong refreshMillis,
@@ -1308,44 +1298,7 @@ public class CachingHiveMetastore
             long maximumSize,
             StatsRecording statsRecording)
     {
-        return new CacheFactory()
-        {
-            @Override
-            public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader)
-            {
-                return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, CacheLoader.from(loader));
-            }
-
-            @Override
-            public <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> reloader)
-            {
-                CacheLoader<K, V> onlyReloader = new CacheLoader<>()
-                {
-                    @Override
-                    public V load(K key)
-                    {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public ListenableFuture<V> reload(K key, V oldValue)
-                    {
-                        requireNonNull(key);
-                        requireNonNull(oldValue);
-                        // async reloading is configured in CachingHiveMetastore.buildCache if refreshMillis is present
-                        return immediateFuture(reloader.apply(key, oldValue));
-                    }
-                };
-                return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, onlyReloader);
-            }
-
-            @Override
-            public <K, V> Cache<K, AtomicReference<V>> buildBulkCache()
-            {
-                // disable refresh since it can't use the bulk loading and causes too many requests
-                return CachingHiveMetastore.buildBulkCache(expiresAfterWriteMillis, maximumSize, statsRecording);
-            }
-        };
+        return new CacheFactory(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording);
     }
 
     private static CacheFactory neverCacheFactory()
@@ -1589,5 +1542,56 @@ public class CachingHiveMetastore
     LoadingCache<String, Optional<String>> getConfigValuesCache()
     {
         return configValuesCache;
+    }
+
+    private static class CacheFactory
+    {
+        private final OptionalLong expiresAfterWriteMillis;
+        private final OptionalLong refreshMillis;
+        private final Optional<Executor> refreshExecutor;
+        private final long maximumSize;
+        private final StatsRecording statsRecording;
+
+        public CacheFactory(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, Optional<Executor> refreshExecutor, long maximumSize, StatsRecording statsRecording)
+        {
+            this.expiresAfterWriteMillis = requireNonNull(expiresAfterWriteMillis, "expiresAfterWriteMillis is null");
+            this.refreshMillis = requireNonNull(refreshMillis, "refreshMillis is null");
+            this.refreshExecutor = requireNonNull(refreshExecutor, "refreshExecutor is null");
+            this.maximumSize = maximumSize;
+            this.statsRecording = requireNonNull(statsRecording, "statsRecording is null");
+        }
+
+        public <K, V> LoadingCache<K, V> buildCache(com.google.common.base.Function<K, V> loader)
+        {
+            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, CacheLoader.from(loader));
+        }
+
+        public <K, V> Cache<K, V> buildCache(BiFunction<K, V, V> reloader)
+        {
+            CacheLoader<K, V> onlyReloader = new CacheLoader<>()
+            {
+                @Override
+                public V load(K key)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public ListenableFuture<V> reload(K key, V oldValue)
+                {
+                    requireNonNull(key);
+                    requireNonNull(oldValue);
+                    // async reloading is configured in CachingHiveMetastore.buildCache if refreshMillis is present
+                    return immediateFuture(reloader.apply(key, oldValue));
+                }
+            };
+            return CachingHiveMetastore.buildCache(expiresAfterWriteMillis, refreshMillis, refreshExecutor, maximumSize, statsRecording, onlyReloader);
+        }
+
+        public <K, V> Cache<K, AtomicReference<V>> buildBulkCache()
+        {
+            // disable refresh since it can't use the bulk loading and causes too many requests
+            return CachingHiveMetastore.buildBulkCache(expiresAfterWriteMillis, maximumSize, statsRecording);
+        }
     }
 }
