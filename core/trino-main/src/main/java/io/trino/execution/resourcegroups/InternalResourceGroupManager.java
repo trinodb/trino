@@ -16,6 +16,7 @@ package io.trino.execution.resourcegroups;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.ThreadSafe;
+import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -272,7 +273,10 @@ public final class InternalResourceGroupManager<C>
     private static int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
     {
         if (resourceGroup.subGroups().isEmpty()) {
-            return Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getSoftConcurrencyLimit() - resourceGroup.getRunningQueries());
+            return Ints.constrainToRange(
+                    resourceGroup.getQueuedQueries(),
+                    0,
+                    Math.max(0, resourceGroup.getSoftConcurrencyLimit() - resourceGroup.getRunningQueries()));
         }
 
         int queriesQueuedInternal = 0;
