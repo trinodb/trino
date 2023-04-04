@@ -13,6 +13,8 @@
  */
 package io.trino.hdfs;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hadoop.HadoopNative;
 import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.hdfs.authentication.HdfsAuthentication;
@@ -28,6 +30,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Optional;
 
+import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
@@ -37,18 +40,27 @@ public class HdfsEnvironment
         FileSystemManager.registerCache(TrinoFileSystemCache.INSTANCE);
     }
 
+    private final OpenTelemetry openTelemetry;
     private final HdfsConfiguration hdfsConfiguration;
     private final HdfsAuthentication hdfsAuthentication;
     private final Optional<FsPermission> newDirectoryPermissions;
     private final boolean newFileInheritOwnership;
     private final boolean verifyChecksum;
 
+    @VisibleForTesting
+    public HdfsEnvironment(HdfsConfiguration hdfsConfiguration, HdfsConfig config, HdfsAuthentication hdfsAuthentication)
+    {
+        this(OpenTelemetry.noop(), hdfsConfiguration, config, hdfsAuthentication);
+    }
+
     @Inject
     public HdfsEnvironment(
+            OpenTelemetry openTelemetry,
             HdfsConfiguration hdfsConfiguration,
             HdfsConfig config,
             HdfsAuthentication hdfsAuthentication)
     {
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         this.newFileInheritOwnership = config.isNewFileInheritOwnership();
         this.verifyChecksum = config.isVerifyChecksum();
@@ -73,6 +85,9 @@ public class HdfsEnvironment
         return hdfsAuthentication.doAs(identity, () -> {
             FileSystem fileSystem = path.getFileSystem(configuration);
             fileSystem.setVerifyChecksum(verifyChecksum);
+            if (getRawFileSystem(fileSystem) instanceof OpenTelemetryAwareFileSystem fs) {
+                fs.setOpenTelemetry(openTelemetry);
+            }
             return fileSystem;
         });
     }
