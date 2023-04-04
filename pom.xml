@@ -2054,13 +2054,13 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
-                    <version>3.2.4</version>
+                    <version>3.4.1</version>
                 </plugin>
 
                 <plugin>
                     <groupId>org.skife.maven</groupId>
                     <artifactId>really-executable-jar-maven-plugin</artifactId>
-                    <version>1.0.5</version>
+                    <version>2.1.1</version>
                 </plugin>
 
                 <plugin>
@@ -2072,7 +2072,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>1.6.0</version>
+                    <version>3.1.0</version>
                 </plugin>
 
                 <plugin>
@@ -2178,7 +2178,7 @@
                 <plugin>
                     <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                     <artifactId>provisio-maven-plugin</artifactId>
-                    <version>1.0.18</version>
+                    <version>1.0.20</version>
                 </plugin>
 
                 <plugin>
@@ -2356,6 +2356,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration combine.children="append">
                     <fork>false</fork>
+                    <proc>none</proc>
                 </configuration>
             </plugin>
 

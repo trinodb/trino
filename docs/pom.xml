@@ -38,6 +38,7 @@
             <plugin>
                 <groupId>io.airlift.drift</groupId>
                 <artifactId>drift-maven-plugin</artifactId>
+                <version>1.18</version>
                 <executions>
                     <execution>
                         <phase>validate</phase>
