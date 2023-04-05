@@ -183,7 +183,7 @@ properties:
   * - Property name
     - Description
   * - ``iceberg.rest-catalog.uri``
-    - REST server API endpoint URI (required). 
+    - REST server API endpoint URI (required).
       Example: ``http://iceberg-with-rest:8181``
   * - ``iceberg.rest-catalog.warehouse``
     - Warehouse identifier/location for the catalog (optional).
@@ -358,7 +358,7 @@ No other types are supported.
 Security
 --------
 
-The Iceberg connector allows you to choose one of several means of providing 
+The Iceberg connector allows you to choose one of several means of providing
 authorization at the catalog level.
 
 .. _iceberg-authorization:
@@ -1226,10 +1226,10 @@ Identity transforms are simply the column name. Other transforms are:
   * - ``day(ts)``
     - A partition is created for each day of each year.  The partition value is
       the integer difference in days between ``ts`` and January 1 1970.
-  * - ``hour(ts)`` 
+  * - ``hour(ts)``
     - A partition is created hour of each day.  The partition value is a
       timestamp with the minutes and seconds set to zero.
-  * - ``bucket(x, nbuckets)`` 
+  * - ``bucket(x, nbuckets)``
     - The data is hashed into the specified number of buckets.  The partition
       value is an integer hash of ``x``, with a value between 0 and
       ``nbuckets - 1`` inclusive.
