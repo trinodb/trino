@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.Session;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
@@ -60,26 +61,30 @@ public class TestIcebergOrcConnectorTest
     public void testTinyintType()
             throws Exception
     {
-        testReadSingleIntegerColumnOrcFile(101, "single-tinyint-column.orc", 127);
+        testReadSingleIntegerColumnOrcFile("single-tinyint-column.orc", 127);
     }
 
     @Test
     public void testSmallintType()
             throws Exception
     {
-        testReadSingleIntegerColumnOrcFile(31234, "single-smallint-column.orc", 32767);
+        testReadSingleIntegerColumnOrcFile("single-smallint-column.orc", 32767);
     }
 
-    private void testReadSingleIntegerColumnOrcFile(int initialTableValue, String orcFileResourceName, int expectedValue)
+    private void testReadSingleIntegerColumnOrcFile(String orcFileResourceName, int expectedValue)
             throws Exception
     {
-        checkArgument(initialTableValue != expectedValue); // Needs to be close to expected so that generated file size matches the one from test resources
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_as_integer", "(\"_col0\") AS VALUES " + initialTableValue + ", NULL")) {
+        checkArgument(expectedValue != 0);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_as_integer", "(\"_col0\") AS VALUES 0, NULL")) {
             Path orcFilePath = Path.of((String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName())));
             Files.copy(new File(getResource(orcFileResourceName).toURI()).toPath(), orcFilePath, REPLACE_EXISTING);
             Files.delete(orcFilePath.resolveSibling(format(".%s.crc", orcFilePath.getFileName())));
 
-            assertThat(query("TABLE " + table.getName()))
+            Session ignoreFileSizeFromMetadata = Session.builder(getSession())
+                    // The replaced and replacing file sizes may be different
+                    .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "use_file_size_from_metadata", "false")
+                    .build();
+            assertThat(query(ignoreFileSizeFromMetadata, "TABLE " + table.getName()))
                     .matches("VALUES NULL, " + expectedValue);
         }
     }
