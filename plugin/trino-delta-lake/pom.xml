@@ -276,6 +276,10 @@
                     <groupId>com.github.stephenc.jcip</groupId>
                     <artifactId>jcip-annotations</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -284,6 +288,12 @@
             <artifactId>trino-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

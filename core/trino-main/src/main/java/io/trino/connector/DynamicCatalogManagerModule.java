@@ -39,6 +39,10 @@ public class DynamicCatalogManagerModule
                     configBinder(binder).bindConfig(FileCatalogStoreConfig.class);
                     binder.bind(CatalogStore.class).to(FileCatalogStore.class).in(Scopes.SINGLETON);
                 }
+                case JDBC -> {
+                    configBinder(binder).bindConfig(JdbcCatalogStoreConfig.class);
+                    binder.bind(CatalogStore.class).to(JdbcCatalogStore.class).in(Scopes.SINGLETON);
+                }
             }
             binder.bind(ConnectorServicesProvider.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
             binder.bind(CatalogManager.class).to(CoordinatorDynamicCatalogManager.class).in(Scopes.SINGLETON);
