@@ -137,19 +137,19 @@ public class FjsMatcher
                 i = matchEnd - (pattern.length - 1);
 
                 int j = findLongestMatch(input, i, pattern, 0, pattern.length - 1);
-                i += j;
 
                 if (j == pattern.length - 1) {
-                    return i - j;
+                    return i;
                 }
 
+                i += j;
                 j = kmpShifts[j];
 
                 // Continue to match the whole pattern using KMP
                 while (j > 0) {
-                    int x = findLongestMatch(input, i, pattern, j, pattern.length);
-                    i += x;
-                    j += x;
+                    int size = findLongestMatch(input, i, pattern, j, Math.min(inputLimit - i, pattern.length - j));
+                    i += size;
+                    j += size;
 
                     if (j == pattern.length) {
                         return i - j;
@@ -162,13 +162,15 @@ public class FjsMatcher
             }
         }
 
-        private static int findLongestMatch(byte[] input, int inputOffset, byte[] pattern, int patternOffset, int patternLimit)
+        private static int findLongestMatch(byte[] input, int inputOffset, byte[] pattern, int patternOffset, int length)
         {
-            int k = 0;
-            while (patternOffset + k < patternLimit && input[inputOffset + k] == pattern[patternOffset + k]) {
-                k++;
+            for (int i = 0; i < length; i++) {
+                if (input[inputOffset + i] != pattern[patternOffset + i]) {
+                    return i;
+                }
             }
-            return k;
+
+            return length;
         }
 
         private static boolean match(byte[] input, int offset, byte[] pattern)

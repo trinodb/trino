@@ -92,6 +92,8 @@ public class TestLikeMatcher
                                           Strings.repeat("b", 20) +
                                           "the quick brown fox jumps over the lazy dog"));
 
+        assertFalse(match("%abaaa%", "ababaa"));
+
         // utf-8
         LikeMatcher singleOptimized = LikeMatcher.compile("_", Optional.empty(), true);
         LikeMatcher multipleOptimized = LikeMatcher.compile("_a%b_", Optional.empty(), true); // prefix and suffix with _a and b_ to avoid optimizations
