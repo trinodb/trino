@@ -52,6 +52,7 @@ import java.util.Locale;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.QuarterOfYearDateTimeField.QUARTER_OF_YEAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Int128Math.rescale;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
@@ -368,6 +369,15 @@ public final class DateTimeFunctions
                 .withLocale(locale);
 
         return utf8Slice(formatter.print(timestamp));
+    }
+
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType("timestamp(3)") // TODO: increase precision?
+    public static long dateParse(@LiteralParameter("x") Long x, ConnectorSession session, @SqlType("char(x)") Slice dateTime, @SqlType("varchar(y)") Slice formatString)
+    {
+        dateTime = padSpaces(dateTime, x.intValue());
+        return dateParse(session, dateTime, formatString);
     }
 
     @ScalarFunction

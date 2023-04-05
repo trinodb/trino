@@ -888,6 +888,13 @@ public class TestDateTimeFunctions
 
         assertTrinoExceptionThrownBy(() -> assertions.function("date_parse", "'1970-01-01'", "''").evaluate())
                 .hasMessage("Both printing and parsing not supported");
+
+        assertThat(assertions.function("date_parse", "char '10/Jan/2023:23:55:02    '", "'%d/%b/%Y:%H:%i:%s    '"))
+                .matches("TIMESTAMP '2023-01-10 23:55:02.000'");
+        assertTrinoExceptionThrownBy(() -> assertions.function("date_parse", "char '10/Jan/2023:23:55:02    '", "'%d/%b/%Y:%H:%i:%s'").evaluate())
+                .hasMessage("Invalid format: \"10/Jan/2023:23:55:02    \" is malformed at \"    \"");
+        assertTrinoExceptionThrownBy(() -> assertions.function("date_parse", "char '10/Jan/2023:23:55:02'", "'%d/%b/%Y:%H:%i:%s    '").evaluate())
+                .hasMessage("Invalid format: \"10/Jan/2023:23:55:02\" is too short");
     }
 
     @Test
