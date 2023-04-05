@@ -8,7 +8,7 @@ remote exchange (GATHER, SINGLE, [])
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, ["time_sk"])
                                     join (INNER, REPLICATED):
-                                        remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                        local exchange (REPARTITION, ROUND_ROBIN, [])
                                             join (INNER, REPLICATED):
                                                 dynamic filter (["ws_item_sk", "ws_sold_date_sk", "ws_sold_time_sk"])
                                                     scan web_sales

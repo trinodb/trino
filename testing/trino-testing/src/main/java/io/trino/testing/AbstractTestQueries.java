@@ -502,4 +502,10 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE 0=1");
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE null");
     }
+
+    @Test
+    public void testUnionAllAboveBroadcastJoin()
+    {
+        assertQuery("SELECT COUNT(*) FROM region r JOIN (SELECT nationkey FROM nation UNION ALL SELECT nationkey as key FROM nation) n ON r.regionkey = n.nationkey", "VALUES 10");
+    }
 }

@@ -30,6 +30,7 @@ import io.trino.cost.TaskCountEstimator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.sql.PlannerContext;
@@ -98,6 +99,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -1366,7 +1368,7 @@ public class AddExchanges
         }
 
         private PlanWithProperties arbitraryDistributeUnion(
-                UnionNode node,
+                UnionNode unionNode,
                 List<PlanNode> partitionedChildren,
                 List<List<Symbol>> partitionedOutputLayouts)
         {
@@ -1375,16 +1377,28 @@ public class AddExchanges
                 // No source distributed child, we can use insert LOCAL exchange
                 // TODO: if all children have the same partitioning, pass this partitioning to the parent
                 // instead of "arbitraryPartition".
-                return new PlanWithProperties(node.replaceChildren(partitionedChildren));
+                return new PlanWithProperties(unionNode.replaceChildren(partitionedChildren));
             }
-            // Trino currently cannot execute stage that has multiple table scans, so in that case
+
+            int repartitionedRemoteExchangeNodesCount = partitionedChildren.stream().mapToInt(AddExchanges::countRepartitionedRemoteExchangeNodes).sum();
+            int partitionedConnectorSourceCount = partitionedChildren.stream().mapToInt(AddExchanges::countPartitionedConnectorSource).sum();
+            long uniqueSourceCatalogCount = partitionedChildren.stream().flatMap(AddExchanges::collectSourceCatalogs).distinct().count();
+
+            // MultiSourcePartitionedScheduler does not support node partitioning. Both partitioned remote exchanges and
+            // partitioned connector sources require node partitioning.
+            if (repartitionedRemoteExchangeNodesCount == 0
+                    && partitionedConnectorSourceCount == 0
+                    && uniqueSourceCatalogCount == 1) {
+                return new PlanWithProperties(unionNode.replaceChildren(partitionedChildren));
+            }
+            // If there is at least one not source distributed source or one of sources is connector partitioned
             // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
             return new PlanWithProperties(
                     new ExchangeNode(
                             idAllocator.getNextId(),
                             REPARTITION,
                             REMOTE,
-                            new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), node.getOutputSymbols()),
+                            new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), unionNode.getOutputSymbols()),
                             partitionedChildren,
                             partitionedOutputLayouts,
                             Optional.empty()));
@@ -1478,6 +1492,43 @@ public class AddExchanges
             }
         }
         return outputToInput;
+    }
+
+    private static int countRepartitionedRemoteExchangeNodes(PlanNode root)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> node instanceof ExchangeNode exchangeNode && exchangeNode.getScope() == REMOTE && exchangeNode.getType() == REPARTITION)
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .size();
+    }
+
+    private static int countPartitionedConnectorSource(PlanNode root)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> node instanceof TableScanNode tableScanNode && tableScanNode.getUseConnectorNodePartitioning().orElse(false))
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .size();
+    }
+
+    private static Stream<CatalogHandle> collectSourceCatalogs(PlanNode root)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> node instanceof TableScanNode)
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .map(node -> node.getTable().getCatalogHandle());
+    }
+
+    private static boolean isNotRemoteExchange(PlanNode node)
+    {
+        return !(node instanceof ExchangeNode exchangeNode && exchangeNode.getScope() == REMOTE);
     }
 
     @VisibleForTesting

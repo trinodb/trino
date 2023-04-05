@@ -154,7 +154,7 @@ public class TestAddDynamicFilterSource
                                                         node(
                                                                 DynamicFilterSourceNode.class,
                                                                 exchange(
-                                                                        REMOTE,
+                                                                        LOCAL,
                                                                         Optional.empty(),
                                                                         Optional.empty(),
                                                                         ImmutableList.of(),
