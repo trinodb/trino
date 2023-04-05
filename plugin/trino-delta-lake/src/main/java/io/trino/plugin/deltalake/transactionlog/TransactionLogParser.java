@@ -30,11 +30,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.common.type.TimestampTZ;
-import org.apache.hadoop.hive.common.type.TimestampTZUtil;
 
 import javax.annotation.Nullable;
 
@@ -42,6 +38,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.text.ParsePosition;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -52,6 +49,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.ResolverStyle;
 import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
@@ -82,7 +80,11 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.HOUR_OF_DAY;
+import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
 
 public final class TransactionLogParser
@@ -108,10 +110,27 @@ public final class TransactionLogParser
             .appendLiteral('-')
             .appendValue(DAY_OF_MONTH, 2)
             .appendLiteral(' ')
-            .appendValue(ChronoField.HOUR_OF_DAY, 2).appendLiteral(':')
-            .appendValue(ChronoField.MINUTE_OF_HOUR, 2).appendLiteral(':')
+            .appendValue(HOUR_OF_DAY, 2).appendLiteral(':')
+            .appendValue(MINUTE_OF_HOUR, 2).appendLiteral(':')
             .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
             .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+            .toFormatter(Locale.ENGLISH)
+            .withChronology(IsoChronology.INSTANCE)
+            .withResolverStyle(ResolverStyle.STRICT);
+    public static final DateTimeFormatter PARTITION_TIMESTAMP_ZONE_OR_OFFSET_FORMATTER = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .appendValue(YEAR, 4, 10, SignStyle.NORMAL)
+            .appendLiteral('-')
+            .appendValue(MONTH_OF_YEAR, 2)
+            .appendLiteral('-')
+            .appendValue(DAY_OF_MONTH, 2)
+            .appendLiteral(' ')
+            .appendValue(HOUR_OF_DAY, 2).appendLiteral(':')
+            .appendValue(MINUTE_OF_HOUR, 2).appendLiteral(':')
+            .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+            .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+            .appendLiteral(' ')
+            .appendZoneOrOffsetId()
             .toFormatter(Locale.ENGLISH)
             .withChronology(IsoChronology.INSTANCE)
             .withResolverStyle(ResolverStyle.STRICT);
@@ -156,26 +175,40 @@ public final class TransactionLogParser
     @Nullable
     public static Object deserializePartitionValue(DeltaLakeColumnHandle column, Optional<String> valueString)
     {
-        if (column.getPhysicalType() instanceof TimestampType) {
-            return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestamp)).orElse(null);
-        }
-        else if (column.getPhysicalType() instanceof TimestampWithTimeZoneType) {
-            return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestampTZ)).orElse(null);
-        }
-        return null;
-    }
-
-    private static Long readPartitionTimestampTZ(String timestampTZ)
-    {
-        TimestampTZ timestampTimeZone = TimestampTZUtil.parse(timestampTZ);
-        ZonedDateTime zonedDateTime = timestampTimeZone.getZonedDateTime();
-        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
+        return valueString.map(value -> deserializeColumnValue(column, value, TransactionLogParser::readPartitionTimestamp)).orElse(null);
     }
 
     private static Long readPartitionTimestamp(String timestamp)
     {
-        ZonedDateTime zonedDateTime = LocalDateTime.parse(timestamp, PARTITION_TIMESTAMP_FORMATTER).atZone(UTC);
-        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
+        ParsePosition position = new ParsePosition(0);
+        TemporalAccessor accessor = PARTITION_TIMESTAMP_FORMATTER.parseUnresolved(timestamp, position);
+        ZonedDateTime zonedDateTime;
+        if (position.getErrorIndex() == -1 && timestamp.length() == position.getIndex()) {
+            if (accessor.isSupported(NANO_OF_SECOND)) {
+                zonedDateTime = LocalDateTime.of(
+                                accessor.get(YEAR),
+                                accessor.get(MONTH_OF_YEAR),
+                                accessor.get(DAY_OF_MONTH),
+                                accessor.get(HOUR_OF_DAY),
+                                accessor.get(MINUTE_OF_HOUR),
+                                accessor.get(SECOND_OF_MINUTE),
+                                accessor.get(NANO_OF_SECOND))
+                        .atZone(UTC);
+            }
+            else {
+                zonedDateTime = LocalDateTime.of(
+                                accessor.get(YEAR),
+                                accessor.get(MONTH_OF_YEAR),
+                                accessor.get(DAY_OF_MONTH),
+                                accessor.get(HOUR_OF_DAY),
+                                accessor.get(MINUTE_OF_HOUR),
+                                accessor.get(SECOND_OF_MINUTE))
+                        .atZone(UTC);
+            }
+            return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
+        }
+        zonedDateTime = ZonedDateTime.parse(timestamp, PARTITION_TIMESTAMP_ZONE_OR_OFFSET_FORMATTER);
+        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
     }
 
     public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader)

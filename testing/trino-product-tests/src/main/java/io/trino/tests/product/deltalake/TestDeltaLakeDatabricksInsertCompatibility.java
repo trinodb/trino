@@ -21,6 +21,9 @@ import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -127,6 +130,40 @@ public class TestDeltaLakeDatabricksInsertCompatibility
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testPartitionedInsertTimestampTZCompatibility()
+    {
+        String tableName = "test_dl_partitioned_insert_timestampTZ" + randomNameSuffix();
+        onTrino().executeQuery("" +
+                "CREATE TABLE delta.default." + tableName +
+                "         (c1 INT, c2 TIMESTAMP WITH TIME ZONE)" +
+                "         WITH (" +
+                "         partitioned_by = ARRAY['c2']," +
+                "         location = 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "')");
+
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, TIMESTAMP '2023-04-05 10:00:00.666+01:00')");
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (2, TIMESTAMP '2023-04-06 10:00:00+01:00')");
+            List<Row> expectedRows = ImmutableList.of(
+                    row(
+                            1,
+                            Timestamp.from(
+                                    LocalDateTime.of(2023, 4, 5, 10, 0, 0, 666000000)
+                                            .atZone(ZoneId.of("+01:00")).toInstant())),
+                    row(
+                            2,
+                            Timestamp.from(
+                                    LocalDateTime.of(2023, 4, 6, 10, 0, 0)
+                                            .atZone(ZoneId.of("+01:00")).toInstant())));
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " ORDER BY c1 ASC"))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
         }
     }
 
