@@ -22,7 +22,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPARTITION, HASH, ["customer_sk"])
                                                                                         join (INNER, REPLICATED, can skip output duplicates):
                                                                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                                                                remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                                                                                local exchange (REPARTITION, ROUND_ROBIN, [])
                                                                                                     dynamic filter (["cs_bill_customer_sk", "cs_bill_customer_sk", "cs_item_sk", "cs_sold_date_sk"])
                                                                                                         scan catalog_sales
                                                                                                     dynamic filter (["ws_bill_customer_sk", "ws_bill_customer_sk", "ws_item_sk", "ws_sold_date_sk"])
