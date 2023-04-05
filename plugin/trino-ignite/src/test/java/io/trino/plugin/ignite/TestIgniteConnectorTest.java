@@ -77,7 +77,8 @@ public class TestIgniteConnectorTest
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_DROP_COLUMN:
                 return true;
-
+            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
+                return false;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
@@ -311,17 +312,6 @@ public class TestIgniteConnectorTest
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
         assertThat(e).hasMessage("Schema change operation failed: Thread got interrupted while trying to acquire table lock.");
-    }
-
-    @Override
-    public void testAddNotNullColumnToNonEmptyTable()
-    {
-        // Override because the connector supports both ADD COLUMN and NOT NULL constraint, but it doesn't support adding NOT NULL columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar)")) {
-            assertQueryFails(
-                    "ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar NOT NULL",
-                    "This connector does not support adding not null columns");
-        }
     }
 
     @Override

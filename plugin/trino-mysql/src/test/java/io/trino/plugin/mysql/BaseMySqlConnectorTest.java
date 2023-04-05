@@ -260,6 +260,25 @@ public abstract class BaseMySqlConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @Override
+    public void testAddNotNullColumn()
+    {
+        assertThatThrownBy(super::testAddNotNullColumn)
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("Should fail to add not null column without a default value to a non-empty table");
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertThat(query("TABLE " + tableName))
+                    .skippingTypesCheck()
+                    // MySQL adds implicit default value of '' for b_varchar
+                    .matches("VALUES ('a', '')");
+        }
+    }
+
     @Test
     public void testPredicatePushdown()
     {
