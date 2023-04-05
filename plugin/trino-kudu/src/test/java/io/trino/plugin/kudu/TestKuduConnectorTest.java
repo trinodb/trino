@@ -325,6 +325,15 @@ public class TestKuduConnectorTest
         }
     }
 
+    @Override
+    public void testAddNotNullColumnToEmptyTable()
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(super::testAddNotNullColumnToEmptyTable)
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO");
+    }
+
     @Test
     public void testProjection()
     {
