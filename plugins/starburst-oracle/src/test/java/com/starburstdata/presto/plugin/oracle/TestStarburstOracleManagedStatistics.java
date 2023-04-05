@@ -13,13 +13,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.managed.statistics.BaseManagedStatisticsTest;
 import com.starburstdata.presto.testing.testcontainers.TestingOracleServer;
+import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.getJdbcUrl;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static java.math.RoundingMode.UNNECESSARY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStarburstOracleManagedStatistics
@@ -122,6 +127,71 @@ public class TestStarburstOracleManagedStatistics
                             ('decimal_2_scale_column', null,          DOUBLE '5.0', DOUBLE '0.0', null,         '1.11',                        '5.55'),
                             ('varbinary_column',       DOUBLE '25.0', null,         DOUBLE '0.0', null,         null,                          null),
                             (null,                     null,          null,         null,         DOUBLE '5.0', null,                          null)
+                            """);
+
+            // cleanup
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE drop_statistics");
+        }
+    }
+
+    @Test
+    public void testNativeTypes()
+    {
+        try (TestTable testTable = new TestTable(TestingStarburstOracleServer::executeInOracle, "native_types", """
+                (
+                raw_column raw(2000),
+                nclob_column nclob,
+                number_column number,
+                nvarchar2_column nvarchar2(13),
+                varchar2_column varchar2(10 char),
+                binary_float_column binary_float,
+                binary_double_column binary_double,
+                float_column float)
+                """,
+                ImmutableList.of(
+                        "hextoraw('68656C6C6F'), 'nclob', 1, 'a', 'a', 1.0, 1.0, 1.0",
+                        "hextoraw('68656C6C6F'), 'nclob', 1, 'a', 'a', 1.0, 1.0, 1.0",
+                        "hextoraw('68656C6C6F'), 'nclob', 1, 'a', 'a', 1.0, 1.0, 1.0",
+                        "hextoraw('68656C6C6F'), 'nclob', 1, 'a', 'a', 1.0, 1.0, 1.0",
+                        "hextoraw('68656C6C6F'), 'nclob', 1, 'a', 'a', 1.0, 1.0, 1.0"))) {
+            String tableName = testTable.getName();
+
+            String emptyStats = """
+                    VALUES
+                    ('raw_column', null, null, null, null, null, null),
+                    ('nclob_column', null, null, null, null, null, null),
+                    ('number_column', null, null, null, null, null, null),
+                    ('nvarchar2_column', null, null, null, null, null, null),
+                    ('varchar2_column', null, null, null, null, null, null),
+                    ('binary_float_column', null, null, null, null, null, null),
+                    ('binary_double_column', null, null, null, null, null, null),
+                    ('float_column', null, null, null, null, null, null),
+                    (null, null, null, null, null, null, null)
+                    """;
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty("oracle", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                    .setCatalogSessionProperty("oracle", NUMBER_ROUNDING_MODE, UNNECESSARY.name())
+                    .build();
+
+            assertThat(query(session, "SHOW STATS FOR (SELECT * FROM " + tableName + ")"))
+                    .skippingTypesCheck()
+                    .matches(emptyStats);
+
+            assertUpdate(session, "ALTER TABLE " + tableName + " EXECUTE collect_statistics");
+
+            assertThat(query(session, "SHOW STATS FOR (SELECT * FROM " + tableName + ")"))
+                    .skippingTypesCheck()
+                    .matches("""
+                            VALUES
+                            ('raw_column',           DOUBLE '50.0', DOUBLE '1.0', DOUBLE '0.0', null,         null,  null),
+                            ('nclob_column',         DOUBLE '25.0', null,         DOUBLE '0.0', null,         null,  null),
+                            ('number_column',        DOUBLE '5.0',  DOUBLE '1.0', DOUBLE '0.0', null,         null,  null),
+                            ('nvarchar2_column',     DOUBLE '5.0',  DOUBLE '1.0', DOUBLE '0.0', null,         null,  null),
+                            ('varchar2_column',      DOUBLE '5.0',  DOUBLE '1.0', DOUBLE '0.0', null,         null,  null),
+                            ('binary_double_column', null,          DOUBLE '1.0', DOUBLE '0.0', null,         '1.0', '1.0'),
+                            ('binary_float_column',  null,          DOUBLE '1.0', DOUBLE '0.0', null,         '1.0', '1.0'),
+                            ('float_column',         null,          DOUBLE '1.0', DOUBLE '0.0', null,         '1.0', '1.0'),
+                            (null,                   null,          null,         null,         DOUBLE '5.0', null,  null)
                             """);
 
             // cleanup

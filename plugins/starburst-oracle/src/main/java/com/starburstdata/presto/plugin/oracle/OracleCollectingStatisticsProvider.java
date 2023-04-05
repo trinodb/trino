@@ -16,9 +16,6 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
@@ -46,15 +43,10 @@ public class OracleCollectingStatisticsProvider
     @Override
     protected boolean isTypeApplicable(ConnectorSession session, JdbcColumnHandle column, CollectedStatisticsType collectedStatisticsType)
     {
-        Type columnType = column.getColumnType();
-        if (collectedStatisticsType == DISTINCT_VALUES) {
-            // unlimited varchar type presented in Oracle as clob type,
-            // which doesn't support DISTINCT keyword, so omit this stat
-            if (columnType instanceof VarcharType varcharType && varcharType.getLength().isEmpty()) {
-                return false;
-            }
-            // varbinary presented as blob, which doesn't support DISTINCT keyword
-            if (columnType instanceof VarbinaryType) {
+        String jdbcTypeName = column.getJdbcTypeHandle().getJdbcTypeName().orElse("");
+        // blob clob doesn't support DISTINCT keyword, so omit this stat
+        if (jdbcTypeName.equals("BLOB") || jdbcTypeName.equals("CLOB") || jdbcTypeName.equals("NCLOB")) {
+            if (collectedStatisticsType == DISTINCT_VALUES) {
                 return false;
             }
         }
