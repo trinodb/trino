@@ -15,7 +15,11 @@ package io.trino.filesystem.hdfs;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.tracing.TracingFileSystemFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
 
@@ -25,6 +29,13 @@ public class HdfsFileSystemModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TrinoFileSystemFactory.class).to(HdfsFileSystemFactory.class).in(SINGLETON);
+        binder.bind(HdfsFileSystemFactory.class).in(SINGLETON);
+    }
+
+    @Provides
+    @Singleton
+    public TrinoFileSystemFactory createFileSystemFactory(Tracer tracer, HdfsFileSystemFactory delegate)
+    {
+        return new TracingFileSystemFactory(tracer, delegate);
     }
 }
