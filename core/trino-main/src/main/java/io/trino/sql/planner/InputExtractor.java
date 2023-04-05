@@ -83,6 +83,10 @@ public class InputExtractor
         @Override
         public Void visitTableScan(TableScanNode node, PlanFragmentId fragmentId)
         {
+            if (node.isUpdateTarget()) {
+                return null;
+            }
+
             processScan(fragmentId, node.getId(), node.getTable(), node.getAssignments());
             return null;
         }

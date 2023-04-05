@@ -1142,7 +1142,7 @@ public class TestEventListenerBasic
     @DataProvider
     public Object[][] setOperator()
     {
-        return new Object[][]{
+        return new Object[][] {
                 {"UNION"},
                 {"UNION ALL"},
                 {"INTERSECT"},
@@ -1222,6 +1222,19 @@ public class TestEventListenerBasic
         assertLineageInternal("CREATE VIEW mock.default.create_new_materialized_view AS " + baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal("INSERT INTO mock.default.table_for_output(test_varchar, test_bigint) " + baseQuery, inputTables, outputColumnMetadata);
         assertLineageInternal(format("DELETE FROM mock.default.table_for_output WHERE EXISTS (%s) ", baseQuery), inputTables);
+
+        // Test io input tables
+        assertIoInputTable("DELETE FROM mock.default.table_for_output WHERE test_bigint IN (WITH s(test_varchar, test_bigint) AS (%s) SELECT test_bigint FROM s)".formatted(baseQuery), inputTables);
+    }
+
+    private void assertIoInputTable(String sql, Set<String> inputTables)
+            throws Exception
+    {
+        QueryEvents queryEvents = runQueryAndWaitForEvents(sql).getQueryEvents();
+        QueryCompletedEvent event = queryEvents.getQueryCompletedEvent();
+        assertThat(event.getIoMetadata().getInputs())
+                .map(TestEventListenerBasic::getQualifiedName)
+                .containsExactlyInAnyOrderElementsOf(inputTables);
     }
 
     private void assertLineageInternal(String sql, Set<String> inputTables, OutputColumnMetadata... outputColumnMetadata)
@@ -1241,5 +1254,10 @@ public class TestEventListenerBasic
     private static String getQualifiedName(TableInfo tableInfo)
     {
         return tableInfo.getCatalog() + '.' + tableInfo.getSchema() + '.' + tableInfo.getTable();
+    }
+
+    private static String getQualifiedName(QueryInputMetadata queryInputMetadata)
+    {
+        return queryInputMetadata.getCatalogName() + '.' + queryInputMetadata.getSchema() + '.' + queryInputMetadata.getTable();
     }
 }
