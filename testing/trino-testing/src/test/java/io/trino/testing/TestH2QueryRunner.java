@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -34,7 +35,7 @@ public class TestH2QueryRunner
     @BeforeClass
     public void init()
     {
-        h2QueryRunner = new H2QueryRunner();
+        h2QueryRunner = new H2QueryRunner(Set.of());
     }
 
     @AfterClass(alwaysRun = true)

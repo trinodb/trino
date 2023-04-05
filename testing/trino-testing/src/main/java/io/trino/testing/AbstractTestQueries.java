@@ -22,6 +22,7 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -60,6 +61,16 @@ public abstract class AbstractTestQueries
             .scalars(CreateHll.class)
             .functions(APPLY_FUNCTION, INVOKE_FUNCTION, STATEFUL_SLEEPING_SUM)
             .build();
+
+    public AbstractTestQueries()
+    {
+        this(REQUIRED_TPCH_TABLES);
+    }
+
+    public AbstractTestQueries(Collection<TpchTable<?>> requiredTpchTables)
+    {
+        super(requiredTpchTables);
+    }
 
     @Test
     public void testAggregationOverUnknown()

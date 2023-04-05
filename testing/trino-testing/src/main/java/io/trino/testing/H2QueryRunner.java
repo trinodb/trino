@@ -53,6 +53,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -93,86 +94,98 @@ public class H2QueryRunner
 {
     private final Handle handle;
 
-    public H2QueryRunner()
+    public H2QueryRunner(Set<TpchTable<?>> requiredTpchTables)
     {
         handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong() + ";NON_KEYWORDS=KEY,VALUE"); // key and value are reserved keywords in H2 2.x
         TpchMetadata tpchMetadata = new TpchMetadata();
 
-        handle.execute("CREATE TABLE orders (\n" +
-                "  orderkey BIGINT PRIMARY KEY,\n" +
-                "  custkey BIGINT NOT NULL,\n" +
-                "  orderstatus VARCHAR(1) NOT NULL,\n" +
-                "  totalprice DOUBLE NOT NULL,\n" +
-                "  orderdate DATE NOT NULL,\n" +
-                "  orderpriority VARCHAR(15) NOT NULL,\n" +
-                "  clerk VARCHAR(15) NOT NULL,\n" +
-                "  shippriority INTEGER NOT NULL,\n" +
-                "  comment VARCHAR(79) NOT NULL\n" +
-                ")");
-        handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
-        insertRows(tpchMetadata, ORDERS);
-
-        handle.execute("CREATE TABLE lineitem (\n" +
-                "  orderkey BIGINT,\n" +
-                "  partkey BIGINT NOT NULL,\n" +
-                "  suppkey BIGINT NOT NULL,\n" +
-                "  linenumber INTEGER,\n" +
-                "  quantity DOUBLE NOT NULL,\n" +
-                "  extendedprice DOUBLE NOT NULL,\n" +
-                "  discount DOUBLE NOT NULL,\n" +
-                "  tax DOUBLE NOT NULL,\n" +
-                "  returnflag CHAR(1) NOT NULL,\n" +
-                "  linestatus CHAR(1) NOT NULL,\n" +
-                "  shipdate DATE NOT NULL,\n" +
-                "  commitdate DATE NOT NULL,\n" +
-                "  receiptdate DATE NOT NULL,\n" +
-                "  shipinstruct VARCHAR(25) NOT NULL,\n" +
-                "  shipmode VARCHAR(10) NOT NULL,\n" +
-                "  comment VARCHAR(44) NOT NULL,\n" +
-                "  PRIMARY KEY (orderkey, linenumber)" +
-                ")");
-        insertRows(tpchMetadata, LINE_ITEM);
-
-        handle.execute("CREATE TABLE nation (\n" +
-                "  nationkey BIGINT PRIMARY KEY,\n" +
-                "  name VARCHAR(25) NOT NULL,\n" +
-                "  regionkey BIGINT NOT NULL,\n" +
-                "  comment VARCHAR(114) NOT NULL\n" +
-                ")");
-        insertRows(tpchMetadata, NATION);
-
-        handle.execute("CREATE TABLE region(\n" +
-                "  regionkey BIGINT PRIMARY KEY,\n" +
-                "  name VARCHAR(25) NOT NULL,\n" +
-                "  comment VARCHAR(115) NOT NULL\n" +
-                ")");
-        insertRows(tpchMetadata, REGION);
-
-        handle.execute("CREATE TABLE part(\n" +
-                "  partkey BIGINT PRIMARY KEY,\n" +
-                "  name VARCHAR(55) NOT NULL,\n" +
-                "  mfgr VARCHAR(25) NOT NULL,\n" +
-                "  brand VARCHAR(10) NOT NULL,\n" +
-                "  type VARCHAR(25) NOT NULL,\n" +
-                "  size INTEGER NOT NULL,\n" +
-                "  container VARCHAR(10) NOT NULL,\n" +
-                "  retailprice DOUBLE NOT NULL,\n" +
-                "  comment VARCHAR(23) NOT NULL\n" +
-                ")");
-        insertRows(tpchMetadata, PART);
-
-        handle.execute("CREATE TABLE customer (\n" +
-                "  custkey BIGINT NOT NULL,\n" +
-                "  name VARCHAR(25) NOT NULL,\n" +
-                "  address VARCHAR(40) NOT NULL,\n" +
-                "  nationkey BIGINT NOT NULL,\n" +
-                "  phone VARCHAR(15) NOT NULL,\n" +
-                "  acctbal DOUBLE NOT NULL,\n" +
-                "  mktsegment VARCHAR(10) NOT NULL,\n" +
-                "  comment VARCHAR(117) NOT NULL,\n" +
-                "  PRIMARY KEY (custkey)" +
-                ")");
-        insertRows(tpchMetadata, CUSTOMER);
+        for (TpchTable<?> tpchTable : requiredTpchTables) {
+            if (tpchTable.equals(ORDERS)) {
+                handle.execute("CREATE TABLE orders (\n" +
+                        "  orderkey BIGINT PRIMARY KEY,\n" +
+                        "  custkey BIGINT NOT NULL,\n" +
+                        "  orderstatus VARCHAR(1) NOT NULL,\n" +
+                        "  totalprice DOUBLE NOT NULL,\n" +
+                        "  orderdate DATE NOT NULL,\n" +
+                        "  orderpriority VARCHAR(15) NOT NULL,\n" +
+                        "  clerk VARCHAR(15) NOT NULL,\n" +
+                        "  shippriority INTEGER NOT NULL,\n" +
+                        "  comment VARCHAR(79) NOT NULL\n" +
+                        ")");
+                handle.execute("CREATE INDEX custkey_index ON orders (custkey)");
+                insertRows(tpchMetadata, ORDERS);
+            }
+            else if (tpchTable.equals(LINE_ITEM)) {
+                handle.execute("CREATE TABLE lineitem (\n" +
+                        "  orderkey BIGINT,\n" +
+                        "  partkey BIGINT NOT NULL,\n" +
+                        "  suppkey BIGINT NOT NULL,\n" +
+                        "  linenumber INTEGER,\n" +
+                        "  quantity DOUBLE NOT NULL,\n" +
+                        "  extendedprice DOUBLE NOT NULL,\n" +
+                        "  discount DOUBLE NOT NULL,\n" +
+                        "  tax DOUBLE NOT NULL,\n" +
+                        "  returnflag CHAR(1) NOT NULL,\n" +
+                        "  linestatus CHAR(1) NOT NULL,\n" +
+                        "  shipdate DATE NOT NULL,\n" +
+                        "  commitdate DATE NOT NULL,\n" +
+                        "  receiptdate DATE NOT NULL,\n" +
+                        "  shipinstruct VARCHAR(25) NOT NULL,\n" +
+                        "  shipmode VARCHAR(10) NOT NULL,\n" +
+                        "  comment VARCHAR(44) NOT NULL,\n" +
+                        "  PRIMARY KEY (orderkey, linenumber)" +
+                        ")");
+                insertRows(tpchMetadata, LINE_ITEM);
+            }
+            else if (tpchTable.equals(NATION)) {
+                handle.execute("CREATE TABLE nation (\n" +
+                        "  nationkey BIGINT PRIMARY KEY,\n" +
+                        "  name VARCHAR(25) NOT NULL,\n" +
+                        "  regionkey BIGINT NOT NULL,\n" +
+                        "  comment VARCHAR(114) NOT NULL\n" +
+                        ")");
+                insertRows(tpchMetadata, NATION);
+            }
+            else if (tpchTable.equals(REGION)) {
+                handle.execute("CREATE TABLE region(\n" +
+                        "  regionkey BIGINT PRIMARY KEY,\n" +
+                        "  name VARCHAR(25) NOT NULL,\n" +
+                        "  comment VARCHAR(115) NOT NULL\n" +
+                        ")");
+                insertRows(tpchMetadata, REGION);
+            }
+            else if (tpchTable.equals(PART)) {
+                handle.execute("CREATE TABLE part(\n" +
+                        "  partkey BIGINT PRIMARY KEY,\n" +
+                        "  name VARCHAR(55) NOT NULL,\n" +
+                        "  mfgr VARCHAR(25) NOT NULL,\n" +
+                        "  brand VARCHAR(10) NOT NULL,\n" +
+                        "  type VARCHAR(25) NOT NULL,\n" +
+                        "  size INTEGER NOT NULL,\n" +
+                        "  container VARCHAR(10) NOT NULL,\n" +
+                        "  retailprice DOUBLE NOT NULL,\n" +
+                        "  comment VARCHAR(23) NOT NULL\n" +
+                        ")");
+                insertRows(tpchMetadata, PART);
+            }
+            else if (tpchTable.equals(CUSTOMER)) {
+                handle.execute("CREATE TABLE customer (\n" +
+                        "  custkey BIGINT NOT NULL,\n" +
+                        "  name VARCHAR(25) NOT NULL,\n" +
+                        "  address VARCHAR(40) NOT NULL,\n" +
+                        "  nationkey BIGINT NOT NULL,\n" +
+                        "  phone VARCHAR(15) NOT NULL,\n" +
+                        "  acctbal DOUBLE NOT NULL,\n" +
+                        "  mktsegment VARCHAR(10) NOT NULL,\n" +
+                        "  comment VARCHAR(117) NOT NULL,\n" +
+                        "  PRIMARY KEY (custkey)" +
+                        ")");
+                insertRows(tpchMetadata, CUSTOMER);
+            }
+            else {
+                throw new UnsupportedOperationException("Cannot initialize table: " + tpchTable);
+            }
+        }
     }
 
     private void insertRows(TpchMetadata tpchMetadata, TpchTable<?> tpchTable)

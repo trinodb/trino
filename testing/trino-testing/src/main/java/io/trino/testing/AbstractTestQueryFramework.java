@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.units.Duration;
@@ -51,6 +52,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
+import io.trino.tpch.TpchTable;
 import io.trino.transaction.TransactionBuilder;
 import io.trino.util.AutoCloseableCloser;
 import org.assertj.core.api.AssertProvider;
@@ -60,11 +62,13 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -83,6 +87,7 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -93,10 +98,22 @@ public abstract class AbstractTestQueryFramework
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    private final Set<TpchTable<?>> requiredTpchTables;
+
     private AutoCloseableCloser afterClassCloser;
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private io.trino.sql.query.QueryAssertions queryAssertions;
+
+    protected AbstractTestQueryFramework()
+    {
+        this(ImmutableSet.of());
+    }
+
+    protected AbstractTestQueryFramework(Collection<TpchTable<?>> requiredTpchTables)
+    {
+        this.requiredTpchTables = ImmutableSet.copyOf(requireNonNull(requiredTpchTables, "requiredTpchTables is null"));
+    }
 
     @BeforeClass
     public void init()
@@ -104,7 +121,7 @@ public abstract class AbstractTestQueryFramework
     {
         afterClassCloser = AutoCloseableCloser.create();
         queryRunner = afterClassCloser.register(createQueryRunner());
-        h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
+        h2QueryRunner = afterClassCloser.register(new H2QueryRunner(requiredTpchTables));
         queryAssertions = new io.trino.sql.query.QueryAssertions(queryRunner);
     }
 

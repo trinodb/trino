@@ -14,6 +14,7 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import org.intellij.lang.annotations.Language;
@@ -24,12 +25,21 @@ import java.util.List;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestAggregations
         extends AbstractTestQueryFramework
 {
+    protected AbstractTestAggregations()
+    {
+        super(ImmutableSet.of(ORDERS, LINE_ITEM, NATION, REGION));
+    }
+
     @Test
     public void testCountBoolean()
     {
