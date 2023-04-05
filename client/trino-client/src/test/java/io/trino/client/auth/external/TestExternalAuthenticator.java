@@ -344,12 +344,12 @@ public class TestExternalAuthenticator
             }
         }
 
-        ThrowableAssert firstException()
+        ThrowableAssert<Throwable> firstException()
         {
             return exceptions.stream()
                     .findFirst()
                     .map(ThrowableAssert::new)
-                    .orElseGet(() -> new ThrowableAssert(() -> null));
+                    .orElseGet(() -> new ThrowableAssert<Throwable>(() -> null));
         }
 
         void assertThatNoExceptionsHasBeenThrown()
