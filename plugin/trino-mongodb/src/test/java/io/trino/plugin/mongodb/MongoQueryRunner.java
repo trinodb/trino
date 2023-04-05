@@ -71,7 +71,7 @@ public final class MongoQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            connectorProperties = new HashMap(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("mongodb.connection-url", server.getConnectionString().toString());
 
             queryRunner.installPlugin(new MongoPlugin());
