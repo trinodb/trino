@@ -855,11 +855,12 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(TRY(5/0), 40, 400)"))
                 .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
 
-        //TODO these 2 should fail  https://github.com/trinodb/trino/issues/13435
-        assertUpdate("UPDATE " + tableName + " SET col2 = NULL where col3 = 100", 1);
-        assertUpdate("UPDATE " + tableName + " SET col2 = TRY(5/0) where col3 = 200", 1);
+        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col1 = NULL where col3 = 100"))
+                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
+        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col1 = TRY(5/0) where col3 = 200"))
+                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES(1, null, 100), (2, null, 200)");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, 10, 100), (2, 20, 200)");
     }
 
     @Test
