@@ -13,6 +13,10 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+
+import java.util.List;
 import java.util.function.Predicate;
 
 import static java.util.Objects.requireNonNull;
@@ -34,7 +38,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_LIMIT_PUSHDOWN,
 
     SUPPORTS_TOPN_PUSHDOWN,
-    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR(fallback -> fallback.test(SUPPORTS_TOPN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
+    SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR(and(SUPPORTS_TOPN_PUSHDOWN, SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
 
     SUPPORTS_AGGREGATION_PUSHDOWN,
     // Most connectors don't support aggregation pushdown for statistical functions
@@ -51,8 +55,8 @@ public enum TestingConnectorBehavior
             false),
     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN(SUPPORTS_JOIN_PUSHDOWN),
     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM(SUPPORTS_JOIN_PUSHDOWN),
-    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY(fallback -> fallback.test(SUPPORTS_JOIN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)),
-    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY(fallback -> fallback.test(SUPPORTS_JOIN_PUSHDOWN) && fallback.test(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
+    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY(and(SUPPORTS_JOIN_PUSHDOWN, SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)),
+    SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY(and(SUPPORTS_JOIN_PUSHDOWN, SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)),
 
     SUPPORTS_CREATE_SCHEMA,
     // Expect rename to be supported when create schema is supported, to help make connector implementations coherent.
@@ -68,7 +72,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_ADD_COLUMN,
     SUPPORTS_ADD_COLUMN_WITH_COMMENT(SUPPORTS_ADD_COLUMN),
     SUPPORTS_DROP_COLUMN(SUPPORTS_ADD_COLUMN),
-    SUPPORTS_DROP_FIELD(fallback -> fallback.test(SUPPORTS_DROP_COLUMN) && fallback.test(SUPPORTS_ROW_TYPE)),
+    SUPPORTS_DROP_FIELD(and(SUPPORTS_DROP_COLUMN, SUPPORTS_ROW_TYPE)),
     SUPPORTS_RENAME_COLUMN,
     SUPPORTS_SET_COLUMN_TYPE,
 
@@ -140,5 +144,11 @@ public enum TestingConnectorBehavior
     boolean hasBehaviorByDefault(Predicate<TestingConnectorBehavior> fallback)
     {
         return hasBehaviorByDefault.test(fallback);
+    }
+
+    private static Predicate<Predicate<TestingConnectorBehavior>> and(TestingConnectorBehavior first, TestingConnectorBehavior... rest)
+    {
+        List<TestingConnectorBehavior> conjuncts = ImmutableList.copyOf(Lists.asList(first, rest));
+        return fallback -> conjuncts.stream().allMatch(fallback);
     }
 }
