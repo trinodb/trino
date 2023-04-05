@@ -68,7 +68,7 @@
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>7.1.4</dep.minio.version>
         <dep.iceberg.version>1.1.0</dep.iceberg.version>
-        <dep.protobuf.version>3.21.6</dep.protobuf.version>
+        <dep.protobuf.version>3.22.2</dep.protobuf.version>
         <dep.wire.version>4.5.0</dep.wire.version>
         <dep.kotlin.version>1.8.0</dep.kotlin.version>
         <dep.netty.version>4.1.79.Final</dep.netty.version>
