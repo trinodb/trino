@@ -31,6 +31,7 @@ import org.apache.iceberg.types.Types.NestedField;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
+import java.io.FileNotFoundException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -230,8 +231,8 @@ public abstract class AbstractIcebergTableOperations
                         .withMaxRetries(20)
                         .withBackoff(100, 5000, MILLIS, 4.0)
                         .withMaxDuration(Duration.ofMinutes(10))
-                        .abortOn(org.apache.iceberg.exceptions.NotFoundException.class)
-                        .build()) // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
+                        .abortOn(AbstractIcebergTableOperations::isNotFoundException)
+                        .build())
                 .get(() -> TableMetadataParser.read(fileIo, io().newInputFile(newLocation)));
 
         String newUUID = newMetadata.uuid();
@@ -244,6 +245,14 @@ public abstract class AbstractIcebergTableOperations
         currentMetadataLocation = newLocation;
         version = parseVersion(newLocation);
         shouldRefresh = false;
+    }
+
+    private static boolean isNotFoundException(Throwable failure)
+    {
+        // qualified name, as this is NOT the io.trino.spi.connector.NotFoundException
+        return failure instanceof org.apache.iceberg.exceptions.NotFoundException ||
+                // This is used in context where the code cannot throw a checked exception, so FileNotFoundException would need to be wrapped
+                failure.getCause() instanceof FileNotFoundException;
     }
 
     protected static String newTableMetadataFilePath(TableMetadata meta, int newVersion)
