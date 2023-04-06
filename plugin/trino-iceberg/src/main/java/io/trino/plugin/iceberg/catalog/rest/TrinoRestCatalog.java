@@ -56,12 +56,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -283,7 +283,7 @@ public class TrinoRestCatalog
         if (databaseLocation.endsWith("/")) {
             return databaseLocation + tableName;
         }
-        return join("/", databaseLocation, tableName);
+        return appendPath(databaseLocation, tableName);
     }
 
     private String createLocationForTable(String baseTableName)

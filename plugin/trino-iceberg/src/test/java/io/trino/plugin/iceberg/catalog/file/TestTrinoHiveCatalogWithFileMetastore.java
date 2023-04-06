@@ -25,7 +25,6 @@ import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,7 +35,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTrinoHiveCatalogWithFileMetastore
         extends BaseTrinoCatalogTest
@@ -75,21 +73,5 @@ public class TestTrinoHiveCatalogWithFileMetastore
                 useUniqueTableLocations,
                 false,
                 false);
-    }
-
-    @Override
-    @Test
-    public void testCreateNamespaceWithLocation()
-    {
-        assertThatThrownBy(super::testCreateNamespaceWithLocation)
-                .hasMessageContaining("Database cannot be created with a location set");
-    }
-
-    @Override
-    @Test
-    public void testUseUniqueTableLocations()
-    {
-        assertThatThrownBy(super::testCreateNamespaceWithLocation)
-                .hasMessageContaining("Database cannot be created with a location set");
     }
 }
