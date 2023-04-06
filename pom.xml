@@ -1225,6 +1225,13 @@
             </dependency>
 
             <dependency>
+                <!-- pinned for transitive dependencies; TODO: move this to airbase -->
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-xml</artifactId>
+                <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>3.0.5</version>
