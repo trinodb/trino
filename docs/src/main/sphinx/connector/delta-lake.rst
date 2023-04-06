@@ -298,8 +298,8 @@ No other types are supported.
 Security
 --------
 
-The Delta Lake connector allows you to choose one of several means of providing 
-autorization at the catalog level. You can select a different type of 
+The Delta Lake connector allows you to choose one of several means of providing
+autorization at the catalog level. You can select a different type of
 authorization check in different Delta Lake catalog files.
 
 .. _delta-lake-authorization:
