@@ -714,6 +714,16 @@ public final class StringFunctions
     @ScalarFunction("lpad")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.VARCHAR)
+    public static Slice leftPad(@LiteralParameter("x") long x, @SqlType("char(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
+    {
+        text = padSpaces(text, toIntExact(x));
+        return leftPad(text, targetLength, padString);
+    }
+
+    @Description("Pads a string on the left")
+    @ScalarFunction("lpad")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.VARCHAR)
     public static Slice leftPad(@SqlType("varchar(x)") Slice text, @SqlType(StandardTypes.BIGINT) long targetLength, @SqlType("varchar(y)") Slice padString)
     {
         return pad(text, targetLength, padString, 0);
