@@ -52,7 +52,7 @@ public class TestDeltaLakeProceduresCompatibility
             assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
                     .hasMessageMatching(".* Table '.*' does not exist");
             assertQueryFailure(() -> onDelta().executeQuery("SELECT * FROM default." + tableName))
-                    .hasMessageMatching("(?s).* Table or view not found: .*");
+                    .hasMessageMatching("(?s).*(Table or view not found|The table or view .* cannot be found).*");
         }
         finally {
             onTrino().executeQuery("DROP TABLE IF EXISTS delta.default." + tableName);

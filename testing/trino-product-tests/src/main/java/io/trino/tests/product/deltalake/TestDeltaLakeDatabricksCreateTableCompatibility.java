@@ -315,7 +315,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
 
     private String getDatabricksDefaultTableProperties()
     {
-        if (databricksRuntimeVersion.equals(DATABRICKS_113_RUNTIME_VERSION)) {
+        if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
                     "  'delta.minReaderVersion' = '1',\n" +
                     "  'delta.minWriterVersion' = '2')\n";

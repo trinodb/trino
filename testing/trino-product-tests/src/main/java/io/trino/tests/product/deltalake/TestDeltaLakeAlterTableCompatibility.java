@@ -13,9 +13,9 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
+import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
@@ -31,6 +31,7 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_122_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_91_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
@@ -418,7 +419,9 @@ public class TestDeltaLakeAlterTableCompatibility
                     .contains("b BIGINT GENERATED ALWAYS AS IDENTITY");
             onDelta().executeQuery("INSERT INTO default." + tableName + " (a) VALUES (0)");
 
-            List<QueryAssert.Row> expected = ImmutableList.of(row(0, 1));
+            DatabricksVersion databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
+            // Actual value for IDENTITY column varies between Databricks versions
+            QueryAssert.Row expected = databricksRuntimeVersion.isOlderThan(DATABRICKS_122_RUNTIME_VERSION) ? row(0, 1) : row(0, 2);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(expected);
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(expected);
         }
