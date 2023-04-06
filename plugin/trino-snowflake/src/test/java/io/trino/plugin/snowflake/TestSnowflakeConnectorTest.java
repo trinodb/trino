@@ -460,6 +460,7 @@ public class TestSnowflakeConnectorTest
         // Override and skip it because snowflake not support this feature
         assertThatThrownBy(super::testSetColumnOutOfRangeType).isInstanceOf(AssertionError.class);
     }
+
     @Test
     @Override
     public void testCharTrailingSpace()
