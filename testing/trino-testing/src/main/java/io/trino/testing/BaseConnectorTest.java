@@ -815,7 +815,11 @@ public abstract class BaseConnectorTest
         String schemaName = getSession().getSchema().orElseThrow();
         String testView = "test_view_" + randomNameSuffix();
         String testViewWithComment = "test_view_with_comment_" + randomNameSuffix();
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
+                .doesNotContain(testView);
         assertUpdate("CREATE VIEW " + testView + " AS SELECT 123 x");
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
+                .contains(testView);
         assertUpdate("CREATE OR REPLACE VIEW " + testView + " AS " + query);
 
         assertUpdate("CREATE VIEW " + testViewWithComment + " COMMENT 'orders' AS SELECT 123 x");
@@ -951,6 +955,8 @@ public abstract class BaseConnectorTest
                                 "CROSS JOIN UNNEST(ARRAY['orderkey', 'orderstatus', 'half'])");
 
         assertUpdate("DROP VIEW " + testView);
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
+                .doesNotContain(testView);
     }
 
     @Test
@@ -2864,13 +2870,19 @@ public abstract class BaseConnectorTest
             return;
         }
 
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()) // prime the cache, if any
+                .doesNotContain(tableName);
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar(50))");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
+                .contains(tableName);
         assertTableColumnNames(tableName, "a", "b", "c");
         assertNull(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName));
 
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
+                .doesNotContain(tableName);
 
         assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
