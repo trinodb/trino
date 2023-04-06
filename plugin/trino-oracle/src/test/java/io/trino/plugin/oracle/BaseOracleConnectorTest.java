@@ -65,16 +65,12 @@ public abstract class BaseOracleConnectorTest
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
                 return false;
 
             case SUPPORTS_ARRAY:
