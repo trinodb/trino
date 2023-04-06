@@ -18,6 +18,7 @@ import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcProcedureHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -78,6 +79,9 @@ public class SqlServerSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
+        if (table instanceof JdbcProcedureHandle) {
+            return new FixedSplitSource(ImmutableList.of(new JdbcSplit(Optional.empty())));
+        }
         return new FixedSplitSource(listSplits(
                 session,
                 (JdbcTableHandle) table,

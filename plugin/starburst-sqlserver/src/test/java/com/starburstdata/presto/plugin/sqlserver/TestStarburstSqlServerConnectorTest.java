@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
+import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.testing.SessionMutator;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.TestSqlServerConnectorTest;
@@ -30,6 +31,8 @@ public class TestStarburstSqlServerConnectorTest
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
         return StarburstSqlServerQueryRunner.builder(sqlServer)
+                .withConnectorProperties(ImmutableMap.of(
+                        "sqlserver.experimental.stored-procedure-table-function-enabled", "true"))
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

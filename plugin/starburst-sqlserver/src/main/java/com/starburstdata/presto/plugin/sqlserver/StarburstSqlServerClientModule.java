@@ -22,6 +22,7 @@ import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.ptf.Procedure;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.plugin.sqlserver.SqlServerSessionProperties;
@@ -32,6 +33,7 @@ import io.trino.spi.ptf.ConnectorTableFunction;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
@@ -67,5 +69,9 @@ public class StarburstSqlServerClientModule
         @SuppressWarnings("TrinoExperimentalSpi")
         Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
         newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        install(conditionalModule(
+                SqlServerConfig.class,
+                SqlServerConfig::isStoredProcedureTableFunctionEnabled,
+                internalBinder -> newSetBinder(internalBinder, clazz).addBinding().toProvider(Procedure.class).in(Scopes.SINGLETON)));
     }
 }
