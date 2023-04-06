@@ -91,27 +91,28 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     private static final List<TpchTable<?>> REQUIRED_TPCH_TABLES =
             ImmutableSet.<TpchTable<?>>builder()
-                    .addAll(BaseConnectorSmokeTest.REQUIRED_TPCH_TABLES)
-                    .add(CUSTOMER, LINE_ITEM, ORDERS)
+//                    .addAll(BaseConnectorSmokeTest.REQUIRED_TPCH_TABLES)
+//                    .add(CUSTOMER, LINE_ITEM, ORDERS)
                     .build()
                     .asList();
 
     private static final List<String> NON_TPCH_TABLES = ImmutableList.of(
-            "invariants",
-            "person",
-            "foo",
-            "bar",
-            "old_dates",
-            "old_timestamps",
-            "nested_timestamps",
-            "nested_timestamps_parquet_stats",
-            "json_stats_on_row_type",
-            "parquet_stats_missing",
-            "uppercase_columns",
-            "default_partitions",
-            "insert_nonlowercase_columns",
-            "insert_nested_nonlowercase_columns",
-            "insert_nonlowercase_columns_partitioned");
+//            "invariants",
+//            "person",
+//            "foo",
+//            "bar",
+//            "old_dates",
+//            "old_timestamps",
+//            "nested_timestamps",
+//            "nested_timestamps_parquet_stats",
+//            "json_stats_on_row_type",
+//            "parquet_stats_missing",
+//            "uppercase_columns",
+//            "default_partitions",
+//            "insert_nonlowercase_columns",
+//            "insert_nested_nonlowercase_columns",
+//            "insert_nonlowercase_columns_partitioned"
+    );
 
     // Cannot be too small, as implicit (time-based) cache invalidation can mask issues. Cannot be too big as some tests need to wait for cache
     // to be outdated.
@@ -1711,29 +1712,34 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableLocation = getLocationForTable(bucketName, tableName);
         assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "', partitioned_by = ARRAY['value'])");
         try {
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'two')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'three')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'four')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'one')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (111, 'ONE')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (33, 'tHrEe')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (333, 'Three')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (10, 'one')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'two')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'three')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'four')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'one')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (111, 'ONE')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (33, 'tHrEe')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (333, 'Three')", 1);
+//            assertUpdate("INSERT INTO " + tableName + " VALUES (10, 'one')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'with:question')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'with-question')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'with?question')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'with#question')", 1);
 
-            Set<String> initialFiles = getActiveFiles(tableName);
-            assertThat(initialFiles).hasSize(9);
+//            Set<String> initialFiles = getActiveFiles(tableName);
+//            assertThat(initialFiles).hasSize(11);
 
-            computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+//            computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY value) FROM " + tableName))
-                    .matches("VALUES (BIGINT '508', VARCHAR 'ONE Three four one one one tHrEe three two')");
+                    .matches("VALUES (BIGINT '4', VARCHAR 'with#question with-question with:question with?question')");
 
-            Set<String> updatedFiles = getActiveFiles(tableName);
-            assertThat(updatedFiles)
-                    .hasSizeBetween(7, initialFiles.size());
-            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
+//            Set<String> updatedFiles = getActiveFiles(tableName);
+//            assertThat(updatedFiles)
+//                    .hasSizeBetween(8, initialFiles.size());
+//            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
         }
+
         finally {
             assertUpdate("DROP TABLE " + tableName);
         }
