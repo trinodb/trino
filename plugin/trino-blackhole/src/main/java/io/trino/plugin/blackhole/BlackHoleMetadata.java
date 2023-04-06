@@ -58,6 +58,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -154,7 +155,7 @@ public class BlackHoleMetadata
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
         return blackHoleTableHandle.getColumnHandles().stream()
-                .collect(toImmutableMap(BlackHoleColumnHandle::getName, column -> column));
+                .collect(toImmutableMap(BlackHoleColumnHandle::getName, Function.identity()));
     }
 
     @Override
