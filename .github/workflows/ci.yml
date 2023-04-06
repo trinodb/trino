@@ -532,6 +532,7 @@ jobs:
             - { modules: plugin/trino-hive, profile: test-parquet }
             - { modules: plugin/trino-hudi }
             - { modules: plugin/trino-iceberg }
+            - { modules: plugin/trino-iceberg, profile: minio-and-avro }
             - { modules: plugin/trino-iceberg, profile: cloud-tests }
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
