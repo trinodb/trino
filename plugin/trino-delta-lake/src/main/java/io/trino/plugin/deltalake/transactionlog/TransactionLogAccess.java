@@ -47,6 +47,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
@@ -76,7 +77,6 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.isFileNotFoundException;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -175,13 +175,19 @@ public class TransactionLogAccess
         return snapshot;
     }
 
+    public void flushCache()
+    {
+        tableSnapshots.invalidateAll();
+        activeDataFileCache.invalidateAll();
+    }
+
     public void invalidateCaches(String tableLocation)
     {
         tableSnapshots.invalidate(tableLocation);
         activeDataFileCache.invalidate(tableLocation);
     }
 
-    public Optional<MetadataEntry> getMetadataEntry(TableSnapshot tableSnapshot, ConnectorSession session)
+    public MetadataEntry getMetadataEntry(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         if (tableSnapshot.getCachedMetadata().isEmpty()) {
             try (Stream<MetadataEntry> metadataEntries = getEntries(
@@ -195,13 +201,14 @@ public class TransactionLogAccess
                 tableSnapshot.setCachedMetadata(metadataEntries.reduce((first, second) -> second));
             }
         }
-        return tableSnapshot.getCachedMetadata();
+        return tableSnapshot.getCachedMetadata()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
     }
 
     public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         try {
-            String tableLocation = tableSnapshot.getTableLocation().toString();
+            String tableLocation = tableSnapshot.getTableLocation();
             DeltaLakeDataFileCacheEntry cachedTable = activeDataFileCache.get(tableLocation, () -> {
                 List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, session);
                 return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
@@ -415,11 +422,11 @@ public class TransactionLogAccess
                     break;
                 }
             }
+            catch (FileNotFoundException e) {
+                // no longer exists, break iteration
+                return null;
+            }
             catch (IOException e) {
-                if (isFileNotFoundException(e)) {
-                    // no longer exists, break iteration
-                    return null;
-                }
                 throw new UncheckedIOException(e);
             }
             result.add(version);

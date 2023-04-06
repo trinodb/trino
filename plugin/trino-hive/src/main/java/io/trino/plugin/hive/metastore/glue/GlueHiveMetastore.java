@@ -217,14 +217,14 @@ public class GlueHiveMetastore
     }
 
     @VisibleForTesting
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(String defaultWarehouseDir)
+    public static GlueHiveMetastore createTestingGlueHiveMetastore(java.nio.file.Path defaultWarehouseDir)
     {
         HdfsConfig hdfsConfig = new HdfsConfig();
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         GlueMetastoreStats stats = new GlueMetastoreStats();
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
-                .setDefaultWarehouseDir(defaultWarehouseDir);
+                .setDefaultWarehouseDir(defaultWarehouseDir.toUri().toString());
         return new GlueHiveMetastore(
                 hdfsEnvironment,
                 glueConfig,

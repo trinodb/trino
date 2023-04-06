@@ -105,7 +105,12 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.COLOCATED_JOIN;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MAX;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE;
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASKS_COUNT;
 import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
@@ -217,6 +222,7 @@ public abstract class BaseHiveConnectorTest
                         "hive.minimum-assigned-split-weight", "0.5"))
                 .addExtraProperty("legacy.allow-set-view-authorization", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
+                .setTpchBucketedCatalogEnabled(true)
                 .build();
 
         // extra catalog with NANOSECOND timestamp precision
@@ -4162,7 +4168,12 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, String.valueOf(taskMaxScaleWriterCount))
                             // Set the value higher than sf1 input data size such that fault-tolerant scheduler
                             // shouldn't add new task and scaling only happens through the local scaling exchange.
-                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_TARGET_TASK_INPUT_SIZE, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MIN, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE_MAX, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MAX, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE, "2GB")
+                            .setSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE, "2GB")
                             // Set the value of orc strip size low to increase the frequency at which
                             // physicalWrittenDataSize is updated through ConnectorPageSink#getCompletedBytes()
                             .setCatalogSessionProperty(catalog, "orc_optimized_writer_min_stripe_size", "2MB")

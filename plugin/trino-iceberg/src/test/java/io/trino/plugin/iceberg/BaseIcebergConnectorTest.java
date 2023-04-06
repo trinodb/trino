@@ -1634,24 +1634,48 @@ public abstract class BaseIcebergConnectorTest
         // For this reason the source and the copied table will share the same directory.
         // This test does not drop intentionally the created tables to avoid affecting the source table or the information_schema.
         assertUpdate(format("CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = '%s', location = '%s', partitioning = ARRAY['aDate'])", format, tempDirPath));
-        assertEquals(getTablePropertiesString("test_create_table_like_original"), "WITH (\n" +
-                format("   format = '%s',\n", format) +
-                "   format_version = 2,\n" +
-                format("   location = '%s',\n", tempDirPath) +
-                "   partitioning = ARRAY['adate']\n" +
-                ")");
+        assertEquals(
+                getTablePropertiesString("test_create_table_like_original"),
+                format(
+                        """
+                                WITH (
+                                   format = '%s',
+                                   format_version = 2,
+                                   location = '%s',
+                                   partitioning = ARRAY['adate']
+                                )""",
+                        format,
+                        tempDirPath));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
         assertUpdate("INSERT INTO test_create_table_like_copy0 (col1, aDate, col2) VALUES (1, CAST('1950-06-28' AS DATE), 3)", 1);
         assertQuery("SELECT * from test_create_table_like_copy0", "VALUES(1, CAST('1950-06-28' AS DATE), 3)");
 
         assertUpdate("CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy1"), "WITH (\n" +
-                format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, getTableLocation("test_create_table_like_copy1")));
+        assertEquals(
+                getTablePropertiesString("test_create_table_like_copy1"),
+                format(
+                        """
+                                WITH (
+                                   format = '%s',
+                                   format_version = 2,
+                                   location = '%s'
+                                )""",
+                        format,
+                        getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy2"), "WITH (\n" +
-                format("   format = '%s',\n   format_version = 2,\n   location = '%s'\n)", format, getTableLocation("test_create_table_like_copy2")));
+        assertEquals(
+                getTablePropertiesString("test_create_table_like_copy2"),
+                format(
+                        """
+                                WITH (
+                                   format = '%s',
+                                   format_version = 2,
+                                   location = '%s'
+                                )""",
+                        format,
+                        getTableLocation("test_create_table_like_copy2")));
         dropTable("test_create_table_like_copy2");
 
         assertQueryFails("CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
@@ -3198,7 +3222,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertThat(query("SHOW STATS FOR " + tableName))
                 .skippingTypesCheck()
-                .projected(0, 2, 3, 4) // data size, min and max may vary between types
+                .exceptColumns("data_size", "low_value", "high_value") // these may vary between types
                 .matches("VALUES " +
                         "  ('d', 3e0, " + (format == AVRO ? "0.1e0" : "0.25e0") + ", NULL), " +
                         "  (NULL, NULL, NULL, 4e0)");
@@ -6501,33 +6525,6 @@ public abstract class BaseIcebergConnectorTest
         assertThat(e).hasMessageMatching("Schema name must be shorter than or equal to '128' characters but got '129'");
     }
 
-    @Override
-    public void testRenameTableToLongTableName()
-    {
-        // Override because the max name length is different from CREATE TABLE case
-        String sourceTableName = "test_rename_source_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-
-        String baseTableName = "test_rename_target_" + randomNameSuffix();
-
-        String validTargetTableName = baseTableName + "z".repeat(maxTableRenameLength() - baseTableName.length());
-        assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + validTargetTableName);
-        assertTrue(getQueryRunner().tableExists(getSession(), validTargetTableName));
-        assertQuery("SELECT x FROM " + validTargetTableName, "VALUES 123");
-        assertUpdate("DROP TABLE " + validTargetTableName);
-
-        assertUpdate("CREATE TABLE " + sourceTableName + " AS SELECT 123 x", 1);
-        String invalidTargetTableName = validTargetTableName + "z";
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + sourceTableName + " RENAME TO " + invalidTargetTableName))
-                .satisfies(this::verifyTableNameLengthFailurePermissible);
-        assertFalse(getQueryRunner().tableExists(getSession(), invalidTargetTableName));
-    }
-
-    protected int maxTableRenameLength()
-    {
-        return 255;
-    }
-
     @Test
     public void testSnapshotSummariesHaveTrinoQueryIdFormatV1()
     {
@@ -6607,6 +6604,13 @@ public abstract class BaseIcebergConnectorTest
         // The connector appends uuids to the end of all table names
         // 33 is the length of random suffix. e.g. {table name}-142763c594d54e4b9329a98f90528caf
         return OptionalInt.of(255 - 33);
+    }
+
+    @Override
+    protected OptionalInt maxTableRenameLength()
+    {
+        // This value depends on metastore type
+        return OptionalInt.of(255);
     }
 
     @Test

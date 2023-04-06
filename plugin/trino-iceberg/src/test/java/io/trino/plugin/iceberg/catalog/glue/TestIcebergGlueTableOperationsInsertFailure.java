@@ -94,7 +94,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
         Path dataDirectory = Files.createTempDirectory("iceberg_data");
         dataDirectory.toFile().deleteOnExit();
 
-        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory.toString());
+        glueHiveMetastore = createTestingGlueHiveMetastore(dataDirectory);
 
         Database database = Database.builder()
                 .setDatabaseName(schemaName)

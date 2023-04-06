@@ -16,7 +16,6 @@ package io.trino.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongState;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowAndLongStateFactory;
-import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -228,17 +227,17 @@ public class TestDecimalAverageAggregation
 
     private static void addToState(DecimalType type, LongDecimalWithOverflowAndLongState state, BigInteger value)
     {
-        BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(1);
-        type.writeObject(blockBuilder, Int128.valueOf(value));
         if (type.isShort()) {
-            DecimalAverageAggregation.inputShortDecimal(state, blockBuilder.build(), 0);
+            DecimalAverageAggregation.inputShortDecimal(state, Int128.valueOf(value).toLongExact());
         }
         else {
+            BlockBuilder blockBuilder = type.createFixedSizeBlockBuilder(1);
+            type.writeObject(blockBuilder, Int128.valueOf(value));
             DecimalAverageAggregation.inputLongDecimal(state, blockBuilder.build(), 0);
         }
     }
 
-    private Int128 getDecimal(LongDecimalWithOverflowState state)
+    private Int128 getDecimal(LongDecimalWithOverflowAndLongState state)
     {
         long[] decimal = state.getDecimalArray();
         int offset = state.getDecimalArrayOffset();

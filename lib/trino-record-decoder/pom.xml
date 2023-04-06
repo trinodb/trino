@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>411-SNAPSHOT</version>
+        <version>413-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -56,7 +56,12 @@
 
         <dependency>
             <groupId>com.squareup.wire</groupId>
-            <artifactId>wire-schema</artifactId>
+            <artifactId>wire-runtime-jvm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.wire</groupId>
+            <artifactId>wire-schema-jvm</artifactId>
         </dependency>
 
         <dependency>
@@ -83,6 +88,12 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio-jvm</artifactId>
             <scope>runtime</scope>
         </dependency>
 

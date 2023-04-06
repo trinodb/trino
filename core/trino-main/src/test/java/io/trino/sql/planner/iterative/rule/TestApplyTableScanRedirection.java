@@ -41,6 +41,7 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -175,7 +176,7 @@ public class TestApplyTableScanRedirection
             LocalQueryRunner runner = ruleTester.getQueryRunner();
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
-                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
+                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP, createPlanOptimizersStatsCollector()))
                                 .isInstanceOf(TrinoException.class)
                                 .hasMessageMatching("Cast not possible from redirected column test-catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test-catalog.test_schema.test_table.*source_col_a.* with type: varchar");
                     });

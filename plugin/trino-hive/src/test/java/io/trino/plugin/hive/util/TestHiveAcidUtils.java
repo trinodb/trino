@@ -53,6 +53,8 @@ public class TestHiveAcidUtils
                 new MockFile("mock:/tbl/part1/000002_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/random", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/_done", 0, new byte[0]),
+                new MockFile("mock:/tbl/part1/_tmp/000000_0", 0, new byte[0]),
+                new MockFile("mock:/tbl/part1/_tmp/abc/000000_0", 0, new byte[0]),
                 new MockFile("mock:/tbl/part1/subdir/000000_0", 0, new byte[0]));
         AcidUtils.Directory dir = AcidUtils.getAcidState(
                 new MockPath(fs, "/tbl/part1"),
@@ -83,6 +85,8 @@ public class TestHiveAcidUtils
                 new MockFile("mock:/tbl/part1/000002_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/random", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/_done", 0, new byte[0]),
+                new MockFile("mock:/tbl/part1/_tmp/000000_0", 0, new byte[0]),
+                new MockFile("mock:/tbl/part1/_tmp/delta_025_025/000000_0", 0, new byte[0]),
                 new MockFile("mock:/tbl/part1/subdir/000000_0", 0, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_025_025/bucket_0", 0, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_029_029/bucket_0", 0, new byte[0]),
@@ -123,6 +127,8 @@ public class TestHiveAcidUtils
     {
         Configuration conf = newEmptyConfiguration();
         MockFileSystem fs = new MockFileSystem(conf,
+                new MockFile("mock:/tbl/part1/_tmp/bucket_0", 0, new byte[0]),
+                new MockFile("mock:/tbl/part1/_tmp/base_5/bucket_0", 0, new byte[0]),
                 new MockFile("mock:/tbl/part1/base_5/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/base_10/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/base_49/bucket_0", 500, new byte[0]),

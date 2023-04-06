@@ -22,8 +22,8 @@ env:
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
-  MAVEN_COMPILE_COMMITS: "-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
+  MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
+  MAVEN_COMPILE_COMMITS: "-B --strict-checksums --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
   MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   MAVEN_TEST: "-B --strict-checksums -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
@@ -57,6 +57,7 @@ jobs:
       matrix:
         java-version:
           - 17
+          - 20
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v3
@@ -72,7 +73,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install -B --strict-checksums -V -T C1 -DskipTests -P ci -pl '!:trino-server-rpm'
+          $MAVEN clean install -B --strict-checksums -V -T 1C -DskipTests -P ci -pl '!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -161,9 +162,9 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
-          $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler -am -pl ':trino-spi'
+          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests -P gib,errorprone-compiler -am -pl ':trino-spi'
           # The main Error Prone run
-          $MAVEN ${MAVEN_TEST} -T C1 clean verify -DskipTests -P gib,errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T 1C clean verify -DskipTests -P gib,errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
       - name: Clean local Maven repo
         # Avoid creating a cache entry because this job doesn't download all dependencies
@@ -511,6 +512,7 @@ jobs:
             - { modules: [ client/trino-jdbc, plugin/trino-base-jdbc, plugin/trino-thrift, plugin/trino-memory ] }
             - { modules: core/trino-main }
             - { modules: core/trino-main, jdk: 19 }
+            - { modules: core/trino-main, jdk: 20 }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
@@ -925,7 +927,7 @@ jobs:
               suite: suite-hms-only
             # this suite is not meant to be run with different configs
             - config: default
-              suite: suite-all
+              suite: suite-all-connectors-smoke
             # this suite is not meant to be run with different configs
             - config: default
               suite: suite-delta-lake-oss

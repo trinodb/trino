@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
@@ -40,12 +41,14 @@ public class GlobalSystemConnector
 
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
+    private final Set<ConnectorTableFunction> tableFunctions;
 
     @Inject
-    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures)
+    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions)
     {
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
     }
 
     @Override
@@ -70,5 +73,11 @@ public class GlobalSystemConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return tableFunctions;
     }
 }

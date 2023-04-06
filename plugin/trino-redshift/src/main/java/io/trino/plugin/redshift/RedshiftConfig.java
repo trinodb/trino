@@ -17,7 +17,22 @@ import io.airlift.configuration.Config;
 
 public class RedshiftConfig
 {
+    private boolean disableAutomaticFetchSize;
     private boolean legacyTypeMapping;
+
+    @Deprecated
+    public boolean isDisableAutomaticFetchSize()
+    {
+        return disableAutomaticFetchSize;
+    }
+
+    @Deprecated // TODO temporary kill-switch, to be removed
+    @Config("redshift.disable-automatic-fetch-size")
+    public RedshiftConfig setDisableAutomaticFetchSize(boolean disableAutomaticFetchSize)
+    {
+        this.disableAutomaticFetchSize = disableAutomaticFetchSize;
+        return this;
+    }
 
     public boolean isLegacyTypeMapping()
     {

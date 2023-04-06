@@ -23,7 +23,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,8 +34,10 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 
 public class TestDeltaLakeBasic
@@ -116,22 +118,81 @@ public class TestDeltaLakeBasic
     }
 
     @Test
-    public void testDropTableBadLocation()
-            throws IOException, URISyntaxException
+    public void testCorruptedManagedTableLocation()
+            throws Exception
+    {
+        String tableName = "bad_person_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id, 'person1' name", 1);
+        String tableLocation = (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
+        testCorruptedTableLocation(tableName, Path.of(URI.create(tableLocation)), true);
+    }
+
+    @Test
+    public void testCorruptedExternalTableLocation()
+            throws Exception
     {
         // create a bad_person table which is based on person table in temporary location
-        String tableName = "bad_person";
-        Path tableLocation = Files.createTempFile("bad_person", null);
+        String tableName = "bad_person_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
         copyDirectoryContents(Path.of(getTableLocation("person").toURI()), tableLocation);
         getQueryRunner().execute(
                 format("CALL system.register_table('%s', '%s', '%s')", getSession().getSchema().orElseThrow(), tableName, tableLocation));
+        testCorruptedTableLocation(tableName, tableLocation, false);
+    }
 
-        // break the table by deleting all its files including transaction log
-        deleteRecursively(tableLocation, ALLOW_INSECURE);
+    private void testCorruptedTableLocation(String tableName, Path tableLocation, boolean isManaged)
+            throws Exception
+    {
+        Path transactionLogDirectory = tableLocation.resolve("_delta_log");
 
-        // try to drop table
+        // break the table by deleting all its files under transaction log
+        deleteRecursively(transactionLogDirectory, ALLOW_INSECURE);
+
+        // Flush the metadata cache before verifying operations on the table
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
+
+        // Assert queries fail cleanly
+        assertQueryFails("TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("SELECT * FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("SELECT 1 FROM " + tableName + " WHERE false", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("SHOW CREATE TABLE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("CREATE TABLE a_new_table (LIKE " + tableName + " EXCLUDING PROPERTIES)", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("DESCRIBE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("SHOW COLUMNS FROM " + tableName, "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("SHOW STATS FOR " + tableName, "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ANALYZE " + tableName, "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE optimize", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE vacuum", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " RENAME TO bad_person_some_new_name", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN foo int", "Metadata not found in transaction log for tpch." + tableName);
+        // TODO (https://github.com/trinodb/trino/issues/16248) ADD field
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN foo.bar", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("INSERT INTO " + tableName + " VALUES (NULL)", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("UPDATE " + tableName + " SET foo = 'bar'", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("DELETE FROM " + tableName, "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("MERGE INTO  " + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("TRUNCATE TABLE " + tableName, "This connector does not support truncating tables");
+        assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", "Metadata not found in transaction log for tpch." + tableName);
+        assertQueryFails("CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '7d')", "Metadata not found in transaction log for tpch." + tableName);
+        assertQuerySucceeds("CALL system.drop_extended_stats(CURRENT_SCHEMA, '" + tableName + "')");
+
+        // Avoid failing metadata queries
+        assertQuery("SHOW TABLES LIKE 'bad\\_person\\_%' ESCAPE '\\'", "VALUES '" + tableName + "'");
+        assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'bad\\_person\\_%' ESCAPE '\\'");
+        assertQueryReturnsEmptyResult("SELECT column_name, data_type FROM system.jdbc.columns WHERE table_cat = CURRENT_CATALOG AND table_schem = CURRENT_SCHEMA AND table_name LIKE 'bad\\_person\\_%' ESCAPE '\\'");
+
+        // DROP TABLE should succeed so that users can remove their corrupted table
         getQueryRunner().execute("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        if (isManaged) {
+            assertThat(tableLocation.toFile()).doesNotExist().as("Table location should not exist");
+        }
+        else {
+            assertThat(tableLocation.toFile()).exists().as("Table location should exist");
+        }
     }
 
     private void copyDirectoryContents(Path source, Path destination)

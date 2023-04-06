@@ -149,6 +149,7 @@ import io.trino.operator.window.pattern.MeasureComputation.MeasureComputationSup
 import io.trino.operator.window.pattern.PhysicalValueAccessor;
 import io.trino.operator.window.pattern.PhysicalValuePointer;
 import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
+import io.trino.plugin.base.MappedRecordSet;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -172,7 +173,6 @@ import io.trino.spi.type.Type;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.spiller.SpillerFactory;
-import io.trino.split.MappedRecordSet;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.DynamicFilters;
@@ -1677,7 +1677,7 @@ public class LocalExecutionPlanner
                 OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(
                         context.getNextOperatorId(),
                         node.getId(),
-                        node.getFunctionCatalog(),
+                        node.getHandle().getCatalogHandle(),
                         processorProvider,
                         node.getHandle().getFunctionHandle());
                 return new PhysicalOperation(operatorFactory, makeLayout(node), context);

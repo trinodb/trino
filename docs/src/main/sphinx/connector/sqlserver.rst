@@ -367,6 +367,50 @@ nations by population::
         )
       );
 
+.. _sqlserver-procedure-function:
+
+``procedure(varchar) -> table``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``procedure`` function allows you to run stored procedures on the underlying
+database directly. It requires syntax native to SQL Server, because the full query
+is pushed down and processed in SQL Server. In order to use this table function set
+``sqlserver.experimental.stored-procedure-table-function-enabled`` to ``true``.
+
+.. note::
+
+    The ``procedure`` function does not support running StoredProcedures that return multiple statements,
+    use a non-select statement, use output parameters, or use conditional statements.
+
+.. warning::
+
+    This feature is experimental only. The function has security implication and syntax might change and
+    be backward incompatible.
+
+
+The follow example runs the stored procedure ``employee_sp`` in the ``example`` catalog and the
+``example_schema`` schema in the underlying SQL Server database::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.procedure(
+          query => 'EXECUTE example_schema.employee_sp'
+        )
+      );
+
+If the stored procedure ``employee_sp`` requires any input
+append the parameter value to the procedure statement::
+
+    SELECT
+      *
+    FROM
+      TABLE(
+        example.system.procedure(
+          query => 'EXECUTE example_schema.employee_sp 0'
+        )
+      );
 
 Performance
 -----------
@@ -436,7 +480,22 @@ The connector supports pushdown for a number of operations:
 
 .. include:: join-pushdown-enabled-true.fragment
 
-.. include:: no-pushdown-text-type.fragment
+Predicate pushdown support
+""""""""""""""""""""""""""
+
+The connector supports pushdown of predicates on ``VARCHAR`` and ``NVARCHAR``
+columns if the underlying columns in SQL Server use a case-sensitive `collation
+<https://learn.microsoft.com/en-us/sql/relational-databases/collations/collation-and-unicode-support?view=sql-server-ver16>`_.
+
+The following operators are pushed down:
+
+- ``=``
+- ``<>``
+- ``IN``
+- ``NOT IN``
+
+To ensure correct results, operators are not pushed down for columns using a
+case-insensitive collation.
 
 .. _sqlserver-bulk-insert:
 

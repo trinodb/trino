@@ -38,8 +38,13 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public interface EnvironmentListener
+        extends ContainerListener
 {
     Logger log = Logger.get(EnvironmentListener.class);
+
+    EnvironmentListener NOOP = new EnvironmentListener()
+    {
+    };
 
     default void environmentStarting(Environment environment)
     {
@@ -54,22 +59,6 @@ public interface EnvironmentListener
     }
 
     default void environmentStopping(Environment environment)
-    {
-    }
-
-    default void containerStarting(DockerContainer container, InspectContainerResponse response)
-    {
-    }
-
-    default void containerStarted(DockerContainer container, InspectContainerResponse containerInfo)
-    {
-    }
-
-    default void containerStopping(DockerContainer container, InspectContainerResponse response)
-    {
-    }
-
-    default void containerStopped(DockerContainer container, InspectContainerResponse response)
     {
     }
 

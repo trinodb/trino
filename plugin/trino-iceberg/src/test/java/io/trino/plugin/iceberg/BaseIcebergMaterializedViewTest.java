@@ -25,6 +25,7 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.assertj.core.api.Condition;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -66,14 +67,15 @@ public abstract class BaseIcebergMaterializedViewTest
         assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
         assertQuery("SELECT count(*) FROM base_table2", "VALUES 3");
+
+        assertUpdate("CREATE SCHEMA " + storageSchemaName);
     }
 
     @Test
     public void testShowTables()
     {
-        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_show_tables_test AS SELECT * FROM base_table1");
-        SchemaTableName storageTableName = getStorageTable("iceberg", schema, "materialized_view_show_tables_test");
+        SchemaTableName storageTableName = getStorageTable("materialized_view_show_tables_test");
 
         Set<String> expectedTables = ImmutableSet.of("base_table1", "base_table2", "materialized_view_show_tables_test", storageTableName.getTableName());
         Set<String> actualTables = computeActual("SHOW TABLES").getOnlyColumnAsSet().stream()
@@ -259,9 +261,8 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testRefreshAllowedWithRestrictedStorageTable()
     {
-        String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE MATERIALIZED VIEW materialized_view_refresh AS SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable("iceberg", schema, "materialized_view_refresh");
+        SchemaTableName storageTable = getStorageTable("materialized_view_refresh");
 
         assertAccessAllowed(
                 "REFRESH MATERIALIZED VIEW materialized_view_refresh",
@@ -554,15 +555,13 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testStorageSchemaProperty()
     {
-        String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String viewName = "storage_schema_property_test";
-        assertUpdate("CREATE SCHEMA IF NOT EXISTS " + catalogName + "." + storageSchemaName);
         assertUpdate(
                 "CREATE MATERIALIZED VIEW " + viewName + " " +
                         "WITH (storage_schema = '" + storageSchemaName + "') AS " +
                         "SELECT * FROM base_table1");
-        SchemaTableName storageTable = getStorageTable(catalogName, schemaName, viewName);
+        SchemaTableName storageTable = getStorageTable(viewName);
         assertThat(storageTable.getSchemaName()).isEqualTo(storageSchemaName);
 
         assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
@@ -594,13 +593,134 @@ public abstract class BaseIcebergMaterializedViewTest
                 .hasMessageContaining(format("'iceberg.%s.%s' does not exist", schemaName, viewName));
     }
 
-    private SchemaTableName getStorageTable(String catalogName, String schemaName, String objectName)
+    @Test(dataProvider = "testBucketPartitioningDataProvider")
+    public void testBucketPartitioning(String dataType, String exampleValue)
+    {
+        // validate the example value type
+        assertThat(query("SELECT " + exampleValue))
+                .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_bucket_partitioning WITH (partitioning=ARRAY['bucket(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+                .formatted(dataType, exampleValue));
+        try {
+            SchemaTableName storageTable = getStorageTable("test_bucket_partitioning");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
+                    .contains("partitioning = ARRAY['bucket(col, 4)']");
+
+            assertThat(query("SELECT * FROM test_bucket_partitioning WHERE col = " + exampleValue))
+                    .matches("SELECT " + exampleValue);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW test_bucket_partitioning");
+        }
+    }
+
+    @DataProvider
+    public Object[][] testBucketPartitioningDataProvider()
+    {
+        // Iceberg supports bucket partitioning on int, long, decimal, date, time, timestamp, timestamptz, string, uuid, fixed, binary
+        return new Object[][] {
+                {"integer", "20050909"},
+                {"bigint", "200509091331001234"},
+                {"decimal(8,5)", "DECIMAL '876.54321'"},
+                {"decimal(28,21)", "DECIMAL '1234567.890123456789012345678'"},
+                {"date", "DATE '2005-09-09'"},
+                {"time(6)", "TIME '13:31:00.123456'"},
+                {"timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+                {"varchar", "VARCHAR 'Greetings from Warsaw!'"},
+                {"uuid", "UUID '406caec7-68b9-4778-81b2-a12ece70c8b1'"},
+                {"varbinary", "X'66696E6465706920726F636B7321'"},
+        };
+    }
+
+    @Test(dataProvider = "testTruncatePartitioningDataProvider")
+    public void testTruncatePartitioning(String dataType, String exampleValue)
+    {
+        // validate the example value type
+        assertThat(query("SELECT " + exampleValue))
+                .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_truncate_partitioning WITH (partitioning=ARRAY['truncate(col, 4)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+                .formatted(dataType, exampleValue));
+        try {
+            SchemaTableName storageTable = getStorageTable("test_truncate_partitioning");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
+                    .contains("partitioning = ARRAY['truncate(col, 4)']");
+
+            assertThat(query("SELECT * FROM test_truncate_partitioning WHERE col = " + exampleValue))
+                    .matches("SELECT " + exampleValue);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW test_truncate_partitioning");
+        }
+    }
+
+    @DataProvider
+    public Object[][] testTruncatePartitioningDataProvider()
+    {
+        // Iceberg supports truncate partitioning on int, long, decimal, string
+        return new Object[][] {
+                {"integer", "20050909"},
+                {"bigint", "200509091331001234"},
+                {"decimal(8,5)", "DECIMAL '876.54321'"},
+                {"decimal(28,21)", "DECIMAL '1234567.890123456789012345678'"},
+                {"varchar", "VARCHAR 'Greetings from Warsaw!'"},
+        };
+    }
+
+    @Test(dataProvider = "testTemporalPartitioningDataProvider")
+    public void testTemporalPartitioning(String partitioning, String dataType, String exampleValue)
+    {
+        // validate the example value type
+        assertThat(query("SELECT " + exampleValue))
+                .matches("SELECT CAST(%s AS %S)".formatted(exampleValue, dataType));
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_temporal_partitioning WITH (partitioning=ARRAY['%s(col)']) AS SELECT * FROM (VALUES CAST(NULL AS %s), %s) t(col)"
+                .formatted(partitioning, dataType, exampleValue));
+        try {
+            SchemaTableName storageTable = getStorageTable("test_temporal_partitioning");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + storageTable))
+                    .contains("partitioning = ARRAY['%s(col)']".formatted(partitioning));
+
+            assertThat(query("SELECT * FROM test_temporal_partitioning WHERE col = " + exampleValue))
+                    .matches("SELECT " + exampleValue);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW test_temporal_partitioning");
+        }
+    }
+
+    @DataProvider
+    public Object[][] testTemporalPartitioningDataProvider()
+    {
+        return new Object[][] {
+                {"year", "date", "DATE '2005-09-09'"},
+                {"year", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"year", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+                {"month", "date", "DATE '2005-09-09'"},
+                {"month", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"month", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+                {"day", "date", "DATE '2005-09-09'"},
+                {"day", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"day", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+                {"hour", "timestamp(6)", "TIMESTAMP '2005-09-10 13:31:00.123456'"},
+                {"hour", "timestamp(6) with time zone", "TIMESTAMP '2005-09-10 13:00:00.123456 Europe/Warsaw'"},
+        };
+    }
+
+    private SchemaTableName getStorageTable(String materializedViewName)
+    {
+        return getStorageTable(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), materializedViewName);
+    }
+
+    private SchemaTableName getStorageTable(String catalogName, String schemaName, String materializedViewName)
     {
         TransactionManager transactionManager = getQueryRunner().getTransactionManager();
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Session session = getSession().beginTransactionId(transactionId, transactionManager, getQueryRunner().getAccessControl());
         Optional<MaterializedViewDefinition> materializedView = getQueryRunner().getMetadata()
-                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, objectName));
+                .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, materializedViewName));
         assertThat(materializedView).isPresent();
         return materializedView.get().getStorageTable().get().getSchemaTableName();
     }

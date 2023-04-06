@@ -101,7 +101,12 @@ public class MaterializedResult
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableList.of(), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(rows, types, Optional.empty());
+    }
+
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames)
+    {
+        this(rows, types, columnNames.orElse(ImmutableList.of()), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
@@ -457,6 +462,7 @@ public class MaterializedResult
         private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+        private Optional<List<String>> columnNames = Optional.empty();
 
         Builder(ConnectorSession session, List<Type> types)
         {
@@ -512,9 +518,15 @@ public class MaterializedResult
             return this;
         }
 
+        public synchronized Builder columnNames(List<String> columnNames)
+        {
+            this.columnNames = Optional.of(ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null")));
+            return this;
+        }
+
         public synchronized MaterializedResult build()
         {
-            return new MaterializedResult(rows.build(), types);
+            return new MaterializedResult(rows.build(), types, columnNames);
         }
     }
 }

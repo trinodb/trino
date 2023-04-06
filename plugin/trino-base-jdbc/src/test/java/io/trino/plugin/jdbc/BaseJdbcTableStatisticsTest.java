@@ -145,7 +145,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('nationkey', 5e0, 0e0, null)," +
@@ -161,7 +161,7 @@ public abstract class BaseJdbcTableStatisticsTest
         // Predicate on a varchar column. May or may not be pushed down, may or may not be subsumed.
         assertThat(query("SHOW STATS FOR (SELECT * FROM nation WHERE name = 'PERU')"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('nationkey', 1e0, 0e0, null)," +
@@ -178,7 +178,7 @@ public abstract class BaseJdbcTableStatisticsTest
             gatherStats(table.getName());
 
             assertThat(query("SHOW STATS FOR (SELECT * FROM " + table.getName() + " WHERE fl = 'B')"))
-                    .projected(0, 2, 3, 4)
+                    .exceptColumns("data_size", "low_value", "high_value")
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "('nationkey', 5e0, 0e0, null)," +
@@ -205,7 +205,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query(session, "SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('nationkey', 25e0, 0e0, null)," +
@@ -227,7 +227,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('regionkey', 2e0, 0e0, null)," +
@@ -247,7 +247,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('regionkey', 2e0, 0e0, null)," +
@@ -266,7 +266,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('regionkey', 5e0, 0e0, null)," +
@@ -285,7 +285,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('regionkey', 3e0, 0e0, null)," +
@@ -303,7 +303,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('regionkey', 5e0, 0e0, null)," +
@@ -323,7 +323,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('n_name', 5e0, 0e0, null)," +
@@ -341,7 +341,7 @@ public abstract class BaseJdbcTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('regionkey', 1e0, 0e0, null)," +

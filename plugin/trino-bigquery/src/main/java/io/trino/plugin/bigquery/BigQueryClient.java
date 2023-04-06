@@ -53,6 +53,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static com.google.cloud.bigquery.JobStatistics.QueryStatistics.StatementType.SELECT;
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
+import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -74,6 +77,8 @@ import static java.util.stream.Collectors.joining;
 public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
+
+    static final Set<TableDefinition.Type> TABLE_TYPES = ImmutableSet.of(TABLE, VIEW, MATERIALIZED_VIEW, EXTERNAL, SNAPSHOT);
 
     private final BigQuery bigQuery;
     private final ViewMaterializationCache materializationCache;
@@ -126,7 +131,7 @@ public class BigQueryClient
 
     public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName)
     {
-        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> listTables(DatasetId.of(projectId, remoteDatasetName), TABLE, VIEW));
+        return toRemoteTable(projectId, remoteDatasetName, tableName, () -> listTables(DatasetId.of(projectId, remoteDatasetName)));
     }
 
     public Optional<RemoteDatabaseObject> toRemoteTable(String projectId, String remoteDatasetName, String tableName, Iterable<Table> tables)
@@ -223,12 +228,11 @@ public class BigQueryClient
                 .collect(toImmutableList());
     }
 
-    public Iterable<Table> listTables(DatasetId remoteDatasetId, TableDefinition.Type... types)
+    public Iterable<Table> listTables(DatasetId remoteDatasetId)
     {
-        Set<TableDefinition.Type> allowedTypes = ImmutableSet.copyOf(types);
         Iterable<Table> allTables = bigQuery.listTables(remoteDatasetId).iterateAll();
         return stream(allTables)
-                .filter(table -> allowedTypes.contains(table.getDefinition().getType()))
+                .filter(table -> TABLE_TYPES.contains(table.getDefinition().getType()))
                 .collect(toImmutableList());
     }
 

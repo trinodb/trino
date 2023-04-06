@@ -93,7 +93,7 @@ public class MinioStorage
                 .put("exchange.s3.aws-secret-key", MinioStorage.SECRET_KEY)
                 .put("exchange.s3.region", "us-east-1")
                 .put("exchange.s3.endpoint", "http://" + minioStorage.getMinio().getMinioApiEndpoint())
-                // create more granular source handles given the fault-tolerant-execution-target-task-input-size is set to lower value for testing
+                // create more granular source handles given the fault-tolerant execution target task input size is set to lower value for testing
                 .put("exchange.source-handle-target-data-size", "1MB")
                 .buildOrThrow();
     }

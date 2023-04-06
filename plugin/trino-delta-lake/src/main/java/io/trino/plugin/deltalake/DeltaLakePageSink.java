@@ -19,6 +19,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
 
@@ -28,6 +29,7 @@ public class DeltaLakePageSink
         extends AbstractDeltaLakePageSink
 {
     public DeltaLakePageSink(
+            TypeOperators typeOperators,
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
@@ -40,6 +42,7 @@ public class DeltaLakePageSink
             String trinoVersion)
     {
         super(
+                typeOperators,
                 inputColumns,
                 originalPartitionColumns,
                 pageIndexerFactory,

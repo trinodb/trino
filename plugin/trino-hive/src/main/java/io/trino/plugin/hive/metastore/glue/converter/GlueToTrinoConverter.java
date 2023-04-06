@@ -31,6 +31,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
@@ -92,10 +93,12 @@ public final class GlueToTrinoConverter
 
     public static Table convertTable(com.amazonaws.services.glue.model.Table glueTable, String dbName)
     {
+        SchemaTableName table = new SchemaTableName(dbName, glueTable.getName());
+
         Map<String, String> tableParameters = convertParameters(glueTable.getParameters());
         Table.Builder tableBuilder = Table.builder()
-                .setDatabaseName(dbName)
-                .setTableName(glueTable.getName())
+                .setDatabaseName(table.getSchemaName())
+                .setTableName(table.getTableName())
                 .setOwner(Optional.ofNullable(glueTable.getOwner()))
                 .setTableType(getTableType(glueTable))
                 .setParameters(tableParameters)
@@ -112,11 +115,11 @@ public final class GlueToTrinoConverter
         }
         else {
             if (sd == null) {
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
+                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Table StorageDescriptor is null for table '%s' %s".formatted(table, glueTable));
             }
-            tableBuilder.setDataColumns(convertColumns(sd.getColumns(), sd.getSerdeInfo().getSerializationLibrary()));
+            tableBuilder.setDataColumns(convertColumns(table, sd.getColumns(), sd.getSerdeInfo().getSerializationLibrary()));
             if (glueTable.getPartitionKeys() != null) {
-                tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys(), sd.getSerdeInfo().getSerializationLibrary()));
+                tableBuilder.setPartitionColumns(convertColumns(table, glueTable.getPartitionKeys(), sd.getSerdeInfo().getSerializationLibrary()));
             }
             else {
                 tableBuilder.setPartitionColumns(ImmutableList.of());
@@ -128,7 +131,7 @@ public final class GlueToTrinoConverter
         return tableBuilder.build();
     }
 
-    private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn, String serde)
+    private static Column convertColumn(SchemaTableName table, com.amazonaws.services.glue.model.Column glueColumn, String serde)
     {
         // OpenCSVSerde deserializes columns from csv file into strings, so we set the column type from the metastore
         // to string to avoid cast exceptions.
@@ -136,12 +139,22 @@ public final class GlueToTrinoConverter
             //TODO(https://github.com/trinodb/trino/issues/7240) Add tests
             return new Column(glueColumn.getName(), HiveType.HIVE_STRING, Optional.ofNullable(glueColumn.getComment()));
         }
-        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
+        return new Column(glueColumn.getName(), convertType(table, glueColumn), Optional.ofNullable(glueColumn.getComment()));
     }
 
-    private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns, String serde)
+    private static HiveType convertType(SchemaTableName table, com.amazonaws.services.glue.model.Column column)
     {
-        return mappedCopy(glueColumns, glueColumn -> convertColumn(glueColumn, serde));
+        try {
+            return HiveType.valueOf(column.getType().toLowerCase(Locale.ENGLISH));
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Glue table '%s' column '%s' has invalid data type: %s".formatted(table, column.getName(), column.getType()));
+        }
+    }
+
+    private static List<Column> convertColumns(SchemaTableName table, List<com.amazonaws.services.glue.model.Column> glueColumns, String serde)
+    {
+        return mappedCopy(glueColumns, glueColumn -> convertColumn(table, glueColumn, serde));
     }
 
     private static Map<String, String> convertParameters(Map<String, String> parameters)
@@ -178,7 +191,9 @@ public final class GlueToTrinoConverter
             this.databaseName = requireNonNull(table.getDatabaseName(), "databaseName is null");
             this.tableName = requireNonNull(table.getTableName(), "tableName is null");
             this.tableParameters = convertParameters(table.getParameters());
-            this.columnsConverter = memoizeLast(glueColumns -> convertColumns(glueColumns,
+            this.columnsConverter = memoizeLast(glueColumns -> convertColumns(
+                    table.getSchemaTableName(),
+                    glueColumns,
                     table.getStorage().getStorageFormat().getSerde()));
         }
 

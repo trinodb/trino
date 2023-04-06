@@ -317,7 +317,8 @@ public class MigrateProcedure
         ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
         while (files.hasNext()) {
             FileEntry file = files.next();
-            if (file.location().contains("/_") || file.location().contains("/.")) {
+            String relativePath = file.location().substring(location.length());
+            if (relativePath.contains("/_") || relativePath.contains("/.")) {
                 continue;
             }
             if (recursive == RecursiveDirectory.FALSE && isRecursive(location, file.location())) {

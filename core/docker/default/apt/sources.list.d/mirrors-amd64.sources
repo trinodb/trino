@@ -1,0 +1,6 @@
+Enabled: yes
+Types: deb
+URIs: https://mirrors.ocf.berkeley.edu/ubuntu/ https://mirror.kumi.systems/ubuntu/
+Suites: ${UBUNTU_CODENAME} ${UBUNTU_CODENAME}-updates ${UBUNTU_CODENAME}-backports ${UBUNTU_CODENAME}-security
+Components: main restricted universe multiverse
+Architectures: amd64

@@ -99,7 +99,7 @@ public class TestIcebergProcedureCalls
         onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
     }
 
-    @Test
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testMigrateHiveBucketedOnMultipleColumns()
     {
         String tableName = "test_migrate_bucketed_" + randomNameSuffix();

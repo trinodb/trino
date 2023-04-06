@@ -30,7 +30,7 @@ public class JdbcPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final JdbcClient jdbcClient;
-    private RemoteQueryModifier queryModifier;
+    private final RemoteQueryModifier queryModifier;
 
     @Inject
     public JdbcPageSinkProvider(JdbcClient jdbcClient, RemoteQueryModifier remoteQueryModifier)

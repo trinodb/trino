@@ -75,6 +75,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -594,7 +595,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query, createParsingOptions(transactionSession)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query, createParsingOptions(transactionSession)), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
@@ -604,7 +605,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 

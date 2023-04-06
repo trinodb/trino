@@ -17,10 +17,10 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
+import io.trino.filesystem.TrackingFileSystemFactory;
+import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationContext;
-import io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType;
 import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -30,12 +30,15 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
+import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_LOCATION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
@@ -45,11 +48,6 @@ import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.STATS;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.fromFilePath;
-import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
-import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
-import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE;
-import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_CREATE_OR_OVERWRITE;
-import static io.trino.plugin.iceberg.TrackingFileSystemFactory.OperationType.OUTPUT_FILE_LOCATION;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -460,7 +458,9 @@ public class TestIcebergMetadataFileOperations
     {
         return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
-                .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(entry.getKey())).stream())
+                .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
+                        fromFilePath(entry.getKey().getFilePath()),
+                        entry.getKey().getOperationType())).stream())
                 .collect(toCollection(HashMultiset::create));
     }
 
@@ -477,54 +477,12 @@ public class TestIcebergMetadataFileOperations
                 .build();
     }
 
-    static class FileOperation
+    private record FileOperation(FileType fileType, OperationType operationType)
     {
-        private final FileType fileType;
-        private final OperationType operationType;
-
-        public FileOperation(OperationContext operationContext)
+        public FileOperation
         {
-            this(fromFilePath(operationContext.getFilePath()), operationContext.getOperationType());
-        }
-
-        public FileOperation(FileType fileType, OperationType operationType)
-        {
-            this.fileType = requireNonNull(fileType, "fileType is null");
-            this.operationType = requireNonNull(operationType, "operationType is null");
-        }
-
-        public FileType fileType()
-        {
-            return fileType;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            FileOperation that = (FileOperation) o;
-            return fileType == that.fileType &&
-                    operationType == that.operationType;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(fileType, operationType);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("fileType", fileType)
-                    .add("operationType", operationType)
-                    .toString();
+            requireNonNull(fileType, "fileType is null");
+            requireNonNull(operationType, "operationType is null");
         }
     }
 

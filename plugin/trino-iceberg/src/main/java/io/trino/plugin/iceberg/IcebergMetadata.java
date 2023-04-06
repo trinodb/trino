@@ -363,11 +363,10 @@ public class IcebergMetadata
             // Pretend the table does not exist to produce better error message in case of table redirects to Hive
             return null;
         }
-        IcebergTableName name = IcebergTableName.from(tableName.getTableName());
 
         BaseTable table;
         try {
-            table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name.getTableName()));
+            table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()));
         }
         catch (TableNotFoundException e) {
             return null;
@@ -392,8 +391,8 @@ public class IcebergMetadata
         String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
-                name.getTableName(),
-                name.getTableType(),
+                tableName.getTableName(),
+                DATA,
                 tableSnapshotId,
                 SchemaParser.toJson(tableSchema),
                 table.sortOrder().fields().stream()
@@ -408,7 +407,6 @@ public class IcebergMetadata
                 table.location(),
                 table.properties(),
                 NO_RETRIES,
-                ImmutableList.of(),
                 false,
                 Optional.empty());
     }
@@ -476,10 +474,9 @@ public class IcebergMetadata
         if (tableType.isEmpty()) {
             return Optional.empty();
         }
-        IcebergTableName icebergTableName = new IcebergTableName(name, tableType.get());
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), icebergTableName.getTableNameWithType());
-        return switch (icebergTableName.getTableType()) {
-            case DATA -> Optional.empty(); // Handled above.
+        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), IcebergTableName.tableNameWithType(name, tableType.get()));
+        return switch (tableType.get()) {
+            case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS -> Optional.of(new PartitionTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
@@ -777,7 +774,7 @@ public class IcebergMetadata
                 .distinct()
                 .collect(toImmutableList());
         List<String> partitioningColumnNames = partitioningColumns.stream()
-                .map(IcebergColumnHandle::getName)
+                .map(column -> column.getName().toLowerCase(ENGLISH))
                 .collect(toImmutableList());
 
         if (!forceRepartitioning && partitionSpec.fields().stream().allMatch(field -> field.transform().isIdentity())) {
@@ -2328,7 +2325,6 @@ public class IcebergMetadata
                         table.getTableLocation(),
                         table.getStorageProperties(),
                         table.getRetryMode(),
-                        table.getUpdatedColumns(),
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
@@ -2457,7 +2453,6 @@ public class IcebergMetadata
         IcebergTableHandle originalHandle = (IcebergTableHandle) tableHandle;
         // Certain table handle attributes are not applicable to select queries (which need stats).
         // If this changes, the caching logic may here may need to be revised.
-        checkArgument(originalHandle.getUpdatedColumns().isEmpty(), "Unexpected updated columns");
         checkArgument(!originalHandle.isRecordScannedFiles(), "Unexpected scanned files recording set");
         checkArgument(originalHandle.getMaxScannedFileSize().isEmpty(), "Unexpected max scanned file size set");
 
@@ -2478,7 +2473,6 @@ public class IcebergMetadata
                         originalHandle.getTableLocation(),
                         originalHandle.getStorageProperties(),
                         NO_RETRIES, // retry mode doesn't affect stats
-                        originalHandle.getUpdatedColumns(),
                         originalHandle.isRecordScannedFiles(),
                         originalHandle.getMaxScannedFileSize()),
                 handle -> {

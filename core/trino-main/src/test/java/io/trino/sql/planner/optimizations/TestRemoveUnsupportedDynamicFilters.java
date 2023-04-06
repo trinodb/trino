@@ -48,6 +48,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
@@ -484,6 +485,7 @@ public class TestRemoveUnsupportedDynamicFilters
                     new SymbolAllocator(),
                     new PlanNodeIdAllocator(),
                     WarningCollector.NOOP,
+                    createPlanOptimizersStatsCollector(),
                     new CachingTableStatsProvider(metadata, session));
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,

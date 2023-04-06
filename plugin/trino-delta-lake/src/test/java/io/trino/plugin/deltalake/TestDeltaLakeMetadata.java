@@ -68,7 +68,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -313,32 +312,6 @@ public class TestDeltaLakeMetadata
                 .isNotPresent();
     }
 
-    @Test
-    public void testGetInsertLayoutTableNotFound()
-    {
-        SchemaTableName schemaTableName = newMockSchemaTableName();
-
-        DeltaLakeTableHandle missingTableHandle = new DeltaLakeTableHandle(
-                schemaTableName.getSchemaName(),
-                schemaTableName.getTableName(),
-                getTableLocation(schemaTableName),
-                Optional.empty(),
-                TupleDomain.none(),
-                TupleDomain.none(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                0,
-                false);
-
-        assertThatThrownBy(() -> deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getInsertLayout(SESSION, missingTableHandle))
-                .isInstanceOf(TrinoException.class)
-                .hasMessage("Metadata not found in transaction log for " + schemaTableName.getTableName());
-    }
-
     @DataProvider
     public Object[][] testApplyProjectionProvider()
     {
@@ -408,10 +381,12 @@ public class TestDeltaLakeMetadata
                 .isEqualTo(Optional.of(expectedProjectedColumns));
 
         assertThat(projection.getProjections())
-                .isEqualToComparingFieldByFieldRecursively(expectedProjections);
+                .usingRecursiveComparison()
+                .isEqualTo(expectedProjections);
 
         assertThat(projection.getAssignments())
-                .isEqualToComparingFieldByFieldRecursively(createNewColumnAssignments(inputAssignments));
+                .usingRecursiveComparison()
+                .isEqualTo(createNewColumnAssignments(inputAssignments));
 
         assertThat(projection.isPrecalculateStatistics())
                 .isFalse();
@@ -449,7 +424,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
                 ImmutableList.of(BIGINT_COLUMN_1));
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
-        DeltaLakeTableHandle tableHandle = deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
+        DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true)));
     }
 
@@ -461,7 +436,7 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
                 ImmutableList.of());
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
-        DeltaLakeTableHandle tableHandle = deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
+        DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false)));
     }
 
@@ -505,9 +480,9 @@ public class TestDeltaLakeMetadata
                 .collect(toImmutableList());
     }
 
-    private static Optional<MetadataEntry> createMetadataEntry()
+    private static MetadataEntry createMetadataEntry()
     {
-        return Optional.of(new MetadataEntry(
+        return new MetadataEntry(
                 "test_id",
                 "test_name",
                 "test_description",
@@ -515,15 +490,7 @@ public class TestDeltaLakeMetadata
                 "test_schema",
                 ImmutableList.of("test_partition_column"),
                 ImmutableMap.of("test_configuration_key", "test_configuration_value"),
-                1));
-    }
-
-    private String getTableLocation(SchemaTableName schemaTableName)
-    {
-        return Paths.get(
-                temporaryCatalogDirectory.getPath(),
-                schemaTableName.getSchemaName(),
-                schemaTableName.getTableName()).toString();
+                1);
     }
 
     private static List<String> getPartitionColumnNames(List<ColumnMetadata> tableMetadataColumns)

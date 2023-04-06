@@ -64,7 +64,6 @@ public class TestIgniteConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
             case SUPPORTS_TRUNCATE:
                 return false;
 
@@ -77,12 +76,11 @@ public class TestIgniteConnectorTest
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_DROP_COLUMN:
                 return true;
 
-            // https://issues.apache.org/jira/browse/IGNITE-18829
-            // Add not null column to non-empty table Ignite doesn't give the default value
-            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
@@ -306,6 +304,30 @@ public class TestIgniteConnectorTest
         }
 
         return errorMessage.contains("Failed to complete exchange process");
+    }
+
+    @Override
+    public void testAddNotNullColumnToNonEmptyTable()
+    {
+        // Override because the connector supports both ADD COLUMN and NOT NULL constraint, but it doesn't support adding NOT NULL columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar)")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar NOT NULL",
+                    "This connector does not support adding not null columns");
+        }
+    }
+
+    @Override
+    public void testDropAndAddColumnWithSameName()
+    {
+        // Override because Ignite can access old data after dropping and adding a column with same name
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
+        }
     }
 
     @Override

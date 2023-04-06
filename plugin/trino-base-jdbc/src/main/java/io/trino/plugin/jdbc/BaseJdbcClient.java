@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -46,6 +47,7 @@ import io.trino.spi.type.VarcharType;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -227,44 +229,55 @@ public abstract class BaseJdbcClient
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, PreparedQuery preparedQuery)
     {
-        ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
         try (Connection connection = connectionFactory.openConnection(session);
-                PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+                PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
             if (metadata == null) {
                 throw new UnsupportedOperationException("Query not supported: ResultSetMetaData not available for query: " + preparedQuery.getQuery());
             }
-            for (int column = 1; column <= metadata.getColumnCount(); column++) {
-                // Use getColumnLabel method because query pass-through table function may contain column aliases
-                String name = metadata.getColumnLabel(column);
-                JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
-                        metadata.getColumnType(column),
-                        Optional.ofNullable(metadata.getColumnTypeName(column)),
-                        Optional.of(metadata.getPrecision(column)),
-                        Optional.of(metadata.getScale(column)),
-                        Optional.empty(), // TODO support arrays
-                        Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
-                Type type = toColumnMapping(session, connection, jdbcTypeHandle)
-                        .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
-                        .getType();
-                columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
-            }
+            return new JdbcTableHandle(
+                    new JdbcQueryRelationHandle(preparedQuery),
+                    TupleDomain.all(),
+                    ImmutableList.of(),
+                    Optional.empty(),
+                    OptionalLong.empty(),
+                    Optional.of(getColumns(session, connection, metadata)),
+                    // The query is opaque, so we don't know referenced tables
+                    Optional.empty(),
+                    0,
+                    Optional.empty());
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, "Failed to get table handle for prepared query. " + firstNonNull(e.getMessage(), e), e);
         }
+    }
 
-        return new JdbcTableHandle(
-                new JdbcQueryRelationHandle(preparedQuery),
-                TupleDomain.all(),
-                ImmutableList.of(),
-                Optional.empty(),
-                OptionalLong.empty(),
-                Optional.of(columns.build()),
-                // The query is opaque, so we don't know referenced tables
-                Optional.empty(),
-                0,
-                Optional.empty());
+    @Override
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "Procedure is not supported");
+    }
+
+    protected List<JdbcColumnHandle> getColumns(ConnectorSession session, Connection connection, ResultSetMetaData metadata)
+            throws SQLException
+    {
+        ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
+        for (int column = 1; column <= metadata.getColumnCount(); column++) {
+            // Use getColumnLabel method because query pass-through table function may contain column aliases
+            String name = metadata.getColumnLabel(column);
+            JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
+                    metadata.getColumnType(column),
+                    Optional.ofNullable(metadata.getColumnTypeName(column)),
+                    Optional.of(metadata.getPrecision(column)),
+                    Optional.of(metadata.getScale(column)),
+                    Optional.empty(), // TODO support arrays
+                    Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
+            Type type = toColumnMapping(session, connection, jdbcTypeHandle)
+                    .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
+                    .getType();
+            columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
+        }
+        return columns.build();
     }
 
     @Override
@@ -401,10 +414,29 @@ public abstract class BaseJdbcClient
     }
 
     @Override
+    public ConnectorSplitSource getSplits(ConnectorSession session, JdbcProcedureHandle procedureHandle)
+    {
+        return new FixedSplitSource(new JdbcSplit(Optional.empty()));
+    }
+
+    @Override
     public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcTableHandle tableHandle)
             throws SQLException
     {
         verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        return getConnection(session);
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException
+    {
+        return getConnection(session);
+    }
+
+    private Connection getConnection(ConnectorSession session)
+            throws SQLException
+    {
         Connection connection = connectionFactory.openConnection(session);
         try {
             connection.setReadOnly(true);
@@ -438,7 +470,14 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), Optional.of(split));
-        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.of(columns.size()));
+    }
+
+    @Override
+    public CallableStatement buildProcedure(ConnectorSession session, Connection connection, JdbcSplit split, JdbcProcedureHandle procedureHandle)
+            throws SQLException
+    {
+        return queryBuilder.callProcedure(this, session, connection, procedureHandle.getProcedureQuery());
     }
 
     protected PreparedQuery prepareQuery(
@@ -611,8 +650,9 @@ public abstract class BaseJdbcClient
             }
 
             RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), remoteTargetTableName);
-            String sql = createTableSql(remoteTableName, columnList.build(), tableMetadata);
-            execute(session, connection, sql);
+            for (String sql : createTableSqls(remoteTableName, columnList.build(), tableMetadata)) {
+                execute(session, connection, sql);
+            }
 
             return new JdbcOutputTableHandle(
                     catalog,
@@ -626,6 +666,12 @@ public abstract class BaseJdbcClient
         }
     }
 
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        return ImmutableList.of(createTableSql(remoteTableName, columns, tableMetadata));
+    }
+
+    @Deprecated
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         if (tableMetadata.getComment().isPresent()) {
@@ -1045,7 +1091,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
         return connection.prepareStatement(sql);
@@ -1277,7 +1323,7 @@ public abstract class BaseJdbcClient
                     handle.getRequiredNamedRelation(),
                     handle.getConstraint(),
                     getAdditionalPredicate(handle.getConstraintExpressions(), Optional.empty()));
-            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery)) {
+            try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
                 return OptionalLong.of(preparedStatement.executeUpdate());
             }
         }

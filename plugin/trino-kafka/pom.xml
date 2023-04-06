@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>411-SNAPSHOT</version>
+        <version>413-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -145,16 +145,23 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- used by trino-record-decoder -->
+        <!-- used by kafka-protobuf-provider -->
         <dependency>
-            <groupId>com.squareup.wire</groupId>
-            <artifactId>wire-schema</artifactId>
+            <groupId>com.google.api.grpc</groupId>
+            <artifactId>proto-google-common-protos</artifactId>
+            <version>2.5.1</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -300,6 +307,13 @@
 
         <dependency>
             <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-types</artifactId>
+            <!-- This is under Confluent Community License and it should not be used with compile scope -->
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-serializer</artifactId>
             <scope>test</scope>
         </dependency>
@@ -326,6 +340,7 @@
                 <configuration>
                     <allowedProvidedDependencies>
                         <id>io.confluent:kafka-protobuf-provider</id>
+                        <id>io.confluent:kafka-protobuf-types</id>
                     </allowedProvidedDependencies>
                 </configuration>
             </plugin>

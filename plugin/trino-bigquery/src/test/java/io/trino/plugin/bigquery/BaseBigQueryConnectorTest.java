@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.cloud.bigquery.TableDefinition;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
@@ -27,17 +27,29 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
+import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
+import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
+import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
+import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -48,11 +60,15 @@ public abstract class BaseBigQueryConnectorTest
         extends BaseConnectorTest
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
+    private String gcpStorageBucket;
 
     @BeforeClass(alwaysRun = true)
-    public void initBigQueryExecutor()
+    @Parameters("testing.gcp-storage-bucket")
+    public void initBigQueryExecutor(String gcpStorageBucket)
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+        // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
+        this.gcpStorageBucket = gcpStorageBucket;
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -191,16 +207,38 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
-    @Test
-    public void testEmptyProjection()
+    @Test(dataProvider = "emptyProjectionSetupDataProvider")
+    public void testEmptyProjection(TableDefinition.Type tableType, String createSql, String dropSql)
     {
-        // Regression test for https://github.com/trinodb/trino/issues/14981
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
-                "test_emtpy_projection",
-                " AS SELECT * FROM region")) {
-            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 5");
+        // Regression test for https://github.com/trinodb/trino/issues/14981, https://github.com/trinodb/trino/issues/5635 and https://github.com/trinodb/trino/issues/6696
+        String name = TEST_SCHEMA + ".test_empty_projection_" + tableType.name().toLowerCase(ENGLISH) + randomNameSuffix();
+        onBigQuery(createSql.formatted(name));
+        try {
+            assertQuery("SELECT count(*) FROM " + name, "VALUES 5");
+            assertQuery("SELECT count(*) FROM " + name, "VALUES 5"); // repeated query to cover https://github.com/trinodb/trino/issues/6696
+            assertQuery("SELECT count(*) FROM " + name + " WHERE regionkey = 1", "VALUES 1");
+            assertQuery("SELECT count(name) FROM " + name + " WHERE regionkey = 1", "VALUES 1");
         }
+        finally {
+            onBigQuery(dropSql.formatted(name));
+        }
+    }
+
+    @DataProvider
+    public Object[][] emptyProjectionSetupDataProvider()
+    {
+        Object[][] testCases = new Object[][] {
+                {TABLE, "CREATE TABLE %s AS SELECT * FROM tpch.region", "DROP TABLE %s"},
+                {VIEW, "CREATE VIEW %s AS SELECT * FROM tpch.region", "DROP VIEW %s"},
+                {MATERIALIZED_VIEW, "CREATE MATERIALIZED VIEW %s AS SELECT * FROM tpch.region", "DROP MATERIALIZED VIEW %s"},
+                {EXTERNAL, "CREATE EXTERNAL TABLE %s OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])", "DROP EXTERNAL TABLE %s"},
+                {SNAPSHOT, "CREATE SNAPSHOT TABLE %s CLONE tpch.region", "DROP SNAPSHOT TABLE %s"},
+        };
+        Set<TableDefinition.Type> testedTableTypes = Arrays.stream(testCases)
+                .map(array -> (TableDefinition.Type) array[0])
+                .collect(toImmutableSet());
+        verify(testedTableTypes.containsAll(TABLE_TYPES));
+        return testCases;
     }
 
     @Override
@@ -232,6 +270,20 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Override
+    public void testNoDataSystemTable()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/6515): Big Query throws an error when trying to read "some_table$data".
+        assertThatThrownBy(super::testNoDataSystemTable)
+                .hasMessageFindingMatch("\\Q" +
+                        "Expecting message:\n" +
+                        "  \"Cannot read partition information from a table that is not partitioned: \\E\\S+\\Q:tpch.nation$data\"\n" +
+                        "to match regex:\n" +
+                        "  \"line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist\"\n" +
+                        "but did not.");
+        throw new SkipException("TODO");
+    }
+
+    @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
         return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain the allowed characters, and be at most 300 characters long..*".formatted(columnName.replace("\\", "\\\\")));
@@ -253,7 +305,7 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery(format("SELECT value FROM %s WHERE \"$partition_date\" = DATE '2159-12-31'", table.getName()), "VALUES 2");
 
             // Verify DESCRIBE result doesn't have hidden columns
-            assertThat(query("DESCRIBE " + table.getName())).projected(0).skippingTypesCheck().matches("VALUES 'value'");
+            assertThat(query("DESCRIBE " + table.getName())).projected("Column").skippingTypesCheck().matches("VALUES 'value'");
         }
     }
 
@@ -272,7 +324,7 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery(format("SELECT value FROM %s WHERE \"$partition_time\" = CAST('2159-12-31 23:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)", table.getName()), "VALUES 2");
 
             // Verify DESCRIBE result doesn't have hidden columns
-            assertThat(query("DESCRIBE " + table.getName())).projected(0).skippingTypesCheck().matches("VALUES 'value'");
+            assertThat(query("DESCRIBE " + table.getName())).projected("Column").skippingTypesCheck().matches("VALUES 'value'");
         }
     }
 
@@ -368,33 +420,6 @@ public abstract class BaseBigQueryConnectorTest
                             "    ((NULL IS NULL) OR a = 100) AND " +
                             "    b = 2",
                     "VALUES (1)");
-        }
-    }
-
-    @Test(description = "regression test for https://github.com/trinodb/trino/issues/5635")
-    public void testCountAggregationView()
-    {
-        try (TestTable table = new TestTable(
-                bigQuerySqlExecutor,
-                "test.count_aggregation_table",
-                "(a INT64, b INT64, c INT64)",
-                List.of("1, 2, 3", "4, 5, 6"));
-                TestView view = new TestView(bigQuerySqlExecutor, "test.count_aggregation_view", "SELECT * FROM " + table.getName())) {
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (2)");
-            assertQuery("SELECT count(*) FROM " + view.getName() + " WHERE a = 1", "VALUES (1)");
-            assertQuery("SELECT count(a) FROM " + view.getName() + " WHERE b = 2", "VALUES (1)");
-        }
-    }
-
-    /**
-     * regression test for https://github.com/trinodb/trino/issues/6696
-     */
-    @Test
-    public void testRepeatCountAggregationView()
-    {
-        try (TestView view = new TestView(bigQuerySqlExecutor, "test.repeat_count_aggregation_view", "SELECT 1 AS col1")) {
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (1)");
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (1)");
         }
     }
 
@@ -555,10 +580,8 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
-    @Parameters("testing.gcp-storage-bucket")
-    public void testBigQueryExternalTable(String gcpStorageBucket)
+    public void testBigQueryExternalTable()
     {
-        // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
         String externalTable = "test_external" + randomNameSuffix();
         try {
             onBigQuery("CREATE EXTERNAL TABLE test." + externalTable + " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
@@ -736,12 +759,7 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testNativeQueryColumnAlias()
     {
-        assertThat(query("SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
-                .hasColumnNames("region_name")
-                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
-
         assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
-                .hasColumnNames("region_name")
                 .matches("VALUES CAST('AFRICA' AS VARCHAR)");
     }
 

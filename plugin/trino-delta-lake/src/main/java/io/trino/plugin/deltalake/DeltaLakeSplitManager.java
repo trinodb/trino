@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
@@ -130,15 +131,18 @@ public class DeltaLakeSplitManager
             Constraint constraint)
     {
         DeltaLakeMetastore metastore = getMetastore(session, transaction);
-        String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName(), session);
+        String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName());
         List<AddFileEntry> validDataFiles = metastore.getValidDataFiles(tableHandle.getSchemaTableName(), session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);
 
-        // Delta Lake handles updates and deletes by copying entire data files, minus updates/deletes. Because of this we can only have one Split/UpdatablePageSource
-        // per file.
-        boolean splittable = tableHandle.getWriteType().isEmpty();
+        boolean splittable =
+                // Delta Lake handles updates and deletes by copying entire data files, minus updates/deletes. Because of this we can only have one Split/UpdatablePageSource
+                // per file.
+                tableHandle.getWriteType().isEmpty() &&
+                        // When only partitioning columns projected, there is no point splitting the files
+                        mayAnyDataColumnProjected(tableHandle);
         AtomicInteger remainingInitialSplits = new AtomicInteger(maxInitialSplits);
         Optional<Instant> filesModifiedAfter = tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::getFilesModifiedAfter);
         Optional<Long> maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
@@ -212,6 +216,16 @@ public class DeltaLakeSplitManager
                 });
     }
 
+    private static boolean mayAnyDataColumnProjected(DeltaLakeTableHandle tableHandle)
+    {
+        if (tableHandle.getProjectedColumns().isEmpty()) {
+            return true;
+        }
+        return tableHandle.getProjectedColumns().get().stream()
+                .map(columnHandle -> ((DeltaLakeColumnHandle) columnHandle).getColumnType())
+                .anyMatch(DeltaLakeColumnType.REGULAR::equals);
+    }
+
     public static boolean partitionMatchesPredicate(Map<String, Optional<String>> partitionKeys, Map<DeltaLakeColumnHandle, Domain> domains)
     {
         for (Map.Entry<DeltaLakeColumnHandle, Domain> enforcedDomainsEntry : domains.entrySet()) {
@@ -254,6 +268,7 @@ public class DeltaLakeSplitManager
                     0,
                     fileSize,
                     fileSize,
+                    addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords),
                     addFileEntry.getModificationTime(),
                     ImmutableList.of(),
                     SplitWeight.standard(),
@@ -278,6 +293,7 @@ public class DeltaLakeSplitManager
                     currentOffset,
                     splitSize,
                     fileSize,
+                    Optional.empty(),
                     addFileEntry.getModificationTime(),
                     ImmutableList.of(),
                     SplitWeight.fromProportion(Math.min(Math.max((double) splitSize / maxSplitSize, minimumAssignedSplitWeight), 1.0)),

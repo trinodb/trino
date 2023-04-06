@@ -60,6 +60,7 @@ import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
@@ -535,6 +536,7 @@ public class TestQueryStateMachine
                 ticker,
                 metadata,
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 QUERY_TYPE,
                 true,
                 new NodeVersion("test"));

@@ -55,6 +55,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.trino.Session.SessionBuilder;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
@@ -88,12 +89,19 @@ public abstract class BaseCostBasedPlanTest
     private final String schemaName;
     private final Optional<String> fileFormatName;
     private final boolean partitioned;
+    protected boolean smallFiles;
 
     public BaseCostBasedPlanTest(String schemaName, Optional<String> fileFormatName, boolean partitioned)
+    {
+        this(schemaName, fileFormatName, partitioned, false);
+    }
+
+    public BaseCostBasedPlanTest(String schemaName, Optional<String> fileFormatName, boolean partitioned, boolean smallFiles)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.fileFormatName = requireNonNull(fileFormatName, "fileFormatName is null");
         this.partitioned = partitioned;
+        this.smallFiles = smallFiles;
     }
 
     @Override
@@ -141,7 +149,7 @@ public abstract class BaseCostBasedPlanTest
         Path queryPath = Paths.get(queryResourcePath);
         String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
         Path directory = queryPath.getParent();
-        directory = directory.resolve(connectorName);
+        directory = directory.resolve(connectorName + (smallFiles ? "_small_files" : ""));
         if (fileFormatName.isPresent()) {
             directory = directory.resolve(fileFormatName.get());
         }
@@ -206,7 +214,7 @@ public abstract class BaseCostBasedPlanTest
     {
         try {
             return getQueryRunner().inTransaction(transactionSession -> {
-                Plan plan = getQueryRunner().createPlan(transactionSession, query, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP);
+                Plan plan = getQueryRunner().createPlan(transactionSession, query, OPTIMIZED_AND_VALIDATED, false, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter(transactionSession);
                 plan.getRoot().accept(joinOrderPrinter, 0);
                 return joinOrderPrinter.result();

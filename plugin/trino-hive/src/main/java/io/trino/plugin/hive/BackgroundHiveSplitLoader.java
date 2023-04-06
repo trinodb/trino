@@ -55,7 +55,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
@@ -63,6 +62,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobConfigurable;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.mapreduce.MRConfig;
+import org.apache.hadoop.util.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -154,6 +154,8 @@ public class BackgroundHiveSplitLoader
             BUCKET_WITH_OPTIONAL_ATTEMPT_ID_PATTERN);
 
     private static final ListenableFuture<Void> COMPLETED_FUTURE = immediateVoidFuture();
+
+    private static final String FILE_INPUT_FORMAT_INPUT_DIR = "mapreduce.input.fileinputformat.inputdir";
 
     private final Table table;
     private final TupleDomain<? extends ColumnHandle> compactEffectivePredicate;
@@ -529,7 +531,7 @@ public class BackgroundHiveSplitLoader
             }
 
             JobConf jobConf = toJobConf(configuration);
-            FileInputFormat.setInputPaths(jobConf, path);
+            jobConf.set(FILE_INPUT_FORMAT_INPUT_DIR, StringUtils.escapeString(path.toString()));
             // Pass SerDes and Table parameters into input format configuration
             fromProperties(schema).forEach(jobConf::set);
             InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity(), () -> inputFormat.getSplits(jobConf, 0));
@@ -591,7 +593,7 @@ public class BackgroundHiveSplitLoader
             if (targetInputFormat instanceof JobConfigurable) {
                 ((JobConfigurable) targetInputFormat).configure(targetJob);
             }
-            FileInputFormat.setInputPaths(targetJob, targetPath);
+            targetJob.set(FILE_INPUT_FORMAT_INPUT_DIR, StringUtils.escapeString(targetPath.toString()));
             InputSplit[] targetSplits = hdfsEnvironment.doAs(
                     hdfsContext.getIdentity(),
                     () -> targetInputFormat.getSplits(targetJob, 0));

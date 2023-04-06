@@ -83,7 +83,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
-import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_PREVIOUS_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -140,11 +139,6 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
     protected String getPinotImageName()
     {
         return PINOT_PREVIOUS_IMAGE_NAME;
-    }
-
-    protected boolean isLatestVersion()
-    {
-        return getPinotImageName().equals(PINOT_LATEST_IMAGE_NAME);
     }
 
     @Override
@@ -307,13 +301,6 @@ public abstract class BasePinotIntegrationConnectorSmokeTest
                     .set("string_col", "string_" + i)
                     .set("updatedAt", initialUpdatedAt.plusMillis(i * 1000).toEpochMilli())
                     .build()));
-        }
-        // For pinot 0.11.0+: rows with null time column values are ingested
-        // Only add a null row with a null time column for pinot < 0.11.0
-        if (!isLatestVersion()) {
-            // Add a null row, verify it was not ingested as pinot does not accept null time column values.
-            // The data is verified in testBrokerQueryWithTooManyRowsForSegmentQuery
-            tooManyRowsRecordsBuilder.add(new ProducerRecord<>(TOO_MANY_ROWS_TABLE, "key" + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES, new GenericRecordBuilder(tooManyRowsAvroSchema).build()));
         }
         kafka.sendMessages(tooManyRowsRecordsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("too_many_rows_schema.json"), TOO_MANY_ROWS_TABLE);

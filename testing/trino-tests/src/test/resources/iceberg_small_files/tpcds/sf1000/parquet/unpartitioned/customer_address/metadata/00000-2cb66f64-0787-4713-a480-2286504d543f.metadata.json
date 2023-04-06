@@ -1,0 +1,127 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "e6f7c7e8-62a6-458c-91b2-5d62340561fa",
+  "location" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/customer_address",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1678866149684,
+  "last-column-id" : 13,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "ca_address_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "ca_address_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "ca_street_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 4,
+      "name" : "ca_street_name",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 5,
+      "name" : "ca_street_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 6,
+      "name" : "ca_suite_number",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 7,
+      "name" : "ca_city",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "ca_county",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 9,
+      "name" : "ca_state",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "ca_zip",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "ca_country",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 12,
+      "name" : "ca_gmt_offset",
+      "required" : false,
+      "type" : "decimal(5, 2)"
+    }, {
+      "id" : 13,
+      "name" : "ca_location_type",
+      "required" : false,
+      "type" : "string"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 5497986337991527298,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 5497986337991527298,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 5497986337991527298,
+    "timestamp-ms" : 1678866149684,
+    "summary" : {
+      "operation" : "append",
+      "trino_query_id" : "20230315_074215_00045_9f4mz",
+      "added-data-files" : "3",
+      "added-records" : "6000000",
+      "added-files-size" : "71445286",
+      "changed-partition-count" : "1",
+      "total-records" : "6000000",
+      "total-files-size" : "71445286",
+      "total-data-files" : "3",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/customer_address/metadata/snap-5497986337991527298-1-ac3a7184-53df-490f-a4b9-480b8e43acba.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1678866149684,
+    "snapshot-id" : 5497986337991527298
+  } ],
+  "metadata-log" : [ ]
+}

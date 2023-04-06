@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -28,6 +29,9 @@ import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -37,6 +41,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.StandardTypes;
@@ -60,6 +65,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
@@ -71,11 +78,21 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseC
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.PARQUET_ROW_INDEX_COLUMN;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    // This is used whenever a query doesn't reference any data columns.
+    // We need to limit the number of rows per page in case there are projections
+    // in the query that can cause page sizes to explode. For example: SELECT rand() FROM some_table
+    // TODO (https://github.com/trinodb/trino/issues/16824) allow connector to return pages of arbitrary row count and handle this gracefully in engine
+    private static final int MAX_RLE_PAGE_SIZE = DEFAULT_MAX_PAGE_SIZE_IN_BYTES / SIZE_OF_LONG;
+    private static final int MAX_RLE_ROW_ID_PAGE_SIZE = DEFAULT_MAX_PAGE_SIZE_IN_BYTES / (SIZE_OF_LONG * 2);
+
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final ParquetReaderOptions parquetReaderOptions;
@@ -111,6 +128,27 @@ public class DeltaLakePageSourceProvider
         DeltaLakeSplit split = (DeltaLakeSplit) connectorSplit;
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) connectorTable;
 
+        List<DeltaLakeColumnHandle> deltaLakeColumns = columns.stream()
+                .map(DeltaLakeColumnHandle.class::cast)
+                .collect(toImmutableList());
+
+        List<DeltaLakeColumnHandle> regularColumns = deltaLakeColumns.stream()
+                .filter(column -> (column.getColumnType() == REGULAR) || column.getName().equals(ROW_ID_COLUMN_NAME))
+                .collect(toImmutableList());
+
+        Map<String, Optional<String>> partitionKeys = split.getPartitionKeys();
+
+        Optional<List<String>> partitionValues = Optional.empty();
+        if (deltaLakeColumns.stream().anyMatch(column -> column.getName().equals(ROW_ID_COLUMN_NAME))) {
+            partitionValues = Optional.of(new ArrayList<>());
+            for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), typeManager)) {
+                Optional<String> value = partitionKeys.get(column.getName());
+                if (value != null) {
+                    partitionValues.get().add(value.orElse(null));
+                }
+            }
+        }
+
         // We reach here when we could not prune the split using file level stats, table predicate
         // and the dynamic filter in the coordinator during split generation. The file level stats
         // in DeltaLakeSplit#filePredicate could help to prune this split when a more selective dynamic filter
@@ -123,21 +161,19 @@ public class DeltaLakePageSourceProvider
         if (filteredSplitPredicate.isNone()) {
             return new EmptyPageSource();
         }
-
-        List<DeltaLakeColumnHandle> deltaLakeColumns = columns.stream()
-                .map(DeltaLakeColumnHandle.class::cast)
-                .collect(toImmutableList());
-
-        Map<String, Optional<String>> partitionKeys = split.getPartitionKeys();
-
-        List<String> partitionValues = new ArrayList<>();
-        if (deltaLakeColumns.stream().anyMatch(column -> column.getName().equals(ROW_ID_COLUMN_NAME))) {
-            for (DeltaLakeColumnMetadata column : extractSchema(table.getMetadataEntry(), typeManager)) {
-                Optional<String> value = partitionKeys.get(column.getName());
-                if (value != null) {
-                    partitionValues.add(value.orElse(null));
-                }
-            }
+        if (filteredSplitPredicate.isAll() &&
+                split.getStart() == 0 && split.getLength() == split.getFileSize() &&
+                split.getFileRowCount().isPresent() &&
+                (regularColumns.isEmpty() || onlyRowIdColumn(regularColumns))) {
+            return new DeltaLakePageSource(
+                    deltaLakeColumns,
+                    ImmutableSet.of(),
+                    partitionKeys,
+                    partitionValues,
+                    generatePages(split.getFileRowCount().get(), onlyRowIdColumn(regularColumns)),
+                    split.getPath(),
+                    split.getFileSize(),
+                    split.getFileModifiedTime());
         }
 
         TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(split.getPath(), split.getFileSize());
@@ -149,10 +185,6 @@ public class DeltaLakePageSourceProvider
 
         ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry());
         Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options) : ImmutableMap.of();
-
-        List<DeltaLakeColumnHandle> regularColumns = deltaLakeColumns.stream()
-                .filter(column -> (column.getColumnType() == REGULAR) || column.getName().equals(ROW_ID_COLUMN_NAME))
-                .collect(toImmutableList());
 
         ImmutableSet.Builder<String> missingColumnNames = ImmutableSet.builder();
         ImmutableList.Builder<HiveColumnHandle> hiveColumnHandles = ImmutableList.builder();
@@ -253,5 +285,50 @@ public class DeltaLakePageSourceProvider
             default:
                 throw new IllegalArgumentException("Unsupported column mapping: " + columnMapping);
         }
+    }
+
+    private static boolean onlyRowIdColumn(List<DeltaLakeColumnHandle> columns)
+    {
+        return columns.size() == 1 && getOnlyElement(columns).getName().equals(ROW_ID_COLUMN_NAME);
+    }
+
+    private static ConnectorPageSource generatePages(long totalRowCount, boolean projectRowNumber)
+    {
+        return new FixedPageSource(
+                new AbstractIterator<>()
+                {
+                    private static final Block[] EMPTY_BLOCKS = new Block[0];
+
+                    private final int maxPageSize = projectRowNumber ? MAX_RLE_ROW_ID_PAGE_SIZE : MAX_RLE_PAGE_SIZE;
+                    private long rowIndex;
+
+                    @Override
+                    protected Page computeNext()
+                    {
+                        if (rowIndex == totalRowCount) {
+                            return endOfData();
+                        }
+                        int pageSize = toIntExact(min(maxPageSize, totalRowCount - rowIndex));
+                        Block[] blocks;
+                        if (projectRowNumber) {
+                            blocks = new Block[] {createRowNumberBlock(rowIndex, pageSize)};
+                        }
+                        else {
+                            blocks = EMPTY_BLOCKS;
+                        }
+                        rowIndex += pageSize;
+                        return new Page(pageSize, blocks);
+                    }
+                },
+                0);
+    }
+
+    private static Block createRowNumberBlock(long baseIndex, int size)
+    {
+        long[] rowIndices = new long[size];
+        for (int position = 0; position < size; position++) {
+            rowIndices[position] = baseIndex + position;
+        }
+        return new LongArrayBlock(size, Optional.empty(), rowIndices);
     }
 }

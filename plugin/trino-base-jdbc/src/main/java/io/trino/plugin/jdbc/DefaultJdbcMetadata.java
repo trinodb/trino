@@ -17,8 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.ptf.Procedure.ProcedureFunctionHandle;
 import io.trino.plugin.jdbc.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -103,6 +105,7 @@ public class DefaultJdbcMetadata
 {
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
+    private static final String MERGE_ROW_ID = "$merge_row_id";
 
     private final JdbcClient jdbcClient;
     private final boolean precalculateStatisticsForPushdown;
@@ -143,6 +146,12 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public JdbcProcedureHandle getProcedureHandle(ConnectorSession session, ProcedureQuery procedureQuery)
+    {
+        return jdbcClient.getProcedureHandle(session, procedureQuery);
+    }
+
+    @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return jdbcClient.getSystemTable(session, tableName);
@@ -151,6 +160,10 @@ public class DefaultJdbcMetadata
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
+        if (isTableHandleForProcedure(table)) {
+            return Optional.empty();
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) table;
         if (handle.getSortOrder().isPresent() && handle.getLimit().isPresent()) {
             handle = flushAttributesAsQuery(session, handle);
@@ -260,6 +273,10 @@ public class DefaultJdbcMetadata
             List<ConnectorExpression> projections,
             Map<String, ColumnHandle> assignments)
     {
+        if (isTableHandleForProcedure(table)) {
+            return Optional.empty();
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         List<JdbcColumnHandle> newColumns = assignments.values().stream()
@@ -275,7 +292,8 @@ public class DefaultJdbcMetadata
 
             Set<JdbcColumnHandle> newPhysicalColumns = newColumns.stream()
                     // It may happen fresh table handle comes with a columns prepared already.
-                    // In such case it may happen that applyProjection may want to add UPDATE_ROW_ID id, which is created later during the planning.
+                    // In such case it may happen that applyProjection may want to add merge/delete row id, which is created later during the planning.
+                    .filter(column -> !column.getColumnName().equals(MERGE_ROW_ID))
                     .filter(column -> !column.getColumnName().equals(DELETE_ROW_ID))
                     .collect(toImmutableSet());
             verify(tableColumnSet.containsAll(newPhysicalColumns), "applyProjection called with columns %s and some are not available in existing query: %s", newPhysicalColumns, tableColumnSet);
@@ -310,6 +328,10 @@ public class DefaultJdbcMetadata
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets)
     {
+        if (isTableHandleForProcedure(table)) {
+            return Optional.empty();
+        }
+
         if (!isAggregationPushdownEnabled(session)) {
             return Optional.empty();
         }
@@ -413,6 +435,10 @@ public class DefaultJdbcMetadata
             Map<String, ColumnHandle> rightAssignments,
             JoinStatistics statistics)
     {
+        if (isTableHandleForProcedure(left) || isTableHandleForProcedure(right)) {
+            return Optional.empty();
+        }
+
         if (!isJoinPushdownEnabled(session)) {
             return Optional.empty();
         }
@@ -522,6 +548,10 @@ public class DefaultJdbcMetadata
     @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
+        if (isTableHandleForProcedure(table)) {
+            return Optional.empty();
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         if (limit > Integer.MAX_VALUE) {
@@ -559,6 +589,10 @@ public class DefaultJdbcMetadata
             List<SortItem> sortItems,
             Map<String, ColumnHandle> assignments)
     {
+        if (isTableHandleForProcedure(table)) {
+            return Optional.empty();
+        }
+
         if (!isTopNPushdownEnabled(session)) {
             return Optional.empty();
         }
@@ -604,11 +638,17 @@ public class DefaultJdbcMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof QueryFunctionHandle)) {
-            return Optional.empty();
+        if (handle instanceof QueryFunctionHandle queryFunctionHandle) {
+            return Optional.of(getTableFunctionApplicationResult(session, queryFunctionHandle.getTableHandle()));
         }
+        if (handle instanceof ProcedureFunctionHandle procedureFunctionHandle) {
+            return Optional.of(getTableFunctionApplicationResult(session, procedureFunctionHandle.getTableHandle()));
+        }
+        return Optional.empty();
+    }
 
-        ConnectorTableHandle tableHandle = ((QueryFunctionHandle) handle).getTableHandle();
+    private TableFunctionApplicationResult<ConnectorTableHandle> getTableFunctionApplicationResult(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
         ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
         Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
         List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
@@ -616,12 +656,16 @@ public class DefaultJdbcMetadata
                 .map(columnHandlesByName::get)
                 .collect(toImmutableList());
 
-        return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
+        return new TableFunctionApplicationResult<>(tableHandle, columnHandles);
     }
 
     @Override
     public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle table)
     {
+        if (isTableHandleForProcedure(table)) {
+            return Optional.empty();
+        }
+
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         return jdbcClient.getTableScanRedirection(session, tableHandle);
     }
@@ -629,6 +673,14 @@ public class DefaultJdbcMetadata
     @Override
     public ConnectorTableSchema getTableSchema(ConnectorSession session, ConnectorTableHandle table)
     {
+        if (table instanceof JdbcProcedureHandle procedureHandle) {
+            return new ConnectorTableSchema(
+                    getSchemaTableNameForProcedureHandle(),
+                    procedureHandle.getColumns().orElseThrow().stream()
+                            .map(JdbcColumnHandle::getColumnSchema)
+                            .collect(toImmutableList()));
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         return new ConnectorTableSchema(
@@ -641,6 +693,14 @@ public class DefaultJdbcMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
+        if (table instanceof JdbcProcedureHandle procedureHandle) {
+            return new ConnectorTableMetadata(
+                    getSchemaTableNameForProcedureHandle(),
+                    procedureHandle.getColumns().orElseThrow().stream()
+                            .map(JdbcColumnHandle::getColumnMetadata)
+                            .collect(toImmutableList()));
+        }
+
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         return new ConnectorTableMetadata(
@@ -660,6 +720,12 @@ public class DefaultJdbcMetadata
                 : new SchemaTableName("_generated", "_generated_query");
     }
 
+    private static SchemaTableName getSchemaTableNameForProcedureHandle()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic JdbcProcedureHandle
+        return new SchemaTableName("_generated", "_generated_procedure");
+    }
+
     public static Optional<String> getTableComment(JdbcTableHandle handle)
     {
         return handle.isNamedRelation() ? handle.getRequiredNamedRelation().getComment() : Optional.empty();
@@ -674,6 +740,11 @@ public class DefaultJdbcMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        if (tableHandle instanceof JdbcProcedureHandle procedureHandle) {
+            return procedureHandle.getColumns().orElseThrow().stream()
+                    .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
+        }
+
         return jdbcClient.getColumns(session, (JdbcTableHandle) tableHandle).stream()
                 .collect(toImmutableMap(columnHandle -> columnHandle.getColumnMetadata().getName(), identity()));
     }
@@ -825,9 +896,10 @@ public class DefaultJdbcMetadata
     @Override
     public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        verify(!isTableHandleForProcedure(tableHandle), "Not a table reference: %s", tableHandle);
         // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
         return new JdbcColumnHandle(
-                "$merge_row_id",
+                MERGE_ROW_ID,
                 new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 BIGINT);
     }
@@ -835,6 +907,7 @@ public class DefaultJdbcMetadata
     @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
+        verify(!isTableHandleForProcedure(handle), "Not a table reference: %s", handle);
         return Optional.of(handle);
     }
 
@@ -921,6 +994,9 @@ public class DefaultJdbcMetadata
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        if (isTableHandleForProcedure(tableHandle)) {
+            return TableStatistics.empty();
+        }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         return jdbcClient.getTableStatistics(session, handle);
     }
@@ -941,5 +1017,10 @@ public class DefaultJdbcMetadata
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         jdbcClient.renameSchema(session, schemaName, newSchemaName);
+    }
+
+    private static boolean isTableHandleForProcedure(ConnectorTableHandle tableHandle)
+    {
+        return tableHandle instanceof JdbcProcedureHandle;
     }
 }

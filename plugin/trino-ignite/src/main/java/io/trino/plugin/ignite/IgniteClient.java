@@ -81,7 +81,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -589,12 +588,6 @@ public class IgniteClient
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return true;
-    }
-
-    @Override
-    public OptionalLong delete(ConnectorSession session, JdbcTableHandle handle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support modifying table rows");
     }
 
     @Override

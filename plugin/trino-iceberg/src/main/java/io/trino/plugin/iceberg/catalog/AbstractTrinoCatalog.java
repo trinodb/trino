@@ -22,6 +22,7 @@ import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
+import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -48,6 +49,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.types.Types;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -56,25 +58,35 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
+import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
+import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
+import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -217,9 +229,46 @@ public abstract class AbstractTrinoCatalog
 
         String storageSchema = getStorageSchema(definition.getProperties()).orElse(viewName.getSchemaName());
         SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
-        List<ColumnMetadata> columns = definition.getColumns().stream()
-                .map(column -> new ColumnMetadata(column.getName(), typeForMaterializedViewStorageTable(typeManager.getType(column.getType()))))
-                .collect(toImmutableList());
+
+        Schema schemaWithTimestampTzPreserved = schemaFromMetadata(mappedCopy(
+                definition.getColumns(),
+                column -> {
+                    Type type = typeManager.getType(column.getType());
+                    if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
+                        // For now preserve timestamptz columns so that we can parse partitioning
+                        type = TIMESTAMP_TZ_MICROS;
+                    }
+                    else {
+                        type = typeForMaterializedViewStorageTable(type);
+                    }
+                    return new ColumnMetadata(column.getName(), type);
+                }));
+        PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(definition.getProperties()));
+        Set<String> temporalPartitioningSources = partitionSpec.fields().stream()
+                .flatMap(partitionField -> {
+                    Types.NestedField sourceField = schemaWithTimestampTzPreserved.findField(partitionField.sourceId());
+                    Type sourceType = toTrinoType(sourceField.type(), typeManager);
+                    ColumnTransform columnTransform = getColumnTransform(partitionField, sourceType);
+                    if (!columnTransform.isTemporal()) {
+                        return Stream.of();
+                    }
+                    return Stream.of(sourceField.name());
+                })
+                .collect(toImmutableSet());
+
+        List<ColumnMetadata> columns = mappedCopy(
+                definition.getColumns(),
+                column -> {
+                    Type type = typeManager.getType(column.getType());
+                    if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.getName())) {
+                        // Apply point-in-time semantics to maintain partitioning capabilities
+                        type = TIMESTAMP_TZ_MICROS;
+                    }
+                    else {
+                        type = typeForMaterializedViewStorageTable(type);
+                    }
+                    return new ColumnMetadata(column.getName(), type);
+                });
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session);
@@ -258,9 +307,7 @@ public abstract class AbstractTrinoCatalog
                     : VARCHAR;
         }
         if (type instanceof TimestampWithTimeZoneType) {
-            // Iceberg does not store the time zone
-            // TODO allow temporal partitioning on these columns, or MV property to
-            //  drop zone info and use timestamptz directly
+            // Iceberg does not store the time zone.
             return VARCHAR;
         }
         if (type instanceof ArrayType arrayType) {

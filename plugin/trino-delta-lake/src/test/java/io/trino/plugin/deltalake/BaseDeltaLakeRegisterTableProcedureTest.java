@@ -52,7 +52,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     protected static final String CATALOG_NAME = "delta_lake";
     protected static final String SCHEMA = "test_delta_lake_register_table_" + randomNameSuffix();
 
-    private String dataDirectory;
+    private Path dataDirectory;
     private HiveMetastore metastore;
 
     @Override
@@ -65,10 +65,10 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString();
+        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
                 .put("delta.unique-table-location", "true")
@@ -81,7 +81,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         return queryRunner;
     }
 
-    protected abstract HiveMetastore createTestMetastore(String dataDirectory);
+    protected abstract HiveMetastore createTestMetastore(Path dataDirectory);
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
@@ -89,7 +89,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     {
         if (metastore != null) {
             metastore.dropDatabase(SCHEMA, false);
-            deleteRecursively(Path.of(dataDirectory), ALLOW_INSECURE);
+            deleteRecursively(dataDirectory, ALLOW_INSECURE);
         }
     }
 
@@ -181,7 +181,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
     public void testRegisterTableWithTrailingSpaceInLocation()
     {
         String tableName = "test_register_table_with_trailing_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = dataDirectory + "/" + tableName + " ";
+        String tableLocationWithTrailingSpace = dataDirectory.toUri() + "/" + tableName + " ";
 
         assertQuerySucceeds(format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace));
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");

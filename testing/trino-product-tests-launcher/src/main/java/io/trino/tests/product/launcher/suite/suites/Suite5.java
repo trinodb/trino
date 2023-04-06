@@ -37,7 +37,7 @@ public class Suite5
                         .withGroups("configured_features", "storage_formats", "hdfs_impersonation")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "hdfs_impersonation", "authorization")
+                        .withGroups("configured_features", "storage_formats", "hdfs_impersonation", "authorization", "hive_kerberos")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveImpersonationWithCredentialCache.class)
                         .withGroups("configured_features", "storage_formats", "hdfs_impersonation", "authorization")

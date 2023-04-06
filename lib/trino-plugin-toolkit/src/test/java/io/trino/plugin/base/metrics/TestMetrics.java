@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Map;
 
+import static io.trino.spi.metrics.Metrics.accumulator;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -108,6 +109,17 @@ public class TestMetrics
         Metrics m1 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(new TDigest())));
         Metrics m2 = new Metrics(ImmutableMap.of("a", new LongCount(0)));
         merge(m1, m2);
+    }
+
+    @Test
+    public void testReduceSingleMetrics()
+    {
+        Metrics metrics = new Metrics(ImmutableMap.of("a", new LongCount(0)));
+        assertThat(accumulator().add(metrics).get()).isEqualTo(metrics);
+
+        Metrics metrics1 = new Metrics(ImmutableMap.of("a", new LongCount(1)));
+        Metrics metrics2 = new Metrics(ImmutableMap.of("a", new LongCount(2)));
+        assertThat(accumulator().add(metrics1).add(metrics2).get()).isEqualTo(new Metrics(ImmutableMap.of("a", new LongCount(3))));
     }
 
     private static Metrics merge(Metrics... metrics)

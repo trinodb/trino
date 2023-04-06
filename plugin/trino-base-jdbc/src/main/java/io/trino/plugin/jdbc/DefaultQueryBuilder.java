@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
@@ -30,6 +31,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -43,6 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -178,12 +181,14 @@ public class DefaultQueryBuilder
             JdbcClient client,
             ConnectorSession session,
             Connection connection,
-            PreparedQuery preparedQuery)
+            PreparedQuery preparedQuery,
+            Optional<Integer> columnCount)
             throws SQLException
     {
         String modifiedQuery = queryModifier.apply(session, preparedQuery.getQuery());
         log.debug("Preparing query: %s", modifiedQuery);
-        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery);
+        columnCount = columnCount.map(count -> max(count, 1)); // Query builder appends a dummy projection when no columns projected
+        PreparedStatement statement = client.getPreparedStatement(connection, modifiedQuery, columnCount);
 
         List<QueryParameter> parameters = preparedQuery.getParameters();
         for (int i = 0; i < parameters.size(); i++) {
@@ -215,6 +220,13 @@ public class DefaultQueryBuilder
         }
 
         return statement;
+    }
+
+    @Override
+    public CallableStatement callProcedure(JdbcClient client, ConnectorSession session, Connection connection, ProcedureQuery procedureQuery)
+            throws SQLException
+    {
+        return connection.prepareCall(procedureQuery.query());
     }
 
     protected String formatJoinCondition(JdbcClient client, String leftRelationAlias, String rightRelationAlias, JdbcJoinCondition condition)

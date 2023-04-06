@@ -35,12 +35,12 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.JsonResponse.execute;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_OK;
-import static java.net.HttpURLConnection.HTTP_UNAVAILABLE;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 
@@ -142,7 +142,7 @@ public class HttpTokenPoller
 
         String message = format("Request to %s failed: %s [Error: %s]", request.url(), response, response.getResponseBody().orElse("<Response Too Large>"));
 
-        if (response.getStatusCode() == HTTP_UNAVAILABLE) {
+        if (shouldRetry(response.getStatusCode())) {
             throw new IOException(message);
         }
 

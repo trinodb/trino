@@ -153,11 +153,11 @@ public class BigintGroupByHash
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         Block block = page.getBlock(hashChannel);
-        if (block instanceof RunLengthEncodedBlock) {
-            return new AddRunLengthEncodedPageWork((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock rleBlock) {
+            return new AddRunLengthEncodedPageWork(rleBlock);
         }
-        if (block instanceof DictionaryBlock) {
-            return new AddDictionaryPageWork((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return new AddDictionaryPageWork(dictionaryBlock);
         }
 
         return new AddPageWork(block);
@@ -168,14 +168,14 @@ public class BigintGroupByHash
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         Block block = page.getBlock(hashChannel);
-        if (block instanceof RunLengthEncodedBlock) {
-            return new GetRunLengthEncodedGroupIdsWork((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock rleBlock) {
+            return new GetRunLengthEncodedGroupIdsWork(rleBlock);
         }
-        if (block instanceof DictionaryBlock) {
-            return new GetDictionaryGroupIdsWork((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return new GetDictionaryGroupIdsWork(dictionaryBlock);
         }
 
-        return new GetGroupIdsWork(page.getBlock(hashChannel));
+        return new GetGroupIdsWork(block);
     }
 
     @Override

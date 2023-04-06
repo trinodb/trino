@@ -52,6 +52,7 @@ public final class TestGroups
     public static final String HIVE_CACHING = "hive_caching";
     public static final String HIVE_ICEBERG_REDIRECTIONS = "hive_iceberg_redirections";
     public static final String HIVE_HUDI_REDIRECTIONS = "hive_hudi_redirections";
+    public static final String HIVE_KERBEROS = "hive_kerberos";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String AZURE = "azure";

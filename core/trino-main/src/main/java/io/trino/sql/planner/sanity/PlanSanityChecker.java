@@ -61,7 +61,6 @@ public final class PlanSanityChecker
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateScaledWritersUsage(),
                         new ValidateStreamingAggregations(),
-                        new ValidateLimitWithPresortedInput(),
                         new DynamicFiltersChecker(),
                         new TableScanValidator(),
                         new TableExecuteStructureValidator())

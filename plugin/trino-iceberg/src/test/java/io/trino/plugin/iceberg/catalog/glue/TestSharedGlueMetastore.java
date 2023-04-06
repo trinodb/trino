@@ -87,7 +87,7 @@ public class TestSharedGlueMetastore
                         "hive.metastore.glue.default-warehouse-dir", dataDirectory.toString(),
                         "iceberg.hive-catalog-name", "hive"));
 
-        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory.toString());
+        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory);
         queryRunner.installPlugin(new TestingHivePlugin(glueMetastore));
         queryRunner.createCatalog(HIVE_CATALOG, "hive");
         queryRunner.createCatalog(
@@ -95,7 +95,7 @@ public class TestSharedGlueMetastore
                 "hive",
                 ImmutableMap.of("hive.iceberg-catalog-name", "iceberg"));
 
-        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toString() + "')");
+        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toUri() + "')");
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, icebergSession, ImmutableList.of(TpchTable.NATION));
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION));
 
@@ -124,7 +124,7 @@ public class TestSharedGlueMetastore
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory);
+        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
     }
 
     @Override
@@ -134,6 +134,6 @@ public class TestSharedGlueMetastore
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedIcebergCreateSchema, catalogName, schema, dataDirectory, schema);
+        return format(expectedIcebergCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
     }
 }
