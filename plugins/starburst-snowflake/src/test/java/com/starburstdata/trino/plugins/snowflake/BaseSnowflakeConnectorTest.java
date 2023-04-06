@@ -1094,4 +1094,10 @@ public abstract class BaseSnowflakeConnectorTest
                     ) t(id, json_data)
                 """;
     }
+
+    @Override
+    protected String sumDistinctAggregationPushdownExpectedResult()
+    {
+        return "VALUES (BIGINT '4', DECIMAL '8')";
+    }
 }

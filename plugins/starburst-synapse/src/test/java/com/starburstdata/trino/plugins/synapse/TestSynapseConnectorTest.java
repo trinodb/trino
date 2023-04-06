@@ -935,7 +935,7 @@ public class TestSynapseConnectorTest
     public void testSelectFromProcedureFunction()
     {
         assertThatThrownBy(super::testSelectFromProcedureFunction)
-                .hasMessageStartingWith("Execution of 'actual' query failed:")
+                .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
                 .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
         throw new SkipException("procedure() PTF not registered");
     }
@@ -944,7 +944,7 @@ public class TestSynapseConnectorTest
     public void testSelectFromProcedureFunctionWithInputParameter()
     {
         assertThatThrownBy(super::testSelectFromProcedureFunctionWithInputParameter)
-                .hasMessageStartingWith("Execution of 'actual' query failed:")
+                .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
                 .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
         throw new SkipException("procedure() PTF not registered");
     }
@@ -985,7 +985,7 @@ public class TestSynapseConnectorTest
     public void testProcedureWithSingleIfStatement()
     {
         assertThatThrownBy(super::testProcedureWithSingleIfStatement)
-                .hasMessageStartingWith("Execution of 'actual' query failed:")
+                .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
                 .cause().hasMessageMatching("line \\d+:\\d+: Table function system.procedure not registered");
         throw new SkipException("procedure() PTF not registered");
     }
