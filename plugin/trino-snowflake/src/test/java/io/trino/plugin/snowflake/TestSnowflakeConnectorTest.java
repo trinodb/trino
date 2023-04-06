@@ -68,6 +68,8 @@ public class TestSnowflakeConnectorTest
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
+            case SUPPORTS_DROP_FIELD:
+            case SUPPORTS_ROW_TYPE:
             case SUPPORTS_ARRAY:
                 return false;
             default:
