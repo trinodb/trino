@@ -262,7 +262,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
 
     private String getDatabricksTablePropertiesWithCheckpointInterval()
     {
-        if (databricksRuntimeVersion.equals(DATABRICKS_113_RUNTIME_VERSION)) {
+        if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
                     "  'delta.checkpointInterval' = '3',\n" +
                     "  'delta.minReaderVersion' = '1',\n" +
