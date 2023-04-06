@@ -112,7 +112,7 @@ public class SalesforceJdbcClient
 
     @Inject
     public SalesforceJdbcClient(
-            BaseJdbcConfig baseJdbcConfig,
+            BaseJdbcConfig config,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             @EnableWrites boolean enableWrites,
@@ -121,7 +121,7 @@ public class SalesforceJdbcClient
             Set<SystemTableProvider> systemTables,
             RemoteQueryModifier queryModifier)
     {
-        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.enableWrites = enableWrites;
         this.systemTables = requireNonNull(systemTables, "systemTables is null");
@@ -378,12 +378,12 @@ public class SalesforceJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
         // This function is overridden to ensure we have a class in the com.starburstdata.* package when running queries
         // Without it, the query would fail with a CData licensing error
-        return super.getPreparedStatement(connection, sql);
+        return super.getPreparedStatement(connection, sql, columnCount);
     }
 
     @Override
