@@ -93,14 +93,15 @@ public abstract class BaseElasticsearchConnectorTest
                     SUPPORTS_CREATE_VIEW,
                     SUPPORTS_DELETE,
                     SUPPORTS_INSERT,
-                    SUPPORTS_LIMIT_PUSHDOWN,
                     SUPPORTS_MERGE,
                     SUPPORTS_RENAME_COLUMN,
                     SUPPORTS_RENAME_TABLE,
                     SUPPORTS_ROW_TYPE,
                     SUPPORTS_SET_COLUMN_TYPE,
-                    SUPPORTS_TOPN_PUSHDOWN,
                     SUPPORTS_UPDATE -> false;
+            case SUPPORTS_LIMIT_PUSHDOWN,
+                    SUPPORTS_TOPN_PUSHDOWN,
+                    SUPPORTS_AGGREGATION_PUSHDOWN -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -1072,10 +1073,10 @@ public abstract class BaseElasticsearchConnectorTest
                 .isFullyPushedDown();
 
         assertThat(query("" +
-                 "SELECT " +
-                 "text_column " +
-                 "FROM " + indexName + " " +
-                 "WHERE text_column LIKE 's_.m%ex\\t'"))
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE text_column LIKE 's_.m%ex\\t'"))
                 .matches("VALUES VARCHAR 'so.me tex\\t'");
 
         assertThat(query("" +
