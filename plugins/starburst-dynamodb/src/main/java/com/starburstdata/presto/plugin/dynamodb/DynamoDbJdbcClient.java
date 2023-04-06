@@ -134,7 +134,7 @@ public class DynamoDbJdbcClient
 
     @Inject
     public DynamoDbJdbcClient(
-            BaseJdbcConfig baseJdbcConfig,
+            BaseJdbcConfig config,
             DynamoDbConfig dynamoDbConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
@@ -143,7 +143,7 @@ public class DynamoDbJdbcClient
             RemoteQueryModifier queryModifier,
             @EnableWrites boolean enableWrites)
     {
-        super(baseJdbcConfig, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.schemaDirectory = new File(requireNonNull(dynamoDbConfig, "dynamoDbConfig is null").getSchemaDirectory());
         this.isFirstKeyAsPrimaryKeyEnabled = dynamoDbConfig.isFirstColumnAsPrimaryKeyEnabled();
@@ -547,12 +547,12 @@ public class DynamoDbJdbcClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
         // This function is overridden to ensure we have a class in the com.starburstdata.* package when running queries
         // Without it, the query would fail with a CData licensing error
-        return super.getPreparedStatement(connection, sql);
+        return super.getPreparedStatement(connection, sql, columnCount);
     }
 
     public static String getDynamoDbTypeFromSql(String type)
