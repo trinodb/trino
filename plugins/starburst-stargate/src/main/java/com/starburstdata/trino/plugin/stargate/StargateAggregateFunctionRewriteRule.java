@@ -15,11 +15,11 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -27,15 +27,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.google.common.base.Verify.verify;
-import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 class StargateAggregateFunctionRewriteRule
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private final Function<ConnectorSession, Set<String>> supportedFunctions;
     private final Function<Type, Optional<JdbcTypeHandle>> toTypeHandle;
@@ -58,7 +56,7 @@ class StargateAggregateFunctionRewriteRule
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         String functionName = aggregateFunction.getFunctionName();
         if (!supportedFunctions.apply(context.getSession()).contains(functionName)) {
@@ -72,36 +70,38 @@ class StargateAggregateFunctionRewriteRule
             return Optional.empty();
         }
 
-        List<Optional<String>> mappedInputs = aggregateFunction.getArguments().stream()
-                .map(argument -> toSql(context, argument))
+        List<Optional<ParameterizedExpression>> rewrittenArguments = aggregateFunction.getArguments().stream()
+                .map(context::rewriteExpression)
                 .collect(toImmutableList());
-        if (mappedInputs.stream().anyMatch(Optional::isEmpty)) {
+        if (rewrittenArguments.stream().anyMatch(Optional::isEmpty)) {
             // TODO support complex ConnectorExpressions
             return Optional.empty();
         }
-        String arguments = mappedInputs.stream()
+        String arguments = rewrittenArguments.stream()
+                                   .map(Optional::get)
+                                   .map(ParameterizedExpression::expression)
+                                   .collect(joining(", "));
+        List<QueryParameter> parameters = rewrittenArguments.stream()
                 .map(Optional::get)
-                .collect(joining(", "));
+                .flatMap(parameterizedExpression -> parameterizedExpression.parameters().stream())
+                .collect(toImmutableList());
 
         String orderBy = aggregateFunction.getSortItems().stream()
                 .map(sortItem -> {
-                    JdbcColumnHandle columnHandle = getAssignment(context, sortItem.getName());
+                    JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(sortItem.getName());
                     return format("%s %s",
                             identifierQuote.apply(columnHandle.getColumnName()),
                             toSql(sortItem.getSortOrder()));
                 })
                 .collect(joining(", "));
 
-        Optional<String> filter;
+        Optional<ParameterizedExpression> filter = Optional.empty();
         if (aggregateFunction.getFilter().isPresent()) {
-            filter = toSql(context, aggregateFunction.getFilter().get());
+            filter = context.rewriteExpression(aggregateFunction.getFilter().get());
             if (filter.isEmpty()) {
                 // TODO support complex ConnectorExpressions
                 return Optional.empty();
             }
-        }
-        else {
-            filter = Optional.empty();
         }
 
         String call = functionName + "(";
@@ -114,23 +114,13 @@ class StargateAggregateFunctionRewriteRule
         }
         call += ")";
         if (filter.isPresent()) {
-            call += " FILTER (WHERE " + filter.get() + ")";
+            call += " FILTER (WHERE " + filter.get().expression() + ")";
         }
 
-        return Optional.of(new JdbcExpression(call, outputTypeHandle.get()));
-    }
-
-    private Optional<String> toSql(RewriteContext<?> context, ConnectorExpression expression)
-    {
-        if (!(expression instanceof Variable)) {
-            // TODO support complex ConnectorExpressions
-            return Optional.empty();
-        }
-
-        JdbcColumnHandle columnHandle = getAssignment(context, ((Variable) expression).getName());
-        String sqlExpression = identifierQuote.apply(columnHandle.getColumnName());
-        verify(!sqlExpression.isBlank(), "Blank sqlExpression [%s] for %s", sqlExpression, columnHandle);
-        return Optional.of(sqlExpression);
+        return Optional.of(new JdbcExpression(
+                        call,
+                        parameters,
+                        outputTypeHandle.get()));
     }
 
     private static String toSql(SortOrder sortOrder)
@@ -141,14 +131,5 @@ class StargateAggregateFunctionRewriteRule
             case DESC_NULLS_FIRST -> "DESC NULLS FIRST";
             case DESC_NULLS_LAST -> "DESC NULLS LAST";
         };
-    }
-
-    // TODO simplify with https://github.com/trinodb/trino/pull/6125
-    private static JdbcColumnHandle getAssignment(RewriteContext<?> context, String name)
-    {
-        requireNonNull(name, "name is null");
-        JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignments().get(name);
-        verifyNotNull(columnHandle, "Unbound variable: %s", name);
-        return columnHandle;
     }
 }

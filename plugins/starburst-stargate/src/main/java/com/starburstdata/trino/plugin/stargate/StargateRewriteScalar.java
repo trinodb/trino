@@ -9,9 +9,12 @@
  */
 package com.starburstdata.trino.plugin.stargate;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
@@ -27,7 +30,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class StargateRewriteScalar
-        implements ConnectorExpressionRule<Call, String>
+        implements ConnectorExpressionRule<Call, ParameterizedExpression>
 {
     private static final Pattern<Call> PATTERN = call();
 
@@ -45,7 +48,7 @@ public class StargateRewriteScalar
     }
 
     @Override
-    public Optional<String> rewrite(Call call, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(Call call, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         if (call.getFunctionName().getCatalogSchema().isPresent()) {
             // TODO support qualified function names
@@ -58,16 +61,20 @@ public class StargateRewriteScalar
             return Optional.empty();
         }
 
+        ImmutableList.Builder<QueryParameter> parameters = ImmutableList.builder();
         List<ConnectorExpression> arguments = call.getArguments();
         List<String> rewrittenArguments = new ArrayList<>(arguments.size());
         for (ConnectorExpression argument : arguments) {
-            Optional<String> rewritten = context.defaultRewrite(argument);
+            Optional<ParameterizedExpression> rewritten = context.defaultRewrite(argument);
             if (rewritten.isEmpty()) {
                 return Optional.empty();
             }
-            rewrittenArguments.add(rewritten.get());
+            rewrittenArguments.add(rewritten.get().expression());
+            parameters.addAll(rewritten.get().parameters());
         }
 
-        return Optional.of(format("%s(%s)", functionName, String.join(", ", rewrittenArguments)));
+        return Optional.of(new ParameterizedExpression(
+                format("%s(%s)", functionName, String.join(", ", rewrittenArguments)),
+                parameters.build()));
     }
 }

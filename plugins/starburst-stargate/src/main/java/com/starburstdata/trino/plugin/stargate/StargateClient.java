@@ -38,6 +38,7 @@ import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteComparison;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
@@ -160,8 +161,8 @@ public class StargateClient
     private final Type jsonType;
     private final NonEvictableCache<FunctionsCacheKey, Set<String>> supportedScalarFunctions;
     private final NonEvictableCache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ParameterizedExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
     private final TableScanRedirection tableScanRedirection;
 
@@ -177,7 +178,7 @@ public class StargateClient
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
         this.enableWrites = enableWrites;
         this.jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
 
@@ -598,7 +599,7 @@ public class StargateClient
     }
 
     @Override
-    public Optional<String> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
@@ -840,7 +841,7 @@ public class StargateClient
         preparedQuery = applyQueryTransformations(table, preparedQuery);
 
         preparedQuery = preparedQuery.transformQuery(sql -> "SHOW STATS FOR (" + sql + ")");
-        return queryBuilder.prepareStatement(this, session, connection, preparedQuery);
+        return queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty());
     }
 
     private static Estimate toEstimate(Optional<Double> value)

@@ -495,7 +495,7 @@ public class TestStargateTableStatisticsWithHive
         // Predicate on a varchar column. May or may not be pushed down, may or may not be subsumed.
         assertThat(query("SHOW STATS FOR (SELECT * FROM nation WHERE name = 'PERU')"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('nationkey', 1e0, 0e0, null)," +
@@ -512,7 +512,7 @@ public class TestStargateTableStatisticsWithHive
             gatherStats(table.getName());
 
             assertThat(query("SHOW STATS FOR (SELECT * FROM " + table.getName() + " WHERE fl = 'B')"))
-                    .projected(0, 2, 3, 4)
+                    .exceptColumns("data_size", "low_value", "high_value")
                     .skippingTypesCheck()
                     .matches("VALUES " +
                             "('nationkey', 5e0, 0e0, null)," +

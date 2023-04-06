@@ -26,7 +26,7 @@ public abstract class BaseStargateTableStatisticsTest
 
         assertThat(query("SHOW STATS FOR nation"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('nationkey', 25e0, 0e0, null)," +
@@ -46,7 +46,7 @@ public abstract class BaseStargateTableStatisticsTest
 
         assertThat(query(session, "SHOW STATS FOR (" + query + ")"))
                 // Not testing average length and min/max, as this would make the test less reusable and is not that important to test.
-                .projected(0, 2, 3, 4)
+                .exceptColumns("data_size", "low_value", "high_value")
                 .skippingTypesCheck()
                 .matches("VALUES " +
                         "('nationkey', 5e0, 0e0, null)," +
