@@ -57,7 +57,7 @@ rotation replaces old content.
 The maximum file size for the general application log file.
 
 ``log.compression``
-^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-string`
 * **Default value:** ``GZIP``
