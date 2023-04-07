@@ -355,10 +355,6 @@
                                     <shadedPattern>${shadeBase}.javax.annotation</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>javax.inject</pattern>
-                                    <shadedPattern>${shadeBase}.javax.inject</shadedPattern>
-                                </relocation>
-                                <relocation>
                                     <pattern>org.joda.time</pattern>
                                     <shadedPattern>${shadeBase}.joda.time</shadedPattern>
                                 </relocation>
@@ -374,6 +370,10 @@
                                     <pattern>dev.failsafe</pattern>
                                     <shadedPattern>${shadeBase}.dev.failsafe</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>kotlin</pattern>
+                                    <shadedPattern>${shadeBase}.kotlin</shadedPattern>
+                                </relocation>
                             </relocations>
                             <filters>
                                 <filter>
@@ -385,10 +385,17 @@
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
+                                        <exclude>org/jetbrains/**</exclude>
+                                        <exclude>org/intellij/**</exclude>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>META-INF/proguard/okhttp3.pro</exclude>
+                                        <exclude>META-INF/proguard/okio.pro</exclude>
                                         <exclude>LICENSE</exclude>
+                                        <exclude>META-INF/**.kotlin_module</exclude>
+                                        <exclude>META-INF/versions/**</exclude>
+                                        <exclude>META-INF/NOTICE**</exclude>
+                                        <exclude>META-INF/LICENSE**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
@@ -398,4 +405,32 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>ci</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>2.22.2</version>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <jdbc-jar>${project.build.directory}/${project.name}-${project.version}.jar</jdbc-jar>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
