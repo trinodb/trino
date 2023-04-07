@@ -97,6 +97,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
+import static io.trino.plugin.iceberg.IcebergUtil.commitTransaction;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
@@ -268,7 +269,7 @@ public class MigrateProcedure
                     .build();
             metastore.replaceTable(schemaName, tableName, newTable, principalPrivileges);
 
-            transaction.commitTransaction();
+            commitTransaction(transaction);
             log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
         }
         catch (Exception e) {

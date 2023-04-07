@@ -68,6 +68,7 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.Types.NestedField;
@@ -134,6 +135,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -841,7 +843,22 @@ public final class IcebergUtil
     public static void commit(SnapshotUpdate<?> update, ConnectorSession session)
     {
         update.set(TRINO_QUERY_ID_NAME, session.getQueryId());
-        update.commit();
+        try {
+            update.commit();
+        }
+        catch (CommitFailedException commitFailedException) {
+            throw new TrinoException(TRANSACTION_CONFLICT, commitFailedException.getMessage(), commitFailedException.getCause());
+        }
+    }
+
+    public static void commitTransaction(Transaction transaction)
+    {
+        try {
+            transaction.commitTransaction();
+        }
+        catch (CommitFailedException commitFailedException) {
+            throw new TrinoException(TRANSACTION_CONFLICT, commitFailedException.getMessage(), commitFailedException.getCause());
+        }
     }
 
     public static TableScan buildTableScan(Table icebergTable, MetadataTableType metadataTableType)
