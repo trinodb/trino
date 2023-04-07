@@ -1165,7 +1165,7 @@
             <dependency>
                 <groupId>com.linkedin.calcite</groupId>
                 <artifactId>calcite-core</artifactId>
-                <version>1.21.0.160</version>
+                <version>1.21.0.259</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
