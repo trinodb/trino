@@ -112,13 +112,13 @@ public final class QueryExecutors
 
     public static QueryExecutor onDelta()
     {
-        // Databricks clusters sometimes return HTTP 502 while starting, possibly when the gateway is up,
+        // Databricks clusters sometimes return HTTP 503 while starting, possibly when the gateway is up,
         // but Spark is still initializing. It's also possible an OOM on Spark will restart it, and the gateway may
         // return 502 then as well. Handling this with a query retry allows us to use the cluster's autostart feature safely,
         // while keeping costs to a minimum.
 
         RetryPolicy<QueryResult> databricksRetryPolicy = RetryPolicy.<QueryResult>builder()
-                .handleIf(throwable -> throwable.getMessage().contains("HTTP Response code: 502"))
+                .handleIf(throwable -> throwable.getMessage().contains("HTTP Response code: 502") || throwable.getMessage().contains("HTTP Response code: 503"))
                 .withBackoff(1, 10, ChronoUnit.SECONDS)
                 .withMaxRetries(60)
                 .onRetry(event -> log.warn(event.getLastException(), "Query failed on attempt %d, will retry.", event.getAttemptCount()))
