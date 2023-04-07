@@ -72,7 +72,7 @@
         <dep.kotlin.version>1.8.0</dep.kotlin.version>
         <dep.netty.version>4.1.79.Final</dep.netty.version>
 
-        <dep.docker.images.version>77</dep.docker.images.version>
+        <dep.docker.images.version>79</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
