@@ -190,6 +190,14 @@ public class TestIcebergGcsConnectorSmokeTest
                 "Hive metastore does not support renaming schemas");
     }
 
+    @Test(timeOut = 150_000, invocationCount = 4)
+    @Override // Overridden to increase the timeout because GCS write speed is slower than other object storages
+    public void testDeleteRowsConcurrently()
+            throws Exception
+    {
+        super.testDeleteRowsConcurrently();
+    }
+
     @Override
     protected void dropTableFromMetastore(String tableName)
     {
