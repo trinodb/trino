@@ -213,6 +213,12 @@
         <dependency>
             <groupId>com.linkedin.coral</groupId>
             <artifactId>coral-hive</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.ivy</groupId>
+                    <artifactId>ivy</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
