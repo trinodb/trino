@@ -17,6 +17,11 @@ import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.time.Duration;
 
 import static java.lang.String.format;
@@ -32,6 +37,13 @@ public class TestingIgniteContainer
         this.withExposedPorts(10800);
         this.withEnv("IGNITE_SQL_MERGE_TABLE_MAX_SIZE", IGNITE_SQL_MERGE_TABLE_MAX_SIZE).withStartupAttempts(10);
         this.waitingFor((new HttpWaitStrategy()).forStatusCode(200).forResponsePredicate("Ok."::equals).withStartupTimeout(Duration.ofMinutes(1L)));
+        try {
+            PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
+            this.withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", "ignite")));
+        }
+        catch (UnsupportedEncodingException e) {
+            throw new UnsupportedOperationException(e);
+        }
     }
 
     @Override
