@@ -74,7 +74,7 @@
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.slf4j.version>2.0.7</dep.slf4j.version>
 
-        <dep.docker.images.version>77</dep.docker.images.version>
+        <dep.docker.images.version>79</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
