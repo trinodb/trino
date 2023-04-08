@@ -22,8 +22,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -150,16 +148,13 @@ public class TestDeltaLakeDatabricksInsertCompatibility
             List<Row> expectedRows = ImmutableList.of(
                     row(
                             1,
-                            Timestamp.from(
-                                    LocalDateTime.of(2023, 4, 5, 10, 0, 0, 666000000)
-                                            .atZone(ZoneId.of("+01:00")).toInstant())),
+                            Timestamp.valueOf("2023-04-05 09:00:00.666")),
                     row(
                             2,
-                            Timestamp.from(
-                                    LocalDateTime.of(2023, 4, 6, 10, 0, 0)
-                                            .atZone(ZoneId.of("+01:00")).toInstant())));
-
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " ORDER BY c1 ASC"))
+                            Timestamp.valueOf("2023-04-06 09:00:00")));
+            assertThat(onTrino().executeQuery("SELECT c1, CAST(c2 AS TIMESTAMP) FROM delta.default." + tableName + " ORDER BY c1 ASC"))
+                    .containsOnly(expectedRows);
+            assertThat(onDelta().executeQuery("SELECT c1, c2 FROM default." + tableName + " ORDER BY c1 ASC"))
                     .containsOnly(expectedRows);
         }
         finally {

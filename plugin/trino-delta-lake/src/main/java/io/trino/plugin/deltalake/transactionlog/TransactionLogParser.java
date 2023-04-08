@@ -205,10 +205,11 @@ public final class TransactionLogParser
                                 accessor.get(SECOND_OF_MINUTE))
                         .atZone(UTC);
             }
-            return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
         }
-        zonedDateTime = ZonedDateTime.parse(timestamp, PARTITION_TIMESTAMP_ZONE_OR_OFFSET_FORMATTER);
-        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
+        else {
+            zonedDateTime = ZonedDateTime.parse(timestamp, PARTITION_TIMESTAMP_ZONE_OR_OFFSET_FORMATTER);
+        }
+        return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
     }
 
     public static Object deserializeColumnValue(DeltaLakeColumnHandle column, String valueString, Function<String, Long> timestampReader)

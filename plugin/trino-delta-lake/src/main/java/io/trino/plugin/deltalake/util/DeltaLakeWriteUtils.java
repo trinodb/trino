@@ -53,12 +53,12 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
@@ -184,12 +184,12 @@ public final class DeltaLakeWriteUtils
         long millisUtc = unpackMillisUtc(value);
         if (type.isShort()) {
             Instant instant = Instant.ofEpochMilli(millisUtc);
-            return new TimestampTZ((long) Math.floor(millisUtc / 1000), instant.getNano(), unpackZoneKey(value).getZoneId());
+            return new TimestampTZ((long) Math.floor(millisUtc / 1000), instant.getNano(), UTC_KEY.getZoneId());
         }
         else {
             int picosOfMilli = block.getInt(position, SIZE_OF_LONG);
             Instant instant = Instant.ofEpochMilli(millisUtc).plusNanos(picosOfMilli * 1000);
-            return new TimestampTZ(instant.getEpochSecond(), instant.getNano(), unpackZoneKey(value).getZoneId());
+            return new TimestampTZ(instant.getEpochSecond(), instant.getNano(), UTC_KEY.getZoneId());
         }
     }
 }
