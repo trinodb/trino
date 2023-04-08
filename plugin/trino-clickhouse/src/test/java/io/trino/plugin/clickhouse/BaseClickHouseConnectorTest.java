@@ -980,13 +980,7 @@ public abstract class BaseClickHouseConnectorTest
     public void testSetColumnTypes(SetColumnTypeSetup setup)
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-
-        //String tableName = "test_set_column_type_with_data_provider";
-
-  //      String tableDefinition = "CREATE TABLE " + tableName + "(AS SELECT CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + ") AS col , col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')";
-
-    //    assertUpdate(tableDefinition);
-
+        
         TestTable table;
         try {
             table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + ") AS col");
