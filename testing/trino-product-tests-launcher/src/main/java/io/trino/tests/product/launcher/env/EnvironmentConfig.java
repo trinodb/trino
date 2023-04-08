@@ -29,7 +29,17 @@ public interface EnvironmentConfig
 
     String getHadoopImagesVersion();
 
+    default List<String> getGroups()
+    {
+        return ImmutableList.of();
+    }
+
     default List<String> getExcludedGroups()
+    {
+        return ImmutableList.of();
+    }
+
+    default List<String> getTests()
     {
         return ImmutableList.of();
     }

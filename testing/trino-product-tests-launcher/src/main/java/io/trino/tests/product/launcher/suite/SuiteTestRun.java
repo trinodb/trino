@@ -133,9 +133,9 @@ public class SuiteTestRun
         return new SuiteTestRun(
                 environment,
                 extraOptions,
-                getGroups(),
+                merge(getGroups(), config.getGroups()),
                 merge(getExcludedGroups(), config.getExcludedGroups()),
-                getTests(),
+                merge(getTests(), config.getTests()),
                 merge(getExcludedTests(), config.getExcludedTests()));
     }
 

@@ -81,6 +81,8 @@ public class ConfigDefault
                 .add("hadoopBaseImage", getHadoopBaseImage())
                 .add("hadoopImagesVersion", getHadoopImagesVersion())
                 .add("imagesVersion", getImagesVersion())
+                .add("includedGroups", getGroups())
+                .add("includedTests", getTests())
                 .add("excludedGroups", getExcludedGroups())
                 .add("excludedTests", getExcludedTests())
                 .add("temptoEnvironmentConfigFile", getTemptoEnvironmentConfigFile())
