@@ -29,7 +29,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.net.HttpHeaders.LOCATION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -113,15 +112,6 @@ public final class JsonResponse<T>
     public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, OptionalLong materializedJsonSizeLimit)
     {
         try (Response response = client.newCall(request).execute()) {
-            // TODO: fix in OkHttp: https://github.com/square/okhttp/issues/3111
-            if ((response.code() == 307) || (response.code() == 308)) {
-                String location = response.header(LOCATION);
-                if (location != null) {
-                    request = request.newBuilder().url(location).build();
-                    return execute(codec, client, request, materializedJsonSizeLimit);
-                }
-            }
-
             ResponseBody responseBody = requireNonNull(response.body());
             if (isJson(responseBody.contentType())) {
                 String body = null;

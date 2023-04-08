@@ -1102,7 +1102,7 @@ public class TestingTableFunctions
         {
             ScalarArgument count = (ScalarArgument) arguments.get("N");
             requireNonNull(count.getValue(), "count value for function repeat() is null");
-            checkArgument((long) count.getValue() > 0, "count value for function repeat() must be positive");
+            checkArgument((long) count.getValue() >= 0, "count value for function repeat() must not be negative");
 
             return TableFunctionAnalysis.builder()
                     .handle(new ConstantFunctionHandle((Long) ((ScalarArgument) arguments.get("VALUE")).getValue(), (long) count.getValue()))

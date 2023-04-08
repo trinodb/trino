@@ -40,6 +40,9 @@ predicate[ParserRuleContext value]
 
 valueExpression
     : primaryExpression                                 #valueExpressionDefault
+    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
+    | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
+    | left=valueExpression operator=(AMPERSAND | CIRCUMFLEX) right=valueExpression      #arithmeticBinary
     ;
 
 primaryExpression
@@ -85,7 +88,13 @@ LTE: '<=';
 GT: '>';
 GTE: '>=';
 
+PLUS: '+';
 MINUS: '-';
+ASTERISK: '*';
+SLASH: '/';
+PERCENT: '%';
+AMPERSAND: '&';
+CIRCUMFLEX: '^';
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''

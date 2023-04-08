@@ -23,7 +23,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -34,7 +33,6 @@ import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,16 +65,12 @@ public abstract class BaseOracleConnectorTest
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_SET_COLUMN_TYPE:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_TABLE:
                 return false;
 
             case SUPPORTS_ARRAY:
@@ -148,42 +142,6 @@ public abstract class BaseOracleConnectorTest
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
-    }
-
-    /**
-     * Test showing that column comment cannot be read. See {@link TestOraclePoolRemarksReportingConnectorSmokeTest#testCommentColumn()} for test
-     * showing this works, when enabled.
-     */
-    @Test
-    @Override
-    public void testCommentColumn()
-    {
-        String tableName = "test_comment_column_" + randomNameSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
-
-        // comment set
-        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
-        // without remarksReporting Oracle does not return comments set
-        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
-    }
-
-    @Override
-    public void testCommentColumnName(String columnName)
-    {
-        throw new SkipException("The test is covered in TestOraclePoolRemarksReportingConnectorSmokeTest");
-    }
-
-    /**
-     * See {@link TestOraclePoolRemarksReportingConnectorSmokeTest#testCommentColumnSpecialCharacter(String comment)}
-     */
-    @Override
-    public void testCommentColumnSpecialCharacter(String comment)
-    {
-        // Oracle connector doesn't return column comments by default
-        assertThatThrownBy(() -> super.testCommentColumnSpecialCharacter(comment))
-                .hasMessageContaining("expected [%s] but found [null]".formatted(comment));
-        throw new SkipException("The test is covered in TestOraclePoolRemarksReportingConnectorSmokeTest");
     }
 
     @Override
@@ -526,6 +484,12 @@ public abstract class BaseOracleConnectorTest
     protected void verifyColumnNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessage("ORA-00972: identifier is too long\n");
+    }
+
+    @Override
+    protected String sumDistinctAggregationPushdownExpectedResult()
+    {
+        return "VALUES (BIGINT '4', DECIMAL '8')";
     }
 
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)

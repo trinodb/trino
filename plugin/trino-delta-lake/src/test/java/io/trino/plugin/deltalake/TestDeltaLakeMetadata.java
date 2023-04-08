@@ -68,7 +68,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -382,10 +381,12 @@ public class TestDeltaLakeMetadata
                 .isEqualTo(Optional.of(expectedProjectedColumns));
 
         assertThat(projection.getProjections())
-                .isEqualToComparingFieldByFieldRecursively(expectedProjections);
+                .usingRecursiveComparison()
+                .isEqualTo(expectedProjections);
 
         assertThat(projection.getAssignments())
-                .isEqualToComparingFieldByFieldRecursively(createNewColumnAssignments(inputAssignments));
+                .usingRecursiveComparison()
+                .isEqualTo(createNewColumnAssignments(inputAssignments));
 
         assertThat(projection.isPrecalculateStatistics())
                 .isFalse();
@@ -490,14 +491,6 @@ public class TestDeltaLakeMetadata
                 ImmutableList.of("test_partition_column"),
                 ImmutableMap.of("test_configuration_key", "test_configuration_value"),
                 1);
-    }
-
-    private String getTableLocation(SchemaTableName schemaTableName)
-    {
-        return Paths.get(
-                temporaryCatalogDirectory.getPath(),
-                schemaTableName.getSchemaName(),
-                schemaTableName.getTableName()).toString();
     }
 
     private static List<String> getPartitionColumnNames(List<ColumnMetadata> tableMetadataColumns)

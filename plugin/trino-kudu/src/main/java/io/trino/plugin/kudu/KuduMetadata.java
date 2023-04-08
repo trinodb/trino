@@ -66,7 +66,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -438,13 +437,11 @@ public class KuduMetadata
         KuduTableHandle handle = (KuduTableHandle) table;
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
         List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
 
         return new ConnectorTableProperties(
                 handle.getConstraint(),
                 tablePartitioning,
-                partitioningColumns,
                 Optional.empty(),
                 localProperties);
     }

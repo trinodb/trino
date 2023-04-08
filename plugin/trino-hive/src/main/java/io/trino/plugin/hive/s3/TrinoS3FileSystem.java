@@ -246,6 +246,9 @@ public class TrinoS3FileSystem
     private static final String S3_DEFAULT_ROLE_SESSION_NAME = "trino-session";
     public static final int DELETE_BATCH_SIZE = 1000;
 
+    static final String NO_SUCH_KEY_ERROR_CODE = "NoSuchKey";
+    static final String NO_SUCH_BUCKET_ERROR_CODE = "NoSuchBucket";
+
     private URI uri;
     private Path workingDirectory;
     private AmazonS3 s3;
@@ -1232,7 +1235,7 @@ public class TrinoS3FileSystem
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
+                    .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class, FileNotFoundException.class)
                     .onRetry(STATS::newInitiateMultipartUploadRetry)
                     .run("initiateMultipartUpload", () -> {
                         try {
@@ -1259,7 +1262,11 @@ public class TrinoS3FileSystem
                             STATS.newInitiateMultipartUploadError();
                             if (e instanceof AmazonS3Exception s3Exception) {
                                 switch (s3Exception.getStatusCode()) {
-                                    case HTTP_FORBIDDEN, HTTP_NOT_FOUND, HTTP_BAD_REQUEST -> throw new UnrecoverableS3OperationException(bucket, key, e);
+                                    case HTTP_FORBIDDEN, HTTP_BAD_REQUEST -> throw new UnrecoverableS3OperationException(bucket, key, e);
+                                    case HTTP_NOT_FOUND -> {
+                                        throwIfFileNotFound(s3Exception);
+                                        throw new UnrecoverableS3OperationException(bucket, key, e);
+                                    }
                                 }
                             }
                             throw e;
@@ -1335,7 +1342,7 @@ public class TrinoS3FileSystem
                 return retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, EOFException.class, AbortedException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, EOFException.class, AbortedException.class, FileNotFoundException.class)
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             InputStream stream;
@@ -1359,6 +1366,7 @@ public class TrinoS3FileSystem
                                         case HTTP_RANGE_NOT_SATISFIABLE:
                                             throw new EOFException(CANNOT_SEEK_PAST_EOF);
                                         case HTTP_NOT_FOUND:
+                                            throwIfFileNotFound(s3Exception);
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
@@ -1431,7 +1439,7 @@ public class TrinoS3FileSystem
                 int bytesRead = retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class, FileNotFoundException.class)
                         .onRetry(STATS::newReadRetry)
                         .run("readStream", () -> {
                             seekStream();
@@ -1510,7 +1518,7 @@ public class TrinoS3FileSystem
                 return retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class, FileNotFoundException.class)
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             try {
@@ -1534,6 +1542,7 @@ public class TrinoS3FileSystem
                                             // ignore request for start past end of object
                                             return new ByteArrayInputStream(new byte[0]);
                                         case HTTP_NOT_FOUND:
+                                            throwIfFileNotFound(s3Exception);
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
                                 }
@@ -2020,6 +2029,17 @@ public class TrinoS3FileSystem
         @SuppressWarnings("deprecation")
         byte[] md5 = md5().hashBytes(data, offset, length).asBytes();
         return Base64.getEncoder().encodeToString(md5);
+    }
+
+    private static void throwIfFileNotFound(AmazonS3Exception s3Exception)
+            throws FileNotFoundException
+    {
+        String errorCode = s3Exception.getErrorCode();
+        if (NO_SUCH_KEY_ERROR_CODE.equals(errorCode) || NO_SUCH_BUCKET_ERROR_CODE.equals(errorCode)) {
+            FileNotFoundException fileNotFoundException = new FileNotFoundException(s3Exception.getMessage());
+            fileNotFoundException.initCause(s3Exception);
+            throw fileNotFoundException;
+        }
     }
 
     private enum DeletePrefixResult

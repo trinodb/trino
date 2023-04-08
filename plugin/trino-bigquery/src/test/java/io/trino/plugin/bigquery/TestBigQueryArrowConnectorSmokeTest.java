@@ -11,26 +11,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.clickhouse;
+package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 
-import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
-import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
-
-public class TestClickHouseLatestConnectorTest
-        extends BaseClickHouseConnectorTest
+public class TestBigQueryArrowConnectorSmokeTest
+        extends BaseConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.clickhouseServer = closeAfterClass(new TestingClickHouseServer(CLICKHOUSE_LATEST_IMAGE));
-        return createClickHouseQueryRunner(
-                clickhouseServer,
+        return BigQueryQueryRunner.createQueryRunner(
                 ImmutableMap.of(),
-                ImmutableMap.of("clickhouse.map-string-as-varchar", "true"),
+                ImmutableMap.of("bigquery.experimental.arrow-serialization.enabled", "true"),
                 REQUIRED_TPCH_TABLES);
+    }
+
+    @SuppressWarnings("DuplicateBranchesInSwitch")
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA:
+                return false;
+
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }

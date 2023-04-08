@@ -77,6 +77,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -134,7 +135,7 @@ public abstract class BaseDataDefinitionTaskTest
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         if (queryRunner != null) {
@@ -229,6 +230,7 @@ public abstract class BaseDataDefinitionTaskTest
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));
@@ -347,6 +349,19 @@ public abstract class BaseDataDefinitionTaskTest
 
             List<ColumnMetadata> columns = metadata.getColumns().stream()
                     .filter(column -> !column.getName().equals(columnName))
+                    .collect(toImmutableList());
+            tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
+        }
+
+        @Override
+        public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            ConnectorTableMetadata metadata = tables.get(tableName);
+            String columnName = ((TestingColumnHandle) source).getName();
+
+            List<ColumnMetadata> columns = metadata.getColumns().stream()
+                    .map(column -> column.getName().equals(columnName) ? ColumnMetadata.builderFrom(column).setName(target).build() : column)
                     .collect(toImmutableList());
             tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
         }

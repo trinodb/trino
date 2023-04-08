@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -63,8 +62,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
 {
     private static final String SCHEMA = "test_schema";
 
-    protected String bucketName;
-    protected String resourcePath;
+    protected final String bucketName;
+    protected final String resourcePath;
     protected HiveMinioDataLake hiveMinioDataLake;
 
     public BaseDeltaLakeMinioConnectorTest(String bucketName, String resourcePath)
@@ -856,11 +855,12 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(TRY(5/0), 40, 400)"))
                 .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
 
-        //TODO these 2 should fail  https://github.com/trinodb/trino/issues/13435
-        assertUpdate("UPDATE " + tableName + " SET col2 = NULL where col3 = 100", 1);
-        assertUpdate("UPDATE " + tableName + " SET col2 = TRY(5/0) where col3 = 200", 1);
+        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col1 = NULL where col3 = 100"))
+                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
+        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col1 = TRY(5/0) where col3 = 200"))
+                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
 
-        assertQuery("SELECT * FROM " + tableName, "VALUES(1, null, 100), (2, null, 200)");
+        assertQuery("SELECT * FROM " + tableName, "VALUES(1, 10, 100), (2, 20, 200)");
     }
 
     @Test
@@ -970,11 +970,5 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
-    }
-
-    private void assertThatShowCreateTable(String tableName, String expectedRegex)
-    {
-        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
-                .matches(Pattern.compile(expectedRegex, Pattern.DOTALL));
     }
 }

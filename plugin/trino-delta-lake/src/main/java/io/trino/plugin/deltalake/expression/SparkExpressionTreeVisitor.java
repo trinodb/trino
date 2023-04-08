@@ -34,6 +34,11 @@ public abstract class SparkExpressionTreeVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitArithmeticBinary(ArithmeticBinaryExpression node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitIdentifier(Identifier node, C context)
     {
         return visitExpression(node, context);

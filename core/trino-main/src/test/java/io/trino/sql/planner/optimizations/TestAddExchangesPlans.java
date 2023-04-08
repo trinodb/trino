@@ -48,6 +48,7 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
+import static io.trino.SystemSessionProperties.USE_COST_BASED_PARTITIONING;
 import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
@@ -657,6 +658,8 @@ public class TestAddExchangesPlans
                                                                         anyTree(tableScan("lineitem", ImmutableMap.of(
                                                                                 "partkey", "partkey",
                                                                                 "suppkey", "suppkey"))))))))))))));
+        // parent partitioning would be preferable but use_cost_based_partitioning=false prevents it
+        assertDistributedPlan(singleColumnParentGroupBy, doNotUseCostBasedPartitioning(), exactPartitioningPlan);
         // parent partitioning would be preferable but use_exact_partitioning prevents it
         assertDistributedPlan(singleColumnParentGroupBy, useExactPartitioning(), exactPartitioningPlan);
         // no stats. fallback to exact partitioning expected
@@ -1011,6 +1014,13 @@ public class TestAddExchangesPlans
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                 .setSystemProperty(USE_EXACT_PARTITIONING, "true")
+                .build();
+    }
+
+    private Session doNotUseCostBasedPartitioning()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(USE_COST_BASED_PARTITIONING, "false")
                 .build();
     }
 

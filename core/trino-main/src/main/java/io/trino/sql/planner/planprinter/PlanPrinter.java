@@ -1862,7 +1862,7 @@ public class PlanPrinter
             }
             else {
                 descriptor = argument.getDescriptor().orElseThrow().getFields().stream()
-                        .map(field -> anonymizer.anonymizeColumn(field.getName()) + field.getType().map(type -> " " + type.getDisplayName()).orElse(""))
+                        .map(field -> anonymizer.anonymizeColumn(field.getName().orElseThrow()) + field.getType().map(type -> " " + type.getDisplayName()).orElse(""))
                         .collect(joining(", ", "(", ")"));
             }
             return format("%s => DescriptorArgument{%s}", argumentName, descriptor);

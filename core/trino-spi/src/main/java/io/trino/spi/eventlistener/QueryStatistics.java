@@ -77,6 +77,7 @@ public class QueryStatistics
      * can change without preserving backward compatibility.
      */
     private final List<String> operatorSummaries;
+    private final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries;
     /**
      * Plan node stats and costs serialized to JSON. Serialization format and structure
      * can change without preserving backward compatibility.
@@ -125,6 +126,7 @@ public class QueryStatistics
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
             List<String> operatorSummaries,
+            List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
             Optional<String> planNodeStatsAndCosts)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
@@ -166,6 +168,7 @@ public class QueryStatistics
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
+        this.optimizerRulesSummaries = requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null");
         this.planNodeStatsAndCosts = requireNonNull(planNodeStatsAndCosts, "planNodeStatsAndCosts is null");
     }
 
@@ -401,6 +404,12 @@ public class QueryStatistics
     public List<String> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    @JsonProperty
+    public List<QueryPlanOptimizerStatistics> getOptimizerRulesSummaries()
+    {
+        return optimizerRulesSummaries;
     }
 
     @JsonProperty

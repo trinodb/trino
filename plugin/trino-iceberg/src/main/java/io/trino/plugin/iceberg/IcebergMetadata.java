@@ -495,7 +495,7 @@ public class IcebergMetadata
         if (table.getSnapshotId().isEmpty()) {
             // A table with missing snapshot id produces no splits, so we optimize here by returning
             // TupleDomain.none() as the predicate
-            return new ConnectorTableProperties(TupleDomain.none(), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of());
+            return new ConnectorTableProperties(TupleDomain.none(), Optional.empty(), Optional.empty(), ImmutableList.of());
         }
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
@@ -561,7 +561,6 @@ public class IcebergMetadata
                 // over all tableScan.planFiles() and caching partition values in table handle.
                 enforcedPredicate.transformKeys(ColumnHandle.class::cast),
                 // TODO: implement table partitioning
-                Optional.empty(),
                 Optional.empty(),
                 Optional.ofNullable(discretePredicates),
                 ImmutableList.of());

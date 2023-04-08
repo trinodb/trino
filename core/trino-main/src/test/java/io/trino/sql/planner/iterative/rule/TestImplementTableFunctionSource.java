@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -88,7 +87,9 @@ public class TestImplementTableFunctionSource
                 })
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
-                                .properOutputs(ImmutableList.of("a", "b")),
+                                .properOutputs(ImmutableList.of("a", "b"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"))),
                         values("c")));
 
         // pass-through columns
@@ -113,7 +114,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c")),
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"))),
                         values("c")));
     }
 
@@ -143,6 +145,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of()))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c", "d")))
                                 .specification(specification(ImmutableList.of(), ImmutableList.of("d"), ImmutableMap.of("d", ASC_NULLS_LAST))),
                         values("c", "d")));
 
@@ -169,7 +173,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c", "d")))
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableMap.of("d", ASC_NULLS_LAST))),
                         values("c", "d")));
 
@@ -196,7 +201,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c", "d")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("d")))
                                 .specification(specification(ImmutableList.of("c"), ImmutableList.of(), ImmutableMap.of())),
                         values("c", "d")));
     }
@@ -238,7 +244,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "e", "f"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("d"), ImmutableList.of("f")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_1",
@@ -324,7 +331,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "e", "f"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f"), ImmutableList.of()))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("d"), ImmutableList.of("f"), ImmutableList.of("h")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_1",
@@ -422,7 +430,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "e", "f"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c", "d"), ImmutableList.of("f")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_1",
@@ -500,7 +509,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_2"))
@@ -572,7 +582,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_2"))
@@ -644,7 +655,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_2"))
@@ -716,7 +728,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_2"))
@@ -800,7 +813,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d", "e"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_2",
@@ -920,7 +934,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d", "e", "f"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e"), ImmutableList.of("f")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e"), ImmutableList.of("g")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_2",
@@ -1050,7 +1065,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d", "e"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("d"), ImmutableList.of("e")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_2",
@@ -1156,7 +1172,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "e", "f"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c", "d"), ImmutableList.of("f")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "c_coerced", "marker_1",
@@ -1238,7 +1255,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "d", "e", "f"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c", "d"), ImmutableList.of("e", "f")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_1",
@@ -1319,7 +1337,8 @@ public class TestImplementTableFunctionSource
                 .matches(PlanMatchPattern.tableFunctionProcessor(builder -> builder
                                 .name("test_function")
                                 .properOutputs(ImmutableList.of("a", "b"))
-                                .passThroughSymbols(ImmutableSet.of("c", "e", "f"))
+                                .passThroughSymbols(ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("e", "f")))
+                                .requiredSymbols(ImmutableList.of(ImmutableList.of("d"), ImmutableList.of("e")))
                                 .markerSymbols(ImmutableMap.of(
                                         "c", "marker_1",
                                         "d", "marker_1",

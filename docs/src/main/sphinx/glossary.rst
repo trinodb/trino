@@ -13,12 +13,6 @@ Catalog
     the catalog connects to. For more information about catalogs, see
     :ref:`trino-concept-catalog`.
 
-.. _glossCA:
-
-Certificate Authority (CA)
-    A trusted organization that signs and issues certificates. Its signatures
-    can be used to verify the validity of :ref:`certificates <glossCert>`.
-
 .. _glossCert:
 
 Certificate
@@ -27,6 +21,12 @@ Certificate
     <glossCA>`, sometimes abbreviated as cert, that verifies the ownership of a
     server's private keys. Certificate format is specified in the `X.509
     <https://wikipedia.org/wiki/X.509>`_ standard.
+
+.. _glossCA:
+
+Certificate Authority (CA)
+    A trusted organization that signs and issues certificates. Its signatures
+    can be used to verify the validity of :ref:`certificates <glossCert>`.
 
 Cluster
     A Trino cluster provides the resources to run queries against numerous data
@@ -51,6 +51,14 @@ Container
     read about `containers <https://kubernetes.io/docs/concepts/containers/>`_
     in the Kubernetes documentation.
 
+.. _glossDataSource:
+
+Data source
+    A system from which data is retrieved, for example, PostgreSQL or Iceberg on
+    S3 data. In Trino, users query data sources with :ref:`catalogs
+    <glossCatalog>` that connect to each source. See
+    :ref:`trino-concept-data-sources` for more information.
+
 .. _glossDataVirtualization:
 
 Data virtualization
@@ -59,14 +67,6 @@ Data virtualization
     sources <glossDataSource>`, without needing to know the distributed nature
     of the data, its format, or any other technical details involved in
     presenting the data.
-
-.. _glossDataSource:
-
-Data source
-    A system from which data is retrieved, for example, PostgreSQL or Iceberg on
-    S3 data. In Trino, users query data sources with :ref:`catalogs
-    <glossCatalog>` that connect to each source. See
-    :ref:`trino-concept-data-sources` for more information.
 
 .. _glossGzip:
 
@@ -133,15 +133,6 @@ Open-source
     <https://wikipedia.org/wiki/Apache_License>`_, and is therefore maintained
     by a community of contributors from all across the globe.
 
-.. _glossPlugin:
-
-Plugin
-    A bundle of code implementing the Trino :doc:`Service Provider Interface
-    (SPI) </develop/spi-overview>` that is used to add new :ref:`connectors
-    <glossConnector>`, :doc:`data types </develop/types>`, :doc:`functions`,
-    :doc:`access control implementations </develop/system-access-control>`, and
-    other features of Trino.
-
 .. _glossPEM:
 
 PEM file format
@@ -157,6 +148,15 @@ PKCS #12
     that validate a key. `PKCS #12 <https://wikipedia.org/wiki/PKCS_12>`_ files
     have ``.p12`` or ``.pfx`` extensions. This format is a less popular
     alternative to :ref:`PEM <glossPEM>`.
+
+.. _glossPlugin:
+
+Plugin
+    A bundle of code implementing the Trino :doc:`Service Provider Interface
+    (SPI) </develop/spi-overview>` that is used to add new :ref:`connectors
+    <glossConnector>`, :doc:`data types </develop/types>`, :doc:`functions`,
+    :doc:`access control implementations </develop/system-access-control>`, and
+    other features of Trino.
 
 Presto and PrestoSQL
     The old name for Trino. To learn more about the name change to Trino, read

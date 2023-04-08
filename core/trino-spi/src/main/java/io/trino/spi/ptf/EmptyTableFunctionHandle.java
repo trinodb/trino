@@ -11,21 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.bigquery;
+package io.trino.spi.ptf;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.testing.QueryRunner;
-
-public class TestBigQueryArrowConnectorTest
-        extends BaseBigQueryConnectorTest
+public enum EmptyTableFunctionHandle
+        implements ConnectorTableFunctionHandle
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return BigQueryQueryRunner.createQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of("bigquery.experimental.arrow-serialization.enabled", "true"),
-                REQUIRED_TPCH_TABLES);
-    }
+    EMPTY_HANDLE
 }

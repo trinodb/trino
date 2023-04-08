@@ -16,6 +16,7 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.sql.rewrite.StatementRewrite;
@@ -46,6 +47,7 @@ public class Analyzer
     private final List<Expression> parameters;
     private final Map<NodeRef<Parameter>, Expression> parameterLookup;
     private final WarningCollector warningCollector;
+    private PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final StatementRewrite statementRewrite;
 
     Analyzer(
@@ -55,6 +57,7 @@ public class Analyzer
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
             StatementRewrite statementRewrite)
     {
         this.session = requireNonNull(session, "session is null");
@@ -63,6 +66,7 @@ public class Analyzer
         this.parameters = parameters;
         this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "queryStatsCollector is null");
         this.statementRewrite = requireNonNull(statementRewrite, "statementRewrite is null");
     }
 
@@ -73,7 +77,7 @@ public class Analyzer
 
     public Analysis analyze(Statement statement, QueryType queryType)
     {
-        Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector);
+        Statement rewrittenStatement = statementRewrite.rewrite(analyzerFactory, session, statement, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, queryType);
         StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
         analyzer.analyze(rewrittenStatement, Optional.empty());

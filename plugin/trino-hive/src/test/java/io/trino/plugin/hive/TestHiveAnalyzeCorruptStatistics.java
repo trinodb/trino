@@ -78,6 +78,37 @@ public class TestHiveAnalyzeCorruptStatistics
         assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
     }
 
+    @Test
+    public void testAnalyzeCorruptPartitionStatisticsOnEmptyTable()
+    {
+        String tableName = "test_analyze_corrupt_partition_statistics_" + randomNameSuffix();
+
+        // Concurrent ANALYZE statements generate duplicated rows in Thrift metastore's PART_COL_STATS table when partition statistics is empty
+        prepareBrokenPartitionStatisticsTable(tableName);
+
+        // SHOW STATS should succeed even when the partition statistics is broken
+        assertQuerySucceeds("SHOW STATS FOR " + tableName);
+
+        // ANALYZE succeeds for a partitioned table with corrupt stats unlike a non-partitioned table with corrupt stats
+        assertUpdate("ANALYZE " + tableName, 1);
+        assertThatThrownBy(() -> query("CALL system.drop_stats('tpch', '" + tableName + "')"))
+                .hasMessageContaining("The query returned more than one instance BUT either unique is set to true or only aggregates are to be returned, so should have returned one result maximum");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private void prepareBrokenPartitionStatisticsTable(String tableName)
+    {
+        assertUpdate("CREATE TABLE " + tableName + " WITH(partitioned_by = ARRAY['part']) AS SELECT 1 col, 'test_partition' part", 1);
+
+        // Insert duplicated row to simulate broken partition statistics status https://github.com/trinodb/trino/issues/13787
+        assertEquals(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1");
+        onMetastore("INSERT INTO PART_COL_STATS  " +
+                "SELECT cs_id + 1, db_name, table_name, partition_name, column_name, column_type, part_id, long_low_value, long_high_value, double_high_value, double_low_value, big_decimal_low_value, big_decimal_high_value, num_nulls, num_distincts, avg_col_len, max_col_len, num_trues, num_falses, last_analyzed " +
+                "FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'");
+        assertEquals(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
+    }
+
     private String onMetastore(@Language("SQL") String sql)
     {
         return hiveMinioDataLake.getHiveHadoop().runOnMetastore(sql);

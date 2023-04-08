@@ -259,7 +259,6 @@ public class TestPushProjectionIntoTableScan
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(column("col", VARCHAR)))),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of());
                     }
 

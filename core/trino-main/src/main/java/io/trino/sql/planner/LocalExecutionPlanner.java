@@ -1677,7 +1677,7 @@ public class LocalExecutionPlanner
                 OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(
                         context.getNextOperatorId(),
                         node.getId(),
-                        node.getFunctionCatalog(),
+                        node.getHandle().getCatalogHandle(),
                         processorProvider,
                         node.getHandle().getFunctionHandle());
                 return new PhysicalOperation(operatorFactory, makeLayout(node), context);

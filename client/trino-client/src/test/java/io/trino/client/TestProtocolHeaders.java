@@ -34,15 +34,14 @@ public class TestProtocolHeaders
         // simple match
         assertEquals(detectProtocol(Optional.of("Trino"), ImmutableSet.of("X-Trino-User")).getProtocolName(), "Trino");
         assertEquals(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-User")).getProtocolName(), "Taco");
+        assertEquals(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-Source")).getProtocolName(), "Taco");
 
         // only specified header name is tested
         assertEquals(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Burrito-User", "X-Burrito-Source")).getProtocolName(), "Trino");
 
-        // only the user header
-        assertEquals(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-Source")).getProtocolName(), "Trino");
-        assertEquals(detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-User", "X-Trino-Source")).getProtocolName(), "Taco");
-
         // multiple protocols is not allowed
+        assertThatThrownBy(() -> detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Taco-User", "X-Trino-Source")))
+                .isInstanceOf(ProtocolDetectionException.class);
         assertThatThrownBy(() -> detectProtocol(Optional.of("Taco"), ImmutableSet.of("X-Trino-User", "X-Taco-User")))
                 .isInstanceOf(ProtocolDetectionException.class);
     }

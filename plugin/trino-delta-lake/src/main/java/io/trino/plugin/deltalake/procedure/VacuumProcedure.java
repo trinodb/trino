@@ -195,7 +195,7 @@ public class VacuumProcedure
                                 .map(DeltaLakeTransactionLogEntry::getRemove)
                                 .filter(Objects::nonNull)
                                 .map(RemoveFileEntry::getPath))
-                .peek(path -> checkState(!path.startsWith(tableLocation.toString()), "Unexpected absolute path in transaction log: %s", path))
+                .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
                 .collect(toImmutableSet());
 
         log.debug(
@@ -214,7 +214,7 @@ public class VacuumProcedure
         long removedFiles = 0;
 
         List<String> filesToDelete = new ArrayList<>();
-        FileIterator listing = fileSystem.listFiles(tableLocation.toString());
+        FileIterator listing = fileSystem.listFiles(tableLocation);
         while (listing.hasNext()) {
             FileEntry entry = listing.next();
             String location = entry.location();

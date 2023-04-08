@@ -450,7 +450,6 @@ public class DeltaLakeMetadata
                         .transformKeys(ColumnHandle.class::cast),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
                 ImmutableList.of());
     }
 

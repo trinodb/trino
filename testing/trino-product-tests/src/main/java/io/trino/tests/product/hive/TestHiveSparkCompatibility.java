@@ -217,6 +217,33 @@ public class TestHiveSparkCompatibility
     }
 
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
+    public void testSparkClusteringCaseSensitiveCompatibility()
+    {
+        String sparkTableNameWithClusteringDifferentCase = "test_spark_clustering_case_sensitive_" + randomNameSuffix();
+        onSpark().executeQuery(
+                String.format("CREATE TABLE %s (row_id int, `segment_id` int, value long) ", sparkTableNameWithClusteringDifferentCase) +
+                        "USING PARQUET " +
+                        "PARTITIONED BY (`part` string) " +
+                        "CLUSTERED BY (`SEGMENT_ID`) " +
+                        "  SORTED BY (`SEGMENT_ID`) " +
+                        "  INTO 10 BUCKETS");
+
+        onSpark().executeQuery(format("INSERT INTO %s ", sparkTableNameWithClusteringDifferentCase) +
+                "VALUES " +
+                "  (1, 1, 100, 'part1')," +
+                "  (100, 1, 123, 'part2')," +
+                "  (101, 2, 202, 'part2')");
+
+        // Ensure that Trino can successfully read from the Spark bucketed table even though the clustering
+        // column `SEGMENT_ID` is in a different case than the data column `segment_id`
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s.default.%s", TRINO_CATALOG, sparkTableNameWithClusteringDifferentCase)))
+                .containsOnly(List.of(
+                        row(1, 1, 100, "part1"),
+                        row(100, 1, 123, "part2"),
+                        row(101, 2, 202, "part2")));
+    }
+
+    @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
     public void testSparkParquetBloomFilterCompatibility()
     {
         String sparkTableNameWithBloomFilter = "test_spark_parquet_bloom_filter_compatibility_enabled_" + randomNameSuffix();

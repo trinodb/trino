@@ -120,6 +120,8 @@ import io.trino.sql.planner.iterative.rule.PruneSortColumns;
 import io.trino.sql.planner.iterative.rule.PruneSpatialJoinChildrenColumns;
 import io.trino.sql.planner.iterative.rule.PruneSpatialJoinColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableExecuteSourceColumns;
+import io.trino.sql.planner.iterative.rule.PruneTableFunctionProcessorColumns;
+import io.trino.sql.planner.iterative.rule.PruneTableFunctionProcessorSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableWriterSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneTopNColumns;
@@ -198,6 +200,7 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantOffset;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantPredicateAboveTableScan;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSort;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSortBelowLimitWithTies;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantTableFunction;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantWindow;
 import io.trino.sql.planner.iterative.rule.RemoveTrivialFilters;
@@ -438,6 +441,7 @@ public class PlanOptimizers
                                         new RemoveRedundantOffset(),
                                         new RemoveRedundantSort(),
                                         new RemoveRedundantSortBelowLimitWithTies(),
+                                        new RemoveRedundantTableFunction(),
                                         new RemoveRedundantTopN(),
                                         new RemoveRedundantDistinctLimit(),
                                         new ReplaceRedundantJoinWithSource(),
@@ -1034,6 +1038,8 @@ public class PlanOptimizers
                 new PruneSpatialJoinChildrenColumns(),
                 new PruneSpatialJoinColumns(),
                 new PruneTableExecuteSourceColumns(),
+                new PruneTableFunctionProcessorColumns(),
+                new PruneTableFunctionProcessorSourceColumns(),
                 new PruneTableScanColumns(metadata),
                 new PruneTableWriterSourceColumns(),
                 new PruneTopNColumns(),

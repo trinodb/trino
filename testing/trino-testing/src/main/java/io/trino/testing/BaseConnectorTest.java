@@ -34,6 +34,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.security.Identity;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -123,6 +124,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
@@ -1278,9 +1280,9 @@ public abstract class BaseConnectorTest
 
             assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " " +
                     "GRACE PERIOD INTERVAL '1' HOUR " +
-                    "AS SELECT DISTINCT regionkey, name FROM " + table.getName());
+                    "AS SELECT DISTINCT regionkey, CAST(name AS varchar) name FROM " + table.getName());
 
-            String initialResults = "SELECT DISTINCT regionkey, name FROM region";
+            String initialResults = "SELECT DISTINCT regionkey, CAST(name AS varchar) FROM region";
 
             // The MV is initially not fresh
             assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
@@ -1289,15 +1291,27 @@ public abstract class BaseConnectorTest
             assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
             assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(initialResults);
 
+            ZonedDateTime beforeRefresh = ZonedDateTime.now();
             assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 5);
+            ZonedDateTime afterRefresh = ZonedDateTime.now();
 
             // Right after the REFRESH, the view is FRESH (note: it could also be UNKNOWN)
-            assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(FRESH);
-            assertThat(getMaterializedViewLastFreshTime(viewName))
-                    .isEmpty(); // last_fresh_time should not be reported for FRESH views to avoid ambiguity when it "races with currentTimeMillis"
+            boolean supportsFresh = hasBehavior(SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES);
+            if (supportsFresh) {
+                assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(FRESH);
+                assertThat(getMaterializedViewLastFreshTime(viewName))
+                        .isEmpty(); // last_fresh_time should not be reported for FRESH views to avoid ambiguity when it "races with currentTimeMillis"
+            }
+            else {
+                assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+                assertThat(getMaterializedViewLastFreshTime(viewName))
+                        .get(ZONED_DATE_TIME).isBetween(beforeRefresh, afterRefresh);
+            }
             assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
             assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
-            assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
+            assertThat(query(futureSession, "TABLE " + viewName))
+                    .hasPlan(supportsFresh ? readFromStorageTable : readFromBaseTables)
+                    .matches(initialResults);
 
             // Change underlying state
             ZonedDateTime beforeModification = ZonedDateTime.now();
@@ -1305,24 +1319,35 @@ public abstract class BaseConnectorTest
             ZonedDateTime afterModification = ZonedDateTime.now();
             String updatedResults = initialResults + " UNION ALL VALUES (42, 'foo new region')";
 
-            // The materialization is stale now (note: it could also be UNKNOWN)
-            assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(STALE);
+            // The materialization is stale now
+            assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(supportsFresh ? STALE : UNKNOWN);
             assertThat(getMaterializedViewLastFreshTime(viewName))
-                    .get(ZONED_DATE_TIME).isBetween(beforeModification, afterModification);
+                    .get(ZONED_DATE_TIME).isBetween(
+                            supportsFresh ? beforeModification : beforeRefresh,
+                            supportsFresh ? afterModification : afterRefresh);
             assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(initialResults);
-            assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
+            assertThat(query(legacySession, "TABLE " + viewName))
+                    .hasPlan(supportsFresh ? readFromBaseTables : readFromStorageTable)
+                    .matches(supportsFresh ? updatedResults : initialResults);
             assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromBaseTables).matches(updatedResults);
 
             assertUpdate("REFRESH MATERIALIZED VIEW " + viewName, 6);
 
-            // Right after the REFRESH, the view is FRESH (note: it could also be UNKNOWN)
-            assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(FRESH);
-            assertThat(getMaterializedViewLastFreshTime(viewName))
-                    .isEmpty(); // last_fresh_time should not be reported for FRESH views to avoid ambiguity when it "races with currentTimeMillis"
+            // Right after the REFRESH, the view is FRESH (or UNKNOWN)
+            if (supportsFresh) {
+                assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(FRESH);
+                assertThat(getMaterializedViewLastFreshTime(viewName))
+                        .isEmpty(); // last_fresh_time should not be reported for FRESH views to avoid ambiguity when it "races with currentTimeMillis"
+            }
+            else {
+                assertThat(getMaterializedViewFreshness(viewName)).isEqualTo(UNKNOWN);
+            }
 
             assertThat(query(defaultSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
             assertThat(query(legacySession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
-            assertThat(query(futureSession, "TABLE " + viewName)).hasPlan(readFromStorageTable).matches(updatedResults);
+            assertThat(query(futureSession, "TABLE " + viewName))
+                    .hasPlan(supportsFresh ? readFromStorageTable : readFromBaseTables)
+                    .matches(updatedResults);
 
             assertUpdate("DROP MATERIALIZED VIEW " + viewName);
         }
@@ -2882,6 +2907,22 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateSchemaWithNonLowercaseOwnerName()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
+
+        Session newSession = Session.builder(getSession())
+                .setIdentity(Identity.ofUser("ADMIN"))
+                .build();
+        String schemaName = "test_schema_create_uppercase_owner_name_" + randomNameSuffix();
+        assertUpdate(newSession, createSchemaSql(schemaName));
+        assertThat(query(newSession, "SHOW SCHEMAS"))
+                .skippingTypesCheck()
+                .containsAll(format("VALUES '%s'", schemaName));
+        assertUpdate(newSession, "DROP SCHEMA " + schemaName);
+    }
+
+    @Test
     public void testCreateSchemaWithLongName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
@@ -3613,7 +3654,8 @@ public abstract class BaseConnectorTest
     {
         String nameInSql = toColumnNameInSql(columnName, delimited);
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_name", "(" + nameInSql + " integer)")) {
+        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column", "(" + nameInSql + " integer)")) {
             assertUpdate("COMMENT ON COLUMN " + table.getName() + "." + nameInSql + " IS 'test comment'");
             assertThat(getColumnComment(table.getName(), columnName.replace("'", "''").toLowerCase(ENGLISH))).isEqualTo("test comment");
         }

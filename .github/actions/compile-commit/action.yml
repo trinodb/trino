@@ -38,7 +38,7 @@ runs:
         export MAVEN="./mvnw --offline"
         # maven.wagon.rto is in millis, defaults to 30m
         MAVEN_INSTALL_OPTS="-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-        MAVEN_COMPILE_COMMITS="-B --strict-checksums --quiet -T C1 -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl !:trino-server-rpm"
+        MAVEN_COMPILE_COMMITS="-B --strict-checksums --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl !:trino-server-rpm"
         export MAVEN_GIB="-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ inputs.base_ref }}"
         RETRY=.github/bin/retry
         # -------

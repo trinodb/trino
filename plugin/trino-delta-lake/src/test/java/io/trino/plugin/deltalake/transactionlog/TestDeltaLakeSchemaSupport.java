@@ -58,6 +58,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -252,7 +253,10 @@ public class TestDeltaLakeSchemaSupport
                 {DATE},
                 {VARCHAR},
                 {DecimalType.createDecimalType(3)},
-                {TIMESTAMP_TZ_MILLIS}};
+                {TIMESTAMP_TZ_MILLIS},
+                {new MapType(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MILLIS, new TypeOperators())},
+                {RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_MILLIS))},
+                {new ArrayType(TIMESTAMP_TZ_MILLIS)}};
     }
 
     @Test(dataProvider = "unsupportedTypes")
@@ -275,15 +279,15 @@ public class TestDeltaLakeSchemaSupport
     @Test(dataProvider = "unsupportedNestedTimestamp")
     public void testTimestampNestedInStructTypeIsNotSupported(Type type)
     {
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(type)).hasMessage("Nested TIMESTAMP types are not supported, invalid type: " + type);
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(type)).hasMessage("Unsupported type: timestamp(0) with time zone");
     }
 
     @DataProvider(name = "unsupportedNestedTimestamp")
     public static Object[][] unsupportedNestedTimestamp()
     {
         return new Object[][] {
-                {new MapType(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MILLIS, new TypeOperators())},
-                {RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_MILLIS))},
-                {new ArrayType(TIMESTAMP_TZ_MILLIS)}};
+                {new MapType(TIMESTAMP_TZ_SECONDS, TIMESTAMP_TZ_SECONDS, new TypeOperators())},
+                {RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_SECONDS))},
+                {new ArrayType(TIMESTAMP_TZ_SECONDS)}};
     }
 }

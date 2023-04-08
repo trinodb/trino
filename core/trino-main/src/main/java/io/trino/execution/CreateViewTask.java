@@ -92,7 +92,7 @@ public class CreateViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, bindParameters(statement, parameters), stateMachine.getWarningCollector())
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, bindParameters(statement, parameters), stateMachine.getWarningCollector(), stateMachine.getPlanOptimizersStatsCollector())
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())

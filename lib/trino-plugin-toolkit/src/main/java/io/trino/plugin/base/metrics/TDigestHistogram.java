@@ -175,7 +175,7 @@ public class TDigestHistogram
     public String toString()
     {
         ToStringHelper helper = toStringHelper("")
-                .add("count", formatDouble(digest.getCount()))
+                .add("count", getTotal())
                 .add("p01", formatDouble(getP01()))
                 .add("p05", formatDouble(getP05()))
                 .add("p10", formatDouble(getP10()))
