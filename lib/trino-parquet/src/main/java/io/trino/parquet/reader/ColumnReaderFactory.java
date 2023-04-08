@@ -83,8 +83,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
-    private static final int MAX_INT_DIGITS = 10;
-
     private ColumnReaderFactory() {}
 
     public static ColumnReader create(PrimitiveField field, DateTimeZone timeZone, AggregatedMemoryContext aggregatedMemoryContext, ParquetReaderOptions options)
@@ -220,10 +218,8 @@ public final class ColumnReaderFactory
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
                     && isIntegerOrDecimalPrimitive(primitiveType)) {
-                if (decimalType.getScale() == 0 && decimalType.getPrecision() >= MAX_INT_DIGITS
-                        && primitiveType == INT32
-                        && isIntegerAnnotation(annotation)) {
-                    return createColumnReader(field, TransformingValueDecoders::getInt32ToLongDecoder, LONG_ADAPTER, memoryContext);
+                if (primitiveType == INT32 && isIntegerAnnotation(annotation)) {
+                    return createColumnReader(field, TransformingValueDecoders::getInt32ToShortDecimalDecoder, LONG_ADAPTER, memoryContext);
                 }
                 if (!(annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation)) {
                     throw unsupportedException(type, field);
@@ -270,7 +266,12 @@ public final class ColumnReaderFactory
 
         return switch (primitiveType) {
             case BOOLEAN -> new BooleanColumnReader(field);
-            case INT32 -> createDecimalColumnReader(field).orElse(new IntColumnReader(field));
+            case INT32 -> createDecimalColumnReader(field).orElseGet(() -> {
+                if (type instanceof DecimalType decimalType && decimalType.isShort()) {
+                    return new Int32ShortDecimalColumnReader(field);
+                }
+                return new IntColumnReader(field);
+            });
             case INT64 -> {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation) {
                     if (field.getType() instanceof TimeType && timeAnnotation.getUnit() == MICROS) {

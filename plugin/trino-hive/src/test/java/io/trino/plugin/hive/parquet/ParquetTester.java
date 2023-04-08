@@ -357,6 +357,41 @@ public class ParquetTester
             ParquetSchemaOptions schemaOptions)
             throws Exception
     {
+        assertRoundTripWithHiveWriter(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, schemaOptions);
+
+        // write Trino parquet
+        for (CompressionCodec compressionCodec : writerCompressions) {
+            for (ConnectorSession session : sessions) {
+                try (TempFile tempFile = new TempFile("test", "parquet")) {
+                    OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
+                    checkState(min.isPresent());
+                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodec, schemaOptions);
+                    assertFileContents(
+                            session,
+                            tempFile.getFile(),
+                            getIterators(readValues),
+                            columnNames,
+                            columnTypes);
+                }
+            }
+        }
+    }
+
+    // Certain tests need the ability to specify a parquet schema which the writer wouldn't choose by itself based on the engine type.
+    // Explicitly provided parquetSchema is supported only by the hive writer.
+    // This method should be used when we need to assert that an exception should be thrown when reading from a file written with the specified
+    // parquetSchema to avoid getting misled due to an exception thrown when from reading the file produced by trino parquet writer which may not
+    // be following the specified parquetSchema.
+    void assertRoundTripWithHiveWriter(
+            List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            Optional<MessageType> parquetSchema,
+            ParquetSchemaOptions schemaOptions)
+            throws Exception
+    {
         for (WriterVersion version : versions) {
             for (CompressionCodec compressionCodec : compressions) {
                 for (ConnectorSession session : sessions) {
@@ -382,23 +417,6 @@ public class ParquetTester
                                 columnNames,
                                 columnTypes);
                     }
-                }
-            }
-        }
-
-        // write Trino parquet
-        for (CompressionCodec compressionCodec : writerCompressions) {
-            for (ConnectorSession session : sessions) {
-                try (TempFile tempFile = new TempFile("test", "parquet")) {
-                    OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
-                    checkState(min.isPresent());
-                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodec, schemaOptions);
-                    assertFileContents(
-                            session,
-                            tempFile.getFile(),
-                            getIterators(readValues),
-                            columnNames,
-                            columnTypes);
                 }
             }
         }
