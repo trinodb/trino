@@ -914,8 +914,8 @@ public abstract class BaseClickHouseConnectorTest
         String tableName = "test_set_column_incompatible_type";
 
         assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
-        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE integer"))
-                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE integer");
+        assertEquals(getColumnType(tableName, "col"), "integer");
     }
 
     @Test
@@ -926,12 +926,11 @@ public abstract class BaseClickHouseConnectorTest
 
         String tableName = "test_set_column_out_of_range";
         assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
-        assertUpdate("insert into " + tableName + " values(9223372036854775807, 22)", "SELECT count(*) FROM " + tableName);
+        query("insert into " + tableName + " values(9223372036854775807, 22)");
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE integer");
 
-//        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_invalid_range_", "AS SELECT CAST(9223372036854775807 AS bigint) AS col")) {
-//            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
-//                    .satisfies(this::verifySetColumnTypeFailurePermissible);
-//        }
+        assertEquals(getColumnType(tableName, "col"), "integer");
+        assertQuery("SELECT col FROM " + tableName, "VALUES -1");
     }
 
     @Test
