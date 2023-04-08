@@ -43,6 +43,7 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PRO
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.*;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,6 +58,7 @@ public abstract class BaseClickHouseConnectorTest
 {
     protected TestingClickHouseServer clickhouseServer;
 
+
     @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -65,9 +67,6 @@ public abstract class BaseClickHouseConnectorTest
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
             case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
-            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_DELETE:
@@ -284,7 +283,7 @@ public abstract class BaseClickHouseConnectorTest
                         "col_nullable Nullable(Int64)," +
                         "col_default Nullable(Int64) DEFAULT 43," +
                         "col_nonnull_default Int64 DEFAULT 42," +
-                        "col_required2 Int64) ENGINE=Log");
+                        "col_required2 Int64) ENGINE=MergeTree() order by col_required2");
     }
 
     @Override
@@ -883,6 +882,133 @@ public abstract class BaseClickHouseConnectorTest
                 properties.put(SAMPLE_BY_PROPERTY, resultSet.getString("sampling_key"));
             }
             return properties.buildOrThrow();
+        }
+    }
+
+    @Test
+    @Override
+    public void testSetColumnType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+        String tableName = "test_set_column_type";
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double NOT NULL, c varchar(50)) WITH (order_by=ARRAY['b'], engine = 'MergeTree')");
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN a SET DATA TYPE varchar(50)");
+        assertEquals(getColumnType(tableName, "a"), "varchar");
+        assertThat((String) computeScalar("show create table " + tableName)).contains("CREATE TABLE clickhouse.tpch.test_set_column_type (\n" +
+                "   a varchar NOT NULL,\n" +
+                "   b double NOT NULL,\n" +
+                "   c varchar\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   engine = 'MERGETREE',\n" +
+                "   order_by = ARRAY['b'],\n" +
+                "   primary_key = ARRAY['b']\n" +
+                ")");
+    }
+    @Test
+    @Override
+    public void testSetColumnIncompatibleType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String tableName = "test_set_column_incompatible_type";
+
+        assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
+        assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE integer"))
+                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+    }
+
+    @Test
+    @Override
+    public void testSetColumnOutOfRangeType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        String tableName = "test_set_column_out_of_range";
+        assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
+        assertUpdate("insert into " + tableName + " values(9223372036854775807, 22)", "SELECT count(*) FROM " + tableName);
+
+//        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_column_type_invalid_range_", "AS SELECT CAST(9223372036854775807 AS bigint) AS col")) {
+//            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE integer"))
+//                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+//        }
+    }
+
+    @Test
+    @Override
+    public void testSetColumnTypeWithComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+        String tableName = "test_set_column_with_comment";
+
+        assertUpdate("CREATE TABLE " + tableName + " (col bigint COMMENT 'test comment', col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
+        assertEquals(getColumnComment(tableName, "col"), "test comment");
+
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE bigint");
+        assertEquals(getColumnComment(tableName, "col"), "test comment");
+    }
+
+    @Test
+    @Override
+    public void testSetColumnTypeWithDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_INSERT));
+        try (TestTable table = createTableWithDefaultColumns()) {
+            // col_default column inserts 43 by default
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col_default SET DATA TYPE bigint");
+            assertUpdate("INSERT INTO " + table.getName() + " (col_required, col_required2) VALUES (1, 10)", 1);
+            assertQuery("SELECT col_default FROM " + table.getName(), "VALUES 43");
+        }
+    }
+
+    @Test
+    @Override
+    public void testSetColumnTypeWithNotNull()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        String tableName = "test_set_column_with_not_null";
+
+        assertUpdate("CREATE TABLE " + tableName + " (col bigint not null, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
+        assertFalse(columnIsNullable(tableName, "col"));
+
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE bigint");
+        assertFalse(columnIsNullable(tableName, "col"));
+    }
+
+    @Test(dataProvider = "setColumnTypesDataProvider")
+    @Override
+    public void testSetColumnTypes(SetColumnTypeSetup setup)
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        //String tableName = "test_set_column_type_with_data_provider";
+
+  //      String tableDefinition = "CREATE TABLE " + tableName + "(AS SELECT CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + ") AS col , col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')";
+
+    //    assertUpdate(tableDefinition);
+
+        TestTable table;
+        try {
+            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + ") AS col");
+        }
+        catch (Exception e) {
+            verifyUnsupportedTypeException(e, setup.sourceColumnType());
+            throw new SkipException("Unsupported column type: " + setup.sourceColumnType());
+        }
+        try (table) {
+            Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType());
+            if (setup.unsupportedType()) {
+                assertThatThrownBy(setColumnType::run)
+                        .satisfies(this::verifySetColumnTypeFailurePermissible);
+                return;
+            }
+            setColumnType.run();
+
+            assertEquals(getColumnType(table.getName(), "col"), setup.newColumnType());
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("SELECT " + setup.newValueLiteral());
         }
     }
 }

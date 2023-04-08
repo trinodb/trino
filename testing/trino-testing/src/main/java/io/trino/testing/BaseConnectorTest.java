@@ -2823,7 +2823,7 @@ public abstract class BaseConnectorTest
         throw new AssertionError("Unexpected set column type failure", e);
     }
 
-    private String getColumnType(String tableName, String columnName)
+    protected String getColumnType(String tableName, String columnName)
     {
         return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
                 tableName,
@@ -5725,7 +5725,7 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    private void verifyUnsupportedTypeException(Throwable exception, String trinoTypeName)
+    protected void verifyUnsupportedTypeException(Throwable exception, String trinoTypeName)
     {
         String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
         String expectedMessagePart = format("(%1$s.*not (yet )?supported)|((?i)unsupported.*%1$s)|((?i)not supported.*%1$s)", Pattern.quote(typeNameBase));
