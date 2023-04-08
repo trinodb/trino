@@ -371,7 +371,6 @@
         <dependency>
             <groupId>net.java.dev.jna</groupId>
             <artifactId>jna-platform</artifactId>
-            <version>5.12.1</version>
             <scope>runtime</scope>
         </dependency>
 

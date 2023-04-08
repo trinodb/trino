@@ -71,6 +71,8 @@
         <dep.wire.version>4.5.0</dep.wire.version>
         <dep.kotlin.version>1.8.0</dep.kotlin.version>
         <dep.netty.version>4.1.79.Final</dep.netty.version>
+        <dep.jna.version>5.13.0</dep.jna.version>
+        <dep.slf4j.version>2.0.7</dep.slf4j.version>
 
         <dep.docker.images.version>77</dep.docker.images.version>
 
@@ -1245,7 +1247,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>5.8.5</version>
+                <version>6.4.1</version>
             </dependency>
 
             <dependency>
@@ -1662,7 +1664,13 @@
                 <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
-                <version>5.12.1</version>
+                <version>${dep.jna.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna-platform</artifactId>
+                <version>${dep.jna.version}</version>
             </dependency>
 
             <dependency>
