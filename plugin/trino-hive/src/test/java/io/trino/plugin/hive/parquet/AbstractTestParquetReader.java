@@ -1192,6 +1192,49 @@ public abstract class AbstractTestParquetReader
                 .isInstanceOf(TrinoException.class);
     }
 
+    @Test
+    public void testReadParquetInt32AsTrinoShortDecimal()
+            throws Exception
+    {
+        Iterable<Integer> writeValues = intsBetween(0, 31_234);
+        Optional<MessageType> parquetSchema = Optional.of(parseMessageType("message hive_decimal { optional INT32 test; }"));
+        // Read INT32 as a short decimal of precision >= 10 with zero scale
+        tester.testRoundTrip(
+                javaIntObjectInspector,
+                writeValues,
+                transform(writeValues, value -> new SqlDecimal(BigInteger.valueOf(value), 10, 0)),
+                createDecimalType(10),
+                parquetSchema);
+
+        // Read INT32 as a short decimal of precision >= 10 with non-zero scale
+        tester.testRoundTrip(
+                javaIntObjectInspector,
+                ImmutableList.of(Integer.MAX_VALUE),
+                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(Integer.MAX_VALUE), 10, 1)),
+                createDecimalType(10, 1),
+                parquetSchema);
+
+        // Read INT32 as a short decimal if value is within supported precision
+        tester.testRoundTrip(
+                javaIntObjectInspector,
+                ImmutableList.of(9999),
+                ImmutableList.of(new SqlDecimal(BigInteger.valueOf(9999), 4, 0)),
+                createDecimalType(4, 0),
+                parquetSchema);
+
+        // Cannot read INT32 as a short decimal if value exceeds supported precision
+        assertThatThrownBy(() -> tester.assertRoundTripWithHiveWriter(
+                List.of(javaIntObjectInspector),
+                new Iterable[] {ImmutableList.of(Integer.MAX_VALUE)},
+                new Iterable[] {ImmutableList.of(new SqlDecimal(BigInteger.valueOf(Integer.MAX_VALUE), 9, 0))},
+                List.of("test"),
+                List.of(createDecimalType(9, 0)),
+                parquetSchema,
+                ParquetSchemaOptions.defaultOptions()))
+                .hasMessage("Cannot read parquet INT32 value '2147483647' as DECIMAL(9, 0)")
+                .isInstanceOf(TrinoException.class);
+    }
+
     @Test(dataProvider = "timestampPrecision")
     public void testTimestamp(HiveTimestampPrecision precision)
             throws Exception

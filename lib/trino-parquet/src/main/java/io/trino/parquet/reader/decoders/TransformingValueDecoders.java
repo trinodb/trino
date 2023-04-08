@@ -18,6 +18,7 @@ import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BinaryBuffer;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.DecimalConversions;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -44,8 +45,10 @@ import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getRealDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getShortDecimalDecoder;
 import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -58,6 +61,7 @@ import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
@@ -652,6 +656,39 @@ public class TransformingValueDecoders
                             decimalAnnotation.getScale(),
                             decimalType.getPrecision(),
                             decimalType.getScale());
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getInt32ToShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        DecimalType decimalType = (DecimalType) field.getType();
+        ValueDecoder<int[]> delegate = getInt32Decoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                int[] buffer = new int[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    if (overflows(buffer[i], decimalType.getPrecision())) {
+                        throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot read parquet INT32 value '%s' as DECIMAL(%s, %s)", buffer[i], decimalType.getPrecision(), decimalType.getScale()));
+                    }
+                    values[i + offset] = buffer[i];
                 }
             }
 
