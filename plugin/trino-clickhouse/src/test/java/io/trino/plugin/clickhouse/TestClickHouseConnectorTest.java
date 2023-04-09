@@ -46,7 +46,8 @@ import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATE
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingConnectorBehavior.*;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -899,7 +900,6 @@ public class TestClickHouseConnectorTest
         }
     }
 
-
     @Test
     @Override
     public void testSetColumnType()
@@ -920,6 +920,7 @@ public class TestClickHouseConnectorTest
                 "   primary_key = ARRAY['b']\n" +
                 ")");
     }
+
     @Test
     @Override
     public void testSetColumnIncompatibleType()
