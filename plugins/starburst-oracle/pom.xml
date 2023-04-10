@@ -54,11 +54,11 @@
             <!-- We need to downgrade Oracle JDBC driver due to Kerberos authentication errors -->
             <exclusions>
                 <exclusion>
-                    <groupId>com.oracle.ojdbc</groupId>
+                    <groupId>com.oracle.database.jdbc</groupId>
                     <artifactId>ojdbc8</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>com.oracle.ojdbc</groupId>
+                    <groupId>com.oracle.database.jdbc</groupId>
                     <artifactId>ucp</artifactId>
                 </exclusion>
             </exclusions>
@@ -258,8 +258,12 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>com.oracle.ojdbc</groupId>
+                    <groupId>com.oracle.database.jdbc</groupId>
                     <artifactId>ojdbc8</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.oracle.database.jdbc</groupId>
+                    <artifactId>ucp</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

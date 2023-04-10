@@ -159,7 +159,7 @@ public class TestStarburstOracleClient
         testImplementAggregation(
                 new AggregateFunction("sum", decimalSumType, List.of(decimalVariable), List.of(), true, Optional.empty()),
                 Map.of(decimalVariable.getName(), DECIMAL_COLUMN),
-                Optional.empty());  // distinct not supported
+                Optional.of("sum(DISTINCT \"c_decimal\")"));
 
         // sum(decimal) FILTER (WHERE ...)
         testImplementAggregation(

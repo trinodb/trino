@@ -47,6 +47,7 @@ public class TestStarburstOracleConnectorTest
                 .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
+                        .put("oracle.remarks-reporting.enabled", "true")
                         .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
