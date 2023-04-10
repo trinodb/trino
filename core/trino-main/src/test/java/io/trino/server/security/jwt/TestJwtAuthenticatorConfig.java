@@ -14,6 +14,7 @@
 package io.trino.server.security.jwt;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -22,29 +23,31 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestJwtAuthenticatorConfig
 {
+    //TODO: remove unrelated code after deprecated properties are removed.
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(JwtAuthenticatorConfig.class)
-                .setKeyFile(null)
-                .setRequiredAudience(null)
-                .setRequiredIssuer(null)
-                .setPrincipalField("sub")
-                .setUserMappingPattern(null)
-                .setUserMappingFile(null));
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(JwtAuthenticatorConfig.class)
+                        .setKeyFile(null)
+                        .setRequiredAudience(null)
+                        .setRequiredIssuer(null)
+                        .setPrincipalField("sub")
+                        .setUserMappingPattern(null)
+                        .setUserMappingFile(null));
     }
 
+    //TODO: remove unrelated code after deprecated properties are removed.
     @Test
     public void testExplicitPropertyMappings()
             throws IOException
     {
         Path jwtKeyFile = Files.createTempFile(null, null);
         Path userMappingFile = Files.createTempFile(null, null);
+        Path idpConfig1 = Files.createTempFile("azuread_idp", ".properties");
+        Path idpConfig2 = Files.createTempFile("keycloak_idp", ".properties");
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.jwt.key-file", jwtKeyFile.toString())
@@ -53,6 +56,7 @@ public class TestJwtAuthenticatorConfig
                 .put("http-server.authentication.jwt.principal-field", "some-field")
                 .put("http-server.authentication.jwt.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.jwt.user-mapping.file", userMappingFile.toString())
+                .put("http-server.authentication.jwt.config-files", idpConfig1.toString() + "," + idpConfig2.toString())
                 .buildOrThrow();
 
         JwtAuthenticatorConfig expected = new JwtAuthenticatorConfig()
@@ -62,6 +66,7 @@ public class TestJwtAuthenticatorConfig
                 .setPrincipalField("some-field")
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile());
+        //.setJwtIdpConfigFiles(ImmutableList.of(idpConfig1.toFile(), idpConfig2.toFile()));
 
         assertFullMapping(properties, expected);
     }
