@@ -14,7 +14,6 @@
 package io.trino.plugin.mongodb;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.ProvidesIntoSet;
@@ -22,31 +21,25 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.mongodb.ptf.Query;
-import io.trino.spi.TrinoException;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Singleton;
-import javax.net.ssl.SSLContext;
 
-import java.io.File;
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MongoClientModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         binder.bind(MongoConnector.class).in(Scopes.SINGLETON);
         binder.bind(MongoSplitManager.class).in(Scopes.SINGLETON);
@@ -55,6 +48,11 @@ public class MongoClientModule
 
         configBinder(binder).bindConfig(MongoClientConfig.class);
         newSetBinder(binder, MongoClientSettingConfigurator.class);
+
+        install(conditionalModule(
+                MongoClientConfig.class,
+                MongoClientConfig::getTlsEnabled,
+                new MongoSslModule()));
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
@@ -94,38 +92,5 @@ public class MongoClientModule
             }
             options.applyConnectionString(new ConnectionString(config.getConnectionUrl()));
         };
-    }
-
-    @ProvidesIntoSet
-    @Singleton
-    public MongoClientSettingConfigurator sslSpecificConfigurator(MongoClientConfig config)
-    {
-        if (config.getTlsEnabled()) {
-            return options -> options.applyToSslSettings(builder -> {
-                builder.enabled(true);
-                buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
-                        .ifPresent(builder::context);
-            });
-        }
-        return options -> {};
-    }
-
-    // TODO https://github.com/trinodb/trino/issues/15247 Add test for x.509 certificates
-    private static Optional<SSLContext> buildSslContext(
-            Optional<File> keystorePath,
-            Optional<String> keystorePassword,
-            Optional<File> truststorePath,
-            Optional<String> truststorePassword)
-    {
-        if (keystorePath.isEmpty() && truststorePath.isEmpty()) {
-            return Optional.empty();
-        }
-
-        try {
-            return Optional.of(createSSLContext(keystorePath, keystorePassword, truststorePath, truststorePassword));
-        }
-        catch (GeneralSecurityException | IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
-        }
     }
 }
