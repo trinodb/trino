@@ -14,7 +14,6 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.ConfigurationFactory;
 import org.testng.annotations.Test;
 
 import javax.validation.constraints.AssertTrue;
@@ -23,10 +22,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
-import static org.testng.Assert.assertEquals;
 
 public class TestMongoClientConfig
 {
@@ -84,9 +83,6 @@ public class TestMongoClientConfig
                 .put("mongodb.implicit-row-field-prefix", "_prefix")
                 .buildOrThrow();
 
-        ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-        MongoClientConfig config = configurationFactory.build(MongoClientConfig.class);
-
         MongoClientConfig expected = new MongoClientConfig()
                 .setSchemaCollection("_my_schema")
                 .setCaseInsensitiveNameMatching(true)
@@ -108,25 +104,7 @@ public class TestMongoClientConfig
                 .setRequiredReplicaSetName("replica_set")
                 .setImplicitRowFieldPrefix("_prefix");
 
-        assertEquals(config.getSchemaCollection(), expected.getSchemaCollection());
-        assertEquals(config.isCaseInsensitiveNameMatching(), expected.isCaseInsensitiveNameMatching());
-        assertEquals(config.getConnectionUrl(), expected.getConnectionUrl());
-        assertEquals(config.getMinConnectionsPerHost(), expected.getMinConnectionsPerHost());
-        assertEquals(config.getConnectionsPerHost(), expected.getConnectionsPerHost());
-        assertEquals(config.getMaxWaitTime(), expected.getMaxWaitTime());
-        assertEquals(config.getConnectionTimeout(), expected.getConnectionTimeout());
-        assertEquals(config.getSocketTimeout(), expected.getSocketTimeout());
-        assertEquals(config.getTlsEnabled(), expected.getTlsEnabled());
-        assertEquals(config.getKeystorePath(), expected.getKeystorePath());
-        assertEquals(config.getKeystorePassword(), expected.getKeystorePassword());
-        assertEquals(config.getTruststorePath(), expected.getTruststorePath());
-        assertEquals(config.getTruststorePassword(), expected.getTruststorePassword());
-        assertEquals(config.getMaxConnectionIdleTime(), expected.getMaxConnectionIdleTime());
-        assertEquals(config.getCursorBatchSize(), expected.getCursorBatchSize());
-        assertEquals(config.getReadPreference(), expected.getReadPreference());
-        assertEquals(config.getWriteConcern(), expected.getWriteConcern());
-        assertEquals(config.getRequiredReplicaSetName(), expected.getRequiredReplicaSetName());
-        assertEquals(config.getImplicitRowFieldPrefix(), expected.getImplicitRowFieldPrefix());
+        assertFullMapping(properties, expected);
     }
 
     @Test
