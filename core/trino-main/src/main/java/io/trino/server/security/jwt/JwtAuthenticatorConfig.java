@@ -110,6 +110,7 @@ public class JwtAuthenticatorConfig
         return this;
     }
 
+    @Deprecated
     public Optional<@FileExists File> getUserMappingFile()
     {
         return userMappingFile;
