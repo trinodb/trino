@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.ProvidesIntoSet;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
@@ -33,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -52,44 +54,60 @@ public class MongoClientModule
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MongoClientConfig.class);
+        newSetBinder(binder, MongoClientSettingConfigurator.class);
+
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Singleton
     @Provides
-    public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config)
+    public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config, Set<MongoClientSettingConfigurator> configurators)
     {
         MongoClientSettings.Builder options = MongoClientSettings.builder();
-        options.writeConcern(config.getWriteConcern().getWriteConcern())
-                .readPreference(config.getReadPreference().getReadPreference())
-                .applyToConnectionPoolSettings(builder -> builder
-                        .maxConnectionIdleTime(config.getMaxConnectionIdleTime(), MILLISECONDS)
-                        .maxWaitTime(config.getMaxWaitTime(), MILLISECONDS)
-                        .minSize(config.getMinConnectionsPerHost())
-                        .maxSize(config.getConnectionsPerHost()))
-                .applyToSocketSettings(builder -> builder
-                        .connectTimeout(config.getConnectionTimeout(), MILLISECONDS)
-                        .readTimeout(config.getSocketTimeout(), MILLISECONDS));
-
-        if (config.getRequiredReplicaSetName() != null) {
-            options.applyToClusterSettings(builder -> builder.requiredReplicaSetName(config.getRequiredReplicaSetName()));
-        }
-        if (config.getTlsEnabled()) {
-            options.applyToSslSettings(builder -> {
-                builder.enabled(true);
-                buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
-                        .ifPresent(builder::context);
-            });
-        }
-
-        options.applyConnectionString(new ConnectionString(config.getConnectionUrl()));
-
+        configurators.forEach(configurator -> configurator.configure(options));
         MongoClient client = MongoClients.create(options.build());
 
         return new MongoSession(
                 typeManager,
                 client,
                 config);
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    public MongoClientSettingConfigurator defaultConfigurator(MongoClientConfig config)
+    {
+        return options -> {
+            options.writeConcern(config.getWriteConcern().getWriteConcern())
+                    .readPreference(config.getReadPreference().getReadPreference())
+                    .applyToConnectionPoolSettings(builder -> builder
+                            .maxConnectionIdleTime(config.getMaxConnectionIdleTime(), MILLISECONDS)
+                            .maxWaitTime(config.getMaxWaitTime(), MILLISECONDS)
+                            .minSize(config.getMinConnectionsPerHost())
+                            .maxSize(config.getConnectionsPerHost()))
+                    .applyToSocketSettings(builder -> builder
+                            .connectTimeout(config.getConnectionTimeout(), MILLISECONDS)
+                            .readTimeout(config.getSocketTimeout(), MILLISECONDS));
+
+            if (config.getRequiredReplicaSetName() != null) {
+                options.applyToClusterSettings(builder -> builder.requiredReplicaSetName(config.getRequiredReplicaSetName()));
+            }
+            options.applyConnectionString(new ConnectionString(config.getConnectionUrl()));
+        };
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    public MongoClientSettingConfigurator sslSpecificConfigurator(MongoClientConfig config)
+    {
+        if (config.getTlsEnabled()) {
+            return options -> options.applyToSslSettings(builder -> {
+                builder.enabled(true);
+                buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
+                        .ifPresent(builder::context);
+            });
+        }
+        return options -> {};
     }
 
     // TODO https://github.com/trinodb/trino/issues/15247 Add test for x.509 certificates
