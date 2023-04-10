@@ -55,6 +55,7 @@ public class AzureJwtTokenValidator
     private String httpRequestParam;
     private String httpRequestParamValue;
 
+    @Override
     public Optional<String> validateAndCreatePrincipal(String token, HttpClient httpClient)
     {
         String principalField = this.principalField != null ? this.principalField : "sub";
@@ -102,6 +103,7 @@ public class AzureJwtTokenValidator
         this.azureValidationUrl = validationUrl;
     }
 
+    @Override
     protected void setOptionalProperties(Map<String, Object> properties)
     {
         super.setOptionalProperties(properties);
