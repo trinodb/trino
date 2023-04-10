@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <released-artifacts.dir>${project.build.directory}/released-artifacts</released-artifacts.dir>
+        <trino.check.skip-revapi>${air.check.skip-basic}</trino.check.skip-revapi>
     </properties>
 
     <!-- the SPI should have only minimal dependencies -->
@@ -178,6 +179,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <skip>${trino.check.skip-revapi}</skip>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
                     <analysisConfiguration>
                         <revapi.filter>
@@ -218,33 +220,6 @@
                                         <matcher>java</matcher>
                                         <match>@java.lang.Deprecated(*) ^*;</match>
                                     </old>
-                                </item>
-                                <!-- Revapi tries to compare any API with its previous version -->
-                                <!-- If it can't download the old version, if falls back to comparing with an empty file -->
-                                <!-- This can lead to errors which are not shown in daily development where local Maven cache has the old version -->
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>class io.airlift.slice.BasicSliceInput</new>
-                                    <justification>Trino SPI depends on Airlift</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>class io.airlift.slice.Slice</new>
-                                    <justification>Trino SPI depends on Airlift</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>class io.airlift.slice.SliceInput</new>
-                                    <justification>Trino SPI depends on Airlift</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.externalClassExposedInAPI</code>
-                                    <new>class io.airlift.slice.SliceOutput</new>
-                                    <justification>Trino SPI depends on Airlift</justification>
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
