@@ -41,7 +41,6 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 public class JwtAuthenticator
         extends AbstractBearerAuthenticator
 {
-
     public static final String JWT_KEY_FILE = "http-server.authentication.jwt.key-file";
     public static final String JWT_REQUIRED_ISSUER = "http-server.authentication.jwt.required-issuer";
     public static final String JWT_REQUIRED_AUDIENCE = "http-server.authentication.jwt.required-audience";
