@@ -15,6 +15,13 @@ package io.trino.spi.ptf;
 
 import io.trino.spi.connector.ConnectorSplit;
 
+/**
+ * Processes table functions splits, as returned from {@link io.trino.spi.connector.ConnectorSplitManager}
+ * for a {@link ConnectorTableFunctionHandle}.
+ * <p>
+ * Thread-safety: implementations do not have to be thread-safe. The {@link #process} method may be called from
+ * multiple threads, but will never be called from two threads at the same time.
+ */
 public interface TableFunctionSplitProcessor
 {
     /**
