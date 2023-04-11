@@ -13,7 +13,6 @@
  */
 package io.trino.testing;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -86,7 +85,6 @@ import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
@@ -501,11 +499,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertTableColumnNames(String tableName, String... columnNames)
     {
         MaterializedResult result = computeActual("DESCRIBE " + tableName);
-        List<String> expected = ImmutableList.copyOf(columnNames);
         List<String> actual = result.getMaterializedRows().stream()
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());
-        assertEquals(actual, expected);
+        assertThat(actual).as("Columns of table %s", tableName)
+                .isEqualTo(List.of(columnNames));
     }
 
     protected void assertExplain(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
