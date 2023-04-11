@@ -17,16 +17,19 @@ import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+@ThreadSafe
 public class PlanOptimizersStatsCollector
 {
-    private final Map<Class<?>, QueryPlanOptimizerStats> stats = new HashMap<>();
+    private final Map<Class<?>, QueryPlanOptimizerStats> stats = new ConcurrentHashMap<>();
     private final int queryReportedRuleStatsLimit;
 
     public PlanOptimizersStatsCollector(int queryReportedRuleStatsLimit)
