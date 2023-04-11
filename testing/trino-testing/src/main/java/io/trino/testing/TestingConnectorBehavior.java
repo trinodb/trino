@@ -104,6 +104,8 @@ public enum TestingConnectorBehavior
 
     SUPPORTS_MULTI_STATEMENT_WRITES(false),
 
+    SUPPORTS_NATIVE_QUERY(true), // system.query or equivalent PTF for query passthrough
+
     /**/;
 
     private final Predicate<Predicate<TestingConnectorBehavior>> hasBehaviorByDefault;
