@@ -60,8 +60,8 @@ import static org.testng.Assert.assertNotNull;
 public class TestMongoConnectorTest
         extends BaseConnectorTest
 {
-    private MongoServer server;
-    private MongoClient client;
+    protected MongoServer server;
+    protected MongoClient client;
 
     @Override
     protected QueryRunner createQueryRunner()
