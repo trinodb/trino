@@ -90,45 +90,45 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final SystemSecurityContext JOE = new SystemSecurityContext(joe, queryId);
     private static final SystemSecurityContext UNKNOWN = new SystemSecurityContext(Identity.ofUser("some-unknown-user-id"), queryId);
 
-    private static final String SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show schemas";
-    private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot create schema .*";
-    private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop schema .*";
-    private static final String RENAME_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename schema from .* to .*";
-    private static final String AUTH_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for schema .* to .*";
-    private static final String SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create schema for .*";
-    private static final String GRANT_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege %s on schema %s%s";
-    private static final String DENY_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot deny privilege %s on schema %s%s";
-    private static final String REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege %s on schema %s%s";
+    private static final String SHOWN_SCHEMAS_ACCESS_DENIED_MESSAGE = "Cannot show schemas";
+    private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot create schema .*";
+    private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot drop schema .*";
+    private static final String RENAME_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot rename schema from .* to .*";
+    private static final String AUTH_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot set authorization for schema .* to .*";
+    private static final String SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot show create schema for .*";
+    private static final String GRANT_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot grant privilege %s on schema %s%s";
+    private static final String DENY_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot deny privilege %s on schema %s%s";
+    private static final String REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot revoke privilege %s on schema %s%s";
 
-    private static final String SHOWN_TABLES_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show tables of .*";
-    private static final String SELECT_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot select from table .*";
-    private static final String SHOW_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show columns of table .*";
-    private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot add a column to table .*";
-    private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop a column from table .*";
-    private static final String RENAME_COLUMNS_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename a column in table .*";
-    private static final String AUTH_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for table .* to .*";
-    private static final String AUTH_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set authorization for view .* to .*";
-    private static final String TABLE_COMMENT_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot comment table to .*";
-    private static final String INSERT_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot insert into table .*";
-    private static final String DELETE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot delete from table .*";
-    private static final String TRUNCATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot truncate table .*";
-    private static final String DROP_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop table .*";
-    private static final String CREATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create table for .*";
-    private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename table .*";
-    private static final String SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set table properties to .*";
-    private static final String CREATE_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: View owner '.*' cannot create view that selects from .*";
-    private static final String CREATE_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot create materialized view .*";
-    private static final String DROP_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop materialized view .*";
-    private static final String REFRESH_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot refresh materialized view .*";
-    private static final String SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set properties of materialized view .*";
-    private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege DELETE on table .*";
-    private static final String DENY_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot deny privilege DELETE on table .*";
-    private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege DELETE on table .*";
+    private static final String SHOWN_TABLES_ACCESS_DENIED_MESSAGE = "Cannot show tables of .*";
+    private static final String SELECT_TABLE_ACCESS_DENIED_MESSAGE = "Cannot select from table .*";
+    private static final String SHOW_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot show columns of table .*";
+    private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot add a column to table .*";
+    private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot drop a column from table .*";
+    private static final String RENAME_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot rename a column in table .*";
+    private static final String AUTH_TABLE_ACCESS_DENIED_MESSAGE = "Cannot set authorization for table .* to .*";
+    private static final String AUTH_VIEW_ACCESS_DENIED_MESSAGE = "Cannot set authorization for view .* to .*";
+    private static final String TABLE_COMMENT_ACCESS_DENIED_MESSAGE = "Cannot comment table to .*";
+    private static final String INSERT_TABLE_ACCESS_DENIED_MESSAGE = "Cannot insert into table .*";
+    private static final String DELETE_TABLE_ACCESS_DENIED_MESSAGE = "Cannot delete from table .*";
+    private static final String TRUNCATE_TABLE_ACCESS_DENIED_MESSAGE = "Cannot truncate table .*";
+    private static final String DROP_TABLE_ACCESS_DENIED_MESSAGE = "Cannot drop table .*";
+    private static final String CREATE_TABLE_ACCESS_DENIED_MESSAGE = "Cannot show create table for .*";
+    private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Cannot rename table .*";
+    private static final String SET_TABLE_PROPERTIES_ACCESS_DENIED_MESSAGE = "Cannot set table properties to .*";
+    private static final String CREATE_VIEW_ACCESS_DENIED_MESSAGE = "View owner '.*' cannot create view that selects from .*";
+    private static final String CREATE_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Cannot create materialized view .*";
+    private static final String DROP_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Cannot drop materialized view .*";
+    private static final String REFRESH_MATERIALIZED_VIEW_ACCESS_DENIED_MESSAGE = "Cannot refresh materialized view .*";
+    private static final String SET_MATERIALIZED_VIEW_PROPERTIES_ACCESS_DENIED_MESSAGE = "Cannot set properties of materialized view .*";
+    private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot grant privilege DELETE on table .*";
+    private static final String DENY_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot deny privilege DELETE on table .*";
+    private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Cannot revoke privilege DELETE on table .*";
 
-    private static final String SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set system session property .*";
-    private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot set catalog session property .*";
-    private static final String EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot execute function .*";
-    private static final String GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = "Access Denied: .* cannot grant .*";
+    private static final String SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set system session property .*";
+    private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set catalog session property .*";
+    private static final String EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = "Cannot execute function .*";
+    private static final String GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = ".* cannot grant .*";
 
     protected abstract SystemAccessControl newFileBasedSystemAccessControl(File configFile, Map<String, String> properties);
 
@@ -215,12 +215,12 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanKillQueryOwnedBy(UNKNOWN, anyone);
 
         // system information access is denied by default
-        assertThatThrownBy(() -> accessControl.checkCanReadSystemInformation(UNKNOWN))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot read system information");
-        assertThatThrownBy(() -> accessControl.checkCanWriteSystemInformation(UNKNOWN))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot write system information");
+        assertAccessDenied(
+                () -> accessControl.checkCanReadSystemInformation(UNKNOWN),
+                "Cannot read system information");
+        assertAccessDenied(
+                () -> accessControl.checkCanWriteSystemInformation(UNKNOWN),
+                "Cannot write system information");
     }
 
     @Test
@@ -913,38 +913,26 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog_principal.json");
 
-        try {
-            accessControl.checkCanSetUser(Optional.empty(), alice.getUser());
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertAccessDenied(
+                () -> accessControl.checkCanSetUser(Optional.empty(), alice.getUser()),
+                "Principal null cannot become user alice");
 
         accessControl.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
         accessControl.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
-        try {
-            accessControl.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertAccessDenied(
+                () -> accessControl.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser()),
+                "Principal mallory/example.com@EXAMPLE.COM cannot become user alice");
 
         accessControl.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
-        try {
-            accessControl.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertAccessDenied(
+                () -> accessControl.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser()),
+                "Principal invalid/example.com@EXAMPLE.COM cannot become user alice");
 
         accessControl.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
         accessControl.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
-        try {
-            accessControl.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
+        assertAccessDenied(
+                () -> accessControl.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser()),
+                "Principal special/.*@EXAMPLE.COM cannot become user alice");
 
         SystemAccessControl accessControlNoPatterns = newFileBasedSystemAccessControl("file-based-system-catalog.json");
         accessControlNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
@@ -963,16 +951,16 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(alice, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), any);
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice, queryId), any))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice, queryId), any),
+                "Cannot view query");
 
-        assertThatThrownBy(() -> accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId)))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
-        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), any))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId)),
+                "Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), any),
+                "Cannot view query");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), any);
 
@@ -981,25 +969,25 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), dave);
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of("alice", "bob", "dave", "admin")),
                 ImmutableSet.of("alice", "dave"));
-        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
-        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
-        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
-        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), admin))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice),
+                "Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+                "Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+                "Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), admin),
+                "Cannot view query");
 
         Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave);
-        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave),
+                "Cannot view query");
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(nonAsciiUser, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(nonAsciiUser, queryId), any);
@@ -1037,45 +1025,44 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(admin, queryId), any);
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(alice, queryId));
-        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), any))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), any),
+                "Cannot view query");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice, queryId), any);
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId));
-        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), any))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), any),
+                "Cannot view query");
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
-        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), any))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), any),
+                "Cannot view query");
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice);
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), dave);
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), ImmutableSet.of("alice", "bob", "dave", "admin")),
                 ImmutableSet.of("alice", "dave"));
-        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
-        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
-        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
-        assertThatThrownBy(() -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), admin))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice),
+                "Cannot view query");
+        assertAccessDenied(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+                "Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), bob),
+                "Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), admin),
+                "Cannot view query");
 
         Identity contractor = Identity.forUser("some-other-contractor").withGroups(ImmutableSet.of("contractors")).build();
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(contractor, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave);
-        assertThatThrownBy(() -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot view query");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(contractor, queryId), dave),
+                "Cannot view query");
     }
 
     @Test
@@ -1087,16 +1074,16 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
 
         accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
-        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot write system information");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())),
+                "Cannot write system information");
 
-        assertThatThrownBy(() -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot read system information");
-        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot write system information");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                "Cannot read system information");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                "Cannot write system information");
 
         accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
         accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
@@ -1107,12 +1094,12 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
-        assertThatThrownBy(() -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot read system information");
-        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot write system information");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                "Cannot read system information");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                "Cannot write system information");
     }
 
     @Test
@@ -1125,16 +1112,16 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
 
         accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
-        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot write system information");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())),
+                "Cannot write system information");
 
-        assertThatThrownBy(() -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot read system information");
-        assertThatThrownBy(() -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot write system information");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                "Cannot read system information");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
+                "Cannot write system information");
     }
 
     @Test
@@ -1151,21 +1138,21 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), user);
         accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), role);
 
-        assertThatThrownBy(() -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(bob, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), user))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageStartingWith("Access Denied: Cannot set authorization for schema alice-catalog.some_schema");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(bob, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), user),
+                "Cannot set authorization for schema alice-catalog.some_schema.*");
 
-        assertThatThrownBy(() -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(bob, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), role))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageStartingWith("Access Denied: Cannot set authorization for schema alice-catalog.some_schema");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(bob, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), role),
+                "Cannot set authorization for schema alice-catalog.some_schema.*");
 
-        assertThatThrownBy(() -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("secret", "some_schema"), user))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageStartingWith("Access Denied: Cannot set authorization for schema secret.some_schema");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("secret", "some_schema"), user),
+                "Cannot set authorization for schema secret.some_schema.*");
 
-        assertThatThrownBy(() -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("secret", "some_schema"), role))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessageStartingWith("Access Denied: Cannot set authorization for schema secret.some_schema");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("secret", "some_schema"), role),
+                "Cannot set authorization for schema secret.some_schema.*");
     }
 
     @Test
@@ -1538,6 +1525,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         assertThatThrownBy(callable)
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessageMatching(expectedMessage);
+                .hasMessageMatching("Access Denied: " + expectedMessage);
     }
 }
