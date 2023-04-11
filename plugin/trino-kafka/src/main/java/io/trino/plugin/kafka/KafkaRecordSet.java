@@ -171,7 +171,8 @@ public class KafkaRecordSet
             long timeStamp = message.timestamp() * MICROSECONDS_PER_MILLISECOND;
 
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData);
-            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData);
+            // tombstone message has null value body
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = message.value() == null ? Optional.empty() : messageDecoder.decodeRow(messageData);
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = columnHandles.stream()
                     .filter(KafkaColumnHandle::isInternal)
