@@ -15,13 +15,18 @@ package io.trino.execution.querystats;
 
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 
+import javax.annotation.concurrent.ThreadSafe;
+
+import java.util.concurrent.atomic.AtomicLong;
+
+@ThreadSafe
 public class QueryPlanOptimizerStats
 {
     private final String rule;
-    private long invocations;
-    private long applied;
-    private long totalTime;
-    private long failures;
+    private final AtomicLong invocations = new AtomicLong();
+    private final AtomicLong applied = new AtomicLong();
+    private final AtomicLong totalTime = new AtomicLong();
+    private final AtomicLong failures = new AtomicLong();
 
     public QueryPlanOptimizerStats(String rule)
     {
@@ -31,16 +36,16 @@ public class QueryPlanOptimizerStats
     public void record(long nanos, boolean applied)
     {
         if (applied) {
-            this.applied += 1;
+            this.applied.incrementAndGet();
         }
 
-        invocations += 1;
-        totalTime += nanos;
+        invocations.incrementAndGet();
+        totalTime.addAndGet(nanos);
     }
 
     public void recordFailure()
     {
-        failures += 1;
+        failures.incrementAndGet();
     }
 
     public String getRule()
@@ -50,35 +55,35 @@ public class QueryPlanOptimizerStats
 
     public long getInvocations()
     {
-        return invocations;
+        return invocations.get();
     }
 
     public long getApplied()
     {
-        return applied;
+        return applied.get();
     }
 
     public long getFailures()
     {
-        return failures;
+        return failures.get();
     }
 
     public long getTotalTime()
     {
-        return totalTime;
+        return totalTime.get();
     }
 
     public QueryPlanOptimizerStatistics snapshot(String rule)
     {
-        return new QueryPlanOptimizerStatistics(rule, invocations, applied, totalTime, failures);
+        return new QueryPlanOptimizerStatistics(rule, invocations.get(), applied.get(), totalTime.get(), failures.get());
     }
 
     public QueryPlanOptimizerStats merge(QueryPlanOptimizerStats other)
     {
-        invocations += other.getInvocations();
-        applied += other.getApplied();
-        failures += other.getFailures();
-        totalTime += other.getTotalTime();
+        invocations.addAndGet(other.getInvocations());
+        applied.addAndGet(other.getApplied());
+        failures.addAndGet(other.getFailures());
+        totalTime.addAndGet(other.getTotalTime());
 
         return this;
     }
