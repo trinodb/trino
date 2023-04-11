@@ -15,7 +15,6 @@ package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -34,7 +33,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
 
 public class TestIgniteConnectorTest
         extends BaseJdbcConnectorTest
@@ -98,6 +96,9 @@ public class TestIgniteConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return true;
+
+            case SUPPORTS_NATIVE_QUERY:
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -331,118 +332,9 @@ public class TestIgniteConnectorTest
     }
 
     @Override
-    public void testNativeQuerySimple()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertQueryFails("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "line 1:21: Table function system.query not registered");
-    }
-
-    @Override
-    public void testNativeQueryParameters()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
-                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
-                .build();
-        assertQueryFails(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "line 1:21: Table function system.query not registered");
-        assertQueryFails(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "line 1:21: Table function system.query not registered");
-    }
-
-    @Override
-    public void testNativeQuerySelectFromNation()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertQueryFails(
-                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
-                "line 1:21: Table function system.query not registered");
-    }
-
-    @Override
-    public void testNativeQuerySelectFromTestTable()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        try (TestTable testTable = simpleTable()) {
-            assertQueryFails(
-                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
-                    "line 1:21: Table function system.query not registered");
-        }
-    }
-
-    @Override
-    public void testNativeQueryColumnAlias()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertQueryFails(
-                "SELECT * FROM TABLE(system.query(query => 'SELECT name AS region_name FROM public.region WHERE regionkey = 0'))",
-                ".* Table function system.query not registered");
-    }
-
-    @Override
-    public void testNativeQueryColumnAliasNotFound()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertQueryFails(
-                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM public.region'))",
-                ".* Table function system.query not registered");
-    }
-
-    @Override
-    public void testNativeQuerySelectUnsupportedType()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        try (TestTable testTable = createTableWithUnsupportedColumn()) {
-            String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
-            // Check that column 'two' is not supported.
-            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
-            assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
-                    .hasMessage("line 1:21: Table function system.query not registered");
-        }
-    }
-
-    @Override
-    public void testNativeQueryCreateStatement()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                .hasMessage("line 1:21: Table function system.query not registered");
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
-    }
-
-    @Override
-    public void testNativeQueryInsertStatementTableDoesNotExist()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessage("line 1:21: Table function system.query not registered");
-    }
-
-    @Override
-    public void testNativeQueryInsertStatementTableExists()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3, 4)'))", testTable.getName())))
-                    .hasMessage("line 1:21: Table function system.query not registered");
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, 1), (2, 2)");
-        }
-    }
-
-    @Override
     protected TestTable simpleTable()
     {
         return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT, id bigint primary key)", ImmutableList.of("1, 1", "2, 2"));
-    }
-
-    @Override
-    public void testNativeQueryIncorrectSyntax()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessage("line 1:21: Table function system.query not registered");
     }
 
     @Override

@@ -94,6 +94,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_W
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NATIVE_QUERY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN;
@@ -1700,14 +1701,28 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void verifySupportsNativeQueryDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_NATIVE_QUERY)) {
+            // Covered by testNativeQuerySelectFromNation
+            return;
+        }
+        assertQueryFails(
+                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
+                "line 1:21: Table function system.query not registered");
+    }
+
+    @Test
     public void testNativeQuerySimple()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "VALUES 1");
     }
 
     @Test
     public void testNativeQueryParameters()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         Session session = Session.builder(getSession())
                 .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
                 .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
@@ -1719,6 +1734,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQuerySelectFromNation()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertQuery(
                 format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
                 "VALUES 'ALGERIA'");
@@ -1727,6 +1743,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQuerySelectFromTestTable()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
             assertQuery(
                     format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
@@ -1737,6 +1754,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQueryColumnAlias()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         // The output column type may differ per connector. Skipping the check because it's unrelated to the test purpose.
         assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
                 .skippingTypesCheck()
@@ -1746,6 +1764,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQueryColumnAliasNotFound()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertQueryFails(
                 format("SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region'))", getSession().getSchema().orElseThrow()),
                 ".* Column 'name' cannot be resolved");
@@ -1757,6 +1776,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQuerySelectUnsupportedType()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = createTableWithUnsupportedColumn()) {
             String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
             // Check that column 'two' is not supported.
@@ -1770,6 +1790,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQueryCreateStatement()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
@@ -1779,6 +1800,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
                 .hasMessageContaining("Failed to get table handle for prepared query");
@@ -1787,6 +1809,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQueryInsertStatementTableExists()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
             assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
                     .hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
@@ -1797,6 +1820,7 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testNativeQueryIncorrectSyntax()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
                 .hasMessageContaining("Failed to get table handle for prepared query");
     }
