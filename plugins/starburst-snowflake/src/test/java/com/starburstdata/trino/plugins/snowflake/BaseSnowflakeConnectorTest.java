@@ -49,7 +49,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseSnowflakeConnectorTest
@@ -766,26 +765,6 @@ public abstract class BaseSnowflakeConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return snowflakeExecutor;
-    }
-
-    @Override
-    public void testNativeQueryCreateStatement()
-    {
-        String tableName = getSession().getSchema().orElseThrow() + ".numbers";
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE %s(n INTEGER)'))", tableName)))
-                .hasMessageContaining("Failed to get table handle for prepared query");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Override
-    public void testNativeQueryInsertStatementTableExists()
-    {
-        try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .hasMessageContaining("Failed to get table handle for prepared query");
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
-        }
     }
 
     @Override

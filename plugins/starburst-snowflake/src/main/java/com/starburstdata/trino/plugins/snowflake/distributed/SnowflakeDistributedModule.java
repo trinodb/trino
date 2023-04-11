@@ -32,13 +32,11 @@ import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
-import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.inject.Qualifier;
 
@@ -120,14 +118,6 @@ public class SnowflakeDistributedModule
 
         install(new JdbcModule());
         install(new SnowflakeJdbcClientModule(true));
-
-        setupTableFunctions(binder);
-    }
-
-    @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
-    private static void setupTableFunctions(Binder binder)
-    {
-        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 
     @Provides

@@ -62,6 +62,9 @@ public class TestDistributedSnowflakeConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 // TOPN is retained due to parallelism
                 return false;
+            case SUPPORTS_NATIVE_QUERY:
+                // distributed connector doesn't use the JDBC driver for fetching query results
+                return false;
             default:
                 return super.hasBehavior(connectorBehavior);
         }

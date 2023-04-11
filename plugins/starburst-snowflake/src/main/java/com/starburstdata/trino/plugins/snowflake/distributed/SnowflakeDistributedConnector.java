@@ -25,7 +25,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
@@ -54,8 +53,6 @@ public class SnowflakeDistributedConnector
     private final JdbcTransactionManager transactionManager;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
-    @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
-    private final Set<ConnectorTableFunction> tableFunctions;
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -67,8 +64,6 @@ public class SnowflakeDistributedConnector
             JdbcTransactionManager transactionManager,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
-            // Allowed, as it was introduced before disallowing experimental SPIs usage
-            @SuppressWarnings("TrinoExperimentalSpi") Set<ConnectorTableFunction> tableFunctions,
             Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -78,7 +73,6 @@ public class SnowflakeDistributedConnector
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
-        this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
         this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList());
@@ -137,13 +131,6 @@ public class SnowflakeDistributedConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
-    }
-
-    @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
-    @Override
-    public Set<ConnectorTableFunction> getTableFunctions()
-    {
-        return tableFunctions;
     }
 
     @Override

@@ -107,7 +107,10 @@ public class SnowflakeJdbcClientModule
                 .to(SingletonIdentityCacheMapping.class)
                 .in(Scopes.SINGLETON);
 
-        setupTableFunctions(binder);
+        if (!distributedConnector) {
+            // The distributed connector doesn't use JDBC for query results fetching so query passthrough doesn't work as expected
+            setupTableFunctions(binder);
+        }
     }
 
     @SuppressWarnings("TrinoExperimentalSpi") // Allowed, as it was introduced before disallowing experimental SPIs usage
