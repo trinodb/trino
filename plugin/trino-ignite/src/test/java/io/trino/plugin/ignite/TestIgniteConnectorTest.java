@@ -308,6 +308,12 @@ public class TestIgniteConnectorTest
     }
 
     @Override
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
+    {
+        assertThat(e).hasMessage("Schema change operation failed: Thread got interrupted while trying to acquire table lock.");
+    }
+
+    @Override
     public void testAddNotNullColumnToNonEmptyTable()
     {
         // Override because the connector supports both ADD COLUMN and NOT NULL constraint, but it doesn't support adding NOT NULL columns
