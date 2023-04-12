@@ -19,6 +19,9 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
+
 @ThreadSafe
 public class QueryPlanOptimizerStats
 {
@@ -30,7 +33,7 @@ public class QueryPlanOptimizerStats
 
     public QueryPlanOptimizerStats(String rule)
     {
-        this.rule = rule;
+        this.rule = requireNonNull(rule, "rule is null");
     }
 
     public void record(long nanos, boolean applied)
@@ -80,6 +83,8 @@ public class QueryPlanOptimizerStats
 
     public QueryPlanOptimizerStats merge(QueryPlanOptimizerStats other)
     {
+        checkArgument(rule.equals(other.getRule()), "Cannot merge stats for different rules: %s and %s", rule, other.getRule());
+
         invocations.addAndGet(other.getInvocations());
         applied.addAndGet(other.getApplied());
         failures.addAndGet(other.getFailures());
