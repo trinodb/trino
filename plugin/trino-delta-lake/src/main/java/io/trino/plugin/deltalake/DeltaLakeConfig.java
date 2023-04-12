@@ -52,7 +52,7 @@ public class DeltaLakeConfig
     private long metadataCacheMaxSize = 1000;
     private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
     private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
-    private int domainCompactionThreshold = 100;
+    private int domainCompactionThreshold = 1000;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
     private int maxInitialSplits = 200;
