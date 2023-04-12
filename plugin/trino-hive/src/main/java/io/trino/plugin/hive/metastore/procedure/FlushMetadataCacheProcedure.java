@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.procedure;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveErrorCode;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.procedure.Procedure;
@@ -153,9 +154,7 @@ public class FlushMetadataCacheProcedure
             }
         }
         else {
-            throw new TrinoException(
-                    HiveErrorCode.HIVE_METASTORE_ERROR,
-                    "Illegal parameter set passed. " + PROCEDURE_USAGE_EXAMPLES);
+            throw new TrinoException(StandardErrorCode.INVALID_PROCEDURE_ARGUMENT, "Illegal parameter set passed. " + PROCEDURE_USAGE_EXAMPLES);
         }
     }
 
