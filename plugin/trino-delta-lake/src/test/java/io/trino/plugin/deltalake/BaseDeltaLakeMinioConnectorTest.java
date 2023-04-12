@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
@@ -202,23 +201,6 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
         return Optional.of(dataMappingTestSetup);
-    }
-
-    @Override
-    protected Optional<String> filterColumnNameTestData(String columnName)
-    {
-        // TODO https://github.com/trinodb/trino/issues/11297: these should be cleanly rejected and filterColumnNameTestData() replaced with isColumnNameRejected()
-        Set<String> unsupportedColumnNames = ImmutableSet.of(
-                "atrailingspace ",
-                " aleadingspace",
-                "a,comma",
-                "a;semicolon",
-                "a space");
-        if (unsupportedColumnNames.contains(columnName)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(columnName);
     }
 
     @Override
