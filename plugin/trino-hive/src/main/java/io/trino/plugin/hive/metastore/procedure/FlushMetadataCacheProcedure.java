@@ -35,7 +35,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class FlushHiveMetastoreCacheProcedure
+public class FlushMetadataCacheProcedure
         implements Provider<Procedure>
 {
     private static final String PROCEDURE_NAME = "flush_metadata_cache";
@@ -73,7 +73,7 @@ public class FlushHiveMetastoreCacheProcedure
 
     static {
         try {
-            FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushHiveMetastoreCacheProcedure.class.getMethod(
+            FLUSH_HIVE_METASTORE_CACHE = lookup().unreflect(FlushMetadataCacheProcedure.class.getMethod(
                     "flushMetadataCache", String.class, String.class, List.class, List.class, List.class, List.class));
         }
         catch (ReflectiveOperationException e) {
@@ -84,7 +84,7 @@ public class FlushHiveMetastoreCacheProcedure
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
 
     @Inject
-    public FlushHiveMetastoreCacheProcedure(Optional<CachingHiveMetastore> cachingHiveMetastore)
+    public FlushMetadataCacheProcedure(Optional<CachingHiveMetastore> cachingHiveMetastore)
     {
         this.cachingHiveMetastore = requireNonNull(cachingHiveMetastore, "cachingHiveMetastore is null");
     }
