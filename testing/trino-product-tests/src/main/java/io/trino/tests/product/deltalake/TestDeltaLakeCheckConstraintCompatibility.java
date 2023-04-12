@@ -168,4 +168,40 @@ public class TestDeltaLakeCheckConstraintCompatibility
             dropDeltaTableWithRetry("default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_OSS, DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testUnsupportedCheckConstraintExpression()
+    {
+        String tableName = "test_unsupported_check_constraints_" + randomNameSuffix();
+        onDelta().executeQuery("CREATE TABLE default." + tableName + " (a INT, b INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+
+        try {
+            // This constraint should be changed to a new one if the connector supports the expression
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD CONSTRAINT test_constraint CHECK (a = abs(b))");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, -1)");
+
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, -1)"))
+                    .hasMessageContaining("Failed to convert Delta check constraints to Trino expression");
+            assertQueryFailure(() -> onTrino().executeQuery("UPDATE delta.default." + tableName + " SET a = -1"))
+                    .hasMessageContaining("Updating a table with a check constraint is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a = 1"))
+                    .hasMessageContaining("Writing to tables with CHECK constraints is not supported");
+            assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " +
+                    "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = -1"))
+                    .hasMessageContaining("Cannot merge into a table with check constraints");
+
+            // Verify these operations succeed even if check constraints have unsupported expressions
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");
+            onTrino().executeQuery("COMMENT ON COLUMN delta.default." + tableName + ".c IS 'example column comment'");
+            onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'example table comment'");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, -1, null));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
 }
