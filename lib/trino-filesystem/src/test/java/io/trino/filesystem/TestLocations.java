@@ -17,6 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static io.trino.filesystem.Locations.appendPath;
@@ -71,27 +72,28 @@ public class TestLocations
     private static Stream<Arguments> testGetFileNameFromLocationData()
     {
         return Stream.of(
-                Arguments.of("", ""),
-                Arguments.of("test_file", "test_file"),
-                Arguments.of("test>file", "test>file"),
-                Arguments.of("test_dir/", ""),
-                Arguments.of("/test_file.txt", "test_file.txt"),
-                Arguments.of("test_dir/test_file.txt", "test_file.txt"),
-                Arguments.of("/test_dir/test_file.txt", "test_file.txt"),
-                Arguments.of("test_dir /test_file.txt", "test_file.txt"),
-                Arguments.of("test_dir  /test_file.txt", "test_file.txt"),
-                Arguments.of("test_<dir  /test_file.txt", "test_file.txt"),
-                Arguments.of("test_dir/test_dir2/", ""),
-                Arguments.of("s3://test_dir/test_file.txt", "test_file.txt"),
-                Arguments.of("s3://test_dir/test_dir2/test_file.txt", "test_file.txt"),
-                Arguments.of("s3://dir_with_space /test_file.txt", "test_file.txt"),
-                Arguments.of("file://test_dir/test_file", "test_file"),
-                Arguments.of("file:/test_dir/test_file", "test_file"));
+                Arguments.of("", Optional.empty()),
+                Arguments.of("test_file", Optional.of("test_file")),
+                Arguments.of("test>file", Optional.of("test>file")),
+                Arguments.of(" ", Optional.of(" ")),
+                Arguments.of("test_dir/", Optional.empty()),
+                Arguments.of("/test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("test_dir/test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("/test_dir/test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("test_dir /test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("test_dir  /test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("test_<dir  /test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("test_dir/test_dir2/", Optional.empty()),
+                Arguments.of("s3://test_dir/test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("s3://test_dir/test_dir2/test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("s3://dir_with_space /test_file.txt", Optional.of("test_file.txt")),
+                Arguments.of("file://test_dir/test_file", Optional.of("test_file")),
+                Arguments.of("file:/test_dir/test_file", Optional.of("test_file")));
     }
 
     @ParameterizedTest
     @MethodSource("testGetFileNameFromLocationData")
-    public void testGetFileNameFromLocation(String location, String fileName)
+    public void testGetFileNameFromLocation(String location, Optional<String> fileName)
     {
         assertThat(getFileName(location)).isEqualTo(fileName);
     }

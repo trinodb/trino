@@ -83,7 +83,8 @@ public class S3NativeTransactionLogSynchronizer
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         String locksDirectory = appendPath(getParent(newLogEntryPath), LOCK_DIRECTORY);
-        String newEntryFilename = getFileName(newLogEntryPath);
+        String newEntryFilename = getFileName(newLogEntryPath)
+                .orElseThrow(() -> new IllegalArgumentException("The path '%s' is not a file".formatted(newLogEntryPath)));
         Optional<LockInfo> myLockInfo = Optional.empty();
 
         try {

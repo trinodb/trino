@@ -2425,7 +2425,8 @@ public class DeltaLakeMetadata
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
                 FileEntry file = iterator.next();
-                String fileName = getFileName(file.location());
+                String fileName = getFileName(file.location())
+                        .orElseThrow(() -> new IllegalStateException("The path '%s' is not a file".formatted(file.location())));
                 if (isFileCreatedByQuery(fileName, queryId) && !filesToKeep.contains(location + "/" + fileName)) {
                     filesToDelete.add(fileName);
                 }

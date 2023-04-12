@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem;
 
+import java.util.Optional;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class Locations
@@ -43,11 +45,15 @@ public final class Locations
         throw new IllegalArgumentException("Location does not have parent: " + location);
     }
 
-    public static String getFileName(String location)
+    public static Optional<String> getFileName(String location)
     {
         validateLocation(location);
 
-        return location.substring(location.lastIndexOf('/') + 1);
+        int fileNameBeginIndex = location.lastIndexOf('/') + 1;
+        if (fileNameBeginIndex == location.length()) {
+            return Optional.empty();
+        }
+        return Optional.of(location.substring(fileNameBeginIndex));
     }
 
     private static void validateLocation(String location)
