@@ -713,8 +713,9 @@ public class TrinoS3FileSystem
 
     private boolean deleteObject(String key)
     {
+        String bucketName = getBucketName(uri);
         try {
-            DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(getBucketName(uri), key);
+            DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(bucketName, key);
             if (requesterPaysEnabled) {
                 // TODO use deleteObjectRequest.setRequesterPays() when https://github.com/aws/aws-sdk-java/issues/1219 is fixed
                 // currently the method exists, but is ineffective (doesn't set the required HTTP header)
@@ -725,6 +726,7 @@ public class TrinoS3FileSystem
             return true;
         }
         catch (AmazonClientException e) {
+            log.warn(e, "Failed to delete object '%s' from the bucket %s", key, bucketName);
             return false;
         }
     }
