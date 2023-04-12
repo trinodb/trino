@@ -76,7 +76,7 @@ public class QueryPlanOptimizerStats
         return totalTime.get();
     }
 
-    public QueryPlanOptimizerStatistics snapshot(String rule)
+    public QueryPlanOptimizerStatistics snapshot()
     {
         return new QueryPlanOptimizerStatistics(rule, invocations.get(), applied.get(), totalTime.get(), failures.get());
     }

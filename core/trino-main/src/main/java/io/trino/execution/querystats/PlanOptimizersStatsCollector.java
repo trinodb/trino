@@ -73,7 +73,7 @@ public class PlanOptimizersStatsCollector
         return stats.entrySet().stream()
                 .sorted(Comparator.<Map.Entry<Class<?>, QueryPlanOptimizerStats>, Long>comparing(entry -> entry.getValue().getTotalTime()).reversed())
                 .limit(limit)
-                .map((Map.Entry<Class<?>, QueryPlanOptimizerStats> entry) -> entry.getValue().snapshot(entry.getKey().getCanonicalName()))
+                .map((Map.Entry<Class<?>, QueryPlanOptimizerStats> entry) -> entry.getValue().snapshot())
                 .collect(toImmutableList());
     }
 
