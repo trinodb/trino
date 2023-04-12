@@ -52,6 +52,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.apache.pinot.spi.data.Schema;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -78,6 +80,10 @@ import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
@@ -86,6 +92,10 @@ public class PinotMetadata
         implements ConnectorMetadata
 {
     public static final String SCHEMA_NAME = "default";
+
+    // Pinot does not yet have full support for predicates that are always TRUE/FALSE
+    // See https://github.com/apache/incubator-pinot/issues/10601
+    private static final Set<Type> SUPPORTS_ALWAYS_FALSE = Set.of(BIGINT, INTEGER, REAL, DOUBLE);
 
     private final NonEvictableLoadingCache<String, List<PinotColumnHandle>> pinotTableColumnCache;
     private final int maxRowsPerBrokerQuery;
@@ -286,6 +296,9 @@ public class PinotMetadata
                     // Pinot does not support filtering on json values
                     unsupported.put(entry.getKey(), entry.getValue());
                 }
+                else if (isFilterPushdownUnsupported(entry.getValue())) {
+                    unsupported.put(entry.getKey(), entry.getValue());
+                }
                 else {
                     supported.put(entry.getKey(), entry.getValue());
                 }
@@ -305,6 +318,20 @@ public class PinotMetadata
                 handle.getLimit(),
                 handle.getQuery());
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
+    }
+
+    // IS NULL and IS NOT NULL are handled differently in Pinot, pushing down would lead to inconsistent results.
+    // See https://docs.pinot.apache.org/developers/advanced/null-value-support for more info.
+    private boolean isFilterPushdownUnsupported(Domain domain)
+    {
+        ValueSet valueSet = domain.getValues();
+        boolean isNotNull = valueSet.isAll() && !domain.isNullAllowed();
+        boolean isUnsupportedAlwaysFalse = domain.isNone() && !SUPPORTS_ALWAYS_FALSE.contains(domain.getType());
+        boolean isInOrNull = !valueSet.getRanges().getOrderedRanges().isEmpty() && domain.isNullAllowed();
+        return isNotNull ||
+                domain.isOnlyNull() ||
+                isUnsupportedAlwaysFalse ||
+                isInOrNull;
     }
 
     @Override
