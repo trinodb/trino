@@ -51,6 +51,7 @@ import static io.trino.plugin.pinot.query.PinotExpressionRewriter.rewriteExpress
 import static io.trino.plugin.pinot.query.PinotPatterns.WILDCARD;
 import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatExpression;
 import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatFilter;
+import static io.trino.plugin.pinot.query.PinotSqlFormatter.formatOptions;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -75,6 +76,7 @@ public final class DynamicTableBuilder
         requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(typeConverter, "typeConverter is null");
         String query = schemaTableName.getTableName();
+
         BrokerRequest request = CalciteSqlCompiler.compileToBrokerRequest(query);
         PinotQuery pinotQuery = request.getPinotQuery();
         QueryContext queryContext = QueryContextConverterUtils.getQueryContext(pinotQuery);
@@ -127,8 +129,16 @@ public final class DynamicTableBuilder
             filter = Optional.of(formatted);
         }
 
-        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), havingExpression, orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext), query);
+        Optional<String> queryOption = Optional.empty();
+        if (pinotQuery.queryOptions != null) {
+            String formatted = formatOptions( pinotQuery.queryOptions );
+            queryOption = Optional.of(formatted);
+        }
+
+
+        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), havingExpression, orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext),queryOption, query);
     }
+
 
     private static List<PinotColumnHandle> getPinotColumns(SchemaTableName schemaTableName, List<ExpressionContext> expressions, List<String> aliases, Map<String, ColumnHandle> columnHandles, PinotTypeResolver pinotTypeResolver, Map<String, PinotColumnNameAndTrinoType> aggregateTypes)
     {

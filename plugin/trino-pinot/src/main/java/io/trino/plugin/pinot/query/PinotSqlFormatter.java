@@ -23,6 +23,7 @@ import io.trino.plugin.pinot.PinotException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import java.util.stream.Collectors;
 import org.apache.pinot.common.function.TransformFunctionType;
 import org.apache.pinot.common.request.context.ExpressionContext;
 import org.apache.pinot.common.request.context.FilterContext;
@@ -154,6 +155,16 @@ public class PinotSqlFormatter
         }
         throw new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), format("Unexpected filter type: '%s'", filterContext.getType()));
     }
+
+    static String formatOptions(Map<String, String> queryOptions) {
+
+       String options = queryOptions.keySet().stream()
+                .map(key -> " OPTION("+ key + "=" + queryOptions.get(key)+")")
+                .collect(Collectors.joining(","));
+        return options;
+    }
+
+
 
     private static String formatPredicate(Predicate predicate, Context context)
     {
