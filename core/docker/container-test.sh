@@ -38,7 +38,7 @@ function test_trino_starts {
     trap - EXIT
 
     if ! [[ ${RESULT} == '"success"' ]]; then
-        echo "🚨 Test query didn't return expected result (\"success\")" >&2
+        echo "🚨 Test query didn't return expected result (\"success\"): [${RESULT}]" >&2
         return 1
     fi
 
