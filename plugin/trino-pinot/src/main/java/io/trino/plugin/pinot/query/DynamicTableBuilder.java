@@ -131,14 +131,12 @@ public final class DynamicTableBuilder
 
         Optional<String> queryOption = Optional.empty();
         if (pinotQuery.queryOptions != null) {
-            String formatted = formatOptions( pinotQuery.queryOptions );
+            String formatted = formatOptions(pinotQuery.queryOptions);
             queryOption = Optional.of(formatted);
         }
 
-
-        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), havingExpression, orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext),queryOption, query);
+        return new DynamicTable(pinotTableName, suffix, selectColumns, filter, groupByColumns, ImmutableList.of(), havingExpression, orderBy, OptionalLong.of(queryContext.getLimit()), getOffset(queryContext), queryOption, query);
     }
-
 
     private static List<PinotColumnHandle> getPinotColumns(SchemaTableName schemaTableName, List<ExpressionContext> expressions, List<String> aliases, Map<String, ColumnHandle> columnHandles, PinotTypeResolver pinotTypeResolver, Map<String, PinotColumnNameAndTrinoType> aggregateTypes)
     {

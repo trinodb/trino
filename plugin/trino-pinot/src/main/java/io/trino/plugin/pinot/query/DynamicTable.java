@@ -43,7 +43,6 @@ public final class DynamicTable
 
     private final Optional<String> options;
 
-
     // semantically sorting is applied after aggregation
     private final List<OrderByExpression> orderBy;
 
@@ -80,7 +79,7 @@ public final class DynamicTable
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
         this.limit = requireNonNull(limit, "limit is null");
         this.offset = requireNonNull(offset, "offset is null");
-        this.options=requireNonNull(options,"options is null");
+        this.options = requireNonNull(options, "options is null");
         this.query = requireNonNull(query, "query is null");
         this.isAggregateInProjections = projections.stream()
                 .anyMatch(PinotColumnHandle::isAggregate);
@@ -191,7 +190,7 @@ public final class DynamicTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, havingExpression, orderBy, limit, offset,options, query);
+        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, havingExpression, orderBy, limit, offset, options, query);
     }
 
     @Override
@@ -211,6 +210,4 @@ public final class DynamicTable
                 .add("query", query)
                 .toString();
     }
-
-
 }

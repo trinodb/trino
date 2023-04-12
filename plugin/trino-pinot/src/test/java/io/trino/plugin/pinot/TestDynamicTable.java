@@ -24,10 +24,10 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import java.util.Optional;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.OFFLINE_SUFFIX;
@@ -385,7 +385,6 @@ public class TestDynamicTable
         assertEquals(dynamicTable.getTableName(), tableName);
     }
 
-
     @Test
     public void testOptions()
     {
@@ -394,10 +393,9 @@ public class TestDynamicTable
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = format("select %s from %s limit 10 option(skipupsert=true)", join(", ", columnNames), tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        Optional<String> expectedOption= Optional.of(" OPTION(skipUpsert=true)");
+        Optional<String> expectedOption = Optional.of(" OPTION(skipUpsert=true)");
         assertEquals(dynamicTable.getOptions(), expectedOption);
     }
-
 
     @Test
     public void testMultiOptions()
@@ -407,9 +405,7 @@ public class TestDynamicTable
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
         String query = format("select %s from %s limit 10 option(skipupsert=true,enableNullHandling=true)", join(", ", columnNames), tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
-        Optional<String> expectedOption= Optional.of(" OPTION(enableNullHandling=true), OPTION(skipUpsert=true)");
+        Optional<String> expectedOption = Optional.of(" OPTION(enableNullHandling=true), OPTION(skipUpsert=true)");
         assertEquals(dynamicTable.getOptions(), expectedOption);
     }
-
-
 }
