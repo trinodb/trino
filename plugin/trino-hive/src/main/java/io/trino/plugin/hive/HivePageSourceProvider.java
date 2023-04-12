@@ -150,9 +150,6 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(hiveSplit.getPath()));
 
-        TupleDomain<HiveColumnHandle> simplifiedDynamicFilter = dynamicFilter
-                .getCurrentPredicate()
-                .transformKeys(HiveColumnHandle.class::cast).simplify(domainCompactionThreshold);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
                 cursorProviders,
@@ -164,7 +161,9 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate().intersect(simplifiedDynamicFilter),
+                hiveTable.getCompactEffectivePredicate().intersect(
+                                dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast))
+                        .simplify(domainCompactionThreshold),
                 hiveColumns,
                 typeManager,
                 hiveSplit.getBucketConversion(),
