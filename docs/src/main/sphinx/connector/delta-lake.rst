@@ -1067,7 +1067,7 @@ connector.
         can compromise performance. For optimization in that situation, Trino
         can compact the large predicates. If necessary, adjust the threshold to
         ensure a balance between performance and predicate pushdown.
-      - ``100``
+      - ``1000``
     * - ``delta.max-outstanding-splits``
       - The target number of buffered splits for each table scan in a query,
         before the scheduler tries to pause.
