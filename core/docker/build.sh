@@ -65,15 +65,12 @@ cp "$trino_client" "${WORK_DIR}/"
 tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
 rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
 cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
-mkdir -p "${WORK_DIR}/default"
-cp -R default/etc "${WORK_DIR}/default/"
+cp -R default "${WORK_DIR}/"
 
 TAG_PREFIX="trino:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch"
-    mkdir -p "${WORK_DIR}/default/apt/sources.list.d"
-    cp "default/apt/sources.list.d/mirrors-$arch.sources" "${WORK_DIR}/default/apt/sources.list.d/"
     docker build \
         "${WORK_DIR}" \
         --pull \
@@ -81,7 +78,6 @@ for arch in "${ARCHITECTURES[@]}"; do
         -f Dockerfile \
         -t "${TAG_PREFIX}-$arch" \
         --build-arg "TRINO_VERSION=${TRINO_VERSION}"
-    rm -fr "${WORK_DIR}/default/apt/sources.list.d"
 done
 
 echo "🧹 Cleaning up the build context directory"
