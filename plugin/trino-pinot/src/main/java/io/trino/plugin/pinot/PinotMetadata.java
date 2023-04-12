@@ -253,6 +253,7 @@ public class PinotMetadata
                     dynamicTable.get().getOrderBy(),
                     OptionalLong.of(limit),
                     dynamicTable.get().getOffset(),
+                    dynamicTable.get().getOptions(),
                     dynamicTable.get().getQuery()));
         }
 
@@ -410,6 +411,7 @@ public class PinotMetadata
                 ImmutableList.of(),
                 limitForDynamicTable,
                 OptionalLong.empty(),
+                Optional.empty(),
                 newQuery);
         tableHandle = new PinotTableHandle(tableHandle.getSchemaName(), tableHandle.getTableName(), tableHandle.getConstraint(), tableHandle.getLimit(), Optional.of(dynamicTable));
 

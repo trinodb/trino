@@ -75,6 +75,7 @@ public final class DynamicTablePqlExtractor
                             .map(DynamicTablePqlExtractor::convertOrderByExpressionToPql)
                             .collect(joining(", ")));
         }
+
         if (table.getLimit().isPresent()) {
             builder.append(" limit ");
             if (table.getOffset().isPresent()) {
@@ -82,6 +83,9 @@ public final class DynamicTablePqlExtractor
                         .append(", ");
             }
             builder.append(table.getLimit().getAsLong());
+        }
+        if (!table.getOptions().isEmpty()) {
+            builder.append(table.getOptions().get());
         }
         return builder.toString();
     }

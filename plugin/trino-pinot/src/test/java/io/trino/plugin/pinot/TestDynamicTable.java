@@ -27,6 +27,7 @@ import io.trino.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.OFFLINE_SUFFIX;
@@ -382,5 +383,29 @@ public class TestDynamicTable
         String expectedPql = format("select \"qu\"\"ot\"\"ed\" from %s limit 50", tableNameWithSuffix);
         assertEquals(extractPql(dynamicTable, TupleDomain.all()), expectedPql);
         assertEquals(dynamicTable.getTableName(), tableName);
+    }
+
+    @Test
+    public void testOptions()
+    {
+        String tableName = realtimeOnlyTable.getTableName();
+        List<String> columnNames = getColumnNames(tableName);
+        String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
+        String query = format("select %s from %s limit 10 option(skipupsert=true)", join(", ", columnNames), tableNameWithSuffix);
+        DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
+        Optional<String> expectedOption = Optional.of(" OPTION(skipUpsert=true)");
+        assertEquals(dynamicTable.getOptions(), expectedOption);
+    }
+
+    @Test
+    public void testMultiOptions()
+    {
+        String tableName = realtimeOnlyTable.getTableName();
+        List<String> columnNames = getColumnNames(tableName);
+        String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
+        String query = format("select %s from %s limit 10 option(skipupsert=true,enableNullHandling=true)", join(", ", columnNames), tableNameWithSuffix);
+        DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
+        Optional<String> expectedOption = Optional.of(" OPTION(enableNullHandling=true), OPTION(skipUpsert=true)");
+        assertEquals(dynamicTable.getOptions(), expectedOption);
     }
 }
