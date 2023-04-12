@@ -40,26 +40,26 @@ public class PlanOptimizersStatsCollector
     public void recordRule(Rule<?> rule, boolean invoked, boolean applied, long elapsedNanos)
     {
         if (invoked) {
-            stats.computeIfAbsent(rule.getClass(), (key) -> new QueryPlanOptimizerStats(key.getCanonicalName()))
+            statsForClass(rule.getClass())
                     .record(elapsedNanos, applied);
         }
     }
 
     public void recordOptimizer(PlanOptimizer planOptimizer, long duration)
     {
-        stats.computeIfAbsent(planOptimizer.getClass(), (key) -> new QueryPlanOptimizerStats(key.getCanonicalName()))
+        statsForClass(planOptimizer.getClass())
                 .record(duration, true);
     }
 
     public void recordFailure(Rule<?> rule)
     {
-        stats.computeIfAbsent(rule.getClass(), (key) -> new QueryPlanOptimizerStats(key.getCanonicalName()))
+        statsForClass(rule.getClass())
                 .recordFailure();
     }
 
     public void recordFailure(PlanOptimizer rule)
     {
-        stats.computeIfAbsent(rule.getClass(), (key) -> new QueryPlanOptimizerStats(key.getCanonicalName()))
+        statsForClass(rule.getClass())
                 .recordFailure();
     }
 
@@ -77,10 +77,14 @@ public class PlanOptimizersStatsCollector
                 .collect(toImmutableList());
     }
 
-    public void add(PlanOptimizersStatsCollector collector)
+    public void add(PlanOptimizersStatsCollector other)
     {
-        collector.stats.entrySet().stream()
-                .forEach(entry -> this.stats.computeIfAbsent(entry.getKey(), key -> new QueryPlanOptimizerStats(key.getCanonicalName())).merge(entry.getValue()));
+        other.stats.forEach((key, value) -> statsForClass(key).merge(value));
+    }
+
+    private QueryPlanOptimizerStats statsForClass(Class<?> clazz)
+    {
+        return stats.computeIfAbsent(clazz, key -> new QueryPlanOptimizerStats(key.getCanonicalName()));
     }
 
     public static PlanOptimizersStatsCollector createPlanOptimizersStatsCollector()
