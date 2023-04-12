@@ -293,13 +293,9 @@ public abstract class AbstractTestHiveViews
 
         String showCreateViewSql = "SHOW CREATE VIEW %s.default.hive_show_view";
         String expectedResult = "CREATE VIEW %s.default.hive_show_view SECURITY DEFINER AS\n" +
-                "SELECT\n" +
-                "  \"n_nationkey\"\n" +
-                ", \"n_name\"\n" +
-                ", \"n_regionkey\"\n" +
-                ", \"n_comment\"\n" +
+                "SELECT *\n" +
                 "FROM\n" +
-                "  \"default\".\"nation\"";
+                "  \"default\".\"nation\" \"nation\"";
 
         QueryResult actualResult = onTrino().executeQuery(format(showCreateViewSql, "hive"));
         assertThat(actualResult).hasRowsCount(1);
@@ -386,7 +382,7 @@ public abstract class AbstractTestHiveViews
                 row("hive", "test_schema", "trino_test_view", "VIEW"));
 
         assertThat(onTrino().executeQuery("SELECT view_definition FROM information_schema.views WHERE table_schema = 'test_schema' and table_name = 'hive_test_view'")).containsOnly(
-                row("SELECT \"n_nationkey\", \"n_name\", \"n_regionkey\", \"n_comment\"\nFROM \"default\".\"nation\""));
+                row("SELECT *\nFROM \"default\".\"nation\" AS \"nation\""));
 
         assertThat(onTrino().executeQuery("DESCRIBE test_schema.hive_test_view"))
                 .contains(row("n_nationkey", "bigint", "", ""));
