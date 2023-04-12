@@ -545,14 +545,14 @@ Migrate table
 """""""""""""
 
 The connector can read from or write to Hive tables that have been migrated to Iceberg.
-An SQL procedure ``system.migrate`` allows the caller to replace
+The procedure ``system.migrate`` allows the caller to replace
 a Hive table with an Iceberg table, loaded with the source’s data files.
 Table schema, partitioning, properties, and location will be copied from the source table.
 Migrate will fail if any table partition uses an unsupported format::
 
     CALL iceberg.system.migrate(schema_name => 'testdb', table_name => 'customer_orders')
 
-In addition, you can provide a ``recursive_directory`` argument to migrate the table with recursive directories.
+In addition, you can provide a ``recursive_directory`` argument to migrate a Hive table that contains subdirectories.
 The possible values are ``true``, ``false`` and ``fail``. The default value is ``fail`` that throws an exception
 if nested directory exists::
 
@@ -1351,13 +1351,6 @@ The procedure ``system.rollback_to_snapshot`` allows the caller to roll back
 the state of the table to a previous snapshot id::
 
     CALL example.system.rollback_to_snapshot('testdb', 'customer_orders', 8954597067493422955)
-
-Migrating existing tables
-"""""""""""""""""""""""""
-
-The connector can read from or write to Hive tables that have been migrated to Iceberg.
-There is no Trino support for migrating Hive tables to Iceberg, so you must either use
-the Iceberg API or Apache Spark.
 
 ``NOT NULL`` column constraint
 """"""""""""""""""""""""""""""
