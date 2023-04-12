@@ -613,7 +613,7 @@ public class TrinoS3FileSystem
             for (FileStatus file : listStatus(src)) {
                 rename(file.getPath(), new Path(dst, file.getPath().getName()));
             }
-            deleteObject(keyFromPath(src) + DIRECTORY_SUFFIX);
+            tryDeleteObject(keyFromPath(src) + DIRECTORY_SUFFIX);
         }
         else {
             s3.copyObject(new CopyObjectRequest(getBucketName(uri), keyFromPath(src), getBucketName(uri), keyFromPath(dst))
@@ -639,12 +639,12 @@ public class TrinoS3FileSystem
             }
             if (deletePrefixResult == DeletePrefixResult.NO_KEYS_FOUND) {
                 // If the provided key is not a "directory" prefix, attempt to delete the object with the specified key
-                deleteObject(key);
+                tryDeleteObject(key);
             }
             else if (deletePrefixResult == DeletePrefixResult.DELETE_KEYS_FAILURE) {
                 return false;
             }
-            deleteObject(key + DIRECTORY_SUFFIX);
+            tryDeleteObject(key + DIRECTORY_SUFFIX);
         }
         else {
             Iterator<ListObjectsV2Result> listingsIterator = listObjects(path, OptionalInt.of(2), true);
@@ -654,15 +654,15 @@ public class TrinoS3FileSystem
                 if (!Objects.equals(childKey, key + PATH_SEPARATOR) || objectKeysIterator.hasNext()) {
                     throw new IOException("Directory " + path + " is not empty");
                 }
-                deleteObject(childKey);
+                tryDeleteObject(childKey);
             }
             else {
                 // Avoid deleting the bucket in case that the provided path points to the bucket root
                 if (!key.isEmpty()) {
-                    deleteObject(key);
+                    tryDeleteObject(key);
                 }
             }
-            deleteObject(key + DIRECTORY_SUFFIX);
+            tryDeleteObject(key + DIRECTORY_SUFFIX);
         }
         return true;
     }
@@ -711,7 +711,7 @@ public class TrinoS3FileSystem
         return getFileStatus(path).isDirectory();
     }
 
-    private boolean deleteObject(String key)
+    private void tryDeleteObject(String key)
     {
         String bucketName = getBucketName(uri);
         try {
@@ -723,11 +723,9 @@ public class TrinoS3FileSystem
             }
 
             s3.deleteObject(deleteObjectRequest);
-            return true;
         }
         catch (AmazonClientException e) {
             log.warn(e, "Failed to delete object '%s' from the bucket %s", key, bucketName);
-            return false;
         }
     }
 
