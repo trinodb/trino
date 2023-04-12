@@ -1046,7 +1046,7 @@ public class TestCachingHiveMetastore
             getPartitionsByNamesFinishedLatch.countDown();
 
             executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            assertTrue(executor.awaitTermination(10, SECONDS));
         }
     }
 

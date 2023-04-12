@@ -466,7 +466,7 @@ public class TestEvictableLoadingCache
         }
         finally {
             executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            assertTrue(executor.awaitTermination(10, SECONDS));
         }
     }
 
@@ -521,7 +521,7 @@ public class TestEvictableLoadingCache
         }
         finally {
             executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            assertTrue(executor.awaitTermination(10, SECONDS));
         }
     }
 
@@ -599,7 +599,7 @@ public class TestEvictableLoadingCache
         }
         finally {
             executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            assertTrue(executor.awaitTermination(10, SECONDS));
         }
     }
 
@@ -672,7 +672,7 @@ public class TestEvictableLoadingCache
         }
         finally {
             executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            assertTrue(executor.awaitTermination(10, SECONDS));
         }
     }
 
