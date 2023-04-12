@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.expression;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.trino.spi.TrinoException;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -27,7 +26,6 @@ import org.antlr.v4.runtime.misc.ParseCancellationException;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public final class SparkExpressionParser
 {
@@ -44,13 +42,8 @@ public final class SparkExpressionParser
 
     public static String toTrinoExpression(String sparkExpression)
     {
-        try {
-            SparkExpression expression = createExpression(sparkExpression);
-            return SparkExpressionConverter.toTrinoExpression(expression);
-        }
-        catch (ParsingException e) {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported Spark expression: " + sparkExpression, e);
-        }
+        SparkExpression expression = createExpression(sparkExpression);
+        return SparkExpressionConverter.toTrinoExpression(expression);
     }
 
     @VisibleForTesting
