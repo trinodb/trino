@@ -23,7 +23,7 @@ import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.cache.ImpersonationCachingConfig;
 import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache;
 import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache.CachingHiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.procedure.FlushHiveMetastoreCacheProcedure;
+import io.trino.plugin.hive.metastore.procedure.FlushMetadataCacheProcedure;
 import io.trino.plugin.hive.metastore.recording.RecordingHiveMetastoreDecoratorModule;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.security.ConnectorIdentity;
@@ -64,7 +64,7 @@ public class DecoratedHiveMetastoreModule
                 .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
 
         if (installFlushMetadataCacheProcedure) {
-            newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushHiveMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushMetadataCacheProcedure.class).in(Scopes.SINGLETON);
         }
     }
 
