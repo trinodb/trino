@@ -67,6 +67,8 @@ public class TestMemoryConnectorTest
                         .put("dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100")
                         .put("dynamic-filtering.large-broadcast.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.large-broadcast.range-row-limit-per-driver", "100000")
+                        .put("dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "100")
+                        .put("dynamic-filtering.small-partitioned.range-row-limit-per-driver", "200")
                         .put("dynamic-filtering.large-partitioned.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.large-partitioned.range-row-limit-per-driver", "100000")
                         // disable semi join to inner join rewrite to test semi join operators explicitly

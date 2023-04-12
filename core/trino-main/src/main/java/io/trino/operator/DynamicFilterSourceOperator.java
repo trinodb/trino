@@ -418,7 +418,7 @@ public class DynamicFilterSourceOperator
                     blockTypeOperators.getEqualOperator(type),
                     blockTypeOperators.getHashCodeOperator(type),
                     blockBuilder,
-                    Math.min(maxDistinctValues, 8192) * 2,
+                    Math.min(maxDistinctValues, 2048),
                     format("DynamicFilterSourceOperator_%s_%d", planNodeId, channel.index));
         }
 
