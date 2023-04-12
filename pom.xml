@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>134</version>
+        <version>135</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -70,10 +70,8 @@
         <dep.iceberg.version>1.1.0</dep.iceberg.version>
         <dep.protobuf.version>3.22.2</dep.protobuf.version>
         <dep.wire.version>4.5.0</dep.wire.version>
-        <dep.kotlin.version>1.8.0</dep.kotlin.version>
         <dep.netty.version>4.1.79.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
-        <dep.slf4j.version>2.0.7</dep.slf4j.version>
 
         <dep.docker.images.version>79</dep.docker.images.version>
 
@@ -1927,24 +1925,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-stdlib</artifactId>
-                <version>${dep.kotlin.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-stdlib-common</artifactId>
-                <version>${dep.kotlin.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-stdlib-jdk8</artifactId>
-                <version>${dep.kotlin.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
                 <version>1.16.1</version>
@@ -2364,14 +2344,6 @@
                 <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
                 <extensions>true</extensions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration combine.children="append">
-                    <fork>false</fork>
-                </configuration>
             </plugin>
 
             <plugin>
