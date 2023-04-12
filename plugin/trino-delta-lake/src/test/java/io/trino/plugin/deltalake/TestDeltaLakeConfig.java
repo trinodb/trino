@@ -43,7 +43,7 @@ public class TestDeltaLakeConfig
                 .setDataFileCacheTtl(new Duration(30, MINUTES))
                 .setMetadataCacheTtl(new Duration(5, TimeUnit.MINUTES))
                 .setMetadataCacheMaxSize(1000)
-                .setDomainCompactionThreshold(100)
+                .setDomainCompactionThreshold(1000)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
                 .setMaxOutstandingSplits(1_000)
                 .setMaxInitialSplits(200)
