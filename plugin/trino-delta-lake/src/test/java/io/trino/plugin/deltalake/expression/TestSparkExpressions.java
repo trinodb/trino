@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.expression;
 
-import io.trino.spi.TrinoException;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -209,7 +208,7 @@ public class TestSparkExpressions
     private static void assertParseFailure(@Language("SQL") String sparkExpression)
     {
         assertThatThrownBy(() -> toTrinoExpression(sparkExpression))
-                .isInstanceOf(TrinoException.class)
-                .hasMessageContaining("Unsupported Spark expression: " + sparkExpression);
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("Cannot parse Spark expression");
     }
 }

@@ -32,6 +32,7 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
+import io.trino.plugin.deltalake.expression.ParsingException;
 import io.trino.plugin.deltalake.expression.SparkExpressionParser;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
@@ -299,6 +300,8 @@ public class DeltaLakeMetadata
             .add("_commit_timestamp")
             .build();
 
+    private static final String CHECK_CONSTRAINT_CONVERT_FAIL_EXPRESSION = "CAST(fail('Failed to convert Delta check constraints to Trino expression') AS boolean)";
+
     private final DeltaLakeMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
@@ -491,7 +494,14 @@ public class DeltaLakeMetadata
                 properties.buildOrThrow(),
                 Optional.ofNullable(tableHandle.getMetadataEntry().getDescription()),
                 constraints.stream()
-                        .map(SparkExpressionParser::toTrinoExpression)
+                        .map(constraint -> {
+                            try {
+                                return SparkExpressionParser.toTrinoExpression(constraint);
+                            }
+                            catch (ParsingException e) {
+                                return CHECK_CONSTRAINT_CONVERT_FAIL_EXPRESSION;
+                            }
+                        })
                         .collect(toImmutableList()));
     }
 
