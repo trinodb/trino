@@ -41,24 +41,24 @@ public class DynamicFilterConfig
     private boolean enableCoordinatorDynamicFiltersDistribution = true;
     private boolean enableLargeDynamicFilters;
 
-    private int smallBroadcastMaxDistinctValuesPerDriver = 200;
-    private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(20, KILOBYTE);
-    private int smallBroadcastRangeRowLimitPerDriver = 400;
-    private DataSize smallBroadcastMaxSizePerOperator = DataSize.of(200, KILOBYTE);
-    private int smallPartitionedMaxDistinctValuesPerDriver = 20;
-    private DataSize smallPartitionedMaxSizePerDriver = DataSize.of(10, KILOBYTE);
-    private int smallPartitionedRangeRowLimitPerDriver = 100;
-    private DataSize smallPartitionedMaxSizePerOperator = DataSize.of(100, KILOBYTE);
-    private DataSize smallMaxSizePerFilter = DataSize.of(1, MEGABYTE);
+    private int smallBroadcastMaxDistinctValuesPerDriver = 1_000;
+    private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(100, KILOBYTE);
+    private int smallBroadcastRangeRowLimitPerDriver = 2_000;
+    private DataSize smallBroadcastMaxSizePerOperator = DataSize.of(1, MEGABYTE);
+    private int smallPartitionedMaxDistinctValuesPerDriver = 100;
+    private DataSize smallPartitionedMaxSizePerDriver = DataSize.of(50, KILOBYTE);
+    private int smallPartitionedRangeRowLimitPerDriver = 500;
+    private DataSize smallPartitionedMaxSizePerOperator = DataSize.of(500, KILOBYTE);
+    private DataSize smallMaxSizePerFilter = DataSize.of(5, MEGABYTE);
 
-    private int largeBroadcastMaxDistinctValuesPerDriver = 5_000;
-    private DataSize largeBroadcastMaxSizePerDriver = DataSize.of(500, KILOBYTE);
-    private int largeBroadcastRangeRowLimitPerDriver = 10_000;
+    private int largeBroadcastMaxDistinctValuesPerDriver = 10_000;
+    private DataSize largeBroadcastMaxSizePerDriver = DataSize.of(2, MEGABYTE);
+    private int largeBroadcastRangeRowLimitPerDriver = 20_000;
     private DataSize largeBroadcastMaxSizePerOperator = DataSize.of(5, MEGABYTE);
-    private int largePartitionedMaxDistinctValuesPerDriver = 500;
-    private DataSize largePartitionedMaxSizePerDriver = DataSize.of(50, KILOBYTE);
-    private int largePartitionedRangeRowLimitPerDriver = 1_000;
-    private DataSize largePartitionedMaxSizePerOperator = DataSize.of(500, KILOBYTE);
+    private int largePartitionedMaxDistinctValuesPerDriver = 1_000;
+    private DataSize largePartitionedMaxSizePerDriver = DataSize.of(200, KILOBYTE);
+    private int largePartitionedRangeRowLimitPerDriver = 2_000;
+    private DataSize largePartitionedMaxSizePerOperator = DataSize.of(2, MEGABYTE);
     private DataSize largeMaxSizePerFilter = DataSize.of(5, MEGABYTE);
 
     public boolean isEnableDynamicFiltering()
