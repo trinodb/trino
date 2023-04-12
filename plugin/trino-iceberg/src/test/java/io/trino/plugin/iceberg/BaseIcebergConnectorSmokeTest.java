@@ -144,7 +144,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
         finally {
             executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            assertTrue(executor.awaitTermination(10, SECONDS));
         }
     }
 
