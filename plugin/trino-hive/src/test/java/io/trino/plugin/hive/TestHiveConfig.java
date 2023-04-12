@@ -53,7 +53,7 @@ public class TestHiveConfig
                 .setMaxInitialSplitSize(DataSize.of(32, Unit.MEGABYTE))
                 .setSplitLoaderConcurrency(64)
                 .setMaxSplitsPerSecond(null)
-                .setDomainCompactionThreshold(100)
+                .setDomainCompactionThreshold(1000)
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setForceLocalScheduling(false)
                 .setMaxConcurrentFileSystemOperations(20)
