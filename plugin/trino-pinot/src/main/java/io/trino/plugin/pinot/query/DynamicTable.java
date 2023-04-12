@@ -66,7 +66,6 @@ public final class DynamicTable
             @JsonProperty("orderBy") List<OrderByExpression> orderBy,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("offset") OptionalLong offset,
-            @JsonProperty("options") Optional<String> options,
             @JsonProperty("query") String query)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");

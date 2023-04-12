@@ -76,7 +76,6 @@ public final class DynamicTableBuilder
         requireNonNull(schemaTableName, "schemaTableName is null");
         requireNonNull(typeConverter, "typeConverter is null");
         String query = schemaTableName.getTableName();
-
         BrokerRequest request = CalciteSqlCompiler.compileToBrokerRequest(query);
         PinotQuery pinotQuery = request.getPinotQuery();
         QueryContext queryContext = QueryContextConverterUtils.getQueryContext(pinotQuery);
