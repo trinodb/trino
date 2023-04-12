@@ -41,6 +41,8 @@ public final class DynamicTable
     private final List<PinotColumnHandle> aggregateColumns;
     private final Optional<String> havingExpression;
 
+    private final Optional<String> options;
+
     // semantically sorting is applied after aggregation
     private final List<OrderByExpression> orderBy;
 
@@ -64,6 +66,7 @@ public final class DynamicTable
             @JsonProperty("orderBy") List<OrderByExpression> orderBy,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("offset") OptionalLong offset,
+            @JsonProperty("options") Optional<String> options,
             @JsonProperty("query") String query)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -76,6 +79,7 @@ public final class DynamicTable
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
         this.limit = requireNonNull(limit, "limit is null");
         this.offset = requireNonNull(offset, "offset is null");
+        this.options = requireNonNull(options, "options is null");
         this.query = requireNonNull(query, "query is null");
         this.isAggregateInProjections = projections.stream()
                 .anyMatch(PinotColumnHandle::isAggregate);
@@ -147,6 +151,12 @@ public final class DynamicTable
         return query;
     }
 
+    @JsonProperty
+    public Optional<String> getOptions()
+    {
+        return options;
+    }
+
     public boolean isAggregateInProjections()
     {
         return isAggregateInProjections;
@@ -170,6 +180,7 @@ public final class DynamicTable
                 groupingColumns.equals(that.groupingColumns) &&
                 aggregateColumns.equals(that.aggregateColumns) &&
                 havingExpression.equals(that.havingExpression) &&
+                options.equals(that.options) &&
                 orderBy.equals(that.orderBy) &&
                 limit.equals(that.limit) &&
                 offset.equals(that.offset) &&
@@ -179,7 +190,7 @@ public final class DynamicTable
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, havingExpression, orderBy, limit, offset, query);
+        return Objects.hash(tableName, projections, filter, groupingColumns, aggregateColumns, havingExpression, orderBy, limit, offset, options, query);
     }
 
     @Override
@@ -195,6 +206,7 @@ public final class DynamicTable
                 .add("orderBy", orderBy)
                 .add("limit", limit)
                 .add("offset", offset)
+                .add("options", options)
                 .add("query", query)
                 .toString();
     }
