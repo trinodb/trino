@@ -25,7 +25,7 @@ import java.util.Set;
 import java.util.function.IntSupplier;
 
 import static io.trino.SystemSessionProperties.getCostEstimationWorkerCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static java.lang.Math.min;
@@ -70,7 +70,7 @@ public class TaskCountEstimator
     {
         int partitionCount;
         if (getRetryPolicy(session) == RetryPolicy.TASK) {
-            partitionCount = getFaultTolerantExecutionPartitionCount(session);
+            partitionCount = getFaultTolerantExecutionMaxPartitionCount(session);
         }
         else {
             partitionCount = getMaxHashPartitionCount(session);

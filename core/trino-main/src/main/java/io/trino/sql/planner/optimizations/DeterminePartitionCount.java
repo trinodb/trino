@@ -44,7 +44,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.ToDoubleFunction;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getMinHashPartitionCount;
 import static io.trino.SystemSessionProperties.getMinInputRowsPerTask;
@@ -109,10 +112,8 @@ public class DeterminePartitionCount
         requireNonNull(tableStatsProvider, "tableStatsProvider is null");
 
         // Skip for write nodes since writing partitioned data with small amount of nodes could cause
-        // memory related issues even when the amount of data is small. Additionally, skip for FTE mode since we
-        // are not using estimated partitionCount in FTE scheduler.
-        if (PlanNodeSearcher.searchFrom(plan).whereIsInstanceOfAny(INSERT_NODES).matches()
-                || getRetryPolicy(session) == RetryPolicy.TASK) {
+        // memory related issues even when the amount of data is small.
+        if (PlanNodeSearcher.searchFrom(plan).whereIsInstanceOfAny(INSERT_NODES).matches()) {
             return plan;
         }
 
@@ -141,6 +142,23 @@ public class DeterminePartitionCount
             return Optional.empty();
         }
 
+        int minPartitionCount;
+        int maxPartitionCount;
+        if (getRetryPolicy(session).equals(RetryPolicy.TASK)) {
+            minPartitionCount = getFaultTolerantExecutionMinPartitionCount(session);
+            maxPartitionCount = getFaultTolerantExecutionMaxPartitionCount(session);
+            verify(minPartitionCount <= maxPartitionCount,
+                    "faultTolerantExecutionMinPartitionCount %s larger than faultTolerantExecutionMaxPartitionCount %s",
+                    minPartitionCount, maxPartitionCount);
+        }
+        else {
+            minPartitionCount = getMinHashPartitionCount(session);
+            maxPartitionCount = getMaxHashPartitionCount(session);
+            verify(minPartitionCount <= maxPartitionCount,
+                    "minHashPartitionCount %s larger than maxHashPartitionCount %s",
+                    minPartitionCount, maxPartitionCount);
+        }
+
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
         long queryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
 
@@ -162,9 +180,9 @@ public class DeterminePartitionCount
                 // because huge number of small size rows can be cpu intensive for some operators. On the other
                 // hand, small number of rows with considerable size in bytes can be memory intensive.
                 max(partitionCountBasedOnOutputSize.get(), partitionCountBasedOnRows.get()),
-                getMinHashPartitionCount(session));
+                minPartitionCount);
 
-        if (partitionCount >= getMaxHashPartitionCount(session)) {
+        if (partitionCount >= maxPartitionCount) {
             return Optional.empty();
         }
 

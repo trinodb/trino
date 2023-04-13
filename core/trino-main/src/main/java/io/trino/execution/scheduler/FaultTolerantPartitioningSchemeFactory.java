@@ -42,43 +42,43 @@ public class FaultTolerantPartitioningSchemeFactory
 {
     private final NodePartitioningManager nodePartitioningManager;
     private final Session session;
-    private final int partitionCount;
+    private final int maxPartitionCount;
 
     private final Map<PartitioningHandle, FaultTolerantPartitioningScheme> cache = new HashMap<>();
 
-    public FaultTolerantPartitioningSchemeFactory(NodePartitioningManager nodePartitioningManager, Session session, int partitionCount)
+    public FaultTolerantPartitioningSchemeFactory(NodePartitioningManager nodePartitioningManager, Session session, int maxPartitionCount)
     {
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.session = requireNonNull(session, "session is null");
-        this.partitionCount = partitionCount;
+        this.maxPartitionCount = maxPartitionCount;
     }
 
-    public FaultTolerantPartitioningScheme get(PartitioningHandle handle)
+    public FaultTolerantPartitioningScheme get(PartitioningHandle handle, Optional<Integer> partitionCount)
     {
         FaultTolerantPartitioningScheme result = cache.get(handle);
         if (result == null) {
             // Avoid using computeIfAbsent as the "get" method is called recursively from the "create" method
-            result = create(handle);
+            result = create(handle, partitionCount);
             cache.put(handle, result);
         }
         return result;
     }
 
-    private FaultTolerantPartitioningScheme create(PartitioningHandle partitioningHandle)
+    private FaultTolerantPartitioningScheme create(PartitioningHandle partitioningHandle, Optional<Integer> partitionCount)
     {
         if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle mergePartitioningHandle) {
-            return mergePartitioningHandle.getFaultTolerantPartitioningScheme(this::get);
+            return mergePartitioningHandle.getFaultTolerantPartitioningScheme(handle -> this.get(handle, partitionCount));
         }
         if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION) || partitioningHandle.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
-            return createSystemSchema(partitionCount);
+            return createSystemSchema(partitionCount.orElse(maxPartitionCount));
         }
         if (partitioningHandle.getCatalogHandle().isPresent()) {
             Optional<ConnectorBucketNodeMap> connectorBucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(session, partitioningHandle);
             if (connectorBucketNodeMap.isEmpty()) {
-                return createSystemSchema(partitionCount);
+                return createSystemSchema(partitionCount.orElse(maxPartitionCount));
             }
             ToIntFunction<Split> splitToBucket = nodePartitioningManager.getSplitToBucket(session, partitioningHandle);
-            return createConnectorSpecificSchema(partitionCount, connectorBucketNodeMap.get(), splitToBucket);
+            return createConnectorSpecificSchema(partitionCount.orElse(maxPartitionCount), connectorBucketNodeMap.get(), splitToBucket);
         }
         return new FaultTolerantPartitioningScheme(1, Optional.empty(), Optional.empty(), Optional.empty());
     }
