@@ -21,6 +21,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Enums;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -80,6 +83,12 @@ public final class DeltaLakeSchemaSupport
 
     public static final String APPEND_ONLY_CONFIGURATION_KEY = "delta.appendOnly";
     public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
+
+    // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
+    // TODO: Add support for 'deletionVectors' and 'timestampNTZ' reader features
+    private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
+            .add("columnMapping")
+            .build();
 
     public enum ColumnMappingMode
     {
@@ -465,6 +474,11 @@ public final class DeltaLakeSchemaSupport
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse serialized schema: " + json, e);
         }
+    }
+
+    public static Set<String> unsupportedReaderFeatures(Set<String> features)
+    {
+        return Sets.difference(features, SUPPORTED_READER_FEATURES);
     }
 
     private static Type buildType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)

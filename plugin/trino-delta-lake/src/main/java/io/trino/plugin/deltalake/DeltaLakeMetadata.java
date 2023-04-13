@@ -207,6 +207,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ge
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isAppendOnly;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.unsupportedReaderFeatures;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.validateType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.verifySupportedColumnMapping;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
@@ -283,7 +284,8 @@ public class DeltaLakeMetadata
 
     public static final int DEFAULT_READER_VERSION = 1;
     public static final int DEFAULT_WRITER_VERSION = 2;
-    // The highest reader and writer versions Trino supports writing to
+    // The highest reader and writer versions Trino supports
+    private static final int MAX_READER_VERSION = 3;
     public static final int MAX_WRITER_VERSION = 4;
     private static final int CDF_SUPPORTED_WRITER_VERSION = 4;
 
@@ -436,6 +438,16 @@ public class DeltaLakeMetadata
                 return new CorruptedDeltaLakeTableHandle(dataTableName, e);
             }
             throw e;
+        }
+        ProtocolEntry protocolEntry = metastore.getProtocol(session, tableSnapshot);
+        if (protocolEntry.getMinReaderVersion() > MAX_READER_VERSION) {
+            LOG.debug("Skip %s because the reader version is unsupported: %d", dataTableName, protocolEntry.getMinReaderVersion());
+            return null;
+        }
+        Set<String> unsupportedReaderFeatures = unsupportedReaderFeatures(protocolEntry.getReaderFeatures().orElse(ImmutableSet.of()));
+        if (!unsupportedReaderFeatures.isEmpty()) {
+            LOG.debug("Skip %s because the table contains unsupported reader features: %s", dataTableName, unsupportedReaderFeatures);
+            return null;
         }
         verifySupportedColumnMapping(getColumnMappingMode(metadataEntry));
         return new DeltaLakeTableHandle(
@@ -1742,7 +1754,7 @@ public class DeltaLakeMetadata
             // Enabling cdf (change data feed) requires setting the writer version to 4
             writerVersion = CDF_SUPPORTED_WRITER_VERSION;
         }
-        return new ProtocolEntry(DEFAULT_READER_VERSION, writerVersion);
+        return new ProtocolEntry(DEFAULT_READER_VERSION, writerVersion, Optional.empty(), Optional.empty());
     }
 
     private void writeCheckpointIfNeeded(ConnectorSession session, SchemaTableName table, Optional<Long> checkpointInterval, long newVersion)
@@ -1886,7 +1898,7 @@ public class DeltaLakeMetadata
 
         Optional<ProtocolEntry> protocolEntry = Optional.empty();
         if (requiredWriterVersion != currentProtocolEntry.getMinWriterVersion()) {
-            protocolEntry = Optional.of(new ProtocolEntry(currentProtocolEntry.getMinReaderVersion(), requiredWriterVersion));
+            protocolEntry = Optional.of(new ProtocolEntry(currentProtocolEntry.getMinReaderVersion(), requiredWriterVersion, currentProtocolEntry.getReaderFeatures(), currentProtocolEntry.getWriterFeatures()));
         }
 
         try {
