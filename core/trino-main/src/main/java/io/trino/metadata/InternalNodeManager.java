@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public interface InternalNodeManager
@@ -67,6 +68,15 @@ public interface InternalNodeManager
             return connectorNodes
                     .map(map -> map.get(catalogHandle))
                     .orElse(allNodes);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("allNodes", allNodes)
+                    .add("connectorNodes", connectorNodes.orElse(null))
+                    .toString();
         }
     }
 }
