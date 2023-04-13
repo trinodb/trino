@@ -17,6 +17,7 @@ import org.testng.annotations.Test;
 
 // Failing on multiple threads because of org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper
 // uses a single record writer across all threads.
+// For example org.apache.parquet.column.values.factory.DefaultValuesWriterFactory#DEFAULT_V1_WRITER_FACTORY is shared mutable state.
 @Test(singleThreaded = true)
 public class TestParquetReader
         extends AbstractTestParquetReader
