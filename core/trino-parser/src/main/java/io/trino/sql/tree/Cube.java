@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -25,28 +26,35 @@ import static java.util.Objects.requireNonNull;
 public final class Cube
         extends GroupingElement
 {
-    private final List<Expression> columns;
+    private final List<List<Expression>> sets;
 
-    public Cube(List<Expression> columns)
+    public Cube(List<List<Expression>> sets)
     {
-        this(Optional.empty(), columns);
+        this(Optional.empty(), sets);
     }
 
-    public Cube(NodeLocation location, List<Expression> columns)
+    public Cube(NodeLocation location, List<List<Expression>> sets)
     {
-        this(Optional.of(location), columns);
+        this(Optional.of(location), sets);
     }
 
-    private Cube(Optional<NodeLocation> location, List<Expression> columns)
+    private Cube(Optional<NodeLocation> location, List<List<Expression>> sets)
     {
         super(location);
-        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.sets = ImmutableList.copyOf(requireNonNull(sets, "sets is null"));
+    }
+
+    public List<List<Expression>> getSets()
+    {
+        return sets;
     }
 
     @Override
     public List<Expression> getExpressions()
     {
-        return columns;
+        return sets.stream()
+                .flatMap(List::stream)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -71,20 +79,20 @@ public final class Cube
             return false;
         }
         Cube cube = (Cube) o;
-        return Objects.equals(columns, cube.columns);
+        return Objects.equals(sets, cube.sets);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columns);
+        return Objects.hash(sets);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("columns", columns)
+                .add("sets", sets)
                 .toString();
     }
 }

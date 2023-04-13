@@ -4007,8 +4007,8 @@ class StatementAnalyzer
         private GroupingSetAnalysis analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
         {
             if (node.getGroupBy().isPresent()) {
-                ImmutableList.Builder<Set<FieldId>> cubes = ImmutableList.builder();
-                ImmutableList.Builder<List<FieldId>> rollups = ImmutableList.builder();
+                ImmutableList.Builder<List<Set<FieldId>>> cubes = ImmutableList.builder();
+                ImmutableList.Builder<List<Set<FieldId>>> rollups = ImmutableList.builder();
                 ImmutableList.Builder<List<Set<FieldId>>> sets = ImmutableList.builder();
                 ImmutableList.Builder<Expression> complexExpressions = ImmutableList.builder();
                 ImmutableList.Builder<Expression> groupingExpressions = ImmutableList.builder();
@@ -4055,19 +4055,23 @@ class StatementAnalyzer
                         }
 
                         if (groupingElement instanceof Cube) {
-                            Set<FieldId> cube = groupingElement.getExpressions().stream()
-                                    .map(NodeRef::of)
-                                    .map(analysis.getColumnReferenceFields()::get)
-                                    .map(ResolvedField::getFieldId)
-                                    .collect(toImmutableSet());
+                            List<Set<FieldId>> cube = ((Cube) groupingElement).getSets().stream()
+                                    .map(set -> set.stream()
+                                            .map(NodeRef::of)
+                                            .map(analysis.getColumnReferenceFields()::get)
+                                            .map(ResolvedField::getFieldId)
+                                            .collect(toImmutableSet()))
+                                    .collect(toImmutableList());
 
                             cubes.add(cube);
                         }
                         else if (groupingElement instanceof Rollup) {
-                            List<FieldId> rollup = groupingElement.getExpressions().stream()
-                                    .map(NodeRef::of)
-                                    .map(analysis.getColumnReferenceFields()::get)
-                                    .map(ResolvedField::getFieldId)
+                            List<Set<FieldId>> rollup = ((Rollup) groupingElement).getSets().stream()
+                                    .map(set -> set.stream()
+                                            .map(NodeRef::of)
+                                            .map(analysis.getColumnReferenceFields()::get)
+                                            .map(ResolvedField::getFieldId)
+                                            .collect(toImmutableSet()))
                                     .collect(toImmutableList());
 
                             rollups.add(rollup);
