@@ -607,18 +607,6 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
-    protected Void visitCube(Cube node, C context)
-    {
-        return null;
-    }
-
-    @Override
-    protected Void visitRollup(Rollup node, C context)
-    {
-        return null;
-    }
-
-    @Override
     protected Void visitSimpleGroupBy(SimpleGroupBy node, C context)
     {
         for (Expression expression : node.getExpressions()) {
