@@ -1846,7 +1846,6 @@ public class TestStringFunctions
                 .isEqualTo("\u017a\u00f3");
 
         // invalid utf-8 characters
-        // TODO
         assertThat(assertions.expression("CAST(RTRIM(utf8(from_hex('81')), ' ') AS VARBINARY)"))
                 .isEqualTo(varbinary(0x81));
 
