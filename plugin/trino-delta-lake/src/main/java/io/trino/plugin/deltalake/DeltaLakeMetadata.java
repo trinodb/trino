@@ -371,11 +371,11 @@ public class DeltaLakeMetadata
 
     private static final String CHECK_CONSTRAINT_CONVERT_FAIL_EXPRESSION = "CAST(fail('Failed to convert Delta check constraints to Trino expression') AS boolean)";
 
-    private final LocationAccessControl locationAccessControl;
     private final DeltaLakeMetastore metastore;
     private final TransactionLogAccess transactionLogAccess;
     private final DeltaLakeTableStatisticsProvider tableStatisticsProvider;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final LocationAccessControl locationAccessControl;
     private final TypeManager typeManager;
     private final AccessControlMetadata accessControlMetadata;
     private final TrinoViewHiveMetastore trinoViewHiveMetastore;
@@ -406,11 +406,11 @@ public class DeltaLakeMetadata
     }
 
     public DeltaLakeMetadata(
-            LocationAccessControl locationAccessControl,
             DeltaLakeMetastore metastore,
             TransactionLogAccess transactionLogAccess,
             DeltaLakeTableStatisticsProvider tableStatisticsProvider,
             TrinoFileSystemFactory fileSystemFactory,
+            LocationAccessControl locationAccessControl,
             TypeManager typeManager,
             AccessControlMetadata accessControlMetadata,
             TrinoViewHiveMetastore trinoViewHiveMetastore,

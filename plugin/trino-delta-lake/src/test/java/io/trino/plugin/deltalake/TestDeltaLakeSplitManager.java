@@ -209,9 +209,9 @@ public class TestDeltaLakeSplitManager
                 JsonCodec.jsonCodec(LastCheckpoint.class));
 
         DeltaLakeMetadataFactory metadataFactory = new DeltaLakeMetadataFactory(
-                LocationAccessControl.ALLOW_ALL,
                 HiveMetastoreFactory.ofInstance(new UnimplementedHiveMetastore()),
                 hdfsFileSystemFactory,
+                LocationAccessControl.ALLOW_ALL,
                 transactionLogAccess,
                 typeManager,
                 DeltaLakeAccessControlMetadataFactory.DEFAULT,

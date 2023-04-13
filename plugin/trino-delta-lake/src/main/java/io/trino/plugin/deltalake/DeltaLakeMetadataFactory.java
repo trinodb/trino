@@ -40,9 +40,9 @@ import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeMetadataFactory
 {
-    private final LocationAccessControl locationAccessControl;
     private final HiveMetastoreFactory hiveMetastoreFactory;
     private final TrinoFileSystemFactory fileSystemFactory;
+    private final LocationAccessControl locationAccessControl;
     private final TransactionLogAccess transactionLogAccess;
     private final TypeManager typeManager;
     private final DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory;
@@ -65,9 +65,9 @@ public class DeltaLakeMetadataFactory
 
     @Inject
     public DeltaLakeMetadataFactory(
-            LocationAccessControl locationAccessControl,
             HiveMetastoreFactory hiveMetastoreFactory,
             TrinoFileSystemFactory fileSystemFactory,
+            LocationAccessControl locationAccessControl,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
             DeltaLakeAccessControlMetadataFactory accessControlMetadataFactory,
@@ -124,11 +124,11 @@ public class DeltaLakeMetadataFactory
                 trinoVersion,
                 "Trino Delta Lake connector");
         return new DeltaLakeMetadata(
-                locationAccessControl,
                 deltaLakeMetastore,
                 transactionLogAccess,
                 tableStatisticsProvider,
                 fileSystemFactory,
+                locationAccessControl,
                 typeManager,
                 accessControlMetadata,
                 trinoViewHiveMetastore,
