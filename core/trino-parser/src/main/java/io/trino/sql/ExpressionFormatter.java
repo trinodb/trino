@@ -1235,10 +1235,14 @@ public final class ExpressionFormatter
                         .collect(joining(", ", "GROUPING SETS (", ")"));
             }
             else if (groupingElement instanceof Cube) {
-                result = "CUBE " + formatGroupingSet(groupingElement.getExpressions());
+                result = ((Cube) groupingElement).getSets().stream()
+                        .map(ExpressionFormatter::formatGroupingSet)
+                        .collect(joining(", ", "CUBE (", ")"));
             }
             else if (groupingElement instanceof Rollup) {
-                result = "ROLLUP " + formatGroupingSet(groupingElement.getExpressions());
+                result = ((Rollup) groupingElement).getSets().stream()
+                        .map(ExpressionFormatter::formatGroupingSet)
+                        .collect(joining(", ", "ROLLUP (", ")"));
             }
             return result;
         })

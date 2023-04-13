@@ -1145,13 +1145,17 @@ class AstBuilder
     @Override
     public Node visitRollup(SqlBaseParser.RollupContext context)
     {
-        return new Rollup(getLocation(context), visit(context.expression(), Expression.class));
+        return new Rollup(getLocation(context), context.groupingSet().stream()
+                .map(groupingSet -> visit(groupingSet.expression(), Expression.class))
+                .collect(toList()));
     }
 
     @Override
     public Node visitCube(SqlBaseParser.CubeContext context)
     {
-        return new Cube(getLocation(context), visit(context.expression(), Expression.class));
+        return new Cube(getLocation(context), context.groupingSet().stream()
+                .map(groupingSet -> visit(groupingSet.expression(), Expression.class))
+                .collect(toList()));
     }
 
     @Override

@@ -271,8 +271,8 @@ groupBy
 
 groupingElement
     : groupingSet                                            #singleGroupingSet
-    | ROLLUP '(' (expression (',' expression)*)? ')'         #rollup
-    | CUBE '(' (expression (',' expression)*)? ')'           #cube
+    | ROLLUP '(' (groupingSet (',' groupingSet)*)? ')'       #rollup
+    | CUBE '(' (groupingSet (',' groupingSet)*)? ')'         #cube
     | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'   #multipleGroupingSets
     ;
 
