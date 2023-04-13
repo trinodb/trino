@@ -27,7 +27,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 .put("retry-policy", "TASK")
                 .put("retry-initial-delay", "50ms")
                 .put("retry-max-delay", "100ms")
-                .put("fault-tolerant-execution-partition-count", "5")
+                .put("fault-tolerant-execution-max-partition-count", "5")
                 .put("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min", "5MB")
                 .put("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max", "10MB")
                 .put("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min", "10MB")

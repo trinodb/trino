@@ -92,7 +92,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionStandardSplitSize(DataSize.of(64, MEGABYTE))
                 .setFaultTolerantExecutionMaxTaskSplitCount(256)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15)))
-                .setFaultTolerantExecutionPartitionCount(50)
+                .setFaultTolerantExecutionMaxPartitionCount(50)
+                .setFaultTolerantExecutionMinPartitionCount(4)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true)
                 .setMaxWriterTasksCount(100));
     }
@@ -154,7 +155,8 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-standard-split-size", "33MB")
                 .put("fault-tolerant-execution-max-task-split-count", "22")
                 .put("fault-tolerant-execution-task-descriptor-storage-max-memory", "3GB")
-                .put("fault-tolerant-execution-partition-count", "123")
+                .put("fault-tolerant-execution-max-partition-count", "123")
+                .put("fault-tolerant-execution-min-partition-count", "12")
                 .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
                 .put("query.max-writer-task-count", "101")
                 .buildOrThrow();
@@ -213,7 +215,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionStandardSplitSize(DataSize.of(33, MEGABYTE))
                 .setFaultTolerantExecutionMaxTaskSplitCount(22)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.of(3, GIGABYTE))
-                .setFaultTolerantExecutionPartitionCount(123)
+                .setFaultTolerantExecutionMaxPartitionCount(123)
+                .setFaultTolerantExecutionMinPartitionCount(12)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false)
                 .setMaxWriterTasksCount(101);
 

@@ -120,7 +120,8 @@ public class QueryManagerConfig
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
     private int faultTolerantExecutionMaxTaskSplitCount = 256;
     private DataSize faultTolerantExecutionTaskDescriptorStorageMaxMemory = DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15));
-    private int faultTolerantExecutionPartitionCount = 50;
+    private int faultTolerantExecutionMaxPartitionCount = 50;
+    private int faultTolerantExecutionMinPartitionCount = 4;
     private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
 
     @Min(1)
@@ -860,16 +861,31 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getFaultTolerantExecutionPartitionCount()
+    public int getFaultTolerantExecutionMaxPartitionCount()
     {
-        return faultTolerantExecutionPartitionCount;
+        return faultTolerantExecutionMaxPartitionCount;
     }
 
-    @Config("fault-tolerant-execution-partition-count")
-    @ConfigDescription("Number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled")
-    public QueryManagerConfig setFaultTolerantExecutionPartitionCount(int faultTolerantExecutionPartitionCount)
+    @Config("fault-tolerant-execution-max-partition-count")
+    @LegacyConfig("fault-tolerant-execution-partition-count")
+    @ConfigDescription("Maximum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled")
+    public QueryManagerConfig setFaultTolerantExecutionMaxPartitionCount(int faultTolerantExecutionMaxPartitionCount)
     {
-        this.faultTolerantExecutionPartitionCount = faultTolerantExecutionPartitionCount;
+        this.faultTolerantExecutionMaxPartitionCount = faultTolerantExecutionMaxPartitionCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getFaultTolerantExecutionMinPartitionCount()
+    {
+        return faultTolerantExecutionMinPartitionCount;
+    }
+
+    @Config("fault-tolerant-execution-min-partition-count")
+    @ConfigDescription("Minimum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled")
+    public QueryManagerConfig setFaultTolerantExecutionMinPartitionCount(int faultTolerantExecutionMinPartitionCount)
+    {
+        this.faultTolerantExecutionMinPartitionCount = faultTolerantExecutionMinPartitionCount;
         return this;
     }
 
