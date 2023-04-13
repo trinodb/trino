@@ -63,7 +63,7 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class BaseFileBasedSystemAccessControlTest
 {
-    protected static final Identity alice = Identity.forUser("alice").withGroups(ImmutableSet.of("staff")).build();
+    private static final Identity alice = Identity.forUser("alice").withGroups(ImmutableSet.of("staff")).build();
     private static final Identity kerberosValidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("alice/example.com@EXAMPLE.COM")).build();
     private static final Identity kerberosValidNonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withPrincipal(new KerberosPrincipal("\u0194\u0194\u0194/example.com@EXAMPLE.COM")).build();
     private static final Identity kerberosInvalidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("mallory/example.com@EXAMPLE.COM")).build();
