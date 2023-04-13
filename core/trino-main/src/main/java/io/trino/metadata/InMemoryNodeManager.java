@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.client.NodeVersion;
 import io.trino.spi.connector.CatalogHandle;
 
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
@@ -25,6 +27,7 @@ import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
+@ThreadSafe
 public class InMemoryNodeManager
         implements InternalNodeManager
 {
