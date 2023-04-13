@@ -1902,7 +1902,7 @@ public abstract class BaseConnectorTest
      * Test that reading table, column metadata, like {@code SHOW TABLES} or reading from {@code information_schema.views}
      * does not fail when relations are concurrently created or dropped.
      */
-    @Test(timeOut = 180_000)
+    @Test(invocationCount = 10, timeOut = 180_000)
     public void testReadMetadataWithRelationsConcurrentModifications()
             throws Exception
     {

@@ -507,13 +507,6 @@ public abstract class BaseBigQueryConnectorTest
                         ")");
     }
 
-    @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        // TODO: Enable this test after fixing "Task did not completed before timeout" (https://github.com/trinodb/trino/issues/14230)
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
-    }
-
     @Test
     public void testSkipUnsupportedType()
     {

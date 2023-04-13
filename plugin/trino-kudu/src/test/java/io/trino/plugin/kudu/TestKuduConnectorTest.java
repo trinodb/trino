@@ -747,21 +747,6 @@ public class TestKuduConnectorTest
     }
 
     @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        try {
-            super.testReadMetadataWithRelationsConcurrentModifications();
-        }
-        catch (Exception expected) {
-            // The test failure is not guaranteed
-            // TODO (https://github.com/trinodb/trino/issues/12974): shouldn't fail
-            assertThat(expected)
-                    .hasMessageMatching(".* table .* was deleted: Table deleted at .* UTC");
-            throw new SkipException("to be fixed");
-        }
-    }
-
-    @Override
     protected String createTableSqlTemplateForConcurrentModifications()
     {
         // TODO Remove this overriding method once kudu connector can create tables with default partitions

@@ -557,13 +557,6 @@ public class TestRedshiftConnectorTest
     }
 
     @Override
-    @Test
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
-    }
-
-    @Override
     public void testInsertRowConcurrently()
     {
         throw new SkipException("Test fails with a timeout sometimes and is flaky");
