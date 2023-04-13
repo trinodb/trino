@@ -943,26 +943,26 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("query.json");
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(admin, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(admin, queryId), any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(admin, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(admin, queryId), any);
+        accessControlManager.checkCanExecuteQuery(ADMIN);
+        accessControlManager.checkCanViewQueryOwnedBy(ADMIN, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(ADMIN, ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanKillQueryOwnedBy(ADMIN, any);
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(alice, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanExecuteQuery(ALICE);
+        accessControlManager.checkCanViewQueryOwnedBy(ALICE, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(ALICE, ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice, queryId), any),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(ALICE, any),
                 "Cannot view query");
 
         assertAccessDenied(
-                () -> accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId)),
+                () -> accessControlManager.checkCanExecuteQuery(BOB),
                 "Cannot view query");
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(BOB, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
-        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of("a", "b")), ImmutableSet.of());
+        accessControlManager.checkCanKillQueryOwnedBy(BOB, any);
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
         accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(dave, queryId), alice);
@@ -1007,10 +1007,10 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("file-based-system-catalog.json");
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), any);
+        accessControlManager.checkCanExecuteQuery(BOB);
+        accessControlManager.checkCanViewQueryOwnedBy(BOB, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanKillQueryOwnedBy(BOB, any);
     }
 
     @Test
@@ -1019,25 +1019,25 @@ public abstract class BaseFileBasedSystemAccessControlTest
         File rulesFile = new File("../../docs/src/main/sphinx/security/query-access.json");
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(admin, queryId));
-        accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(admin, queryId), any);
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(admin, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
-        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(admin, queryId), any);
+        accessControlManager.checkCanExecuteQuery(ADMIN);
+        accessControlManager.checkCanViewQueryOwnedBy(ADMIN, any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(ADMIN, ImmutableSet.of("a", "b")), ImmutableSet.of("a", "b"));
+        accessControlManager.checkCanKillQueryOwnedBy(ADMIN, any);
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(alice, queryId));
+        accessControlManager.checkCanExecuteQuery(ALICE);
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(ALICE, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(alice, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
-        accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(alice, queryId), any);
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(ALICE, ImmutableSet.of("a", "b")), ImmutableSet.of());
+        accessControlManager.checkCanKillQueryOwnedBy(ALICE, any);
 
-        accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(bob, queryId));
+        accessControlManager.checkCanExecuteQuery(BOB);
         assertAccessDenied(
-                () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), any),
+                () -> accessControlManager.checkCanViewQueryOwnedBy(BOB, any),
                 "Cannot view query");
-        assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
+        assertEquals(accessControlManager.filterViewQueryOwnedBy(BOB, ImmutableSet.of("a", "b")), ImmutableSet.of());
         assertAccessDenied(
-                () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), any),
+                () -> accessControlManager.checkCanKillQueryOwnedBy(BOB, any),
                 "Cannot view query");
 
         accessControlManager.checkCanExecuteQuery(new SystemSecurityContext(dave, queryId));
@@ -1132,26 +1132,26 @@ public abstract class BaseFileBasedSystemAccessControlTest
         TrinoPrincipal user = new TrinoPrincipal(USER, "some_user");
         TrinoPrincipal role = new TrinoPrincipal(ROLE, "some_user");
 
-        accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(admin, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), user);
-        accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(admin, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), role);
+        accessControl.checkCanSetSchemaAuthorization(ADMIN, new CatalogSchemaName("alice-catalog", "some_schema"), user);
+        accessControl.checkCanSetSchemaAuthorization(ADMIN, new CatalogSchemaName("alice-catalog", "some_schema"), role);
 
-        accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), user);
-        accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), role);
+        accessControl.checkCanSetSchemaAuthorization(ALICE, new CatalogSchemaName("alice-catalog", "some_schema"), user);
+        accessControl.checkCanSetSchemaAuthorization(ALICE, new CatalogSchemaName("alice-catalog", "some_schema"), role);
 
         assertAccessDenied(
-                () -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(bob, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), user),
+                () -> accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("alice-catalog", "some_schema"), user),
                 "Cannot set authorization for schema alice-catalog.some_schema.*");
 
         assertAccessDenied(
-                () -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(bob, queryId), new CatalogSchemaName("alice-catalog", "some_schema"), role),
+                () -> accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("alice-catalog", "some_schema"), role),
                 "Cannot set authorization for schema alice-catalog.some_schema.*");
 
         assertAccessDenied(
-                () -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("secret", "some_schema"), user),
+                () -> accessControl.checkCanSetSchemaAuthorization(ALICE, new CatalogSchemaName("secret", "some_schema"), user),
                 "Cannot set authorization for schema secret.some_schema.*");
 
         assertAccessDenied(
-                () -> accessControl.checkCanSetSchemaAuthorization(new SystemSecurityContext(alice, queryId), new CatalogSchemaName("secret", "some_schema"), role),
+                () -> accessControl.checkCanSetSchemaAuthorization(ALICE, new CatalogSchemaName("secret", "some_schema"), role),
                 "Cannot set authorization for schema secret.some_schema.*");
     }
 
