@@ -20,14 +20,9 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testing.TestingConnectorBehavior;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -51,6 +46,11 @@ import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATE
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1002,7 +1002,7 @@ public class TestClickHouseConnectorTest
 
         TestTable table;
         try {
-            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", " AS SELECT CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + ") AS col");
+            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", "WITH (engine='mergetree',order_by=ARRAY['col2']) AS SELECT CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + ") AS col, CAST(123 as int) AS col2");
         }
         catch (Exception e) {
             verifyUnsupportedTypeException(e, setup.sourceColumnType());
