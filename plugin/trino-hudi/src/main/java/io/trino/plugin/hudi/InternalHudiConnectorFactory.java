@@ -30,6 +30,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.azure.HiveAzureModule;
 import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -49,7 +50,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public class InternalHudiConnectorFactory
+public final class InternalHudiConnectorFactory
 {
     private InternalHudiConnectorFactory() {}
 
@@ -75,6 +76,7 @@ public class InternalHudiConnectorFactory
                     new HdfsFileSystemModule(),
                     new MBeanServerModule(),
                     binder -> {
+                        binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
