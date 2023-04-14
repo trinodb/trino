@@ -122,6 +122,25 @@
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/org.testcontainers/gcloud -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>gcloud</artifactId>
+            <version>1.17.3</version>
+            <scope>test</scope>
+        </dependency>
+
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>

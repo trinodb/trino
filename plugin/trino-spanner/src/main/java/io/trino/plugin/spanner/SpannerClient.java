@@ -1,6 +1,18 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.spanner;
 
-import com.google.cloud.Timestamp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -13,11 +25,11 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.StandardColumnMappings;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteFunction;
@@ -35,7 +47,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.statistics.TableStatistics;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.TimestampType;
@@ -49,9 +60,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.time.Instant;
+import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -79,7 +89,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMa
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -108,6 +117,7 @@ public class SpannerClient
     public static final String DEFAULT_SCHEMA = "default";
     private final SpannerConfig config;
     private final IdentifierMapping identifierMapping;
+    private final String tableTypes[] = {"BASE TABLE", "VIEW"};
 
     public SpannerClient(BaseJdbcConfig config, SpannerConfig spannerConfig, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
@@ -129,30 +139,31 @@ public class SpannerClient
                 resultSet.getString("TABLE_NAME"));
     }
 
-    private static ColumnMetadata getPageSinkIdColumn(List<String> otherColumnNames)
+    public static void sleep()
     {
-        // While it's unlikely this column name will collide with client table columns,
-        // guarantee it will not by appending a deterministic suffix to it.
-        String baseColumnName = "trino_page_sink_id";
-        String columnName = baseColumnName;
-        int suffix = 1;
-        while (otherColumnNames.contains(columnName)) {
-            columnName = baseColumnName + "_" + suffix;
-            suffix++;
+        try {
+            Thread.sleep(Duration.ofSeconds(1).toMillis());
         }
-        return new ColumnMetadata(columnName, BigintType.BIGINT);
+        catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         int jdbcType = typeHandle.getJdbcType();
+        String jdbcTypeName = typeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
         System.out.println("Column mapping for type " + typeHandle);
+        System.out.println("JDBC TYPE NAME " + jdbcTypeName + " " + jdbcType);
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
             return mapping;
         }
         switch (jdbcType) {
+            case Types.BOOLEAN:
+                return Optional.of(StandardColumnMappings.booleanColumnMapping());
             case Types.SMALLINT:
             case Types.INTEGER:
             case Types.TINYINT:
@@ -168,12 +179,8 @@ public class SpannerClient
             case Types.CHAR:
             case Types.VARCHAR:
             case Types.NVARCHAR:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
                 return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
             case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
                 return Optional.of(ColumnMapping.sliceMapping(VARBINARY, varbinaryReadFunction(), varbinaryWriteFunction(), FULL_PUSHDOWN));
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
@@ -188,8 +195,6 @@ public class SpannerClient
                             return timestamp.toInstant().toEpochMilli() * 1000;
                         },
                         (statement, index, value) -> statement.setTimestamp(index, new java.sql.Timestamp(value / 1000))));
-            case Types.BOOLEAN:
-                return Optional.of(StandardColumnMappings.booleanColumnMapping());
             default:
                 throw new TrinoException(SpannerErrorCode.SPANNER_ERROR_CODE, "Spanner type mapper cannot build type mapping for JDBC type " + typeHandle.getJdbcType());
         }
@@ -214,24 +219,16 @@ public class SpannerClient
         };
     }
 
-    private LongWriteFunction spannerTimestampWriteFunction()
+    @Override
+    protected void execute(ConnectorSession session, String query)
     {
-        return new LongWriteFunction()
-        {
-            @Override
-            public void set(PreparedStatement statement, int index, long value)
-                    throws SQLException
-            {
-                Timestamp timestamp = Timestamp.parseTimestamp(Instant.ofEpochMilli(value).toString());
-                statement.setObject(index, timestamp);
-            }
+    }
 
-            @Override
-            public String getBindExpression()
-            {
-                return "CAST(? AS TIMESTAMP)";
-            }
-        };
+    @Override
+    protected void execute(ConnectorSession session, Connection connection, String query)
+            throws SQLException
+    {
+        super.execute(session, connection, query);
     }
 
     @Override
@@ -250,21 +247,38 @@ public class SpannerClient
         if (type == REAL || type == DOUBLE) {
             return WriteMapping.doubleMapping("FLOAT64", doubleWriteFunction());
         }
+        if (type == VARBINARY) {
+            return WriteMapping.sliceMapping("BYTES(MAX)",
+                    SliceWriteFunction.of(Types.LONGVARBINARY,
+                            (statement, index, value) -> statement.setBytes(index, value.byteArray())));
+        }
         if (type instanceof TimestampType) {
             return WriteMapping.objectMapping("TIMESTAMP",
-                    tsWrite());
+                    spannerTimestampWriteFunction());
         }
-        if (type instanceof VarcharType) {
-            return WriteMapping.sliceMapping("STRING(MAX)", varcharWriteFunction());
+        if (type instanceof VarcharType varcharType) {
+            String dataType = "STRING(MAX)";
+            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() <= 16777215) {
+                dataType = String.format("STRING(%s)", varcharType.getBoundedLength());
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
         if (type instanceof DateType) {
-            return WriteMapping.sliceMapping("DATE", varcharWriteFunction());
+            return WriteMapping.longMapping("DATE",
+                    new LongWriteFunction()
+                    {
+                        @Override
+                        public void set(PreparedStatement statement, int index, long value)
+                                throws SQLException
+                        {
+                            statement.setDate(index, java.sql.Date.valueOf(LocalDate.ofEpochDay(value)));
+                        }
+                    });
         }
-
-        throw new RuntimeException("Dont know type " + type);
+        return WriteMapping.sliceMapping("STRING(MAX)", varcharWriteFunction());
     }
 
-    private ObjectWriteFunction tsWrite()
+    private ObjectWriteFunction spannerTimestampWriteFunction()
     {
         return ObjectWriteFunction.of(
                 String.class,
@@ -275,16 +289,14 @@ public class SpannerClient
     @Override
     protected Optional<List<String>> getTableTypes()
     {
-        return Optional.of(Arrays.asList("BASE TABLE", "VIEW"));
+        return Optional.of(Arrays.asList(tableTypes));
     }
 
     @Override
     public Collection<String> listSchemas(Connection connection)
     {
         Set<String> schemas = new HashSet<>(Collections.singleton(DEFAULT_SCHEMA));
-
-        try {
-            ResultSet resultSet = connection.getMetaData().getSchemas(null, null);
+        try (ResultSet resultSet = connection.getMetaData().getSchemas(null, null)) {
             while (resultSet.next()) {
                 schemas.add(resultSet.getString(1));
             }
@@ -298,26 +310,8 @@ public class SpannerClient
     @Override
     public boolean schemaExists(ConnectorSession session, String schema)
     {
-        if (schema.equalsIgnoreCase(DEFAULT_SCHEMA)) {
-            return true;
-        }
-        else {
-            try {
-                Connection connection = connectionFactory.openConnection(session);
-                ResultSet schemas = connection.getMetaData().getSchemas(null, null);
-                boolean found = false;
-                while (schemas.next()) {
-                    if (schemas.getString(1).equalsIgnoreCase(schema)) {
-                        found = true;
-                        break;
-                    }
-                }
-                return found;
-            }
-            catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        //There are no schemas in Spanner except for the default one that we have added and INFORMATION_SCHEMA
+        return schema.equalsIgnoreCase(DEFAULT_SCHEMA) || schema.equalsIgnoreCase("INFORMATION_SCHEMA");
     }
 
     @Override
@@ -336,11 +330,10 @@ public class SpannerClient
     public List<SchemaTableName> getTableNames(ConnectorSession session, Optional<String> schema)
     {
         List<SchemaTableName> tables = new ArrayList<>();
-        try {
-            Connection connection = connectionFactory.openConnection(session);
-            ResultSet resultSet = getTablesFromSpanner(connection);
+        try (Connection connection = connectionFactory.openConnection(session);
+                ResultSet resultSet = getTables(connection, Optional.empty(), Optional.empty())) {
             while (resultSet.next()) {
-                tables.add(new SchemaTableName(DEFAULT_SCHEMA, resultSet.getString(1)));
+                tables.add(new SchemaTableName(DEFAULT_SCHEMA, resultSet.getString("TABLE_NAME")));
             }
         }
         catch (SQLException e) {
@@ -349,19 +342,27 @@ public class SpannerClient
         return tables;
     }
 
-    private ResultSet getTablesFromSpanner(Connection connection)
-            throws SQLException
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return connection.createStatement().executeQuery("SELECT\n" +
-                "  TABLE_NAME\n" +
-                "FROM\n" +
-                "  INFORMATION_SCHEMA.TABLES\n" +
-                "WHERE\n" +
-                "  TABLE_CATALOG = '' and TABLE_SCHEMA = ''");
+        String sql = createSpannerTable(session, tableMetadata);
+        execute(session, sql);
+        sleep();
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        //Do nothing
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return super.beginCreateTable(session, tableMetadata);
+    }
+
+    private String createSpannerTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         Map<String, String> columnAndDataTypeMap = tableMetadata.getTableSchema().getColumns()
                 .stream()
@@ -373,7 +374,7 @@ public class SpannerClient
         List<String> primaryKeys = SpannerTableProperties.getPrimaryKey(properties);
         List<String> notNullFields = SpannerTableProperties.getNotNullFields(properties);
         List<String> commitTimestampFields = SpannerTableProperties.getCommitTimestampFields(properties);
-        Preconditions.checkArgument(primaryKeys != null && !primaryKeys.isEmpty(), "Primary key is required to create a table in spanner");
+        Preconditions.checkArgument(!primaryKeys.isEmpty(), "Primary key is required to create a table in spanner");
         Map<String, String> columns = new LinkedHashMap<>();
         columnAndDataTypeMap.forEach((column, dataType) -> {
             columns.put(column, join(" ", quoted(column), dataType));
@@ -398,7 +399,14 @@ public class SpannerClient
                 quoted(tableMetadata.getTable().getTableName()), String.join(", ", columns.values()),
                 quoted(join(", ", primaryKeys)),
                 interleaveClause, onDeleteClause);
-        execute(session, sql);
+        System.out.println(sql);
+        return sql;
+    }
+
+    @Override
+    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    {
+        return createSpannerTable(null, tableMetadata);
     }
 
     public boolean checkTableExists(ConnectorSession session, String tableName)
@@ -413,10 +421,10 @@ public class SpannerClient
     {
         DatabaseMetaData metadata = connection.getMetaData();
         return metadata.getTables(
-                schemaName.orElse(null),
+                null,
                 null,
                 escapeObjectNameForMetadataQuery(tableName, metadata.getSearchStringEscape()).orElse(null),
-                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
+                null);
     }
 
     @Override
@@ -447,13 +455,27 @@ public class SpannerClient
     }
 
     @Override
+    protected JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, String targetTableName, Optional<ColumnMetadata> pageSinkIdColumn)
+            throws SQLException
+    {
+        return super.createTable(session, tableMetadata, targetTableName, pageSinkIdColumn);
+    }
+
+    @Override
+    protected JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, String targetTableName)
+            throws SQLException
+    {
+        return super.createTable(session, tableMetadata, targetTableName);
+    }
+
+    @Override
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         boolean hasPageSinkIdColumn = handle.getPageSinkIdColumnName().isPresent();
         checkArgument(handle.getColumnNames().size() == columnWriters.size(), "handle and columnWriters mismatch: %s, %s", handle, columnWriters);
-        return format(
+        String sql = format(
                 "INSERT INTO %s (%s%s) VALUES (%s%s)",
-                quoted(null, null, handle.getTemporaryTableName().orElseGet(handle::getTableName)),
+                quoted(null, null, handle.getTableName()),
                 handle.getColumnNames().stream()
                         .map(this::quoted)
                         .collect(joining(", ")),
@@ -462,6 +484,8 @@ public class SpannerClient
                         .map(WriteFunction::getBindExpression)
                         .collect(joining(",")),
                 hasPageSinkIdColumn ? ", ?" : "");
+        System.out.println("INSERT SQL " + sql);
+        return sql;
     }
 
     @Override
@@ -497,12 +521,6 @@ public class SpannerClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
-    }
-
-    private boolean shouldUseFaultTolerantExecution(ConnectorSession session)
-    {
-        //Does not support fault-tolerant exec
-        return false;
     }
 
     @Override
@@ -579,10 +597,10 @@ public class SpannerClient
     public boolean checkTableExists(Connection connection, String tableName)
             throws SQLException
     {
-        ResultSet tablesFromSpanner = getTablesFromSpanner(connection);
+        ResultSet tablesFromSpanner = getTables(connection, Optional.empty(), Optional.empty());
         boolean exists = false;
         while (tablesFromSpanner.next()) {
-            String table = tablesFromSpanner.getString(1);
+            String table = tablesFromSpanner.getString("TABLE_NAME");
             if (table.equalsIgnoreCase(tableName)) {
                 exists = true;
                 break;
@@ -635,7 +653,7 @@ public class SpannerClient
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-       // System.out.println("PROPS WAS CALLED ");
+        // System.out.println("PROPS WAS CALLED ");
         return new HashMap<>();
     }
 

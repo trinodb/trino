@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.spanner;
 
 import com.google.common.collect.ImmutableList;
@@ -70,7 +83,7 @@ public class SpannerTableProperties
     public static List<String> getPrimaryKey(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties, "tableProperties is null");
-        return toUpperCase((List<String>) tableProperties.get(PRIMARY_KEYS));
+        return ImmutableList.copyOf(toUpperCase((List<String>) tableProperties.get(PRIMARY_KEYS)));
     }
 
     public static String getInterleaveInParent(Map<String, Object> tableProperties)
@@ -82,13 +95,13 @@ public class SpannerTableProperties
     public static List<String> getNotNullFields(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties, "tableProperties is null");
-        return toUpperCase((List<String>) tableProperties.get(NOT_NULL_FIELDS));
+        return ImmutableList.copyOf(toUpperCase((List<String>) tableProperties.get(NOT_NULL_FIELDS)));
     }
 
     public static List<String> getCommitTimestampFields(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties, "tableProperties is null");
-        return toUpperCase((List<String>) tableProperties.get(COMMIT_TIMESTAMP_FIELDS));
+        return ImmutableList.copyOf(toUpperCase((List<String>) tableProperties.get(COMMIT_TIMESTAMP_FIELDS)));
     }
 
     public static boolean getOnDeleteCascade(Map<String, Object> tableProperties)
