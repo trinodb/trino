@@ -23,8 +23,8 @@ import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 import static io.trino.operator.WorkProcessor.ProcessState.blocked;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
@@ -237,7 +237,7 @@ public class WorkProcessorSourceOperatorAdapter
     private static class SplitBuffer
             implements WorkProcessor.Process<Split>
     {
-        private final List<Split> pendingSplits = new ArrayList<>();
+        private final Deque<Split> pendingSplits = new ArrayDeque<>();
 
         private SettableFuture<Void> blockedOnSplits = SettableFuture.create();
         private boolean noMoreSplits;
@@ -254,7 +254,7 @@ public class WorkProcessorSourceOperatorAdapter
                 return blocked(blockedOnSplits);
             }
 
-            return ofResult(pendingSplits.remove(0));
+            return ofResult(pendingSplits.remove());
         }
 
         void add(Split split)

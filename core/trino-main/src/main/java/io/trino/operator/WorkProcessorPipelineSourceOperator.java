@@ -35,7 +35,9 @@ import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -71,7 +73,7 @@ public class WorkProcessorPipelineSourceOperator
     private final OperationTimer timer;
     // operator instances including source operator
     private final List<WorkProcessorOperatorContext> workProcessorOperatorContexts = new ArrayList<>();
-    private final List<Split> pendingSplits = new ArrayList<>();
+    private final Deque<Split> pendingSplits = new ArrayDeque<>();
 
     private ListenableFuture<Void> blockedFuture;
     private WorkProcessorSourceOperator sourceOperator;
@@ -502,7 +504,7 @@ public class WorkProcessorPipelineSourceOperator
                 return ProcessState.blocked(blockedOnSplits);
             }
 
-            return ProcessState.ofResult(pendingSplits.remove(0));
+            return ProcessState.ofResult(pendingSplits.remove());
         }
     }
 
