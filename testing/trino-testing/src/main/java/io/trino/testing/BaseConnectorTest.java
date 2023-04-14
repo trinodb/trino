@@ -3944,51 +3944,6 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testReportWrittenBytes()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-
-        AtomicBoolean isReportingWrittenBytesSupported = new AtomicBoolean();
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
-                .singleStatement()
-                .execute(getSession(), session -> {
-                    String catalogName = session.getCatalog().orElseThrow();
-                    TestingTrinoServer coordinator = getDistributedQueryRunner().getCoordinator();
-                    Map<String, Object> properties = coordinator.getTablePropertyManager().getProperties(
-                            catalogName,
-                            coordinator.getMetadata().getCatalogHandle(session, catalogName).orElseThrow(),
-                            List.of(),
-                            session,
-                            null,
-                            new AllowAllAccessControl(),
-                            Map.of(),
-                            true);
-                    QualifiedObjectName fullTableName = new QualifiedObjectName(catalogName, "any", "any");
-                    isReportingWrittenBytesSupported.set(coordinator.getMetadata().supportsReportingWrittenBytes(session, fullTableName, properties));
-                });
-
-        String tableName = "write_stats_" + randomNameSuffix();
-        try {
-            String query = "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation";
-            assertQueryStats(
-                    getSession(),
-                    query,
-                    queryStats -> {
-                        if (isReportingWrittenBytesSupported.get()) {
-                            assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isPositive();
-                        }
-                        else {
-                            assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isZero();
-                        }
-                    },
-                    results -> {});
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
-    }
-
-    @Test
     public void testInsertIntoNotNullColumn()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
@@ -4783,6 +4738,51 @@ public abstract class BaseConnectorTest
             assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
             assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
             assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testWrittenDataSize()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
+        AtomicBoolean isReportingWrittenBytesSupported = new AtomicBoolean();
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .singleStatement()
+                .execute(getSession(), session -> {
+                    String catalogName = session.getCatalog().orElseThrow();
+                    TestingTrinoServer coordinator = getDistributedQueryRunner().getCoordinator();
+                    Map<String, Object> properties = coordinator.getTablePropertyManager().getProperties(
+                            catalogName,
+                            coordinator.getMetadata().getCatalogHandle(session, catalogName).orElseThrow(),
+                            List.of(),
+                            session,
+                            null,
+                            new AllowAllAccessControl(),
+                            Map.of(),
+                            true);
+                    QualifiedObjectName fullTableName = new QualifiedObjectName(catalogName, "any", "any");
+                    isReportingWrittenBytesSupported.set(coordinator.getMetadata().supportsReportingWrittenBytes(session, fullTableName, properties));
+                });
+
+        String tableName = "write_stats_" + randomNameSuffix();
+        try {
+            String query = "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation";
+            assertQueryStats(
+                    getSession(),
+                    query,
+                    queryStats -> {
+                        if (isReportingWrittenBytesSupported.get()) {
+                            assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isPositive();
+                        }
+                        else {
+                            assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isZero();
+                        }
+                    },
+                    results -> {});
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
