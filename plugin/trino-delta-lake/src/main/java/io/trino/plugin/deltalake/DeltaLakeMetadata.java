@@ -470,32 +470,33 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle tableHandle = checkValidTableHandle(table);
         String location = metastore.getTableLocation(tableHandle.getSchemaTableName());
-        Map<String, String> columnComments = getColumnComments(tableHandle.getMetadataEntry());
-        Map<String, Boolean> columnsNullability = getColumnsNullability(tableHandle.getMetadataEntry());
-        Map<String, String> columnGenerations = getGeneratedColumnExpressions(tableHandle.getMetadataEntry());
+        MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
+        Map<String, String> columnComments = getColumnComments(metadataEntry);
+        Map<String, Boolean> columnsNullability = getColumnsNullability(metadataEntry);
+        Map<String, String> columnGenerations = getGeneratedColumnExpressions(metadataEntry);
         List<String> constraints = ImmutableList.<String>builder()
-                .addAll(getCheckConstraints(tableHandle.getMetadataEntry()).values())
-                .addAll(getColumnInvariants(tableHandle.getMetadataEntry()).values()) // The internal logic for column invariants in Delta Lake is same as check constraints
+                .addAll(getCheckConstraints(metadataEntry).values())
+                .addAll(getColumnInvariants(metadataEntry).values()) // The internal logic for column invariants in Delta Lake is same as check constraints
                 .build();
-        List<ColumnMetadata> columns = getColumns(tableHandle.getMetadataEntry()).stream()
+        List<ColumnMetadata> columns = getColumns(metadataEntry).stream()
                 .map(column -> getColumnMetadata(column, columnComments.get(column.getName()), columnsNullability.getOrDefault(column.getName(), true), columnGenerations.get(column.getName())))
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.<String, Object>builder()
                 .put(LOCATION_PROPERTY, location)
-                .put(PARTITIONED_BY_PROPERTY, tableHandle.getMetadataEntry().getCanonicalPartitionColumns());
+                .put(PARTITIONED_BY_PROPERTY, metadataEntry.getCanonicalPartitionColumns());
 
-        Optional<Long> checkpointInterval = tableHandle.getMetadataEntry().getCheckpointInterval();
+        Optional<Long> checkpointInterval = metadataEntry.getCheckpointInterval();
         checkpointInterval.ifPresent(value -> properties.put(CHECKPOINT_INTERVAL_PROPERTY, value));
 
-        Optional<Boolean> changeDataFeedEnabled = tableHandle.getMetadataEntry().isChangeDataFeedEnabled();
+        Optional<Boolean> changeDataFeedEnabled = metadataEntry.isChangeDataFeedEnabled();
         changeDataFeedEnabled.ifPresent(value -> properties.put(CHANGE_DATA_FEED_ENABLED_PROPERTY, value));
 
         return new ConnectorTableMetadata(
                 tableHandle.getSchemaTableName(),
                 columns,
                 properties.buildOrThrow(),
-                Optional.ofNullable(tableHandle.getMetadataEntry().getDescription()),
+                Optional.ofNullable(metadataEntry.getDescription()),
                 constraints.stream()
                         .map(constraint -> {
                             try {
