@@ -286,7 +286,7 @@ public class DeltaLakeMetadata
     public static final int DEFAULT_WRITER_VERSION = 2;
     // The highest reader and writer versions Trino supports
     private static final int MAX_READER_VERSION = 3;
-    public static final int MAX_WRITER_VERSION = 4;
+    private static final int MAX_WRITER_VERSION = 4;
     private static final int CDF_SUPPORTED_WRITER_VERSION = 4;
 
     // Matches the dummy column Databricks stores in the metastore
