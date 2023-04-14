@@ -38,9 +38,6 @@ public final class StructColumnReader
         int maxRepetitionLevel = field.getRepetitionLevel();
         BooleanList structIsNull = new BooleanArrayList();
         boolean required = field.isRequired();
-        if (fieldDefinitionLevels == null) {
-            return structIsNull;
-        }
         for (int i = 0; i < fieldDefinitionLevels.length; i++) {
             if (fieldRepetitionLevels[i] <= maxRepetitionLevel) {
                 if (isValueNull(required, fieldDefinitionLevels[i], maxDefinitionLevel)) {
