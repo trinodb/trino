@@ -242,8 +242,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   location = \\E'.*/test_schema/orders',\n\\Q" +
-                        "   partitioned_by = ARRAY[]\n" +
+                        "   location = \\E'.*/test_schema/orders'\n\\Q" +
                         ")");
     }
 

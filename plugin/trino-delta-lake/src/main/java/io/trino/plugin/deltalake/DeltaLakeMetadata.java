@@ -483,8 +483,11 @@ public class DeltaLakeMetadata
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.<String, Object>builder()
-                .put(LOCATION_PROPERTY, location)
-                .put(PARTITIONED_BY_PROPERTY, metadataEntry.getCanonicalPartitionColumns());
+                .put(LOCATION_PROPERTY, location);
+        List<String> partitionColumnNames = metadataEntry.getCanonicalPartitionColumns();
+        if (!partitionColumnNames.isEmpty()) {
+            properties.put(PARTITIONED_BY_PROPERTY, partitionColumnNames);
+        }
 
         Optional<Long> checkpointInterval = metadataEntry.getCheckpointInterval();
         checkpointInterval.ifPresent(value -> properties.put(CHECKPOINT_INTERVAL_PROPERTY, value));
