@@ -13,6 +13,7 @@
  */
 package io.trino.spi.ptf;
 
+import io.trino.spi.Experimental;
 import io.trino.spi.connector.ConnectorSplit;
 
 import javax.annotation.Nullable;
@@ -24,6 +25,7 @@ import javax.annotation.Nullable;
  * Thread-safety: implementations do not have to be thread-safe. The {@link #process} method may be called from
  * multiple threads, but will never be called from two threads at the same time.
  */
+@Experimental(eta = "2023-07-31")
 public interface TableFunctionSplitProcessor
 {
     /**
