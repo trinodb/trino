@@ -35,7 +35,7 @@ import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class JsonReaderTest
+public class TestJsonReader
 {
     @Test
     public void testJsonNull()
@@ -263,7 +263,7 @@ public class JsonReaderTest
         }
         if (value instanceof List<?> list) {
             return list.stream()
-                    .map(JsonReaderTest::toHiveEquivalent)
+                    .map(TestJsonReader::toHiveEquivalent)
                     .collect(Collectors.toCollection(ArrayList::new));
         }
         if (value instanceof JsonString jsonString) {
