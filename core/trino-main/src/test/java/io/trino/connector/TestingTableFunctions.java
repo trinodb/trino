@@ -1141,9 +1141,9 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
             {
-                return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).getValue());
+                return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).getValue(), (ConstantFunctionSplit) split);
             }
         }
 
@@ -1157,38 +1157,26 @@ public class TestingTableFunctions
             private long processedPages;
             private int reminder;
 
-            public ConstantFunctionProcessor(Long value)
+            public ConstantFunctionProcessor(Long value, ConstantFunctionSplit split)
             {
                 this.value = nativeValueToBlock(INTEGER, value);
+                long count = split.getCount();
+                this.fullPagesCount = count / PAGE_SIZE;
+                this.reminder = toIntExact(count % PAGE_SIZE);
             }
 
             @Override
-            public TableFunctionProcessorState process(ConnectorSplit split)
+            public TableFunctionProcessorState process()
             {
-                boolean usedData = false;
-
-                if (split != null) {
-                    long count = ((ConstantFunctionSplit) split).getCount();
-                    this.fullPagesCount = count / PAGE_SIZE;
-                    this.reminder = toIntExact(count % PAGE_SIZE);
-                    usedData = true;
-                }
-
                 if (processedPages < fullPagesCount) {
                     processedPages++;
                     Page result = new Page(RunLengthEncodedBlock.create(value, PAGE_SIZE));
-                    if (usedData) {
-                        return usedInputAndProduced(result);
-                    }
                     return produced(result);
                 }
 
                 if (reminder > 0) {
                     Page result = new Page(RunLengthEncodedBlock.create(value, reminder));
                     reminder = 0;
-                    if (usedData) {
-                        return usedInputAndProduced(result);
-                    }
                     return produced(result);
                 }
 
@@ -1280,7 +1268,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
             {
                 return new EmptySourceFunctionProcessor();
             }
@@ -1291,14 +1279,16 @@ public class TestingTableFunctions
         {
             private static final Page EMPTY_PAGE = new Page(BOOLEAN.createBlockBuilder(null, 0).build());
 
-            @Override
-            public TableFunctionProcessorState process(ConnectorSplit split)
-            {
-                if (split == null) {
-                    return FINISHED;
-                }
+            private boolean produced;
 
-                return usedInputAndProduced(EMPTY_PAGE);
+            @Override
+            public TableFunctionProcessorState process()
+            {
+                if (!produced) {
+                    produced = true;
+                    return produced(EMPTY_PAGE);
+                }
+                return FINISHED;
             }
         }
     }
