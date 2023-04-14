@@ -71,11 +71,10 @@ public class TestingOracleServer
 
     private OracleContainer createContainer()
     {
-        OracleContainer container = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+        OracleContainer container = new OracleContainer("gvenzl/oracle-xe:18.4.0-full")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
-                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
-                .usingSid();
+                .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql");
         container.start();
         return container;
     }
@@ -86,6 +85,7 @@ public class TestingOracleServer
             File tempFile = File.createTempFile("init-", ".sql");
 
             Files.write(Joiner.on("\n").join(
+                    "ALTER SESSION SET CONTAINER = XEPDB1;",
                     format("CREATE TABLESPACE %s DATAFILE 'test_db.dat' SIZE 100M ONLINE;", TEST_TABLESPACE),
                     format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s;", TEST_USER, TEST_PASS, TEST_TABLESPACE),
                     format("GRANT UNLIMITED TABLESPACE TO %s;", TEST_USER),

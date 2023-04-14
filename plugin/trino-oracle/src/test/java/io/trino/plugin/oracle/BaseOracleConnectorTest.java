@@ -446,7 +446,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
@@ -458,7 +458,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected OptionalInt maxTableNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
@@ -470,7 +470,7 @@ public abstract class BaseOracleConnectorTest
     @Override
     protected OptionalInt maxColumnNameLength()
     {
-        return OptionalInt.of(30);
+        return OptionalInt.of(128);
     }
 
     @Override
