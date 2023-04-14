@@ -109,16 +109,14 @@ public final class PinotQueryBuilder
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
         checkState((forHavingClause && timePredicate.isEmpty()) || !forHavingClause, "Unexpected time predicate with having clause");
         timePredicate.ifPresent(conjunctsBuilder::add);
-        if (!tupleDomain.equals(TupleDomain.all())) {
-            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                PinotColumnHandle pinotColumnHandle = (PinotColumnHandle) entry.getKey();
-                // If this is for a having clause, only include aggregate columns.
-                // If this is for a where clause, only include non-aggregate columns.
-                // i.e. (forHavingClause && isAggregate) || (!forHavingClause && !isAggregate)
-                if (forHavingClause == pinotColumnHandle.isAggregate()) {
-                    toPredicate(pinotColumnHandle, entry.getValue()).ifPresent(conjunctsBuilder::add);
-                }
+        Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
+        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            PinotColumnHandle pinotColumnHandle = (PinotColumnHandle) entry.getKey();
+            // If this is for a having clause, only include aggregate columns.
+            // If this is for a where clause, only include non-aggregate columns.
+            // i.e. (forHavingClause && isAggregate) || (!forHavingClause && !isAggregate)
+            if (forHavingClause == pinotColumnHandle.isAggregate()) {
+                toPredicate(pinotColumnHandle, entry.getValue()).ifPresent(conjunctsBuilder::add);
             }
         }
         List<String> conjuncts = conjunctsBuilder.build();
