@@ -1427,22 +1427,18 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
 
         // Verify table schema gets reflected correctly
+        String qualifiedTableName = "%s.%s.%s".formatted(getSession().getCatalog().orElseThrow(), SCHEMA, tableName);
         assertThat(computeScalar("SHOW CREATE TABLE " + tableName))
-                .isEqualTo(format("" +
-                                "CREATE TABLE %s.%s.%s (\n" +
-                                "   a_number integer,\n" +
-                                "   a_string varchar,\n" +
-                                "   another_string varchar\n" +
-                                ")\n" +
-                                "WITH (\n" +
-                                "   location = '%s',\n" +
-                                "   partitioned_by = ARRAY[%s]\n" +
-                                ")",
-                        getSession().getCatalog().orElseThrow(),
-                        SCHEMA,
-                        tableName,
-                        newLocation,
-                        secondPartitioned ? "'a_number'" : ""));
+                .isEqualTo("" +
+                        "CREATE TABLE " + qualifiedTableName + " (\n" +
+                        "   a_number integer,\n" +
+                        "   a_string varchar,\n" +
+                        "   another_string varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   location = '" + newLocation + "'" + (secondPartitioned ? "," : "") + "\n" +
+                        (secondPartitioned ? "   partitioned_by = ARRAY['a_number']\n" : "") +
+                        ")");
     }
 
     /**
