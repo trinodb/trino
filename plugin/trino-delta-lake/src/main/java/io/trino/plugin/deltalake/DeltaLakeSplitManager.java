@@ -327,11 +327,14 @@ public class DeltaLakeSplitManager
 
     private static Location buildSplitPath(Location tableLocation, AddFileEntry addAction)
     {
-        // paths are relative to the table location and are RFC 2396 URIs
+        // paths are relative to the table location or absolute in case of shallow cloned table and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
         URI uri = URI.create(addAction.getPath());
-        String path = uri.getPath();
 
+        if (uri.isAbsolute()) {
+            return Location.of(uri.getScheme() + ":" + uri.getSchemeSpecificPart());
+        }
+        String path = uri.getPath();
         // org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem encodes the path as URL when opening files
         // https://issues.apache.org/jira/browse/HADOOP-18580
         Optional<String> scheme = tableLocation.scheme();
