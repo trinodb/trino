@@ -234,24 +234,6 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.connector.MaterializedViewFreshness::&lt;init&gt;(boolean)</old>
-                                    <new>method void io.trino.spi.connector.MaterializedViewFreshness::&lt;init&gt;(io.trino.spi.connector.MaterializedViewFreshness.Freshness, java.util.Optional&lt;java.time.Instant&gt;)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;&gt; io.trino.spi.connector.ConnectorTableProperties::getStreamPartitioningColumns()</old>
-                                    <justification>Replaced with the ConnectorTablePartitioning#singleSplitPerPartition. Soft migration is not straightforward.</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.connector.ConnectorTableProperties::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, java.util.Optional&lt;io.trino.spi.connector.ConnectorTablePartitioning&gt;, java.util.Optional&lt;java.util.Set&lt;io.trino.spi.connector.ColumnHandle&gt;&gt;, java.util.Optional&lt;io.trino.spi.connector.DiscretePredicates&gt;, java.util.List&lt;io.trino.spi.connector.LocalProperty&lt;io.trino.spi.connector.ColumnHandle&gt;&gt;)</old>
-                                    <new>method void io.trino.spi.connector.ConnectorTableProperties::&lt;init&gt;(io.trino.spi.predicate.TupleDomain&lt;io.trino.spi.connector.ColumnHandle&gt;, java.util.Optional&lt;io.trino.spi.connector.ConnectorTablePartitioning&gt;, java.util.Optional&lt;io.trino.spi.connector.DiscretePredicates&gt;, java.util.List&lt;io.trino.spi.connector.LocalProperty&lt;io.trino.spi.connector.ColumnHandle&gt;&gt;)</new>
-                                    <justification>Replaced with the ConnectorTablePartitioning#singleSplitPerPartition. Soft migration is not straightforward.</justification>
-                                </item>
-                                <item>
                                     <regex>true</regex>
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <newArchive>io.opentelemetry:opentelemetry-(api|context):.*</newArchive>
