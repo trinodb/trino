@@ -54,11 +54,11 @@ public class TestDeltaLakePlugin
         Plugin plugin = new DeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "thrift",
-                        "hive.metastore.uri", "thrift://foo:1234"),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "thrift",
+                                "hive.metastore.uri", "thrift://foo:1234"),
+                        new TestingConnectorContext())
                 .shutdown();
 
         assertThatThrownBy(() -> factory.create(
@@ -79,11 +79,11 @@ public class TestDeltaLakePlugin
         Plugin plugin = new DeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "glue",
-                        "hive.metastore.glue.region", "us-east-2"),
-                new TestingConnectorContext())
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "glue",
+                                "hive.metastore.glue.region", "us-east-2"),
+                        new TestingConnectorContext())
                 .shutdown();
 
         assertThatThrownBy(() -> factory.create(
@@ -127,10 +127,10 @@ public class TestDeltaLakePlugin
         Plugin plugin = new DeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test",
-                ImmutableMap.of(
-                        "hive.metastore.uri", "thrift://foo:1234",
-                        "delta.metadata.cache-ttl", "0s"),
-                new TestingConnectorContext())
+                        ImmutableMap.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "delta.metadata.cache-ttl", "0s"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -140,10 +140,10 @@ public class TestDeltaLakePlugin
         Plugin plugin = new DeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test",
-                ImmutableMap.of(
-                        "hive.metastore.uri", "thrift://foo:1234",
-                        "delta.metadata.live-files.cache-ttl", "0s"),
-                new TestingConnectorContext())
+                        ImmutableMap.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "delta.metadata.live-files.cache-ttl", "0s"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
