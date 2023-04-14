@@ -15,8 +15,8 @@ package io.trino.plugin.pinot;
 
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 
-public class TestPinotWithoutAuthenticationIntegrationLatestVersionNoGrpcConnectorSmokeTest
-        extends BasePinotIntegrationConnectorSmokeTest
+public class TestPinotLatestNoGrpcConnectorSmokeTest
+        extends BasePinotConnectorSmokeTest
 {
     @Override
     protected boolean isSecured()
