@@ -33,8 +33,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testCreateConnector()
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = getConnectorFactory();
         factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext())
                 .shutdown();
     }
@@ -51,8 +50,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testThriftMetastore()
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = getConnectorFactory();
         factory.create(
                         "test",
                         ImmutableMap.of(
@@ -76,8 +74,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testGlueMetastore()
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = getConnectorFactory();
         factory.create(
                         "test",
                         ImmutableMap.of(
@@ -103,9 +100,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testAlluxioMetastore()
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-
+        ConnectorFactory factory = getConnectorFactory();
         assertThatThrownBy(() -> factory.create(
                 "test",
                 ImmutableMap.of("hive.metastore", "alluxio"),
@@ -124,8 +119,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testNoCaching()
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = getConnectorFactory();
         factory.create("test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
@@ -137,8 +131,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testNoActiveDataFilesCaching()
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = getConnectorFactory();
         factory.create("test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
@@ -150,7 +143,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testHiveConfigIsNotBound()
     {
-        ConnectorFactory factory = getOnlyElement(new DeltaLakePlugin().getConnectorFactories());
+        ConnectorFactory factory = getConnectorFactory();
         assertThatThrownBy(() -> factory.create("test",
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://foo:1234",
@@ -163,9 +156,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testReadOnlyAllAccessControl()
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-
+        ConnectorFactory factory = getConnectorFactory();
         factory.create(
                         "test",
                         ImmutableMap.<String, String>builder()
@@ -179,9 +170,7 @@ public class TestDeltaLakePlugin
     @Test
     public void testSystemAccessControl()
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-
+        ConnectorFactory factory = getConnectorFactory();
         Connector connector = factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
@@ -197,8 +186,7 @@ public class TestDeltaLakePlugin
     public void testFileBasedAccessControl()
             throws Exception
     {
-        Plugin plugin = new DeltaLakePlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = getConnectorFactory();
         File tempFile = File.createTempFile("test-delta-lake-plugin-access-control", ".json");
         tempFile.deleteOnExit();
         Files.writeString(tempFile.toPath(), "{}");
@@ -212,5 +200,10 @@ public class TestDeltaLakePlugin
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();
+    }
+
+    private static ConnectorFactory getConnectorFactory()
+    {
+        return getOnlyElement(new DeltaLakePlugin().getConnectorFactories());
     }
 }
