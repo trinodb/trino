@@ -3969,14 +3969,18 @@ public abstract class BaseConnectorTest
                 .singleStatement()
                 .execute(getSession(), (Consumer<Session>) session -> skipTestUnless(isReportingWrittenBytesSupported(session)));
 
-        @Language("SQL")
-        String query = "CREATE TABLE temp AS SELECT * FROM tpch.tiny.nation";
-
-        assertQueryStats(
-                getSession(),
-                query,
-                queryStats -> assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isGreaterThan(0L),
-                results -> {});
+        String tableName = "write_stats_" + randomNameSuffix();
+        try {
+            String query = "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation";
+            assertQueryStats(
+                    getSession(),
+                    query,
+                    queryStats -> assertThat(queryStats.getPhysicalWrittenDataSize().toBytes()).isGreaterThan(0L),
+                    results -> {});
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
