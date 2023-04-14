@@ -15,6 +15,7 @@ package io.trino.spi.ptf;
 
 import io.trino.spi.Experimental;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 
 @Experimental(eta = "2023-07-31")
 public interface TableFunctionProcessorProvider
@@ -32,7 +33,7 @@ public interface TableFunctionProcessorProvider
      * This method returns a {@code TableFunctionSplitProcessor}. All the necessary information collected during analysis is available
      * in the form of {@link ConnectorTableFunctionHandle}. It is called once per each split processed by the table function.
      */
-    default TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    default TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
     {
         throw new UnsupportedOperationException("this table function does not process splits");
     }

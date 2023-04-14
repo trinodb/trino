@@ -14,9 +14,6 @@
 package io.trino.spi.ptf;
 
 import io.trino.spi.Experimental;
-import io.trino.spi.connector.ConnectorSplit;
-
-import javax.annotation.Nullable;
 
 /**
  * Processes table functions splits, as returned from {@link io.trino.spi.connector.ConnectorSplitManager}
@@ -31,12 +28,8 @@ public interface TableFunctionSplitProcessor
     /**
      * This method processes a split. It is called multiple times until the whole output for the split is produced.
      *
-     * @param split a {@link ConnectorSplit} representing a subtask, or {@code null} if a split has already started to be processed,
-     * and the implementation returned a {@link TableFunctionProcessorState.Processed} with
-     * {@link TableFunctionProcessorState.Processed#isUsedInput()} being {@code true}.
      * @return {@link TableFunctionProcessorState} including the processor's state and optionally a portion of result.
-     * After the returned state is {@code FINISHED}, the method will not be called again for the split currently being processed
-     * and may be called with a new split.
+     * After the returned state is {@code FINISHED}, the method will not be called again.
      */
-    TableFunctionProcessorState process(@Nullable ConnectorSplit split);
+    TableFunctionProcessorState process();
 }
