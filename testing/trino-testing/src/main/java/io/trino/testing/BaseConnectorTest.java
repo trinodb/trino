@@ -3947,7 +3947,7 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void isReportingWrittenBytesSupported()
+    public void testReportWrittenBytes()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
