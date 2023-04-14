@@ -48,6 +48,19 @@ public class TestDeltaLakePlugin
     }
 
     @Test
+    public void testTestingFileMetastore()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "file",
+                                "hive.metastore.catalog.dir", "/tmp"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
     public void testThriftMetastore()
     {
         ConnectorFactory factory = getConnectorFactory();
