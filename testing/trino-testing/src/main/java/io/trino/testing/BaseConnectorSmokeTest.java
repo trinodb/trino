@@ -42,6 +42,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -322,8 +323,11 @@ public abstract class BaseConnectorSmokeTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
 
-        Session newSession = Session.builder(getSession())
-                .setIdentity(Identity.ofUser("ADMIN"))
+        Session session = getSession();
+        Session newSession = Session.builder(session)
+                .setIdentity(Identity.from(session.getIdentity())
+                        .withUser(session.getUser().toUpperCase(ENGLISH))
+                        .build())
                 .build();
         String schemaName = "test_schema_create_uppercase_owner_name_" + randomNameSuffix();
         assertUpdate(newSession, createSchemaSql(schemaName));
