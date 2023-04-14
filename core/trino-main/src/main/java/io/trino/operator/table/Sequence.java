@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.spi.HostAddress;
+import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.operator.table.Sequence.SequenceFunctionSplit.MAX_SPLIT_SIZE;
@@ -53,7 +55,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.ptf.Descriptor.descriptor;
 import static io.trino.spi.ptf.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.ptf.TableFunctionProcessorState.Processed.produced;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Processed.usedInputAndProduced;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 
@@ -236,9 +237,9 @@ public class Sequence
         return new TableFunctionProcessorProvider()
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
             {
-                return new SequenceFunctionProcessor(((SequenceFunctionHandle) handle).step());
+                return new SequenceFunctionProcessor(((SequenceFunctionHandle) handle).step(), (SequenceFunctionSplit) split);
             }
         };
     }
@@ -249,41 +250,25 @@ public class Sequence
         private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
         private final long step;
         private long start;
-        private long stop;
+        private final long stop;
         private boolean finished;
 
-        public SequenceFunctionProcessor(long step)
+        public SequenceFunctionProcessor(long step, SequenceFunctionSplit split)
         {
             this.step = step;
+            this.start = split.getStart();
+            this.stop = split.getStop();
         }
 
         @Override
-        public TableFunctionProcessorState process(ConnectorSplit split)
+        public TableFunctionProcessorState process()
         {
-            if (split != null) {
-                SequenceFunctionSplit sequenceSplit = (SequenceFunctionSplit) split;
-                start = sequenceSplit.getStart();
-                stop = sequenceSplit.getStop();
-                BlockBuilder block = pageBuilder.getBlockBuilder(0);
-                while (start != stop && !pageBuilder.isFull()) {
-                    pageBuilder.declarePosition();
-                    BIGINT.writeLong(block, start);
-                    start += step;
-                }
-                if (!pageBuilder.isFull()) {
-                    pageBuilder.declarePosition();
-                    BIGINT.writeLong(block, start);
-                    finished = true;
-                    return usedInputAndProduced(pageBuilder.build());
-                }
-                return usedInputAndProduced(pageBuilder.build());
-            }
+            checkState(pageBuilder.isEmpty(), "page builder not empty");
 
             if (finished) {
                 return FINISHED;
             }
 
-            pageBuilder.reset();
             BlockBuilder block = pageBuilder.getBlockBuilder(0);
             while (start != stop && !pageBuilder.isFull()) {
                 pageBuilder.declarePosition();
@@ -294,9 +279,10 @@ public class Sequence
                 pageBuilder.declarePosition();
                 BIGINT.writeLong(block, start);
                 finished = true;
-                return produced(pageBuilder.build());
             }
-            return produced(pageBuilder.build());
+            Page page = pageBuilder.build();
+            pageBuilder.reset();
+            return produced(page);
         }
     }
 }
