@@ -348,8 +348,7 @@ public final class ChunkedSliceOutput
         private final int maxChunkSize;
 
         private final List<byte[]> bufferPool = new ArrayList<>();
-        private final List<byte[]> usedBuffers = new ArrayList<>();
-
+        private int usedBuffers;
         private int currentSize;
 
         public ChunkSupplier(int minChunkSize, int maxChunkSize)
@@ -364,22 +363,22 @@ public final class ChunkedSliceOutput
 
         public void reset()
         {
-            bufferPool.addAll(0, usedBuffers);
-            usedBuffers.clear();
+            usedBuffers = 0;
         }
 
         public byte[] get()
         {
             byte[] buffer;
-            if (bufferPool.isEmpty()) {
-                currentSize = min(multiplyExact(currentSize, 2), maxChunkSize);
-                buffer = new byte[currentSize];
+            if (usedBuffers == bufferPool.size()) {
+                int newSize = min(multiplyExact(currentSize, 2), maxChunkSize);
+                buffer = new byte[newSize];
+                bufferPool.add(buffer);
             }
             else {
-                buffer = bufferPool.remove(0);
-                currentSize = buffer.length;
+                buffer = bufferPool.get(usedBuffers);
             }
-            usedBuffers.add(buffer);
+            usedBuffers++;
+            currentSize = buffer.length;
             return buffer;
         }
     }
