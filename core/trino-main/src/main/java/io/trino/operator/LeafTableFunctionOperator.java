@@ -28,8 +28,8 @@ import io.trino.spi.ptf.TableFunctionSplitProcessor;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -91,7 +91,7 @@ public class LeafTableFunctionOperator
     private final ConnectorSession session;
 
     private ConnectorSplit currentSplit;
-    private final List<ConnectorSplit> pendingSplits = new ArrayList<>();
+    private final Deque<ConnectorSplit> pendingSplits = new ArrayDeque<>();
     private boolean noMoreSplits;
 
     private TableFunctionSplitProcessor processor;
@@ -163,17 +163,14 @@ public class LeafTableFunctionOperator
     {
         if (processorFinishedSplit) {
             // start processing a new split
+            while (pendingSplits.peekFirst() instanceof EmptySplit) {
+                pendingSplits.remove();
+            }
             if (pendingSplits.isEmpty()) {
                 // no more splits to process at the moment
                 return null;
             }
-            currentSplit = pendingSplits.remove(0);
-            while (currentSplit instanceof EmptySplit) {
-                if (pendingSplits.isEmpty()) {
-                    return null;
-                }
-                currentSplit = pendingSplits.remove(0);
-            }
+            currentSplit = pendingSplits.remove();
             resetProcessor();
         }
         else {
