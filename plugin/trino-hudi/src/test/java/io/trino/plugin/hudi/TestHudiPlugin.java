@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.spi.Plugin;
@@ -42,6 +43,19 @@ public class TestHudiPlugin
         Plugin plugin = new TestingHudiPlugin(Optional.empty());
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         factory.create("test", Map.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testTestingFileMetastore()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        ImmutableMap.of(
+                                "hive.metastore", "file",
+                                "hive.metastore.catalog.dir", "/tmp"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
