@@ -63,6 +63,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -148,6 +149,7 @@ public class TestingTrinoServer
     private final Optional<CatalogManager> catalogManager;
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
+    private final TablePropertyManager tablePropertyManager;
     private final Metadata metadata;
     private final TypeManager typeManager;
     private final QueryExplainer queryExplainer;
@@ -324,6 +326,7 @@ public class TestingTrinoServer
 
         server = injector.getInstance(TestingHttpServer.class);
         transactionManager = injector.getInstance(TransactionManager.class);
+        tablePropertyManager = injector.getInstance(TablePropertyManager.class);
         globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
         metadata = injector.getInstance(Metadata.class);
         typeManager = injector.getInstance(TypeManager.class);
@@ -494,6 +497,11 @@ public class TestingTrinoServer
     public TransactionManager getTransactionManager()
     {
         return transactionManager;
+    }
+
+    public TablePropertyManager getTablePropertyManager()
+    {
+        return tablePropertyManager;
     }
 
     public Metadata getMetadata()
