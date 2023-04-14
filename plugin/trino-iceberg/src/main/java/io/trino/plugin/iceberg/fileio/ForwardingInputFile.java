@@ -75,4 +75,10 @@ public class ForwardingInputFile
             throw new UncheckedIOException("Failed to check existence for file: " + location(), e);
         }
     }
+
+    @Override
+    public String toString()
+    {
+        return inputFile.toString();
+    }
 }

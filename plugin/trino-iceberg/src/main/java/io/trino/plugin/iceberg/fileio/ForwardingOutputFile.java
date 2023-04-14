@@ -74,6 +74,12 @@ public class ForwardingOutputFile
         return new ForwardingInputFile(fileSystem.newInputFile(outputFile.location()));
     }
 
+    @Override
+    public String toString()
+    {
+        return outputFile.toString();
+    }
+
     private static class CountingPositionOutputStream
             extends PositionOutputStream
     {
