@@ -210,6 +210,8 @@ public class VacuumProcedure
                     alwaysFalse())) {
                 retainedPaths = Stream.concat(
                                 activeAddEntries
+                                        // paths can be absolute as well in case of shallow-cloned tables, and they shouldn't be deleted as part of vacuum because according to
+                                        // delta-protocol absolute paths are inherited from base table and the vacuum procedure should only list and delete local file references
                                         .map(AddFileEntry::getPath),
                                 transactionLogAccess.getJsonEntries(
                                                 fileSystem,
