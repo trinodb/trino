@@ -35,7 +35,8 @@ public class TestDeltaLakePlugin
     {
         Plugin plugin = new DeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
@@ -43,7 +44,8 @@ public class TestDeltaLakePlugin
     {
         Plugin plugin = new TestingDeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext());
+        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
@@ -81,7 +83,8 @@ public class TestDeltaLakePlugin
                 ImmutableMap.of(
                         "hive.metastore", "glue",
                         "hive.metastore.glue.region", "us-east-2"),
-                new TestingConnectorContext());
+                new TestingConnectorContext())
+                .shutdown();
 
         assertThatThrownBy(() -> factory.create(
                 "test",
@@ -127,7 +130,8 @@ public class TestDeltaLakePlugin
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://foo:1234",
                         "delta.metadata.cache-ttl", "0s"),
-                new TestingConnectorContext());
+                new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
@@ -139,7 +143,8 @@ public class TestDeltaLakePlugin
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://foo:1234",
                         "delta.metadata.live-files.cache-ttl", "0s"),
-                new TestingConnectorContext());
+                new TestingConnectorContext())
+                .shutdown();
     }
 
     @Test
