@@ -100,7 +100,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public abstract class BasePinotIntegrationConnectorSmokeTest
+public abstract class BasePinotConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
     private static final int MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES = 11;

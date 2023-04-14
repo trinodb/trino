@@ -19,8 +19,8 @@ import java.util.Map;
 
 import static io.trino.plugin.pinot.auth.PinotAuthenticationType.PASSWORD;
 
-public class TestSecuredPinotIntegrationConnectorSmokeTest
-        extends BasePinotIntegrationConnectorSmokeTest
+public class TestPinotSecuredConnectorSmokeTest
+        extends BasePinotConnectorSmokeTest
 {
     @Override
     protected boolean isSecured()
