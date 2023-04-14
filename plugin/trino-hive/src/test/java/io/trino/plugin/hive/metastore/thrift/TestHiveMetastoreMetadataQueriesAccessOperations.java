@@ -24,18 +24,19 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
-import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
+import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.MAX_PREFIXES_COUNT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -43,9 +44,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
-import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,25 +67,13 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                                 .setCatalog("hive")
                                 .setSchema(Optional.empty())
                                 .build())
+                // metadata queries do not use workers
+                .setNodeCount(1)
                 .build();
 
-        Path baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive");
-        FileHiveMetastore fileHiveMetastore = createTestingFileHiveMetastore(baseDir.toFile());
-        metastore = new CountingAccessHiveMetastore(fileHiveMetastore);
-
+        metastore = new CountingAccessHiveMetastore(new MockHiveMetastore());
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.of());
-
-        for (int schemaNumber = 0; schemaNumber < TEST_SCHEMAS_COUNT; schemaNumber++) {
-            String schemaName = "test_schema_%d".formatted(schemaNumber);
-            Path schemaPath = baseDir.resolve(schemaName);
-            fileHiveMetastore.createDatabase(prepareSchema(schemaName));
-            for (int tableNumber = 0; tableNumber < TEST_TABLES_IN_SCHEMA_COUNT; tableNumber++) {
-                String tableName = "test_table_%d".formatted(tableNumber);
-                Path tablePath = schemaPath.resolve(tableName);
-                fileHiveMetastore.createTable(prepareTable(schemaName, tableName, tablePath), NO_PRIVILEGES);
-            }
-        }
         return queryRunner;
     }
 
@@ -484,28 +471,49 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), getQueryRunner().getDefaultSession(), query, expectedInvocations);
     }
 
-    private static Database prepareSchema(String schemaName)
+    private static class MockHiveMetastore
+            extends UnimplementedHiveMetastore
     {
-        return Database.builder()
-                .setDatabaseName(schemaName)
-                .setOwnerName(Optional.empty())
-                .setOwnerType(Optional.empty())
-                .build();
-    }
+        private static final List<String> SCHEMAS = IntStream.range(0, TEST_SCHEMAS_COUNT)
+                .mapToObj("test_schema_%d"::formatted)
+                .collect(toImmutableList());
+        private static final List<String> TABLES_PER_SCHEMA = IntStream.range(0, TEST_TABLES_IN_SCHEMA_COUNT)
+                .mapToObj("test_table_%d"::formatted)
+                .collect(toImmutableList());
 
-    private static Table prepareTable(String schemaName, String tableName, Path tablePath)
-    {
-        return Table.builder()
-                .setDatabaseName(schemaName)
-                .setTableName(tableName)
-                .setDataColumns(ImmutableList.of(
-                        new Column("id", HiveType.HIVE_INT, Optional.empty()),
-                        new Column("name", HiveType.HIVE_STRING, Optional.empty())))
-                .setOwner(Optional.empty())
-                .setTableType(MANAGED_TABLE.name())
-                .withStorage(storage ->
-                        storage.setStorageFormat(fromHiveStorageFormat(ORC))
-                                .setLocation(Optional.of(tablePath.toUri().toString())))
-                .build();
+        @Override
+        public List<String> getAllDatabases()
+        {
+            return SCHEMAS;
+        }
+
+        @Override
+        public List<String> getAllTables(String databaseName)
+        {
+            return TABLES_PER_SCHEMA;
+        }
+
+        @Override
+        public List<String> getAllViews(String databaseName)
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public Optional<Table> getTable(String databaseName, String tableName)
+        {
+            return Optional.of(Table.builder()
+                    .setDatabaseName(databaseName)
+                    .setTableName(tableName)
+                    .setDataColumns(ImmutableList.of(
+                            new Column("id", HiveType.HIVE_INT, Optional.empty()),
+                            new Column("name", HiveType.HIVE_STRING, Optional.empty())))
+                    .setOwner(Optional.empty())
+                    .setTableType(MANAGED_TABLE.name())
+                    .withStorage(storage ->
+                            storage.setStorageFormat(fromHiveStorageFormat(ORC))
+                                    .setLocation(Optional.empty()))
+                    .build());
+        }
     }
 }
