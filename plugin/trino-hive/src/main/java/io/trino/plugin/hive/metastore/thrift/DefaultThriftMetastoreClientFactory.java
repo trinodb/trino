@@ -61,7 +61,7 @@ public class DefaultThriftMetastoreClientFactory
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics = new MetastoreSupportsDateStatistics();
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicInteger chosenGetAllViewsAlternative = new AtomicInteger(Integer.MAX_VALUE);
+    private final AtomicInteger chosenGetAllViewsPerDatabaseAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenAlterTransactionalTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenAlterPartitionsAlternative = new AtomicInteger(Integer.MAX_VALUE);
 
@@ -114,7 +114,7 @@ public class DefaultThriftMetastoreClientFactory
                 metastoreSupportsDateStatistics,
                 chosenGetTableAlternative,
                 chosenTableParamAlternative,
-                chosenGetAllViewsAlternative,
+                chosenGetAllViewsPerDatabaseAlternative,
                 chosenAlterTransactionalTableAlternative,
                 chosenAlterPartitionsAlternative);
     }
