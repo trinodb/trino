@@ -21,6 +21,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -57,6 +58,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.TestingTableFunctions.ConstantFunction.ConstantFunctionSplit.DEFAULT_SPLIT_SIZE;
+import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.trino.spi.ptf.TableFunctionProcessorState.Finished.FINISHED;
@@ -1150,16 +1152,14 @@ public class TestingTableFunctions
         {
             private static final int PAGE_SIZE = 1000;
 
-            private final Long value;
-
+            private final Block value;
             private long fullPagesCount;
             private long processedPages;
             private int reminder;
-            private Block block;
 
             public ConstantFunctionProcessor(Long value)
             {
-                this.value = value;
+                this.value = nativeValueToBlock(INTEGER, value);
             }
 
             @Override
@@ -1171,40 +1171,12 @@ public class TestingTableFunctions
                     long count = ((ConstantFunctionSplit) split).getCount();
                     this.fullPagesCount = count / PAGE_SIZE;
                     this.reminder = toIntExact(count % PAGE_SIZE);
-                    if (fullPagesCount > 0) {
-                        BlockBuilder builder = INTEGER.createBlockBuilder(null, PAGE_SIZE);
-                        if (value == null) {
-                            for (int i = 0; i < PAGE_SIZE; i++) {
-                                builder.appendNull();
-                            }
-                        }
-                        else {
-                            for (int i = 0; i < PAGE_SIZE; i++) {
-                                builder.writeInt(toIntExact(value));
-                            }
-                        }
-                        this.block = builder.build();
-                    }
-                    else {
-                        BlockBuilder builder = INTEGER.createBlockBuilder(null, reminder);
-                        if (value == null) {
-                            for (int i = 0; i < reminder; i++) {
-                                builder.appendNull();
-                            }
-                        }
-                        else {
-                            for (int i = 0; i < reminder; i++) {
-                                builder.writeInt(toIntExact(value));
-                            }
-                        }
-                        this.block = builder.build();
-                    }
                     usedData = true;
                 }
 
                 if (processedPages < fullPagesCount) {
                     processedPages++;
-                    Page result = new Page(block);
+                    Page result = new Page(RunLengthEncodedBlock.create(value, PAGE_SIZE));
                     if (usedData) {
                         return usedInputAndProduced(result);
                     }
@@ -1212,7 +1184,7 @@ public class TestingTableFunctions
                 }
 
                 if (reminder > 0) {
-                    Page result = new Page(block.getRegion(0, toIntExact(reminder)));
+                    Page result = new Page(RunLengthEncodedBlock.create(value, reminder));
                     reminder = 0;
                     if (usedData) {
                         return usedInputAndProduced(result);
