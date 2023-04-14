@@ -463,10 +463,16 @@ class Query
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
-        closeExchangeIfNecessary(queryInfo);
-
-        // fetch result data from exchange
-        QueryResultRows resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
+        boolean isStarted = queryInfo.getState().ordinal() > QueryState.STARTING.ordinal();
+        QueryResultRows resultRows;
+        if (isStarted) {
+            closeExchangeIfNecessary(queryInfo);
+            // fetch result data from exchange
+            resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
+        }
+        else {
+            resultRows = queryResultRowsBuilder(session).build();
+        }
 
         if ((queryInfo.getUpdateType() != null) && (updateCount == null)) {
             // grab the update count for non-queries
@@ -474,7 +480,7 @@ class Query
             updateCount = updatedRowsCount.orElse(null);
         }
 
-        if (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished()) {
+        if (isStarted && (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished())) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
             // update query since the query might have been transitioned to the FINISHED state

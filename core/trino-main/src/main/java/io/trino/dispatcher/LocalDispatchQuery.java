@@ -97,8 +97,11 @@ public class LocalDispatchQuery
                     queryMonitor.queryImmediateFailureEvent(getBasicQueryInfo(), getFullQueryInfo().getFailureInfo());
                 }
             }
-            if (state.isDone()) {
+            // any PLANNING or later state means the query has been submitted for execution
+            if (state.ordinal() >= QueryState.PLANNING.ordinal()) {
                 submitted.set(null);
+            }
+            if (state.isDone()) {
                 queryExecutionFuture.cancel(true);
             }
         });
