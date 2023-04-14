@@ -114,6 +114,9 @@ public class AddFileEntry
         this.parsedStats = resultParsedStats;
     }
 
+    /**
+     * @see <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file">Delta Lake protocol</a>
+     */
     @JsonProperty
     public String getPath()
     {
