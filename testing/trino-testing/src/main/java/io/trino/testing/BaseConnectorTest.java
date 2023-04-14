@@ -15,13 +15,11 @@ package io.trino.testing;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.cost.StatsAndCosts;
@@ -31,7 +29,9 @@ import io.trino.execution.QueryManager;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.security.Identity;
@@ -3945,18 +3945,26 @@ public abstract class BaseConnectorTest
 
     protected boolean isReportingWrittenBytesSupported(Session session)
     {
-        CatalogName catalogName = session.getCatalog()
-                .map(CatalogName::new)
-                .orElseThrow();
-        Metadata metadata = getQueryRunner().getMetadata();
-        metadata.getCatalogHandle(session, catalogName.getCatalogName());
-        QualifiedObjectName fullTableName = new QualifiedObjectName(catalogName.getCatalogName(), "any", "any");
-        return getQueryRunner().getMetadata().supportsReportingWrittenBytes(session, fullTableName, ImmutableMap.of());
+        String catalogName = session.getCatalog().orElseThrow();
+        TestingTrinoServer coordinator = getDistributedQueryRunner().getCoordinator();
+        Map<String, Object> properties = coordinator.getTablePropertyManager().getProperties(
+                catalogName,
+                coordinator.getMetadata().getCatalogHandle(session, catalogName).orElseThrow(),
+                List.of(),
+                session,
+                null,
+                new AllowAllAccessControl(),
+                Map.of(),
+                true);
+        QualifiedObjectName fullTableName = new QualifiedObjectName(catalogName, "any", "any");
+        return coordinator.getMetadata().supportsReportingWrittenBytes(session, fullTableName, properties);
     }
 
     @Test
     public void isReportingWrittenBytesSupported()
     {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+
         transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .singleStatement()
                 .execute(getSession(), (Consumer<Session>) session -> skipTestUnless(isReportingWrittenBytesSupported(session)));
