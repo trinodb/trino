@@ -234,6 +234,12 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.ptf.TableFunctionSplitProcessor</old>
+                                    <justification>It is just marked @Experimental</justification>
+                                </item>
+                                <item>
                                     <regex>true</regex>
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <newArchive>io.opentelemetry:opentelemetry-(api|context):.*</newArchive>
