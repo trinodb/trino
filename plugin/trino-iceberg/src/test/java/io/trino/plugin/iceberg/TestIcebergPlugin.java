@@ -39,6 +39,19 @@ public class TestIcebergPlugin
     }
 
     @Test
+    public void testTestingFileMetastore()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "TESTING_FILE_METASTORE",
+                                "hive.metastore.catalog.dir", "/tmp"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
     public void testThriftMetastore()
     {
         ConnectorFactory factory = getConnectorFactory();
