@@ -114,7 +114,7 @@ public class ThriftHiveMetastoreClient
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
     private final AtomicInteger chosenGetTableAlternative;
     private final AtomicInteger chosenTableParamAlternative;
-    private final AtomicInteger chosenGetAllViewsAlternative;
+    private final AtomicInteger chosenGetAllViewsPerDatabaseAlternative;
     private final AtomicInteger chosenAlterTransactionalTableAlternative;
     private final AtomicInteger chosenAlterPartitionsAlternative;
 
@@ -124,7 +124,7 @@ public class ThriftHiveMetastoreClient
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
             AtomicInteger chosenGetTableAlternative,
             AtomicInteger chosenTableParamAlternative,
-            AtomicInteger chosenGetAllViewsAlternative,
+            AtomicInteger chosenGetAllViewsPerDatabaseAlternative,
             AtomicInteger chosenAlterTransactionalTableAlternative,
             AtomicInteger chosenAlterPartitionsAlternative)
             throws TTransportException
@@ -134,7 +134,7 @@ public class ThriftHiveMetastoreClient
         this.metastoreSupportsDateStatistics = requireNonNull(metastoreSupportsDateStatistics, "metastoreSupportsDateStatistics is null");
         this.chosenGetTableAlternative = requireNonNull(chosenGetTableAlternative, "chosenGetTableAlternative is null");
         this.chosenTableParamAlternative = requireNonNull(chosenTableParamAlternative, "chosenTableParamAlternative is null");
-        this.chosenGetAllViewsAlternative = requireNonNull(chosenGetAllViewsAlternative, "chosenGetAllViewsAlternative is null");
+        this.chosenGetAllViewsPerDatabaseAlternative = requireNonNull(chosenGetAllViewsPerDatabaseAlternative, "chosenGetAllViewsPerDatabaseAlternative is null");
         this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
         this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
 
@@ -190,7 +190,7 @@ public class ThriftHiveMetastoreClient
     {
         return alternativeCall(
                 exception -> !isUnknownMethodExceptionalResponse(exception),
-                chosenGetAllViewsAlternative,
+                chosenGetAllViewsPerDatabaseAlternative,
                 () -> client.getTablesByType(databaseName, ".*", VIRTUAL_VIEW.name()),
                 // fallback to enumerating Presto views only (Hive views can still be executed, but will be listed as tables and not views)
                 () -> getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
