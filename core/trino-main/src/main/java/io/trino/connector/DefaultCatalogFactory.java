@@ -121,18 +121,24 @@ public class DefaultCatalogFactory
                 catalogProperties.getCatalogHandle(),
                 factory.getDuplicatePluginClassLoaderFactory(),
                 handleResolver);
-        Connector connector = createConnector(
-                catalogProperties.getCatalogHandle().getCatalogName(),
-                catalogProperties.getCatalogHandle(),
-                factory.getConnectorFactory(),
-                duplicatePluginClassLoaderFactory,
-                catalogProperties.getProperties());
-        return createCatalog(
-                catalogProperties.getCatalogHandle(),
-                catalogProperties.getConnectorName(),
-                connector,
-                duplicatePluginClassLoaderFactory::destroy,
-                Optional.of(catalogProperties));
+        try {
+            Connector connector = createConnector(
+                    catalogProperties.getCatalogHandle().getCatalogName(),
+                    catalogProperties.getCatalogHandle(),
+                    factory.getConnectorFactory(),
+                    duplicatePluginClassLoaderFactory,
+                    catalogProperties.getProperties());
+            return createCatalog(
+                    catalogProperties.getCatalogHandle(),
+                    catalogProperties.getConnectorName(),
+                    connector,
+                    duplicatePluginClassLoaderFactory::destroy,
+                    Optional.of(catalogProperties));
+        }
+        catch (Throwable e) {
+            duplicatePluginClassLoaderFactory.destroy();
+            throw e;
+        }
     }
 
     @Override
