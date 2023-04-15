@@ -14,25 +14,25 @@
 package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.Int96ArrayBlock;
+import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.Arrays;
 import java.util.Optional;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
 import static java.lang.Math.max;
 
-public class Int96PositionsAppender
+public class Fixed12PositionsAppender
         implements PositionsAppender
 {
-    private static final int INSTANCE_SIZE = instanceSize(Int96PositionsAppender.class);
-    private static final Block NULL_VALUE_BLOCK = new Int96ArrayBlock(1, Optional.of(new boolean[] {true}), new long[1], new int[1]);
+    private static final int INSTANCE_SIZE = instanceSize(Fixed12PositionsAppender.class);
+    private static final Block NULL_VALUE_BLOCK = new Fixed12Block(1, Optional.of(new boolean[] {true}), new int[3]);
 
     private boolean initialized;
     private int initialEntryCount;
@@ -43,13 +43,12 @@ public class Int96PositionsAppender
 
     // it is assumed that these arrays are the same length
     private boolean[] valueIsNull = new boolean[0];
-    private long[] high = new long[0];
-    private int[] low = new int[0];
+    private int[] values = new int[0];
 
     private long retainedSizeInBytes;
     private long sizeInBytes;
 
-    public Int96PositionsAppender(int expectedEntries)
+    public Fixed12PositionsAppender(int expectedEntries)
     {
         this.initialEntryCount = max(expectedEntries, 1);
 
@@ -71,14 +70,15 @@ public class Int96PositionsAppender
             for (int i = 0; i < positionsSize; i++) {
                 int position = positionArray[i];
                 boolean isNull = block.isNull(position);
-                int positionIndex = positionCount + i;
                 if (isNull) {
-                    valueIsNull[positionIndex] = true;
+                    valueIsNull[positionCount + i] = true;
                     hasNullValue = true;
                 }
                 else {
-                    high[positionIndex] = block.getLong(position, 0);
-                    low[positionIndex] = block.getInt(position, SIZE_OF_LONG);
+                    int valuesIndex = (positionCount + i) * 3;
+                    values[valuesIndex] = block.getInt(position, 0);
+                    values[valuesIndex + 1] = block.getInt(position, SIZE_OF_INT);
+                    values[valuesIndex + 2] = block.getInt(position, SIZE_OF_INT + SIZE_OF_INT);
                     hasNonNullValue = true;
                 }
             }
@@ -87,8 +87,10 @@ public class Int96PositionsAppender
         else {
             for (int i = 0; i < positionsSize; i++) {
                 int position = positionArray[i];
-                high[positionCount + i] = block.getLong(position, 0);
-                low[positionCount + i] = block.getInt(position, SIZE_OF_LONG);
+                int valuesIndex = (positionCount + i) * 3;
+                values[valuesIndex] = block.getInt(position, 0);
+                values[valuesIndex + 1] = block.getInt(position, SIZE_OF_INT);
+                values[valuesIndex + 2] = block.getInt(position, SIZE_OF_INT + SIZE_OF_INT);
             }
             positionCount += positionsSize;
             hasNonNullValue = true;
@@ -110,11 +112,15 @@ public class Int96PositionsAppender
             hasNullValue = true;
         }
         else {
-            long valueHigh = block.getLong(sourcePosition, 0);
-            int valueLow = block.getInt(sourcePosition, SIZE_OF_LONG);
+            int valueHigh = block.getInt(sourcePosition, 0);
+            int valueMid = block.getInt(sourcePosition, SIZE_OF_INT);
+            int valueLow = block.getInt(sourcePosition, SIZE_OF_INT + SIZE_OF_INT);
+            int positionIndex = positionCount * 3;
             for (int i = 0; i < rlePositionCount; i++) {
-                high[positionCount + i] = valueHigh;
-                low[positionCount + i] = valueLow;
+                values[positionIndex] = valueHigh;
+                values[positionIndex + 1] = valueMid;
+                values[positionIndex + 2] = valueLow;
+                positionIndex += 3;
             }
             hasNonNullValue = true;
         }
@@ -132,9 +138,10 @@ public class Int96PositionsAppender
             hasNullValue = true;
         }
         else {
-            high[positionCount] = source.getLong(sourcePosition, 0);
-            low[positionCount] = source.getInt(sourcePosition, SIZE_OF_LONG);
-
+            int positionIndex = positionCount * 3;
+            values[positionIndex] = source.getInt(sourcePosition, 0);
+            values[positionIndex + 1] = source.getInt(sourcePosition, SIZE_OF_INT);
+            values[positionIndex + 2] = source.getInt(sourcePosition, SIZE_OF_INT + SIZE_OF_INT);
             hasNonNullValue = true;
         }
         positionCount++;
@@ -147,7 +154,7 @@ public class Int96PositionsAppender
     {
         Block result;
         if (hasNonNullValue) {
-            result = new Int96ArrayBlock(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), high, low);
+            result = new Fixed12Block(positionCount, hasNullValue ? Optional.of(valueIsNull) : Optional.empty(), values);
         }
         else {
             result = RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
@@ -173,8 +180,7 @@ public class Int96PositionsAppender
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialized = false;
         valueIsNull = new boolean[0];
-        high = new long[0];
-        low = new int[0];
+        values = new int[0];
         positionCount = 0;
         sizeInBytes = 0;
         hasNonNullValue = false;
@@ -199,18 +205,17 @@ public class Int96PositionsAppender
         newSize = Math.max(newSize, capacity);
 
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
-        high = Arrays.copyOf(high, newSize);
-        low = Arrays.copyOf(low, newSize);
+        values = Arrays.copyOf(values, newSize * 3);
         updateRetainedSize();
     }
 
     private void updateSize(long positionsSize)
     {
-        sizeInBytes += Int96ArrayBlock.SIZE_IN_BYTES_PER_POSITION * positionsSize;
+        sizeInBytes += Fixed12Block.SIZE_IN_BYTES_PER_POSITION * positionsSize;
     }
 
     private void updateRetainedSize()
     {
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(high) + sizeOf(low);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
 }

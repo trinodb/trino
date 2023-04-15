@@ -24,8 +24,8 @@ import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Int128ArrayBlock;
-import io.trino.spi.block.Int96ArrayBlock;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -135,14 +135,14 @@ public class TestingColumnReader
             .put(TIME_MILLIS, LongArrayBlock.class)
             .put(TIMESTAMP_MILLIS, LongArrayBlock.class)
             .put(TIMESTAMP_TZ_MILLIS, LongArrayBlock.class)
-            .put(TIMESTAMP_TZ_NANOS, Int96ArrayBlock.class)
-            .put(TIMESTAMP_PICOS, Int96ArrayBlock.class)
+            .put(TIMESTAMP_TZ_NANOS, Fixed12Block.class)
+            .put(TIMESTAMP_PICOS, Fixed12Block.class)
             .put(UUID, Int128ArrayBlock.class)
             .buildOrThrow();
 
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_INT_WRITER =
             length -> new PlainIntegerDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
-    private static final IntFunction<DictionaryValuesWriter> DICTIONARY_LONG_WRITER =
+    public static final IntFunction<DictionaryValuesWriter> DICTIONARY_LONG_WRITER =
             length -> new PlainLongDictionaryValuesWriter(Integer.MAX_VALUE, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
     private static final IntFunction<DictionaryValuesWriter> DICTIONARY_FIXED_LENGTH_WRITER =
             length -> new PlainFixedLenArrayDictionaryValuesWriter(Integer.MAX_VALUE, length, Encoding.RLE, Encoding.PLAIN, HeapByteBufferAllocator.getInstance());
@@ -211,7 +211,7 @@ public class TestingColumnReader
         }
         return result;
     };
-    private static final Writer<Number> WRITE_LONG_TIMESTAMP = (writer, values) -> {
+    public static final Writer<Number> WRITE_LONG_TIMESTAMP = (writer, values) -> {
         Number[] result = new Number[values.length];
         for (int i = 0; i < values.length; i++) {
             if (values[i] != null) {
@@ -535,7 +535,7 @@ public class TestingColumnReader
         };
     }
 
-    private static Assertion<Number> assertLongTimestamp(int precision)
+    public static Assertion<Number> assertLongTimestamp(int precision)
     {
         int multiplier = IntMath.pow(10, precision);
         return (values, block, offset, blockOffset) ->

@@ -21,7 +21,7 @@ import java.util.Random;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 
-public class TestInt96ArrayBlockEncoding
+public class TestFixed12BlockEncoding
         extends BaseBlockEncodingTest<LongTimestamp>
 {
     @Override

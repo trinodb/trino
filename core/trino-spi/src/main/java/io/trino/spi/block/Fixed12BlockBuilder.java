@@ -22,21 +22,23 @@ import java.util.Arrays;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
-import static io.trino.spi.block.Int96ArrayBlock.INT96_BYTES;
+import static io.trino.spi.block.Fixed12Block.FIXED12_BYTES;
+import static io.trino.spi.block.Fixed12Block.decodeFixed12First;
+import static io.trino.spi.block.Fixed12Block.encodeFirst;
 import static java.lang.Math.max;
 
-public class Int96ArrayBlockBuilder
+public class Fixed12BlockBuilder
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = instanceSize(Int96ArrayBlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new Int96ArrayBlock(0, 1, new boolean[] {true}, new long[1], new int[1]);
+    private static final int INSTANCE_SIZE = instanceSize(Fixed12BlockBuilder.class);
+    private static final Block NULL_VALUE_BLOCK = new Fixed12Block(0, 1, new boolean[] {true}, new int[3]);
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -49,14 +51,13 @@ public class Int96ArrayBlockBuilder
 
     // it is assumed that these arrays are the same length
     private boolean[] valueIsNull = new boolean[0];
-    private long[] high = new long[0];
-    private int[] low = new int[0];
+    private int[] values = new int[0];
 
     private long retainedSizeInBytes;
 
     private int entryPositionCount;
 
-    public Int96ArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public Fixed12BlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         this.blockBuilderStatus = blockBuilderStatus;
         this.initialEntryCount = max(expectedEntries, 1);
@@ -65,7 +66,7 @@ public class Int96ArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder writeLong(long high)
+    public BlockBuilder writeLong(long value)
     {
         if (entryPositionCount != 0) {
             throw new IllegalArgumentException("long can only be written at the beginning of the entry");
@@ -75,40 +76,38 @@ public class Int96ArrayBlockBuilder
             growCapacity();
         }
 
-        this.high[positionCount] = high;
+        encodeFirst(value, values, positionCount);
+        entryPositionCount += 2;
+
         hasNonNullValue = true;
-        entryPositionCount++;
         return this;
     }
 
     @Override
-    public BlockBuilder writeInt(int low)
+    public BlockBuilder writeInt(int value)
     {
-        if (entryPositionCount != 1) {
-            throw new IllegalArgumentException("int can only be written at the end of the entry");
-        }
-
         if (valueIsNull.length <= positionCount) {
             growCapacity();
         }
 
-        this.low[positionCount] = low;
-        hasNonNullValue = true;
+        values[(positionCount * 3) + entryPositionCount] = value;
         entryPositionCount++;
+
+        hasNonNullValue = true;
         return this;
     }
 
     @Override
     public BlockBuilder closeEntry()
     {
-        if (entryPositionCount != 2) {
-            throw new IllegalStateException("Expected entry size to be exactly " + INT96_BYTES + " bytes but was " + (entryPositionCount * SIZE_OF_LONG));
+        if (entryPositionCount != 3) {
+            throw new IllegalStateException("Expected entry size to be exactly " + FIXED12_BYTES + " bytes but was " + (entryPositionCount * SIZE_OF_INT));
         }
 
         positionCount++;
         entryPositionCount = 0;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + INT96_BYTES);
+            blockBuilderStatus.addBytes(Byte.BYTES + FIXED12_BYTES);
         }
         return this;
     }
@@ -129,7 +128,7 @@ public class Int96ArrayBlockBuilder
         hasNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Byte.BYTES + INT96_BYTES);
+            blockBuilderStatus.addBytes(Byte.BYTES + FIXED12_BYTES);
         }
         return this;
     }
@@ -140,13 +139,13 @@ public class Int96ArrayBlockBuilder
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, positionCount);
         }
-        return new Int96ArrayBlock(0, positionCount, hasNullValue ? valueIsNull : null, high, low);
+        return new Fixed12Block(0, positionCount, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
     public BlockBuilder newBlockBuilderLike(int expectedEntries, BlockBuilderStatus blockBuilderStatus)
     {
-        return new Int96ArrayBlockBuilder(blockBuilderStatus, expectedEntries);
+        return new Fixed12BlockBuilder(blockBuilderStatus, expectedEntries);
     }
 
     private void growCapacity()
@@ -161,14 +160,13 @@ public class Int96ArrayBlockBuilder
         }
 
         valueIsNull = Arrays.copyOf(valueIsNull, newSize);
-        high = Arrays.copyOf(high, newSize);
-        low = Arrays.copyOf(low, newSize);
+        values = Arrays.copyOf(values, newSize * 3);
         updateDataSize();
     }
 
     private void updateDataSize()
     {
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(high) + sizeOf(low);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
         if (blockBuilderStatus != null) {
             retainedSizeInBytes += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -177,25 +175,25 @@ public class Int96ArrayBlockBuilder
     @Override
     public OptionalInt fixedSizeInBytesPerPosition()
     {
-        return OptionalInt.of(Int96ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        return OptionalInt.of(Fixed12Block.SIZE_IN_BYTES_PER_POSITION);
     }
 
     @Override
     public long getSizeInBytes()
     {
-        return Int96ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
+        return Fixed12Block.SIZE_IN_BYTES_PER_POSITION * (long) positionCount;
     }
 
     @Override
     public long getRegionSizeInBytes(int position, int length)
     {
-        return Int96ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) length;
+        return Fixed12Block.SIZE_IN_BYTES_PER_POSITION * (long) length;
     }
 
     @Override
     public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
     {
-        return Int96ArrayBlock.SIZE_IN_BYTES_PER_POSITION * (long) selectedPositionsCount;
+        return Fixed12Block.SIZE_IN_BYTES_PER_POSITION * (long) selectedPositionsCount;
     }
 
     @Override
@@ -207,14 +205,13 @@ public class Int96ArrayBlockBuilder
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        return isNull(position) ? 0 : INT96_BYTES;
+        return isNull(position) ? 0 : FIXED12_BYTES;
     }
 
     @Override
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
-        consumer.accept(high, sizeOf(high));
-        consumer.accept(low, sizeOf(low));
+        consumer.accept(values, sizeOf(values));
         consumer.accept(valueIsNull, sizeOf(valueIsNull));
         consumer.accept(this, INSTANCE_SIZE);
     }
@@ -230,21 +227,26 @@ public class Int96ArrayBlockBuilder
     {
         checkReadablePosition(this, position);
         if (offset != 0) {
+            // If needed, we can add support for offset 4
             throw new IllegalArgumentException("offset must be 0");
         }
-
-        return high[position];
+        return decodeFixed12First(values, position);
     }
 
     @Override
     public int getInt(int position, int offset)
     {
         checkReadablePosition(this, position);
-        if (offset != 8) {
-            throw new IllegalArgumentException("offset must be 8");
+        if (offset == 0) {
+            return values[position * 3];
         }
-
-        return low[position];
+        if (offset == 4) {
+            return values[(position * 3) + 1];
+        }
+        if (offset == 8) {
+            return values[(position * 3) + 2];
+        }
+        throw new IllegalArgumentException("offset must be 0, 4, or 8");
     }
 
     @Override
@@ -264,12 +266,12 @@ public class Int96ArrayBlockBuilder
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
-        return new Int96ArrayBlock(
+        int index = position * 3;
+        return new Fixed12Block(
                 0,
                 1,
-                valueIsNull[position] ? new boolean[] {true} : null,
-                new long[] {high[position]},
-                new int[] {low[position]});
+                isNull(position) ? new boolean[] {true} : null,
+                new int[] {values[index], values[index + 1], values[index + 2]});
     }
 
     @Override
@@ -284,18 +286,20 @@ public class Int96ArrayBlockBuilder
         if (hasNullValue) {
             newValueIsNull = new boolean[length];
         }
-        long[] newHigh = new long[length];
-        int[] newLow = new int[length];
+        int[] newValues = new int[length * 3];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             checkReadablePosition(this, position);
-            if (hasNullValue) {
+            if (newValueIsNull != null) {
                 newValueIsNull[i] = valueIsNull[position];
             }
-            newHigh[i] = high[position];
-            newLow[i] = low[position];
+            int valuesIndex = (position) * 3;
+            int newValuesIndex = i * 3;
+            newValues[newValuesIndex] = values[valuesIndex];
+            newValues[newValuesIndex + 1] = values[valuesIndex + 1];
+            newValues[newValuesIndex + 2] = values[valuesIndex + 2];
         }
-        return new Int96ArrayBlock(0, length, newValueIsNull, newHigh, newLow);
+        return new Fixed12Block(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -306,7 +310,7 @@ public class Int96ArrayBlockBuilder
         if (!hasNonNullValue) {
             return RunLengthEncodedBlock.create(NULL_VALUE_BLOCK, length);
         }
-        return new Int96ArrayBlock(positionOffset, length, hasNullValue ? valueIsNull : null, high, low);
+        return new Fixed12Block(positionOffset, length, hasNullValue ? valueIsNull : null, values);
     }
 
     @Override
@@ -321,33 +325,27 @@ public class Int96ArrayBlockBuilder
         if (hasNullValue) {
             newValueIsNull = compactArray(valueIsNull, positionOffset, length);
         }
-        long[] newHigh = compactArray(high, positionOffset, length);
-        int[] newLow = compactArray(low, positionOffset, length);
-        return new Int96ArrayBlock(0, length, newValueIsNull, newHigh, newLow);
+        int[] newValues = compactArray(values, positionOffset * 3, length * 3);
+        return new Fixed12Block(0, length, newValueIsNull, newValues);
     }
 
     @Override
     public String getEncodingName()
     {
-        return Int96ArrayBlockEncoding.NAME;
+        return Fixed12BlockEncoding.NAME;
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("Int96ArrayBlockBuilder{");
+        StringBuilder sb = new StringBuilder("Fixed12BlockBuilder{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
     }
 
-    Slice getHighSlice()
+    Slice getValuesSlice()
     {
-        return Slices.wrappedLongArray(high, 0, positionCount);
-    }
-
-    Slice getLowSlice()
-    {
-        return Slices.wrappedIntArray(low, 0, positionCount);
+        return Slices.wrappedIntArray(values, 0, positionCount * 3);
     }
 }

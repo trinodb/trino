@@ -52,8 +52,8 @@ import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt9
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
+import static io.trino.parquet.reader.flat.Fixed12ColumnAdapter.FIXED12_ADAPTER;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
-import static io.trino.parquet.reader.flat.Int96ColumnAdapter.INT96_ADAPTER;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.parquet.reader.flat.ShortColumnAdapter.SHORT_ADAPTER;
@@ -174,7 +174,7 @@ public final class ColumnReaderFactory
                 return createColumnReader(
                         field,
                         (encoding, primitiveField) -> getInt96ToLongTimestampDecoder(encoding, primitiveField, timeZone),
-                        INT96_ADAPTER,
+                        FIXED12_ADAPTER,
                         memoryContext);
             }
             if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT96) {
@@ -195,9 +195,9 @@ public final class ColumnReaderFactory
                     };
                 }
                 return switch (timestampAnnotation.getUnit()) {
-                    case MILLIS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMillisToLongTimestampDecoder, INT96_ADAPTER, memoryContext);
-                    case MICROS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampDecoder, INT96_ADAPTER, memoryContext);
-                    case NANOS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampNanosToLongTimestampDecoder, INT96_ADAPTER, memoryContext);
+                    case MILLIS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMillisToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
+                    case MICROS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
+                    case NANOS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampNanosToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
                 };
             }
             if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT64) {
@@ -213,7 +213,7 @@ public final class ColumnReaderFactory
                 }
                 return switch (timestampAnnotation.getUnit()) {
                     case MILLIS, NANOS -> throw unsupportedException(type, field);
-                    case MICROS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder, INT96_ADAPTER, memoryContext);
+                    case MICROS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder, FIXED12_ADAPTER, memoryContext);
                 };
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
