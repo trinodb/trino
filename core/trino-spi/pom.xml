@@ -257,6 +257,24 @@
                                     <newArchive>io.opentelemetry:opentelemetry-(api|context):.*</newArchive>
                                     <justification>Trino SPI depends on OpenTelemetry</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.Int96ArrayBlock</old>
+                                    <justification>Int96Array renamed to Fixed12 since this is never used as a number</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.Int96ArrayBlockBuilder</old>
+                                    <justification>Int96Array renamed to Fixed12 since this is never used as a number</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.Int96ArrayBlockEncoding</old>
+                                    <justification>Int96Array renamed to Fixed12 since this is never used as a number</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

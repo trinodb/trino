@@ -28,14 +28,16 @@ import java.util.Random;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.trino.parquet.reader.TestingColumnReader.encodeInt96Timestamp;
-import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
+import static io.trino.spi.block.Fixed12Block.decodeFixed12First;
+import static io.trino.spi.block.Fixed12Block.decodeFixed12Second;
+import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
-public class BenchmarkInt96ColumnReader
-        extends AbstractColumnReaderBenchmark<Int96Buffer>
+public class BenchmarkFixed12ColumnReader
+        extends AbstractColumnReaderBenchmark<int[]>
 {
     private static final int LENGTH = SIZE_OF_LONG + SIZE_OF_INT;
 
@@ -59,15 +61,15 @@ public class BenchmarkInt96ColumnReader
     }
 
     @Override
-    protected void writeValue(ValuesWriter writer, Int96Buffer batch, int index)
+    protected void writeValue(ValuesWriter writer, int[] batch, int index)
     {
-        writer.writeBytes(encodeInt96Timestamp(batch.longs[index], batch.ints[index]));
+        writer.writeBytes(encodeInt96Timestamp(decodeFixed12First(batch, index), decodeFixed12Second(batch, index)));
     }
 
     @Override
-    protected Int96Buffer generateDataBatch(int size)
+    protected int[] generateDataBatch(int size)
     {
-        Int96Buffer batch = new Int96Buffer(size);
+        int[] batch = new int[size * 3];
         for (int i = 0; i < size; i++) {
             LocalDateTime timestamp = LocalDateTime.of(
                     random.nextInt(Year.MIN_VALUE, Year.MAX_VALUE + 1),
@@ -76,8 +78,7 @@ public class BenchmarkInt96ColumnReader
                     random.nextInt(24),
                     random.nextInt(60),
                     random.nextInt(60));
-            batch.longs[i] = timestamp.toEpochSecond(UTC);
-            batch.ints[i] = timestamp.get(NANO_OF_SECOND);
+            encodeFixed12(timestamp.toEpochSecond(UTC), timestamp.get(NANO_OF_SECOND), batch, i);
         }
         return batch;
     }
@@ -85,6 +86,6 @@ public class BenchmarkInt96ColumnReader
     public static void main(String[] args)
             throws Exception
     {
-        run(BenchmarkInt96ColumnReader.class);
+        run(BenchmarkFixed12ColumnReader.class);
     }
 }

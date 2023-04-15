@@ -31,28 +31,27 @@ import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.ensureCapacity;
 
-public class Int96ArrayBlock
+public class Fixed12Block
         implements Block
 {
-    private static final int INSTANCE_SIZE = instanceSize(Int96ArrayBlock.class);
-    public static final int INT96_BYTES = Long.BYTES + Integer.BYTES;
-    public static final int SIZE_IN_BYTES_PER_POSITION = INT96_BYTES + Byte.BYTES;
+    private static final int INSTANCE_SIZE = instanceSize(Fixed12Block.class);
+    public static final int FIXED12_BYTES = Long.BYTES + Integer.BYTES;
+    public static final int SIZE_IN_BYTES_PER_POSITION = FIXED12_BYTES + Byte.BYTES;
 
     private final int positionOffset;
     private final int positionCount;
     @Nullable
     private final boolean[] valueIsNull;
-    private final long[] high;
-    private final int[] low;
+    private final int[] values;
 
     private final long retainedSizeInBytes;
 
-    public Int96ArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] high, int[] low)
+    public Fixed12Block(int positionCount, Optional<boolean[]> valueIsNull, int[] values)
     {
-        this(0, positionCount, valueIsNull.orElse(null), high, low);
+        this(0, positionCount, valueIsNull.orElse(null), values);
     }
 
-    Int96ArrayBlock(int positionOffset, int positionCount, boolean[] valueIsNull, long[] high, int[] low)
+    Fixed12Block(int positionOffset, int positionCount, boolean[] valueIsNull, int[] values)
     {
         if (positionOffset < 0) {
             throw new IllegalArgumentException("positionOffset is negative");
@@ -63,22 +62,17 @@ public class Int96ArrayBlock
         }
         this.positionCount = positionCount;
 
-        if (high.length - positionOffset < positionCount) {
-            throw new IllegalArgumentException("high length is less than positionCount");
+        if (values.length - (positionOffset * 3) < positionCount * 3) {
+            throw new IllegalArgumentException("values length is less than positionCount");
         }
-        this.high = high;
-
-        if (low.length - positionOffset < positionCount) {
-            throw new IllegalArgumentException("low length is less than positionCount");
-        }
-        this.low = low;
+        this.values = values;
 
         if (valueIsNull != null && valueIsNull.length - positionOffset < positionCount) {
             throw new IllegalArgumentException("isNull length is less than positionCount");
         }
         this.valueIsNull = valueIsNull;
 
-        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(high) + sizeOf(low);
+        retainedSizeInBytes = INSTANCE_SIZE + sizeOf(valueIsNull) + sizeOf(values);
     }
 
     @Override
@@ -114,14 +108,13 @@ public class Int96ArrayBlock
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        return isNull(position) ? 0 : INT96_BYTES;
+        return isNull(position) ? 0 : FIXED12_BYTES;
     }
 
     @Override
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
-        consumer.accept(high, sizeOf(high));
-        consumer.accept(low, sizeOf(low));
+        consumer.accept(values, sizeOf(values));
         if (valueIsNull != null) {
             consumer.accept(valueIsNull, sizeOf(valueIsNull));
         }
@@ -139,19 +132,26 @@ public class Int96ArrayBlock
     {
         checkReadablePosition(this, position);
         if (offset != 0) {
+            // If needed, we can add support for offset 4
             throw new IllegalArgumentException("offset must be 0");
         }
-        return high[positionOffset + position];
+        return decodeFixed12First(values, position + positionOffset);
     }
 
     @Override
     public int getInt(int position, int offset)
     {
         checkReadablePosition(this, position);
-        if (offset != 8) {
-            throw new IllegalArgumentException("offset must be 8");
+        if (offset == 0) {
+            return values[(position + positionOffset) * 3];
         }
-        return low[positionOffset + position];
+        if (offset == 4) {
+            return values[((position + positionOffset) * 3) + 1];
+        }
+        if (offset == 8) {
+            return values[((position + positionOffset) * 3) + 2];
+        }
+        throw new IllegalArgumentException("offset must be 0, 4, or 8");
     }
 
     @Override
@@ -168,24 +168,15 @@ public class Int96ArrayBlock
     }
 
     @Override
-    public Block copyWithAppendedNull()
-    {
-        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
-        long[] newHigh = ensureCapacity(high, positionOffset + positionCount + 1);
-        int[] newLow = ensureCapacity(low, positionOffset + positionCount + 1);
-        return new Int96ArrayBlock(positionOffset, positionCount + 1, newValueIsNull, newHigh, newLow);
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         checkReadablePosition(this, position);
-        return new Int96ArrayBlock(
+        int index = (position + positionOffset) * 3;
+        return new Fixed12Block(
                 0,
                 1,
                 isNull(position) ? new boolean[] {true} : null,
-                new long[] {high[position + positionOffset]},
-                new int[] {low[position + positionOffset]});
+                new int[] {values[index], values[index + 1], values[index + 2]});
     }
 
     @Override
@@ -197,18 +188,20 @@ public class Int96ArrayBlock
         if (valueIsNull != null) {
             newValueIsNull = new boolean[length];
         }
-        long[] newHigh = new long[length];
-        int[] newLow = new int[length];
+        int[] newValues = new int[length * 3];
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             checkReadablePosition(this, position);
             if (valueIsNull != null) {
                 newValueIsNull[i] = valueIsNull[position + positionOffset];
             }
-            newHigh[i] = high[position + positionOffset];
-            newLow[i] = low[position + positionOffset];
+            int valuesIndex = (position + positionOffset) * 3;
+            int newValuesIndex = i * 3;
+            newValues[newValuesIndex] = values[valuesIndex];
+            newValues[newValuesIndex + 1] = values[valuesIndex + 1];
+            newValues[newValuesIndex + 2] = values[valuesIndex + 2];
         }
-        return new Int96ArrayBlock(0, length, newValueIsNull, newHigh, newLow);
+        return new Fixed12Block(0, length, newValueIsNull, newValues);
     }
 
     @Override
@@ -216,7 +209,7 @@ public class Int96ArrayBlock
     {
         checkValidRegion(getPositionCount(), positionOffset, length);
 
-        return new Int96ArrayBlock(positionOffset + this.positionOffset, length, valueIsNull, high, low);
+        return new Fixed12Block(positionOffset + this.positionOffset, length, valueIsNull, values);
     }
 
     @Override
@@ -226,37 +219,74 @@ public class Int96ArrayBlock
 
         positionOffset += this.positionOffset;
         boolean[] newValueIsNull = valueIsNull == null ? null : compactArray(valueIsNull, positionOffset, length);
-        long[] newHigh = compactArray(high, positionOffset, length);
-        int[] newLow = compactArray(low, positionOffset, length);
+        int[] newValues = compactArray(values, positionOffset * 3, length * 3);
 
-        if (newValueIsNull == valueIsNull && newHigh == high && newLow == low) {
+        if (newValueIsNull == valueIsNull && newValues == values) {
             return this;
         }
-        return new Int96ArrayBlock(0, length, newValueIsNull, newHigh, newLow);
+        return new Fixed12Block(0, length, newValueIsNull, newValues);
     }
 
     @Override
     public String getEncodingName()
     {
-        return Int96ArrayBlockEncoding.NAME;
+        return Fixed12BlockEncoding.NAME;
+    }
+
+    @Override
+    public Block copyWithAppendedNull()
+    {
+        boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);
+        int[] newValues = ensureCapacity(values, (positionOffset + positionCount + 1) * 3);
+        return new Fixed12Block(positionOffset, positionCount + 1, newValueIsNull, newValues);
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("Int96ArrayBlock{");
+        StringBuilder sb = new StringBuilder("Fixed12Block{");
         sb.append("positionCount=").append(getPositionCount());
         sb.append('}');
         return sb.toString();
     }
 
-    Slice getHighSlice()
+    /**
+     * At position * 3 in the values, write a little endian long followed by a little endian int.
+     */
+    public static void encodeFixed12(long first, int second, int[] values, int position)
     {
-        return Slices.wrappedLongArray(high, positionOffset, positionCount);
+        encodeFirst(first, values, position);
+        values[position * 3 + 2] = second;
     }
 
-    Slice getLowSlice()
+    static void encodeFirst(long first, int[] values, int position)
     {
-        return Slices.wrappedIntArray(low, positionOffset, positionCount);
+        values[(position * 3)] = (int) first;
+        values[(position * 3) + 1] = (int) (first >>> 32);
+    }
+
+    /**
+     * At position * 3 in the values, read a little endian long.
+     */
+    public static long decodeFixed12First(int[] values, int position)
+    {
+        int offset = position * 3;
+        long high32 = (long) values[offset + 1] << 32;
+        long low32 = values[offset] & 0xFFFF_FFFFL;
+        return high32 | low32;
+    }
+
+    /**
+     * At position * 3 + 8 in the values, read a little endian int.
+     */
+    public static int decodeFixed12Second(int[] values, int position)
+    {
+        int offset = position * 3;
+        return values[offset + 2];
+    }
+
+    Slice getValuesSlice()
+    {
+        return Slices.wrappedIntArray(values, positionOffset * 3, positionCount * 3);
     }
 }
