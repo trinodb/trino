@@ -95,7 +95,7 @@ public class BenchmarkBlockSerde
     }
 
     @Benchmark
-    public Object serializeInt96(LongTimestampBenchmarkData data)
+    public Object serializeFixed12(LongTimestampBenchmarkData data)
     {
         return serializePages(data);
     }

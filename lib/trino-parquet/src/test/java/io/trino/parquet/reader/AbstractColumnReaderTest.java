@@ -216,6 +216,13 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values2, block2);
     }
 
+//    @Test
+//    public <T> void testReadNoNullX()
+//            throws IOException
+//    {
+//        testReadNoNull(DataPageVersion.V2,
+//                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestamp(3)));
+//    }
     @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
     public <T> void testReadNoNull(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException

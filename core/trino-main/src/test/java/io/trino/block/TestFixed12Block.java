@@ -16,18 +16,18 @@ package io.trino.block;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.Int96ArrayBlock;
-import io.trino.spi.block.Int96ArrayBlockBuilder;
+import io.trino.spi.block.Fixed12Block;
+import io.trino.spi.block.Fixed12BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.spi.block.Int96ArrayBlock.INT96_BYTES;
+import static io.trino.spi.block.Fixed12Block.FIXED12_BYTES;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestInt96ArrayBlock
+public class TestFixed12Block
         extends AbstractTestBlock
 {
     @Test
@@ -75,13 +75,18 @@ public class TestInt96ArrayBlock
     @Test
     public void testCompactBlock()
     {
-        long[] high = {0L, 0L, 0L, 0L, 0L, 0L};
-        int[] low = {0, 0, 1, 2, 3, 4};
+        int[] intArray = {
+                0, 0, 0,
+                0, 0, 0,
+                0, 0, 1,
+                0, 0, 2,
+                0, 0, 3,
+                0, 0, 4};
         boolean[] valueIsNull = {false, true, false, false, false, false};
 
-        testCompactBlock(new Int96ArrayBlock(0, Optional.empty(), new long[0], new int[0]));
-        testCompactBlock(new Int96ArrayBlock(valueIsNull.length, Optional.of(valueIsNull), high, low));
-        testIncompactBlock(new Int96ArrayBlock(valueIsNull.length - 2, Optional.of(valueIsNull), high, low));
+        testCompactBlock(new Fixed12Block(0, Optional.empty(), new int[0]));
+        testCompactBlock(new Fixed12Block(valueIsNull.length, Optional.of(valueIsNull), intArray));
+        testIncompactBlock(new Fixed12Block(valueIsNull.length - 2, Optional.of(valueIsNull), intArray));
     }
 
     private void assertFixedWithValues(Slice[] expectedValues)
@@ -93,7 +98,7 @@ public class TestInt96ArrayBlock
 
     private static BlockBuilder createBlockBuilderWithValues(Slice[] expectedValues)
     {
-        Int96ArrayBlockBuilder blockBuilder = new Int96ArrayBlockBuilder(null, expectedValues.length);
+        Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(null, expectedValues.length);
         writeValues(expectedValues, blockBuilder);
         return blockBuilder;
     }
@@ -116,7 +121,7 @@ public class TestInt96ArrayBlock
     {
         Slice[] expectedValues = new Slice[positionCount];
         for (int position = 0; position < positionCount; position++) {
-            expectedValues[position] = createExpectedValue(INT96_BYTES);
+            expectedValues[position] = createExpectedValue(FIXED12_BYTES);
         }
         return expectedValues;
     }
