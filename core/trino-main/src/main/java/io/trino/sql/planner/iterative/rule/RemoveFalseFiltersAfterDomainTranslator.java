@@ -13,15 +13,18 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.tree.Expression;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
@@ -38,6 +41,15 @@ public class RemoveFalseFiltersAfterDomainTranslator
     public RemoveFalseFiltersAfterDomainTranslator(PlannerContext plannerContext)
     {
         super(createRewrite(plannerContext));
+    }
+
+    @Override
+    public Set<Rule<?>> rules()
+    {
+        // Can only apply on expressions that are used for filtering, otherwise TupleDomain.none() might represent a NULL value
+        return ImmutableSet.of(
+                filterExpressionRewrite(),
+                joinExpressionRewrite());
     }
 
     private static ExpressionRewriter createRewrite(PlannerContext plannerContext)
