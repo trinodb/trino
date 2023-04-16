@@ -20,7 +20,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static java.lang.String.format;
 
-public class TestRemoveFalseFiltersAfterDomainTranslator
+public class TestSimplifyFalseConditions
         extends BasePlanTest
 {
     @Test

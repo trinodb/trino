@@ -238,7 +238,7 @@ public class PushPredicateIntoTableScan
         }
 
         if (newDomain.isNone()) {
-            // This is just for extra safety, the rule RemoveFalseFiltersAfterDomainTranslator is responsible for eliminating such filters
+            // This is just for extra safety, SimplifyFalseConditions is responsible for eliminating such filters
             return Optional.of(new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 

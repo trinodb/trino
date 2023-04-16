@@ -35,10 +35,10 @@ import static java.util.Objects.requireNonNull;
 /**
  * Uses DomainTranslator#getExtractionResult to infer that the expression is "false" in some cases (TupleDomain.none()).
  */
-public class RemoveFalseFiltersAfterDomainTranslator
+public class SimplifyFalseConditions
         extends ExpressionRewriteRuleSet
 {
-    public RemoveFalseFiltersAfterDomainTranslator(PlannerContext plannerContext)
+    public SimplifyFalseConditions(PlannerContext plannerContext)
     {
         super(createRewrite(plannerContext));
     }

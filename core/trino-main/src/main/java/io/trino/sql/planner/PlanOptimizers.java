@@ -186,7 +186,6 @@ import io.trino.sql.planner.iterative.rule.RemoveEmptyGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyMergeWriterRuleSet;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyTableExecute;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyUnionBranches;
-import io.trino.sql.planner.iterative.rule.RemoveFalseFiltersAfterDomainTranslator;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDateTrunc;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -214,6 +213,7 @@ import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation
 import io.trino.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
 import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.trino.sql.planner.iterative.rule.SimplifyExpressions;
+import io.trino.sql.planner.iterative.rule.SimplifyFalseConditions;
 import io.trino.sql.planner.iterative.rule.SimplifyFilterPredicate;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedDistinctAggregationWithProjection;
@@ -372,8 +372,8 @@ public class PlanOptimizers
                 .addAll(new CanonicalizeExpressions(plannerContext, typeAnalyzer).rules())
                 .addAll(new RemoveRedundantDateTrunc(plannerContext, typeAnalyzer).rules())
                 .addAll(new ArraySortAfterArrayDistinct(plannerContext).rules())
+                .addAll(new SimplifyFalseConditions(plannerContext).rules())
                 .add(new RemoveTrivialFilters())
-                .addAll(new RemoveFalseFiltersAfterDomainTranslator(plannerContext).rules())
                 .build();
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
                 plannerContext,
@@ -419,7 +419,7 @@ public class PlanOptimizers
                                 .addAll(limitPushdownRules)
                                 .addAll(new UnwrapRowSubscript().rules())
                                 .addAll(new PushCastIntoRow().rules())
-                                .addAll(new RemoveFalseFiltersAfterDomainTranslator(plannerContext).rules())
+                                .addAll(new SimplifyFalseConditions(plannerContext).rules())
                                 .addAll(ImmutableSet.of(
                                         new ImplementTableFunctionSource(metadata),
                                         new UnwrapSingleColumnRowInApply(typeAnalyzer),
@@ -578,7 +578,8 @@ public class PlanOptimizers
                                 .addAll(columnPruningRules)
                                 .add(new InlineProjections(plannerContext, typeAnalyzer))
                                 .addAll(new PushFilterThroughCountAggregation(plannerContext).rules()) // must run after PredicatePushDown and after TransformFilteringSemiJoinToInnerJoin
-                                .addAll(new RemoveFalseFiltersAfterDomainTranslator(plannerContext).rules())
+                                .addAll(new SimplifyFalseConditions(plannerContext).rules())
+                                .add(new RemoveTrivialFilters())
                                 .build()));
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used
