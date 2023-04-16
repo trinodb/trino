@@ -214,7 +214,7 @@ public class SqlQueryExecution
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "taskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
-            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "queryStatsCollector is null");
+            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         }
     }
 

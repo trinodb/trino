@@ -140,7 +140,7 @@ public class ShowStatsRewrite
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "queryStatsCollector is null");
+            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         }
 

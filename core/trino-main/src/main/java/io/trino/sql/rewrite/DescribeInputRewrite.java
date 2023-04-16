@@ -107,7 +107,7 @@ public final class DescribeInputRewrite
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "queryStatsCollector is null");
+            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         }
 
         @Override
