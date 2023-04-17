@@ -44,6 +44,7 @@ public class DeltaLakeTableHandle
 
     private final String schemaName;
     private final String tableName;
+    private final boolean managed;
     private final String location;
     private final MetadataEntry metadataEntry;
     private final TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint;
@@ -68,6 +69,7 @@ public class DeltaLakeTableHandle
     public DeltaLakeTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("managed") boolean managed,
             @JsonProperty("location") String location,
             @JsonProperty("metadataEntry") MetadataEntry metadataEntry,
             @JsonProperty("enforcedPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
@@ -82,6 +84,7 @@ public class DeltaLakeTableHandle
         this(
                 schemaName,
                 tableName,
+                managed,
                 location,
                 metadataEntry,
                 enforcedPartitionConstraint,
@@ -99,6 +102,7 @@ public class DeltaLakeTableHandle
     public DeltaLakeTableHandle(
             String schemaName,
             String tableName,
+            boolean managed,
             String location,
             MetadataEntry metadataEntry,
             TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
@@ -114,6 +118,7 @@ public class DeltaLakeTableHandle
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.managed = managed;
         this.location = requireNonNull(location, "location is null");
         this.metadataEntry = requireNonNull(metadataEntry, "metadataEntry is null");
         this.enforcedPartitionConstraint = requireNonNull(enforcedPartitionConstraint, "enforcedPartitionConstraint is null");
@@ -135,6 +140,7 @@ public class DeltaLakeTableHandle
         return new DeltaLakeTableHandle(
                 schemaName,
                 tableName,
+                managed,
                 location,
                 metadataEntry,
                 enforcedPartitionConstraint,
@@ -152,6 +158,7 @@ public class DeltaLakeTableHandle
         return new DeltaLakeTableHandle(
                 schemaName,
                 tableName,
+                managed,
                 location,
                 metadataEntry,
                 enforcedPartitionConstraint,
@@ -176,6 +183,12 @@ public class DeltaLakeTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public boolean isManaged()
+    {
+        return managed;
     }
 
     @JsonProperty
@@ -276,6 +289,7 @@ public class DeltaLakeTableHandle
         return recordScannedFiles == that.recordScannedFiles &&
                 Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
+                managed == that.managed &&
                 Objects.equals(location, that.location) &&
                 Objects.equals(metadataEntry, that.metadataEntry) &&
                 Objects.equals(enforcedPartitionConstraint, that.enforcedPartitionConstraint) &&
@@ -295,6 +309,7 @@ public class DeltaLakeTableHandle
         return Objects.hash(
                 schemaName,
                 tableName,
+                managed,
                 location,
                 metadataEntry,
                 enforcedPartitionConstraint,
