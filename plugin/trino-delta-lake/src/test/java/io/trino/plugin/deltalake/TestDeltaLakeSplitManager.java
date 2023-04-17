@@ -270,7 +270,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public void dropTable(ConnectorSession session, String databaseName, String tableName, String tableLocation, boolean deleteData)
+        public void dropTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, boolean deleteData)
         {
             throw new UnsupportedOperationException("Unimplemented");
         }

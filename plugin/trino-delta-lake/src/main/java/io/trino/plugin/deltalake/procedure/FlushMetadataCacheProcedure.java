@@ -14,17 +14,15 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.deltalake.CorruptedDeltaLakeTableHandle;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
-import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.LocatedTableHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
@@ -109,17 +107,11 @@ public class FlushMetadataCacheProcedure
             cachingHiveMetastore.ifPresent(caching -> caching.invalidateTable(schemaName.get(), tableName.get()));
 
             SchemaTableName schemaTableName = new SchemaTableName(schemaName.get(), tableName.get());
-            ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+            LocatedTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
             if (tableHandle == null) {
                 throw new TableNotFoundException(schemaTableName);
             }
-            String tableLocation;
-            if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
-                tableLocation = corruptedTableHandle.location();
-            }
-            else {
-                tableLocation = ((DeltaLakeTableHandle) tableHandle).getLocation();
-            }
+            String tableLocation = tableHandle.location();
             transactionLogAccess.invalidateCaches(tableLocation);
             extendedStatisticsAccess.invalidateCache(tableLocation);
         }
