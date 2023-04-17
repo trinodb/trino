@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.coercions;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -25,11 +26,14 @@ import java.time.LocalDateTime;
 import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_TIMESTAMP_COERCION;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -109,6 +113,65 @@ public final class TimestampCoercer
                             Slices.utf8Slice(
                                     LOCAL_DATE_TIME.format(LocalDateTime.ofEpochSecond(epochSecond, toIntExact(nanosFraction), UTC))),
                             toType));
+        }
+    }
+
+    public static class VarcharToShortTimestampCoercer
+            extends TypeCoercer<VarcharType, TimestampType>
+    {
+        public VarcharToShortTimestampCoercer(VarcharType fromType, TimestampType toType)
+        {
+            super(fromType, toType);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            try {
+                Slice value = fromType.getSlice(block, position);
+                LocalDateTime dateTime = LOCAL_DATE_TIME.parse(value.toStringUtf8(), LocalDateTime::from);
+                long epochSecond = dateTime.toEpochSecond(UTC);
+                if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
+                    throw new TrinoException(HIVE_INVALID_TIMESTAMP_COERCION, "Coercion on historical dates is not supported");
+                }
+                long epochMicros = epochSecond * MICROSECONDS_PER_SECOND + roundDiv(dateTime.getNano(), NANOSECONDS_PER_MICROSECOND);
+                toType.writeLong(blockBuilder, round(epochMicros, 6 - toType.getPrecision()));
+            }
+            catch (DateTimeParseException exception) {
+                // Hive treats invalid String as null instead of propagating exception
+                // In case of bigger tables with all values being invalid, log output will be huge so avoiding log here.
+                blockBuilder.appendNull();
+            }
+        }
+    }
+
+    public static class VarcharToLongTimestampCoercer
+            extends TypeCoercer<VarcharType, TimestampType>
+    {
+        public VarcharToLongTimestampCoercer(VarcharType fromType, TimestampType toType)
+        {
+            super(fromType, toType);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            try {
+                Slice value = fromType.getSlice(block, position);
+                LocalDateTime dateTime = LOCAL_DATE_TIME.parse(value.toStringUtf8(), LocalDateTime::from);
+                long epochSecond = dateTime.toEpochSecond(UTC);
+                if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
+                    throw new TrinoException(HIVE_INVALID_TIMESTAMP_COERCION, "Coercion on historical dates is not supported");
+                }
+                long epochMicros = epochSecond * MICROSECONDS_PER_SECOND + dateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+                int picosOfMicro = (dateTime.getNano() % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
+                toType.writeObject(blockBuilder, new LongTimestamp(epochMicros, picosOfMicro));
+            }
+            catch (DateTimeParseException exception) {
+                // Hive treats invalid String as null instead of propagating exception
+                // In case of bigger tables with all values being invalid, log output will be huge so avoiding log here.
+                blockBuilder.appendNull();
+            }
         }
     }
 }

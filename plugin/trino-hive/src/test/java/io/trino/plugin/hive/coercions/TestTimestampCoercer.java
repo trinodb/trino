@@ -61,6 +61,22 @@ public class TestTimestampCoercer
         assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros()), createUnboundedVarcharType(), hiveTimestampValue);
     }
 
+    @Test(dataProvider = "timestampValuesProvider")
+    public void testVarcharToShortTimestamp(String timestampValue, String hiveTimestampValue)
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse(timestampValue);
+        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_MICROS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
+        assertVarcharToShortTimestampCoercions(createUnboundedVarcharType(), Slices.utf8Slice(hiveTimestampValue), TIMESTAMP_MICROS, timestamp.getEpochMicros());
+    }
+
+    @Test(dataProvider = "timestampValuesProvider")
+    public void testVarcharToLongTimestamp(String timestampValue, String hiveTimestampValue)
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse(timestampValue);
+        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_PICOS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
+        assertVarcharToLongTimestampCoercions(createUnboundedVarcharType(), Slices.utf8Slice(hiveTimestampValue), TIMESTAMP_PICOS, new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros()));
+    }
+
     @Test
     public void testShortTimestampToSmallerVarchar()
     {
@@ -129,6 +145,62 @@ public class TestTimestampCoercer
                 .hasMessageContaining("Coercion on historical dates is not supported");
     }
 
+    @Test
+    public void testVarcharToShortTimestampWithExtendedRange()
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse("2019-03-03T23:59:59.123");
+        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_MICROS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
+        assertVarcharToShortTimestampCoercions(createUnboundedVarcharType(), Slices.utf8Slice("2019-02-31 23:59:59.123"), TIMESTAMP_MICROS, timestamp.getEpochMicros());
+    }
+
+    @Test
+    public void testVarcharToLongTimestampWithInvalidRange()
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse("2019-03-03T23:59:59.1234567");
+        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_MICROS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
+        assertVarcharToShortTimestampCoercions(createUnboundedVarcharType(), Slices.utf8Slice("2019-02-31 23:59:59.1234567"), TIMESTAMP_MICROS, timestamp.getEpochMicros());
+    }
+
+    @Test(dataProvider = "invalidValue")
+    public void testInvalidVarcharToShortTimestamp(String invalidValue)
+    {
+        assertVarcharToShortTimestampCoercions(createUnboundedVarcharType(), Slices.utf8Slice(invalidValue), TIMESTAMP_MICROS, null);
+    }
+
+    @Test(dataProvider = "invalidValue")
+    public void testInvalidVarcharLongTimestamp(String invalidValue)
+    {
+        assertVarcharToLongTimestampCoercions(createUnboundedVarcharType(), Slices.utf8Slice(invalidValue), TIMESTAMP_MICROS, null);
+    }
+
+    @Test
+    public void testHistoricalVarcharToShortTimestamp()
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse("1899-12-31T23:59:59.999999");
+        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_MICROS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
+        assertThatThrownBy(() -> assertVarcharToShortTimestampCoercions(
+                createUnboundedVarcharType(),
+                Slices.utf8Slice("1899-12-31 23:59:59.999999"),
+                TIMESTAMP_MICROS,
+                timestamp.getEpochMicros()))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Coercion on historical dates is not supported");
+    }
+
+    @Test
+    public void testHistoricalVarcharToLongTimestamp()
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse("1899-12-31T23:59:59.999999");
+        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_PICOS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
+        assertThatThrownBy(() -> assertVarcharToShortTimestampCoercions(
+                createUnboundedVarcharType(),
+                Slices.utf8Slice("1899-12-31 23:59:59.999999"),
+                TIMESTAMP_PICOS,
+                timestamp.getEpochMicros()))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Coercion on historical dates is not supported");
+    }
+
     @DataProvider
     public Object[][] timestampValuesProvider()
     {
@@ -156,6 +228,16 @@ public class TestTimestampCoercer
         };
     }
 
+    @DataProvider
+    public Object[][] invalidValue()
+    {
+        return new Object[][] {
+                {"Invalid timestamp"},
+                {"2022"},
+                {"2001-04-01T00:13:42.000"},
+        };
+    }
+
     public static void assertShortTimestampToVarcharCoercions(TimestampType fromType, Long valueToBeCoerced, VarcharType toType, String expectedValue)
     {
         assertCoercions(fromType, valueToBeCoerced, toType, Slices.utf8Slice(expectedValue), MICROSECONDS);
@@ -164,6 +246,16 @@ public class TestTimestampCoercer
     public static void assertLongTimestampToVarcharCoercions(TimestampType fromType, LongTimestamp valueToBeCoerced, VarcharType toType, String expectedValue)
     {
         assertCoercions(fromType, valueToBeCoerced, toType, Slices.utf8Slice(expectedValue), NANOSECONDS);
+    }
+
+    public static void assertVarcharToShortTimestampCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue)
+    {
+        assertCoercions(fromType, valueToBeCoerced, toType, expectedValue, MICROSECONDS);
+    }
+
+    public static void assertVarcharToLongTimestampCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue)
+    {
+        assertCoercions(fromType, valueToBeCoerced, toType, expectedValue, NANOSECONDS);
     }
 
     public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, HiveTimestampPrecision timestampPrecision)

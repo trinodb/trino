@@ -123,6 +123,8 @@ public abstract class BaseTestHiveCoercion
                 "timestamp_to_string",
                 "timestamp_to_bounded_varchar",
                 "timestamp_to_smaller_varchar",
+                "smaller_varchar_to_timestamp",
+                "varchar_to_timestamp",
                 "id");
 
         Function<Engine, Map<String, List<Object>>> expected = engine -> expectedValuesForEngineProvider(engine, tableName, decimalToFloatVal, floatToDecimalVal);
@@ -182,6 +184,8 @@ public abstract class BaseTestHiveCoercion
                         "  TIMESTAMP '2121-07-15 15:30:12.123', " +
                         "  TIMESTAMP '2121-07-15 15:30:12.123', " +
                         "  TIMESTAMP '2121-07-15 15:30:12.123', " +
+                        "  '2121', " +
+                        "  '2019-02-29 23:59:59.123', " +
                         "  1), " +
                         "(" +
                         "  CAST(ROW (NULL, 1, -100, -2323, -12345, 2) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT, lower2uppercase BIGINT)), " +
@@ -215,6 +219,8 @@ public abstract class BaseTestHiveCoercion
                         "  TIMESTAMP '1970-01-01 00:00:00.123', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123', " +
                         "  TIMESTAMP '1970-01-01 00:00:00.123', " +
+                        "  '1970', " +
+                        "  '1970-01-01 00:00:00.123', " +
                         "  1)",
                 tableName,
                 floatToDoubleType));
@@ -367,6 +373,12 @@ public abstract class BaseTestHiveCoercion
                 .put("timestamp_to_smaller_varchar", ImmutableList.of(
                         "2121",
                         "1970"))
+                .put("smaller_varchar_to_timestamp", Arrays.asList(
+                        null,
+                        null))
+                .put("varchar_to_timestamp", ImmutableList.of(
+                        Timestamp.valueOf("2019-03-01 23:59:59.123"),
+                        Timestamp.valueOf("1970-01-01 00:00:00.123")))
                 .put("id", ImmutableList.of(
                         1,
                         1))
@@ -382,29 +394,36 @@ public abstract class BaseTestHiveCoercion
         onTrino().executeQuery(
                 """
                     INSERT INTO %s VALUES
-                    (TIMESTAMP '2121-07-15 15:30:12.123499', TIMESTAMP '2121-07-15 15:30:12.123499', TIMESTAMP '0000-01-01 00:00:00.123499', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123500', TIMESTAMP '2121-07-15 15:30:12.123500', TIMESTAMP '0000-01-01 00:00:00.123500', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123501', TIMESTAMP '2121-07-15 15:30:12.123501', TIMESTAMP '0000-01-01 00:00:00.123501', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123499999', TIMESTAMP '2121-07-15 15:30:12.123499999', TIMESTAMP '0000-01-01 00:00:00.123499999', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123500000', TIMESTAMP '2121-07-15 15:30:12.123500000', TIMESTAMP '0000-01-01 00:00:00.123500000', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123500001', TIMESTAMP '2121-07-15 15:30:12.123500001', TIMESTAMP '0000-01-01 00:00:00.123500001', 1)
+                    (TIMESTAMP '2121-07-15 15:30:12.123499', TIMESTAMP '2121-07-15 15:30:12.123499', TIMESTAMP '0000-01-01 00:00:00.123499', '2120-14-41 15:30:12.123499', '0000-01-01 00:00:00.123499', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500', TIMESTAMP '2121-07-15 15:30:12.123500', TIMESTAMP '0000-01-01 00:00:00.123500', '2019-02-31 15:30:12.123500', '0000-01-01 00:00:00.123500', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123501', TIMESTAMP '2121-07-15 15:30:12.123501', TIMESTAMP '0000-01-01 00:00:00.123501', '2120-14-41 75:30:12.123501', '0000-01-01 00:00:00.123501', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123499999', TIMESTAMP '2121-07-15 15:30:12.123499999', TIMESTAMP '0000-01-01 00:00:00.123499999', '2120-14-41 15:30:12.123499999', '0000-01-01 00:00:00.123499999', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500000', TIMESTAMP '2121-07-15 15:30:12.123500000', TIMESTAMP '0000-01-01 00:00:00.123500000', '2019-02-31 15:30:12.123500000', '0000-01-01 00:00:00.123500000', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500001', TIMESTAMP '2121-07-15 15:30:12.123500001', TIMESTAMP '0000-01-01 00:00:00.123500001', '2120-14-41 75:30:12.123500001', '0000-01-01 00:00:00.123500001', 1)
                     """.formatted(tableName));
 
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_varchar timestamp_to_varchar STRING", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN historical_timestamp_to_varchar historical_timestamp_to_varchar STRING", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_timestamp varchar_to_timestamp TIMESTAMP", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN historical_varchar_to_timestamp historical_varchar_to_timestamp TIMESTAMP", tableName));
 
         for (HiveTimestampPrecision hiveTimestampPrecision : HiveTimestampPrecision.values()) {
+            String timestampType = "timestamp(%d)".formatted(hiveTimestampPrecision.getPrecision());
             setHiveTimestampPrecision(hiveTimestampPrecision);
             assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
-                    row("reference_timestamp", "timestamp(%d)".formatted(hiveTimestampPrecision.getPrecision())),
+                    row("reference_timestamp", timestampType),
                     row("timestamp_to_varchar", "varchar"),
                     row("historical_timestamp_to_varchar", "varchar"),
+                    row("varchar_to_timestamp", timestampType),
+                    row("historical_varchar_to_timestamp", timestampType),
                     row("id", "bigint"));
 
             List<String> allColumns = ImmutableList.of(
                     "reference_timestamp",
                     "timestamp_to_varchar",
                     "historical_timestamp_to_varchar",
+                    "varchar_to_timestamp",
+                    "historical_varchar_to_timestamp",
                     "id");
 
             // For Trino, remove unsupported columns
@@ -437,12 +456,14 @@ public abstract class BaseTestHiveCoercion
                 .put("timestamp_to_varchar", timestampValues.stream()
                         .map(Object::toString)
                         .collect(toImmutableList()))
+                .put("varchar_to_timestamp", coercedTimestampFromString(engine, tableName, hiveTimestampPrecision))
                 .put("id", nCopies(6, 1));
 
         if (engine == Engine.HIVE) {
             rowBuilder.put("historical_timestamp_to_varchar", expectedHistoricalTimestampValuesProvider(tableName).stream()
-                    .map(Timestamp::toString)
-                    .collect(toImmutableList()));
+                    .map(Object::toString)
+                    .collect(toImmutableList()))
+                    .put("historical_varchar_to_timestamp", expectedHistoricalTimestampValuesProviderForTimestamp(tableName));
         }
 
         return rowBuilder.buildOrThrow();
@@ -491,7 +512,62 @@ public abstract class BaseTestHiveCoercion
         };
     }
 
-    protected List<Timestamp> expectedHistoricalTimestampValuesProvider(String tableName)
+    protected List<Object> coercedTimestampFromString(Engine engine, String tableName, HiveTimestampPrecision hiveTimestampPrecision)
+    {
+        Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
+
+        if (engine == Engine.HIVE) {
+            if (isFormat.test("orc")) {
+                return Arrays.asList(
+                        null,
+                        Timestamp.valueOf("2019-03-03 15:30:12.1235"),
+                        null,
+                        null,
+                        Timestamp.valueOf("2019-03-03 15:30:12.1235"),
+                        null,
+                        null);
+            }
+            return ImmutableList.of(
+                    Timestamp.valueOf("2121-03-13 15:30:12.123499"),
+                    Timestamp.valueOf("2019-03-03 15:30:12.1235"),
+                    Timestamp.valueOf("2121-03-16 03:30:12.123501"),
+                    Timestamp.valueOf("2121-03-13 15:30:12.123499"),
+                    Timestamp.valueOf("2019-03-03 15:30:12.1235"),
+                    Timestamp.valueOf("2121-03-16 03:30:12.123500001"));
+        }
+
+        return switch (hiveTimestampPrecision) {
+            case MILLISECONDS ->
+                    ImmutableList.of(
+                            Timestamp.valueOf("2121-03-13 15:30:12.123"),
+                            Timestamp.valueOf("2019-03-03 15:30:12.124"),
+                            Timestamp.valueOf("2121-03-16 03:30:12.124"),
+                            Timestamp.valueOf("2121-03-13 15:30:12.124"),
+                            Timestamp.valueOf("2019-03-03 15:30:12.124"),
+                            Timestamp.valueOf("2121-03-16 03:30:12.124"));
+
+            case MICROSECONDS ->
+                    ImmutableList.of(
+                            Timestamp.valueOf("2121-03-13 15:30:12.123499"),
+                            Timestamp.valueOf("2019-03-03 15:30:12.1235"),
+                            Timestamp.valueOf("2121-03-16 03:30:12.123501"),
+                            Timestamp.valueOf("2121-03-13 15:30:12.123499"),
+                            Timestamp.valueOf("2019-03-03 15:30:12.123500"),
+                            Timestamp.valueOf("2121-03-16 03:30:12.123500"));
+
+            case NANOSECONDS ->
+                    ImmutableList.of(
+                            Timestamp.valueOf("2121-03-13 15:30:12.123499"),
+                            Timestamp.valueOf("2019-03-03 15:30:12.1235"),
+                            Timestamp.valueOf("2121-03-16 03:30:12.123501"),
+                            Timestamp.valueOf("2121-03-13 15:30:12.123499"),
+                            Timestamp.valueOf("2019-03-03 15:30:12.1235"),
+                            Timestamp.valueOf("2121-03-16 03:30:12.123500001"));
+            default -> throw new IllegalStateException("Unsupported timestamp precision");
+        };
+    }
+
+    protected List<Object> expectedHistoricalTimestampValuesProvider(String tableName)
     {
         Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
         // ORC tables render `0000-01-01` date as `0001-01-03`
@@ -503,6 +579,28 @@ public abstract class BaseTestHiveCoercion
                     Timestamp.valueOf("0001-01-03 00:00:00.123499999"),
                     Timestamp.valueOf("0001-01-03 00:00:00.123500000"),
                     Timestamp.valueOf("0001-01-03 00:00:00.123500001"));
+        }
+        return ImmutableList.of(
+                Timestamp.valueOf("0001-01-01 00:00:00.123499"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123500"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123501"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123499999"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123500000"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123500001"));
+    }
+
+    protected List<Object> expectedHistoricalTimestampValuesProviderForTimestamp(String tableName)
+    {
+        Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
+        // ORC tables render `0000-01-01` date as `0001-01-03`
+        if (isFormat.test("orc")) {
+            return ImmutableList.of(
+                    Timestamp.valueOf("0002-12-30 00:00:00.123499"),
+                    Timestamp.valueOf("0002-12-30 00:00:00.123500"),
+                    Timestamp.valueOf("0002-12-30 00:00:00.123501"),
+                    Timestamp.valueOf("0002-12-30 00:00:00.123499999"),
+                    Timestamp.valueOf("0002-12-30 00:00:00.123500000"),
+                    Timestamp.valueOf("0002-12-30 00:00:00.123500001"));
         }
         return ImmutableList.of(
                 Timestamp.valueOf("0001-01-01 00:00:00.123499"),
@@ -650,6 +748,11 @@ public abstract class BaseTestHiveCoercion
                 .put(columnContext("rcbinary", "historical_timestamp_to_varchar"), "Coercion on historical dates is not supported")
                 .put(columnContext("rctext", "historical_timestamp_to_varchar"), "Coercion on historical dates is not supported")
                 .put(columnContext("textfile", "historical_timestamp_to_varchar"), "Coercion on historical dates is not supported")
+                .put(columnContext("orc", "historical_varchar_to_timestamp"), "Coercion on historical dates is not supported")
+                .put(columnContext("parquet", "historical_varchar_to_timestamp"), "Coercion on historical dates is not supported")
+                .put(columnContext("rcbinary", "historical_varchar_to_timestamp"), "Coercion on historical dates is not supported")
+                .put(columnContext("rctext", "historical_varchar_to_timestamp"), "Coercion on historical dates is not supported")
+                .put(columnContext("textfile", "historical_varchar_to_timestamp"), "Coercion on historical dates is not supported")
                 .buildOrThrow();
     }
 
@@ -740,6 +843,8 @@ public abstract class BaseTestHiveCoercion
                 row("timestamp_to_string", "varchar"),
                 row("timestamp_to_bounded_varchar", "varchar(30)"),
                 row("timestamp_to_smaller_varchar", "varchar(4)"),
+                row("smaller_varchar_to_timestamp", "timestamp(3)"),
+                row("varchar_to_timestamp", "timestamp(3)"),
                 row("id", "bigint"));
     }
 
@@ -791,9 +896,12 @@ public abstract class BaseTestHiveCoercion
                 .put("timestamp_to_string", VARCHAR)
                 .put("timestamp_to_bounded_varchar", VARCHAR)
                 .put("timestamp_to_smaller_varchar", VARCHAR)
+                .put("smaller_varchar_to_timestamp", TIMESTAMP)
+                .put("varchar_to_timestamp", TIMESTAMP)
                 .put("reference_timestamp", TIMESTAMP)
                 .put("timestamp_to_varchar", VARCHAR)
                 .put("historical_timestamp_to_varchar", VARCHAR)
+                .put("historical_varchar_to_timestamp", TIMESTAMP)
                 .buildOrThrow();
 
         assertThat(queryResult)
@@ -835,6 +943,8 @@ public abstract class BaseTestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_bounded_varchar timestamp_to_bounded_varchar varchar(30)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_smaller_varchar timestamp_to_smaller_varchar varchar(4)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smaller_varchar_to_timestamp smaller_varchar_to_timestamp timestamp", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN varchar_to_timestamp varchar_to_timestamp timestamp", tableName));
     }
 
     protected static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)

@@ -80,6 +80,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                             timestamp_to_string                TIMESTAMP,
                             timestamp_to_bounded_varchar       TIMESTAMP,
                             timestamp_to_smaller_varchar       TIMESTAMP,
+                            smaller_varchar_to_timestamp       VARCHAR(4),
+                            varchar_to_timestamp               STRING,
                             id                                 BIGINT)
                        STORED AS\s""" + fileFormat);
     }
@@ -93,6 +95,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                              reference_timestamp               TIMESTAMP,
                              timestamp_to_varchar              TIMESTAMP,
                              historical_timestamp_to_varchar   TIMESTAMP,
+                             varchar_to_timestamp              STRING,
+                             historical_varchar_to_timestamp   STRING,
                              id                                BIGINT)
                         STORED AS\s""" + fileFormat);
     }
