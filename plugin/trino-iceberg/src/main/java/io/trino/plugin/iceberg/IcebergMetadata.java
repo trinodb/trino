@@ -299,6 +299,8 @@ public class IcebergMetadata
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TableStatisticsWriter tableStatisticsWriter;
 
+    // Provides for consistent when reading "current" version multiple times in a query
+    private final Map<SchemaTableName, IcebergTableHandle> currentTableVersionCache = new ConcurrentHashMap<>();
     private final Map<IcebergTableHandle, TableStatistics> tableStatisticsCache = new ConcurrentHashMap<>();
 
     private Transaction transaction;
@@ -363,19 +365,29 @@ public class IcebergMetadata
             return null;
         }
 
+        if (endVersion.isEmpty()) {
+            // Cache version when accessing "current" so that multiple accesses read same version.
+            return currentTableVersionCache.computeIfAbsent(tableName, ignored -> loadTable(session, tableName, endVersion).orElse(null));
+        }
+        // when endVersion is given, this will always produce same result (not cached as endVersion is not a good cache key)
+        return loadTable(session, tableName, endVersion).orElse(null);
+    }
+
+    private Optional<IcebergTableHandle> loadTable(ConnectorSession session, SchemaTableName tableName, Optional<ConnectorTableVersion> version)
+    {
         BaseTable table;
         try {
-            table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()));
+            table = (BaseTable) catalog.loadTable(session, tableName);
         }
         catch (TableNotFoundException e) {
-            return null;
+            return Optional.empty();
         }
 
         Optional<Long> tableSnapshotId;
         Schema tableSchema;
         Optional<PartitionSpec> partitionSpec;
-        if (endVersion.isPresent()) {
-            long snapshotId = getSnapshotIdFromVersion(table, endVersion.get());
+        if (version.isPresent()) {
+            long snapshotId = getSnapshotIdFromVersion(table, version.get());
             tableSnapshotId = Optional.of(snapshotId);
             tableSchema = schemaFor(table, snapshotId);
             partitionSpec = Optional.empty();
@@ -388,7 +400,7 @@ public class IcebergMetadata
 
         Map<String, String> tableProperties = table.properties();
         String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
-        return new IcebergTableHandle(
+        return Optional.of(new IcebergTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 DATA,
@@ -407,7 +419,7 @@ public class IcebergMetadata
                 table.properties(),
                 NO_RETRIES,
                 false,
-                Optional.empty());
+                Optional.empty()));
     }
 
     private static long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)
