@@ -144,6 +144,7 @@ public class TestTransactionLogAccess
         DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
                 "schema",
                 tableName,
+                true,
                 "location",
                 new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
                 TupleDomain.none(),

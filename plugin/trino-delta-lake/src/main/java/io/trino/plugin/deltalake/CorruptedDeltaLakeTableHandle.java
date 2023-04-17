@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 public record CorruptedDeltaLakeTableHandle(
         SchemaTableName schemaTableName,
+        boolean managed,
         String location,
         TrinoException originalException)
         implements ConnectorTableHandle
