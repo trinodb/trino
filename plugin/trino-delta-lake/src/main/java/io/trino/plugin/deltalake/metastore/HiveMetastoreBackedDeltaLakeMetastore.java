@@ -171,15 +171,4 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         }
         return location;
     }
-
-    @Override
-    public TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
-    {
-        try {
-            return transactionLogAccess.loadSnapshot(table, tableLocation, session);
-        }
-        catch (IOException | RuntimeException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot for " + table, e);
-        }
-    }
 }
