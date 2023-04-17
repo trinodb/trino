@@ -109,7 +109,7 @@ public class TestDeltaLakeConnectorTest
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
-            case SUPPORTS_COMMENT_ON_VIEW:
+            case SUPPORTS_COMMENT_ON_VIEW_COLUMN:
                 return false;
 
             case SUPPORTS_CREATE_MATERIALIZED_VIEW:
