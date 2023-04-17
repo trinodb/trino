@@ -87,12 +87,18 @@ public class KerberosAuthenticator
                         options.put("debug", "true");
                     }
                     if (config.getKeytab() != null) {
+                        options.put("storeKey", "true");
+                        options.put("useKeyTab", "true");
                         options.put("keyTab", config.getKeytab().getAbsolutePath());
                     }
+
+                    if (config.getKeyCache() != null) {
+                        options.put("useTicketCache", "true");
+                        options.put("renewTGT", "true");
+                        options.put("ticketCache", config.getKeyCache().getAbsolutePath());
+                    }
                     options.put("isInitiator", "false");
-                    options.put("useKeyTab", "true");
                     options.put("principal", servicePrincipal);
-                    options.put("storeKey", "true");
 
                     return new AppConfigurationEntry[] {new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options)};
                 }

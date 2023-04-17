@@ -27,10 +27,12 @@ import static io.trino.server.security.KerberosNameType.HOSTBASED_SERVICE;
 public class KerberosConfig
 {
     public static final String HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB = "http-server.authentication.krb5.keytab";
+    public static final String HTTP_SERVER_AUTHENTICATION_KRB5_KEYCACHE = "http-server.authentication.krb5.keycache";
 
     private File kerberosConfig;
     private String serviceName;
     private File keytab;
+    private File keyCache;
     private String principalHostname;
     private KerberosNameType nameType = HOSTBASED_SERVICE;
     private Optional<String> userMappingPattern = Optional.empty();
@@ -76,6 +78,19 @@ public class KerberosConfig
     public KerberosConfig setKeytab(File keytab)
     {
         this.keytab = keytab;
+        return this;
+    }
+
+    @FileExists
+    public File getKeyCache()
+    {
+        return keyCache;
+    }
+
+    @Config("http-server.authentication.krb5.keycache")
+    public KerberosConfig setKeyCache(File keyCache)
+    {
+        this.keyCache = keyCache;
         return this;
     }
 
