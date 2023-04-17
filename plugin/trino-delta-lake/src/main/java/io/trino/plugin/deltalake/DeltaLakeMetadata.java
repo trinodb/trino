@@ -431,6 +431,7 @@ public class DeltaLakeMetadata
         if (table.isEmpty()) {
             return null;
         }
+        boolean managed = table.get().getTableType().equals(MANAGED_TABLE.toString());
 
         String tableLocation = metastore.getTableLocation(dataTableName);
         TableSnapshot tableSnapshot = metastore.getSnapshot(dataTableName, session);
@@ -440,7 +441,7 @@ public class DeltaLakeMetadata
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
-                return new CorruptedDeltaLakeTableHandle(dataTableName, tableLocation, e);
+                return new CorruptedDeltaLakeTableHandle(dataTableName, managed, tableLocation, e);
             }
             throw e;
         }
@@ -458,6 +459,7 @@ public class DeltaLakeMetadata
         return new DeltaLakeTableHandle(
                 dataTableName.getSchemaName(),
                 dataTableName.getTableName(),
+                managed,
                 tableLocation,
                 metadataEntry,
                 TupleDomain.all(),
@@ -1826,21 +1828,21 @@ public class DeltaLakeMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName schemaTableName;
+        boolean managed;
         String tableLocation;
         if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
             schemaTableName = corruptedTableHandle.schemaTableName();
             tableLocation = corruptedTableHandle.location();
+            managed = corruptedTableHandle.managed();
         }
         else {
             DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
             schemaTableName = handle.getSchemaTableName();
             tableLocation = handle.getLocation();
+            managed = handle.isManaged();
         }
 
-        Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
-
-        metastore.dropTable(session, schemaTableName.getSchemaName(), schemaTableName.getTableName(), tableLocation, table.getTableType().equals(MANAGED_TABLE.toString()));
+        metastore.dropTable(session, schemaTableName.getSchemaName(), schemaTableName.getTableName(), tableLocation, managed);
     }
 
     @Override
@@ -2105,6 +2107,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
+                tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 // Do not simplify the enforced constraint, the connector is guaranteeing the constraint will be applied as is.
@@ -2231,6 +2234,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
                 handle.getSchemaTableName().getSchemaName(),
                 handle.getSchemaTableName().getTableName(),
+                handle.isManaged(),
                 handle.getLocation(),
                 metadata,
                 TupleDomain.all(),

@@ -445,6 +445,7 @@ public class TestDeltaLakeMetadata
         return new DeltaLakeTableHandle(
                 "test_schema_name",
                 "test_table_name",
+                true,
                 "test_location",
                 createMetadataEntry(),
                 createConstrainedColumnsTuple(constrainedColumns),
