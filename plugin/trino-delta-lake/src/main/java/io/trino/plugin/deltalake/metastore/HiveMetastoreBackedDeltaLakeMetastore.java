@@ -178,9 +178,6 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         try {
             return transactionLogAccess.loadSnapshot(table, tableLocation, session);
         }
-        catch (NotADeltaLakeTableException e) {
-            throw e;
-        }
         catch (IOException | RuntimeException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot for " + table, e);
         }
