@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
-import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -27,9 +25,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.SplitWeight;
@@ -38,7 +33,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
@@ -162,7 +156,6 @@ public class TestDeltaLakeSplitManager
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
 
-        MockDeltaLakeMetastore metastore = new MockDeltaLakeMetastore();
         return new DeltaLakeSplitManager(
                 typeManager,
                 new TransactionLogAccess(
@@ -179,7 +172,6 @@ public class TestDeltaLakeSplitManager
                         return addFileEntries;
                     }
                 },
-                (session, transaction) -> metastore,
                 MoreExecutors.newDirectExecutorService(),
                 deltaLakeConfig);
     }
@@ -221,75 +213,5 @@ public class TestDeltaLakeSplitManager
         return TestingConnectorSession.builder()
                 .setPropertyMetadata(sessionProperties.getSessionProperties())
                 .build();
-    }
-
-    private static class MockDeltaLakeMetastore
-            implements DeltaLakeMetastore
-    {
-        @Override
-        public List<String> getAllDatabases()
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public Optional<Database> getDatabase(String databaseName)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public List<String> getAllTables(String databaseName)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public Optional<Table> getRawMetastoreTable(String databaseName, String tableName)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public Optional<DeltaMetastoreTable> getTable(String databaseName, String tableName)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void createDatabase(Database database)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void dropDatabase(String databaseName, boolean deleteData)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void dropTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, boolean deleteData)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
-        {
-            return null; // hack, unused
-        }
     }
 }
