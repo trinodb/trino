@@ -153,6 +153,7 @@ Property                                              Description               
 ``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
 ``bigquery.query-results-cache.enabled``              Enable `query results cache
                                                       <https://cloud.google.com/bigquery/docs/cached-results>`_      ``false``
+``bigquery.query-large-results.enabled``              Enable large results support                                   ``false``
 ``bigquery.experimental.arrow-serialization.enabled`` Enable using Apache Arrow serialization when reading data      ``false``
                                                       from BigQuery.
                                                       Please read this `section <#arrow-serialization-support>`_

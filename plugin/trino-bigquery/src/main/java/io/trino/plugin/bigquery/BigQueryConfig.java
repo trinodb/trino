@@ -56,6 +56,7 @@ public class BigQueryConfig
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
     private Duration metadataCacheTtl = new Duration(0, MILLISECONDS);
     private boolean queryResultsCacheEnabled;
+    private boolean queryAllowLargeResults;
 
     private int rpcInitialChannelCount = 1;
     private int rpcMinChannelCount = 1;
@@ -263,6 +264,18 @@ public class BigQueryConfig
     public BigQueryConfig setQueryResultsCacheEnabled(boolean queryResultsCacheEnabled)
     {
         this.queryResultsCacheEnabled = queryResultsCacheEnabled;
+        return this;
+    }
+
+    public boolean isQueryAllowLargeResults()
+    {
+        return queryAllowLargeResults;
+    }
+
+    @Config("bigquery.query-large-results.enabled")
+    public BigQueryConfig setQueryAllowLargeResults(boolean queryAllowLargeResults)
+    {
+        this.queryAllowLargeResults = queryAllowLargeResults;
         return this;
     }
 

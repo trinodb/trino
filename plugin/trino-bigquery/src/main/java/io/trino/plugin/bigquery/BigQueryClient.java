@@ -278,13 +278,14 @@ public class BigQueryClient
         }
     }
 
-    public TableResult query(String sql, boolean useQueryResultsCache, CreateDisposition createDisposition)
+    public TableResult query(String sql, boolean useQueryResultsCache, boolean allowLargeResults, CreateDisposition createDisposition)
     {
         log.debug("Execute query: %s", sql);
         try {
             return bigQuery.query(QueryJobConfiguration.newBuilder(sql)
                     .setUseQueryCache(useQueryResultsCache)
                     .setCreateDisposition(createDisposition)
+                    .setAllowLargeResults(allowLargeResults)
                     .build());
         }
         catch (InterruptedException e) {

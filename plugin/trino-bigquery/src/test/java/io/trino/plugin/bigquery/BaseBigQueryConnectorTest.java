@@ -676,6 +676,19 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    public void testAllowLargeResults()
+    {
+        Session queryAllowLargeResults = Session.builder(getSession())
+                .setCatalogSessionProperty("bigquery", "query_allow_large_results", "true")
+                .build();
+
+        // Force execute query through BigQueryQueryPageSource
+        assertQuery(queryAllowLargeResults,
+                "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1'))",
+                "VALUES 1");
+    }
+
+    @Test
     public void testMissingWildcardTable()
     {
         assertThatThrownBy(() -> query("SELECT * FROM test.\"test_missing_wildcard_table_*\""))

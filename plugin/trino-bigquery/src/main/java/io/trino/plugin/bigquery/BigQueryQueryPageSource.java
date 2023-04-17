@@ -86,6 +86,7 @@ public class BigQueryQueryPageSource
             List<Type> columnTypes,
             Optional<String> filter,
             boolean useQueryResultsCache,
+            boolean allowLargeResults,
             CreateDisposition createDisposition)
     {
         requireNonNull(client, "client is null");
@@ -97,7 +98,7 @@ public class BigQueryQueryPageSource
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
         String sql = buildSql(table, client.getProjectId(), ImmutableList.copyOf(columnNames), filter);
-        this.tableResult = client.query(sql, useQueryResultsCache, createDisposition);
+        this.tableResult = client.query(sql, useQueryResultsCache, allowLargeResults, createDisposition);
     }
 
     private static String buildSql(BigQueryTableHandle table, String projectId, List<String> columnNames, Optional<String> filter)

@@ -31,6 +31,7 @@ public final class BigQuerySessionProperties
 {
     private static final String SKIP_VIEW_MATERIALIZATION = "skip_view_materialization";
     private static final String QUERY_RESULTS_CACHE_ENABLED = "query_results_cache_enabled";
+    private static final String QUERY_ALLOW_LARGE_RESULTS = "query_allow_large_results";
     private static final String CREATE_DISPOSITION_TYPE = "create_disposition_type";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -48,6 +49,11 @@ public final class BigQuerySessionProperties
                         QUERY_RESULTS_CACHE_ENABLED,
                         "Enable query results cache",
                         config.isQueryResultsCacheEnabled(),
+                        false))
+                .add(booleanProperty(
+                        QUERY_ALLOW_LARGE_RESULTS,
+                        "Allow large query results",
+                        config.isQueryAllowLargeResults(),
                         false))
                 .add(enumProperty(
                         CREATE_DISPOSITION_TYPE,
@@ -72,6 +78,11 @@ public final class BigQuerySessionProperties
     public static boolean isQueryResultsCacheEnabled(ConnectorSession session)
     {
         return session.getProperty(QUERY_RESULTS_CACHE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isQueryLargeResultsAllowed(ConnectorSession session)
+    {
+        return session.getProperty(QUERY_ALLOW_LARGE_RESULTS, Boolean.class);
     }
 
     public static CreateDisposition createDisposition(ConnectorSession session)
