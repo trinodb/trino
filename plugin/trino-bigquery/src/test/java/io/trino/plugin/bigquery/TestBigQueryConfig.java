@@ -50,7 +50,8 @@ public class TestBigQueryConfig
                 .setArrowSerializationEnabled(false)
                 .setQueryResultsCacheEnabled(false)
                 .setQueryLabelName(null)
-                .setQueryLabelFormat(null));
+                .setQueryLabelFormat(null)
+                .setProxyEnabled(false));
     }
 
     @Test
@@ -74,6 +75,7 @@ public class TestBigQueryConfig
                 .put("bigquery.query-results-cache.enabled", "true")
                 .put("bigquery.job.label-name", "trino_job_name")
                 .put("bigquery.job.label-format", "$TRACE_TOKEN")
+                .put("bigquery.rpc-proxy.enabled", "true")
                 .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
@@ -93,7 +95,8 @@ public class TestBigQueryConfig
                 .setMetadataCacheTtl(new Duration(5, DAYS))
                 .setQueryResultsCacheEnabled(true)
                 .setQueryLabelName("trino_job_name")
-                .setQueryLabelFormat("$TRACE_TOKEN");
+                .setQueryLabelFormat("$TRACE_TOKEN")
+                .setProxyEnabled(true);
 
         assertFullMapping(properties, expected);
     }
