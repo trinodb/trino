@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.metastore;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.metastore.Database;
@@ -47,18 +46,15 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
     private final HiveMetastore delegate;
     private final TransactionLogAccess transactionLogAccess;
-    private final CachingExtendedStatisticsAccess statisticsAccess;
     private final TrinoFileSystemFactory fileSystemFactory;
 
     public HiveMetastoreBackedDeltaLakeMetastore(
             HiveMetastore delegate,
             TransactionLogAccess transactionLogAccess,
-            CachingExtendedStatisticsAccess statisticsAccess,
             TrinoFileSystemFactory fileSystemFactory)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogSupport is null");
-        this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
@@ -128,8 +124,6 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges)
     {
         String tableLocation = table.getStorage().getLocation();
-        statisticsAccess.invalidateCache(tableLocation);
-        transactionLogAccess.invalidateCaches(tableLocation);
         try {
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(table.getSchemaTableName(), tableLocation, session);
             transactionLogAccess.getMetadataEntry(tableSnapshot, session); // verify metadata exists
@@ -144,8 +138,6 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, boolean deleteData)
     {
         delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), deleteData);
-        statisticsAccess.invalidateCache(tableLocation);
-        transactionLogAccess.invalidateCaches(tableLocation);
         if (deleteData) {
             try {
                 fileSystemFactory.create(session).deleteDirectory(tableLocation);
