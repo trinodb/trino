@@ -281,12 +281,6 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
         public String getTableLocation(SchemaTableName table)
         {
             return TABLE_PATH;

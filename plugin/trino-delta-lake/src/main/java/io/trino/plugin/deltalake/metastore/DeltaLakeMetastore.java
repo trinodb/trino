@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.metastore;
 
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
-import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -46,8 +45,6 @@ public interface DeltaLakeMetastore
     void dropTable(ConnectorSession session, String databaseName, String tableName, boolean deleteData);
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
-
-    MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session);
 
     String getTableLocation(SchemaTableName table);
 

@@ -439,7 +439,7 @@ public class DeltaLakeMetadata
         TableSnapshot tableSnapshot = metastore.getSnapshot(dataTableName, session);
         MetadataEntry metadataEntry;
         try {
-            metadataEntry = metastore.getMetadata(tableSnapshot, session);
+            metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
@@ -614,7 +614,7 @@ public class DeltaLakeMetadata
                             return Stream.of(TableColumnsMetadata.forRedirectedTable(table));
                         }
 
-                        MetadataEntry metadata = metastore.getMetadata(metastore.getSnapshot(table, session), session);
+                        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(metastore.getSnapshot(table, session), session);
                         Map<String, String> columnComments = getColumnComments(metadata);
                         Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
                         Map<String, String> columnGenerations = getGeneratedColumnExpressions(metadata);
