@@ -48,7 +48,7 @@ public interface DeltaLakeMetastore
 
     String getTableLocation(SchemaTableName table);
 
-    TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session);
+    TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session);
 
     TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle);
 
