@@ -49,7 +49,6 @@ public class IcebergTableHandle
     private final int formatVersion;
     private final String tableLocation;
     private final Map<String, String> storageProperties;
-    private final RetryMode retryMode;
 
     // Filter used during split generation and table scan, but not required to be strictly enforced by Iceberg Connector
     private final TupleDomain<IcebergColumnHandle> unenforcedPredicate;
@@ -79,8 +78,7 @@ public class IcebergTableHandle
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties,
-            @JsonProperty("retryMode") RetryMode retryMode)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties)
     {
         return new IcebergTableHandle(
                 schemaName,
@@ -97,7 +95,6 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
-                retryMode,
                 false,
                 Optional.empty());
     }
@@ -117,7 +114,6 @@ public class IcebergTableHandle
             Optional<String> nameMappingJson,
             String tableLocation,
             Map<String, String> storageProperties,
-            RetryMode retryMode,
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize)
     {
@@ -135,7 +131,6 @@ public class IcebergTableHandle
         this.nameMappingJson = requireNonNull(nameMappingJson, "nameMappingJson is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
-        this.retryMode = requireNonNull(retryMode, "retryMode is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
     }
@@ -225,12 +220,6 @@ public class IcebergTableHandle
         return storageProperties;
     }
 
-    @JsonProperty
-    public RetryMode getRetryMode()
-    {
-        return retryMode;
-    }
-
     @JsonIgnore
     public boolean isRecordScannedFiles()
     {
@@ -270,7 +259,6 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
-                retryMode,
                 recordScannedFiles,
                 maxScannedFileSize);
     }
@@ -292,7 +280,6 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
-                retryMode,
                 recordScannedFiles,
                 maxScannedFileSize);
     }
@@ -314,7 +301,6 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
-                retryMode,
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize));
     }
@@ -344,7 +330,6 @@ public class IcebergTableHandle
                 Objects.equals(projectedColumns, that.projectedColumns) &&
                 Objects.equals(nameMappingJson, that.nameMappingJson) &&
                 Objects.equals(tableLocation, that.tableLocation) &&
-                Objects.equals(retryMode, that.retryMode) &&
                 Objects.equals(storageProperties, that.storageProperties) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize);
     }
@@ -367,7 +352,6 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
-                retryMode,
                 recordScannedFiles,
                 maxScannedFileSize);
     }

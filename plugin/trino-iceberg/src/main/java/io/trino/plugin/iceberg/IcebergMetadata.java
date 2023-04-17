@@ -405,7 +405,6 @@ public class IcebergMetadata
                 Optional.ofNullable(nameMappingJson),
                 table.location(),
                 table.properties(),
-                NO_RETRIES,
                 false,
                 Optional.empty());
     }
@@ -1992,8 +1991,10 @@ public class IcebergMetadata
     @Override
     public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        IcebergTableHandle handle = ((IcebergMergeTableHandle) mergeTableHandle).getTableHandle();
-        finishWrite(session, handle, fragments, true);
+        IcebergMergeTableHandle mergeHandle = (IcebergMergeTableHandle) mergeTableHandle;
+        IcebergTableHandle handle = mergeHandle.getTableHandle();
+        RetryMode retryMode = mergeHandle.getInsertTableHandle().getRetryMode();
+        finishWrite(session, handle, fragments, true, retryMode);
     }
 
     private static void verifyTableVersionForUpdate(IcebergTableHandle table)
@@ -2020,7 +2021,7 @@ public class IcebergMetadata
         }
     }
 
-    private void finishWrite(ConnectorSession session, IcebergTableHandle table, Collection<Slice> fragments, boolean runUpdateValidations)
+    private void finishWrite(ConnectorSession session, IcebergTableHandle table, Collection<Slice> fragments, boolean runUpdateValidations, RetryMode retryMode)
     {
         Table icebergTable = transaction.table();
 
@@ -2113,7 +2114,7 @@ public class IcebergMetadata
             }
 
             // try to leave as little garbage as possible behind
-            if (table.getRetryMode() != NO_RETRIES) {
+            if (retryMode != NO_RETRIES) {
                 cleanExtraOutputFiles(session, writtenFiles.build());
             }
 
@@ -2322,7 +2323,6 @@ public class IcebergMetadata
                         table.getNameMappingJson(),
                         table.getTableLocation(),
                         table.getStorageProperties(),
-                        table.getRetryMode(),
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
@@ -2470,7 +2470,6 @@ public class IcebergMetadata
                         originalHandle.getNameMappingJson(),
                         originalHandle.getTableLocation(),
                         originalHandle.getStorageProperties(),
-                        NO_RETRIES, // retry mode doesn't affect stats
                         originalHandle.isRecordScannedFiles(),
                         originalHandle.getMaxScannedFileSize()),
                 handle -> {
