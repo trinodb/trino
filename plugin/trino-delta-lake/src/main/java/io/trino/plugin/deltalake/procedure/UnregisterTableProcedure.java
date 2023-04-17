@@ -14,13 +14,16 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.deltalake.CorruptedDeltaLakeTableHandle;
+import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
-import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
+import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaNotFoundException;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Inject;
@@ -88,12 +91,20 @@ public class UnregisterTableProcedure
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
         accessControl.checkCanDropTable(null, schemaTableName);
-        DeltaLakeMetastore metastore = metadataFactory.create(session.getIdentity()).getMetastore();
+        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
 
-        if (metastore.getDatabase(schemaName).isEmpty()) {
-            throw new SchemaNotFoundException(schemaTableName.getSchemaName());
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+        if (tableHandle == null) {
+            throw new TableNotFoundException(schemaTableName);
+        }
+        String tableLocation;
+        if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
+            tableLocation = corruptedTableHandle.location();
+        }
+        else {
+            tableLocation = ((DeltaLakeTableHandle) tableHandle).getLocation();
         }
 
-        metastore.dropTable(session, schemaName, tableName, false);
+        metadata.getMetastore().dropTable(session, schemaName, tableName, tableLocation, false);
     }
 }
