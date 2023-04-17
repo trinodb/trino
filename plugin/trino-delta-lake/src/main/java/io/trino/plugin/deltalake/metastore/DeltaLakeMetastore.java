@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.metastore;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
@@ -34,7 +33,9 @@ public interface DeltaLakeMetastore
 
     List<String> getAllTables(String databaseName);
 
-    Optional<Table> getTable(String databaseName, String tableName);
+    Optional<Table> getRawMetastoreTable(String databaseName, String tableName);
+
+    Optional<DeltaMetastoreTable> getTable(String databaseName, String tableName);
 
     void createDatabase(Database database);
 
@@ -46,11 +47,7 @@ public interface DeltaLakeMetastore
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
 
-    String getTableLocation(SchemaTableName table);
-
     TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session);
 
     TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle);
-
-    HiveMetastore getHiveMetastore();
 }
