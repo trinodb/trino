@@ -770,6 +770,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.addField(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), parentPath, fieldName, type, ignoreExisting);
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle column)
     {
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
