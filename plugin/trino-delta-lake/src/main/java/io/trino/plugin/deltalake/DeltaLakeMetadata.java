@@ -35,6 +35,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.deltalake.expression.ParsingException;
 import io.trino.plugin.deltalake.expression.SparkExpressionParser;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId;
@@ -407,9 +408,7 @@ public class DeltaLakeMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName().substring(0, metadataMarkerIndex));
 
-        Optional<Table> table = metastore.getHiveMetastore()
-                .getTable(tableNameBase.getSchemaName(), tableNameBase.getTableName());
-
+        Optional<Table> table = metastore.getRawMetastoreTable(tableNameBase.getSchemaName(), tableNameBase.getTableName());
         if (table.isEmpty() || VIRTUAL_VIEW.name().equals(table.get().getTableType())) {
             return Optional.empty();
         }
@@ -429,13 +428,13 @@ public class DeltaLakeMetadata
             return null;
         }
         SchemaTableName dataTableName = new SchemaTableName(tableName.getSchemaName(), tableName.getTableName());
-        Optional<Table> table = metastore.getTable(dataTableName.getSchemaName(), dataTableName.getTableName());
+        Optional<DeltaMetastoreTable> table = metastore.getTable(dataTableName.getSchemaName(), dataTableName.getTableName());
         if (table.isEmpty()) {
             return null;
         }
-        boolean managed = table.get().getTableType().equals(MANAGED_TABLE.name());
+        boolean managed = table.get().managed();
 
-        String tableLocation = metastore.getTableLocation(dataTableName);
+        String tableLocation = table.get().location();
         TableSnapshot tableSnapshot = metastore.getSnapshot(dataTableName, tableLocation, session);
         MetadataEntry metadataEntry;
         try {
@@ -614,7 +613,12 @@ public class DeltaLakeMetadata
                             return Stream.of(TableColumnsMetadata.forRedirectedTable(table));
                         }
 
-                        String tableLocation = metastore.getTableLocation(table);
+                        Optional<DeltaMetastoreTable> metastoreTable = metastore.getTable(table.getSchemaName(), table.getTableName());
+                        if (metastoreTable.isEmpty()) {
+                            // this may happen when table is being deleted concurrently,
+                            return Stream.of();
+                        }
+                        String tableLocation = metastoreTable.get().location();
                         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(metastore.getSnapshot(table, tableLocation, session), session);
                         Map<String, String> columnComments = getColumnComments(metadata);
                         Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
@@ -1030,7 +1034,7 @@ public class DeltaLakeMetadata
                 // Ignore TableAlreadyExistsException when table looks like created by us.
                 // This may happen when an actually successful metastore create call is retried
                 // e.g. because of a timeout on our side.
-                Optional<Table> existingTable = metastore.getTable(schemaName, tableName);
+                Optional<Table> existingTable = metastore.getRawMetastoreTable(schemaName, tableName);
                 if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), queryId)) {
                     throw e;
                 }
@@ -1894,9 +1898,9 @@ public class DeltaLakeMetadata
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
-        Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
+        DeltaMetastoreTable table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
-        if (table.getTableType().equals(MANAGED_TABLE.name()) && !allowManagedTableRename) {
+        if (table.managed() && !allowManagedTableRename) {
             throw new TrinoException(NOT_SUPPORTED, "Renaming managed tables is not allowed with current metastore configuration");
         }
         metastore.renameTable(session, handle.getSchemaTableName(), newTableName);
