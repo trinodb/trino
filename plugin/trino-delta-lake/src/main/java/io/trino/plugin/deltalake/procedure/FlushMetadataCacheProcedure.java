@@ -14,15 +14,17 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.deltalake.CorruptedDeltaLakeTableHandle;
+import io.trino.plugin.deltalake.DeltaLakeMetadata;
+import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
@@ -33,8 +35,6 @@ import javax.inject.Provider;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.getTableLocation;
-import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.verifyDeltaLakeTable;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -59,19 +59,19 @@ public class FlushMetadataCacheProcedure
         }
     }
 
-    private final HiveMetastoreFactory metastoreFactory;
+    private final DeltaLakeMetadataFactory metadataFactory;
     private final Optional<CachingHiveMetastore> cachingHiveMetastore;
     private final TransactionLogAccess transactionLogAccess;
     private final CachingExtendedStatisticsAccess extendedStatisticsAccess;
 
     @Inject
     public FlushMetadataCacheProcedure(
-            HiveMetastoreFactory metastoreFactory,
+            DeltaLakeMetadataFactory metadataFactory,
             Optional<CachingHiveMetastore> cachingHiveMetastore,
             TransactionLogAccess transactionLogAccess,
             CachingExtendedStatisticsAccess extendedStatisticsAccess)
     {
-        this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
+        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.cachingHiveMetastore = requireNonNull(cachingHiveMetastore, "cachingHiveMetastore is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.extendedStatisticsAccess = requireNonNull(extendedStatisticsAccess, "extendedStatisticsAccess is null");
@@ -105,12 +105,21 @@ public class FlushMetadataCacheProcedure
             extendedStatisticsAccess.invalidateCache();
         }
         else if (schemaName.isPresent() && tableName.isPresent()) {
-            HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
-            Table table = metastore.getTable(schemaName.get(), tableName.get())
-                            .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schemaName.get(), tableName.get())));
-            verifyDeltaLakeTable(table);
-            cachingHiveMetastore.ifPresent(caching -> caching.invalidateTable(table.getDatabaseName(), table.getTableName()));
-            String tableLocation = getTableLocation(table);
+            DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
+            cachingHiveMetastore.ifPresent(caching -> caching.invalidateTable(schemaName.get(), tableName.get()));
+
+            SchemaTableName schemaTableName = new SchemaTableName(schemaName.get(), tableName.get());
+            ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+            if (tableHandle == null) {
+                throw new TableNotFoundException(schemaTableName);
+            }
+            String tableLocation;
+            if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
+                tableLocation = corruptedTableHandle.location();
+            }
+            else {
+                tableLocation = ((DeltaLakeTableHandle) tableHandle).getLocation();
+            }
             transactionLogAccess.invalidateCaches(tableLocation);
             extendedStatisticsAccess.invalidateCache(tableLocation);
         }
