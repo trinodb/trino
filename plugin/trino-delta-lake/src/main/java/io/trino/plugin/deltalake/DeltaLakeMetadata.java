@@ -1068,7 +1068,7 @@ public class DeltaLakeMetadata
     public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
-        checkSupportedWriterVersion(session, handle.getSchemaTableName());
+        checkSupportedWriterVersion(session, handle);
         ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
         if (columnMappingMode != ID && columnMappingMode != NAME && columnMappingMode != NONE) {
             throw new TrinoException(NOT_SUPPORTED, "Setting a table comment with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
@@ -1090,7 +1090,7 @@ public class DeltaLakeMetadata
                     SET_TBLPROPERTIES_OPERATION,
                     session,
                     comment,
-                    getProtocolEntry(session, handle.getSchemaTableName()));
+                    getProtocolEntry(session, handle));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1103,7 +1103,7 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle deltaLakeTableHandle = (DeltaLakeTableHandle) tableHandle;
         DeltaLakeColumnHandle deltaLakeColumnHandle = (DeltaLakeColumnHandle) column;
-        checkSupportedWriterVersion(session, deltaLakeTableHandle.getSchemaTableName());
+        checkSupportedWriterVersion(session, deltaLakeTableHandle);
         ColumnMappingMode columnMappingMode = getColumnMappingMode(deltaLakeTableHandle.getMetadataEntry());
         if (columnMappingMode != ID && columnMappingMode != NAME && columnMappingMode != NONE) {
             throw new TrinoException(NOT_SUPPORTED, "Setting a column comment with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
@@ -1140,7 +1140,7 @@ public class DeltaLakeMetadata
                     CHANGE_COLUMN_OPERATION,
                     session,
                     Optional.ofNullable(deltaLakeTableHandle.getMetadataEntry().getDescription()),
-                    getProtocolEntry(session, deltaLakeTableHandle.getSchemaTableName()));
+                    getProtocolEntry(session, deltaLakeTableHandle));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1152,7 +1152,7 @@ public class DeltaLakeMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata newColumnMetadata)
     {
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
-        checkSupportedWriterVersion(session, handle.getSchemaTableName());
+        checkSupportedWriterVersion(session, handle);
         ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
         if (columnMappingMode != NONE) {
             // TODO https://github.com/trinodb/trino/issues/12638 Support adding a column for id and name column mapping mode
@@ -1205,7 +1205,7 @@ public class DeltaLakeMetadata
                     ADD_COLUMN_OPERATION,
                     session,
                     Optional.ofNullable(handle.getMetadataEntry().getDescription()),
-                    getProtocolEntry(session, handle.getSchemaTableName()));
+                    getProtocolEntry(session, handle));
             transactionLogWriter.flush();
         }
         catch (Exception e) {
@@ -1305,7 +1305,7 @@ public class DeltaLakeMetadata
                     format("Inserts are not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
                             "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
         }
-        checkWriteSupported(session, table.getSchemaTableName(), table.getMetadataEntry());
+        checkWriteSupported(session, table);
 
         List<DeltaLakeColumnHandle> inputColumns = columns.stream()
                 .map(handle -> (DeltaLakeColumnHandle) handle)
@@ -1482,7 +1482,7 @@ public class DeltaLakeMetadata
             // TODO https://github.com/trinodb/trino/issues/16967 Support CDF for tables with 'id' and 'name' column mapping
             throw new TrinoException(NOT_SUPPORTED, "Unsupported column mapping mode for tables with change data feed enabled: " + columnMappingMode.name().toLowerCase(ENGLISH));
         }
-        checkWriteSupported(session, handle.getSchemaTableName(), handle.getMetadataEntry());
+        checkWriteSupported(session, handle);
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
 
@@ -1697,7 +1697,7 @@ public class DeltaLakeMetadata
                     format("Optimize is not enabled on the %1$s filesystem in order to avoid eventual data corruption which may be caused by concurrent data modifications on the table. " +
                             "Writes to the %1$s filesystem can be however enabled with the '%2$s' configuration property.", fileSystem, ENABLE_NON_CONCURRENT_WRITES_CONFIGURATION_KEY));
         }
-        checkSupportedWriterVersion(session, table.getSchemaTableName());
+        checkSupportedWriterVersion(session, table);
         ColumnMappingMode columnMappingMode = getColumnMappingMode(table.getMetadataEntry());
         if (columnMappingMode != NONE) {
             // TODO https://github.com/trinodb/trino/issues/12638 Support 'optimize' table procedure for id and name column mapping mode
@@ -1793,11 +1793,11 @@ public class DeltaLakeMetadata
         }
     }
 
-    private void checkWriteSupported(ConnectorSession session, SchemaTableName schemaTableName, MetadataEntry metadataEntry)
+    private void checkWriteSupported(ConnectorSession session, DeltaLakeTableHandle handle)
     {
-        checkSupportedWriterVersion(session, schemaTableName);
-        checkUnsupportedGeneratedColumns(metadataEntry);
-        ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry);
+        checkSupportedWriterVersion(session, handle);
+        checkUnsupportedGeneratedColumns(handle.getMetadataEntry());
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
         if (!(columnMappingMode == NONE || columnMappingMode == ColumnMappingMode.NAME)) {
             throw new TrinoException(NOT_SUPPORTED, "Writing with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
         }
@@ -1812,19 +1812,19 @@ public class DeltaLakeMetadata
         }
     }
 
-    private void checkSupportedWriterVersion(ConnectorSession session, SchemaTableName schemaTableName)
+    private void checkSupportedWriterVersion(ConnectorSession session, DeltaLakeTableHandle handle)
     {
-        int requiredWriterVersion = getProtocolEntry(session, schemaTableName).getMinWriterVersion();
+        int requiredWriterVersion = getProtocolEntry(session, handle).getMinWriterVersion();
         if (requiredWriterVersion > MAX_WRITER_VERSION) {
             throw new TrinoException(
                     NOT_SUPPORTED,
-                    format("Table %s requires Delta Lake writer version %d which is not supported", schemaTableName, requiredWriterVersion));
+                    format("Table %s requires Delta Lake writer version %d which is not supported", handle.getSchemaTableName(), requiredWriterVersion));
         }
     }
 
-    private ProtocolEntry getProtocolEntry(ConnectorSession session, SchemaTableName schemaTableName)
+    private ProtocolEntry getProtocolEntry(ConnectorSession session, DeltaLakeTableHandle handle)
     {
-        return metastore.getProtocol(session, metastore.getSnapshot(schemaTableName, session));
+        return metastore.getProtocol(session, metastore.getSnapshot(handle.getSchemaTableName(), session));
     }
 
     private ProtocolEntry protocolEntryForNewTable(Map<String, Object> properties)
@@ -1952,7 +1952,7 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "The following properties cannot be updated: " + String.join(", ", unsupportedProperties));
         }
 
-        ProtocolEntry currentProtocolEntry = getProtocolEntry(session, handle.getSchemaTableName());
+        ProtocolEntry currentProtocolEntry = getProtocolEntry(session, handle);
 
         long createdTime = Instant.now().toEpochMilli();
 
