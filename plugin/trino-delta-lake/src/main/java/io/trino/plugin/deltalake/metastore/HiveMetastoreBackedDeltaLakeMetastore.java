@@ -187,12 +187,6 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
-    {
-        return transactionLogAccess.getMetadataEntry(tableSnapshot, session);
-    }
-
-    @Override
     public String getTableLocation(SchemaTableName tableName)
     {
         Table table = getTable(tableName.getSchemaName(), tableName.getTableName())
