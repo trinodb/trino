@@ -19,6 +19,8 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
@@ -69,13 +71,22 @@ public class RegisterTableProcedure
     }
 
     private final DeltaLakeMetadataFactory metadataFactory;
+    private final TransactionLogAccess transactionLogAccess;
+    private final CachingExtendedStatisticsAccess statisticsAccess;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean registerTableProcedureEnabled;
 
     @Inject
-    public RegisterTableProcedure(DeltaLakeMetadataFactory metadataFactory, TrinoFileSystemFactory fileSystemFactory, DeltaLakeConfig deltaLakeConfig)
+    public RegisterTableProcedure(
+            DeltaLakeMetadataFactory metadataFactory,
+            TransactionLogAccess transactionLogAccess,
+            CachingExtendedStatisticsAccess statisticsAccess,
+            TrinoFileSystemFactory fileSystemFactory,
+            DeltaLakeConfig deltaLakeConfig)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
+        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
+        this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.registerTableProcedureEnabled = deltaLakeConfig.isRegisterTableProcedureEnabled();
     }
@@ -146,5 +157,8 @@ public class RegisterTableProcedure
                 session,
                 table,
                 principalPrivileges);
+        // As a precaution, clear the caches
+        statisticsAccess.invalidateCache(tableLocation);
+        transactionLogAccess.invalidateCaches(tableLocation);
     }
 }

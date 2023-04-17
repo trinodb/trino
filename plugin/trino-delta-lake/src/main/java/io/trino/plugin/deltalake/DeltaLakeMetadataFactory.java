@@ -111,7 +111,6 @@ public class DeltaLakeMetadataFactory
         HiveMetastoreBackedDeltaLakeMetastore deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(
                 cachingHiveMetastore,
                 transactionLogAccess,
-                statisticsAccess,
                 fileSystemFactory);
         FileBasedTableStatisticsProvider tableStatisticsProvider = new FileBasedTableStatisticsProvider(
                 typeManager,

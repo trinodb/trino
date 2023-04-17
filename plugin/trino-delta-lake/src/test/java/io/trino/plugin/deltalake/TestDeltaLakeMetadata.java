@@ -28,7 +28,6 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
-import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.NodeVersion;
@@ -170,13 +169,11 @@ public class TestDeltaLakeMetadata
                     @Provides
                     public DeltaLakeMetastore getDeltaLakeMetastore(
                             @RawHiveMetastoreFactory HiveMetastoreFactory hiveMetastoreFactory,
-                            TransactionLogAccess transactionLogAccess,
-                            CachingExtendedStatisticsAccess statistics)
+                            TransactionLogAccess transactionLogAccess)
                     {
                         return new HiveMetastoreBackedDeltaLakeMetastore(
                                 hiveMetastoreFactory.createMetastore(Optional.empty()),
                                 transactionLogAccess,
-                                statistics,
                                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
                     }
                 });
