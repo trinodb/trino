@@ -40,10 +40,10 @@ import io.trino.plugin.deltalake.metastore.NotADeltaLakeTableException;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
 import io.trino.plugin.deltalake.statistics.DeltaLakeTableStatisticsProvider;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
-import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
@@ -330,7 +330,7 @@ public class DeltaLakeMetadata
     private final String nodeId;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
     private final DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider;
-    private final ExtendedStatisticsAccess statisticsAccess;
+    private final CachingExtendedStatisticsAccess statisticsAccess;
     private final boolean deleteSchemaLocationsFallback;
     private final boolean useUniqueTableLocation;
     private final boolean allowManagedTableRename;
@@ -353,7 +353,7 @@ public class DeltaLakeMetadata
             long defaultCheckpointInterval,
             boolean deleteSchemaLocationsFallback,
             DeltaLakeRedirectionsProvider deltaLakeRedirectionsProvider,
-            ExtendedStatisticsAccess statisticsAccess,
+            CachingExtendedStatisticsAccess statisticsAccess,
             boolean useUniqueTableLocation,
             boolean allowManagedTableRename)
     {
@@ -810,6 +810,9 @@ public class DeltaLakeMetadata
         Table table = buildTable(session, schemaTableName, location, external);
 
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
+        // As a precaution, clear the caches
+        statisticsAccess.invalidateCache(location);
+        transactionLogAccess.invalidateCaches(location);
         metastore.createTable(
                 session,
                 table,
@@ -1031,6 +1034,9 @@ public class DeltaLakeMetadata
 
             PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
 
+            // As a precaution, clear the caches
+            statisticsAccess.invalidateCache(location);
+            transactionLogAccess.invalidateCaches(location);
             try {
                 metastore.createTable(session, table, principalPrivileges);
             }
@@ -1906,6 +1912,9 @@ public class DeltaLakeMetadata
     {
         LocatedTableHandle handle = (LocatedTableHandle) tableHandle;
         metastore.dropTable(session, handle.schemaTableName(), handle.location(), handle.managed());
+        // As a precaution, clear the caches
+        statisticsAccess.invalidateCache(handle.location());
+        transactionLogAccess.invalidateCaches(handle.location());
     }
 
     @Override
