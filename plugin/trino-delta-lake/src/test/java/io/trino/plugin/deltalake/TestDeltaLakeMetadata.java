@@ -172,13 +172,11 @@ public class TestDeltaLakeMetadata
                     public DeltaLakeMetastore getDeltaLakeMetastore(
                             @RawHiveMetastoreFactory HiveMetastoreFactory hiveMetastoreFactory,
                             TransactionLogAccess transactionLogAccess,
-                            TypeManager typeManager,
                             CachingExtendedStatisticsAccess statistics)
                     {
                         return new HiveMetastoreBackedDeltaLakeMetastore(
                                 hiveMetastoreFactory.createMetastore(Optional.empty()),
                                 transactionLogAccess,
-                                typeManager,
                                 statistics,
                                 new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
                     }
