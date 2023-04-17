@@ -14,14 +14,12 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.deltalake.CorruptedDeltaLakeTableHandle;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
-import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.LocatedTableHandle;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
@@ -93,18 +91,10 @@ public class UnregisterTableProcedure
         accessControl.checkCanDropTable(null, schemaTableName);
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
 
-        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+        LocatedTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
         if (tableHandle == null) {
             throw new TableNotFoundException(schemaTableName);
         }
-        String tableLocation;
-        if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
-            tableLocation = corruptedTableHandle.location();
-        }
-        else {
-            tableLocation = ((DeltaLakeTableHandle) tableHandle).getLocation();
-        }
-
-        metadata.getMetastore().dropTable(session, schemaName, tableName, tableLocation, false);
+        metadata.getMetastore().dropTable(session, schemaTableName, tableHandle.location(), false);
     }
 }

@@ -14,17 +14,15 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.deltalake.CorruptedDeltaLakeTableHandle;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
-import io.trino.plugin.deltalake.DeltaLakeTableHandle;
+import io.trino.plugin.deltalake.LocatedTableHandle;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 
@@ -107,15 +105,10 @@ public class FlushMetadataCacheProcedure
             DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
             SchemaTableName schemaTableName = new SchemaTableName(schemaName.get(), tableName.get());
             // This may insert into a cache, but this will get invalidated below. TODO fix Delta so that flush_metadata_cache doesn't have to read from metastore
-            ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+            LocatedTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
             cachingHiveMetastore.ifPresent(caching -> caching.invalidateTable(schemaName.get(), tableName.get()));
 
-            Optional<String> tableLocation = Optional.ofNullable(tableHandle).map(table -> {
-                if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
-                    return corruptedTableHandle.location();
-                }
-                return ((DeltaLakeTableHandle) tableHandle).getLocation();
-            });
+            Optional<String> tableLocation = Optional.ofNullable(tableHandle).map(LocatedTableHandle::location);
             tableLocation.ifPresent(transactionLogAccess::invalidateCaches);
             tableLocation.ifPresent(extendedStatisticsAccess::invalidateCache);
         }

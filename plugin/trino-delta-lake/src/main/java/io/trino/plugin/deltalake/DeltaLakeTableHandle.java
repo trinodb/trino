@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -33,7 +32,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableHandle.WriteType.UPDATE;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeTableHandle
-        implements ConnectorTableHandle
+        implements LocatedTableHandle
 {
     // Insert is not included here because it uses a separate TableHandle type
     public enum WriteType
@@ -173,6 +172,17 @@ public class DeltaLakeTableHandle
                 readVersion);
     }
 
+    @Override
+    public SchemaTableName schemaTableName()
+    {
+        return getSchemaTableName();
+    }
+
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(schemaName, tableName);
+    }
+
     @JsonProperty
     public String getSchemaName()
     {
@@ -185,10 +195,22 @@ public class DeltaLakeTableHandle
         return tableName;
     }
 
+    @Override
+    public boolean managed()
+    {
+        return isManaged();
+    }
+
     @JsonProperty
     public boolean isManaged()
     {
         return managed;
+    }
+
+    @Override
+    public String location()
+    {
+        return getLocation();
     }
 
     @JsonProperty
@@ -262,11 +284,6 @@ public class DeltaLakeTableHandle
     public long getReadVersion()
     {
         return readVersion;
-    }
-
-    public SchemaTableName getSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, tableName);
     }
 
     @Override
