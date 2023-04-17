@@ -246,7 +246,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
         double numRecords = 0L;
 
-        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
+        MetadataEntry metadata = tableHandle.getMetadataEntry();
         List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
                 .map(columnMeta -> new DeltaLakeColumnHandle(

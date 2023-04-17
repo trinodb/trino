@@ -26,6 +26,7 @@ import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -39,6 +40,7 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
@@ -53,6 +55,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.Map;
@@ -83,6 +86,7 @@ public class TestDeltaLakeMetastoreStatistics
 {
     private static final ColumnHandle COLUMN_HANDLE = new DeltaLakeColumnHandle("val", DoubleType.DOUBLE, OptionalInt.empty(), "val", DoubleType.DOUBLE, REGULAR);
 
+    private TransactionLogAccess transactionLogAccess;
     private DeltaLakeMetastore deltaLakeMetastore;
     private HiveMetastore hiveMetastore;
     private CachingExtendedStatisticsAccess statistics;
@@ -97,7 +101,7 @@ public class TestDeltaLakeMetastoreStatistics
 
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
-        TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
+        transactionLogAccess = new TransactionLogAccess(
                 typeManager,
                 checkpointSchemaManager,
                 new DeltaLakeConfig(),
@@ -132,10 +136,11 @@ public class TestDeltaLakeMetastoreStatistics
         Storage tableStorage = new Storage(
                 StorageFormat.create("serde", "input", "output"), Optional.of(tableLocation), Optional.empty(), true, ImmutableMap.of(PATH_PROPERTY, tableLocation));
 
+        SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
         hiveMetastore.createTable(
                 new Table(
-                        "db_name",
-                        tableName,
+                        schemaTableName.getSchemaName(),
+                        schemaTableName.getTableName(),
                         Optional.of("test"),
                         "EXTERNAL_TABLE",
                         tableStorage,
@@ -147,11 +152,20 @@ public class TestDeltaLakeMetastoreStatistics
                         OptionalLong.empty()),
                 PrincipalPrivileges.fromHivePrivilegeInfos(ImmutableSet.of()));
 
+        TableSnapshot tableSnapshot;
+        try {
+            tableSnapshot = transactionLogAccess.loadSnapshot(schemaTableName, tableLocation, SESSION);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
+
         return new DeltaLakeTableHandle(
-                "db_name",
-                tableName,
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
                 "location",
-                new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
+                metadataEntry,
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty(),
