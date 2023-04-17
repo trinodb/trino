@@ -17,11 +17,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -48,6 +52,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeSplitManager
@@ -159,9 +164,22 @@ public class TestDeltaLakeSplitManager
         TypeManager typeManager = context.getTypeManager();
 
         MockDeltaLakeMetastore metastore = new MockDeltaLakeMetastore();
-        metastore.setValidDataFiles(addFileEntries);
         return new DeltaLakeSplitManager(
                 typeManager,
+                new TransactionLogAccess(
+                        typeManager,
+                        new CheckpointSchemaManager(typeManager),
+                        deltaLakeConfig,
+                        new FileFormatDataSourceStats(),
+                        new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
+                        new ParquetReaderConfig())
+                {
+                    @Override
+                    public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
+                    {
+                        return addFileEntries;
+                    }
+                },
                 (session, transaction) -> metastore,
                 MoreExecutors.newDirectExecutorService(),
                 deltaLakeConfig);
@@ -209,13 +227,6 @@ public class TestDeltaLakeSplitManager
     private static class MockDeltaLakeMetastore
             implements DeltaLakeMetastore
     {
-        private List<AddFileEntry> validDataFiles;
-
-        public void setValidDataFiles(List<AddFileEntry> validDataFiles)
-        {
-            this.validDataFiles = ImmutableList.copyOf(validDataFiles);
-        }
-
         @Override
         public List<String> getAllDatabases()
         {
@@ -291,13 +302,7 @@ public class TestDeltaLakeSplitManager
         @Override
         public TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session)
         {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public List<AddFileEntry> getValidDataFiles(SchemaTableName table, ConnectorSession session)
-        {
-            return validDataFiles;
+            return null; // hack, unused
         }
 
         @Override
