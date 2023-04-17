@@ -169,9 +169,7 @@ public class TestDeltaLakeMetadata
                     @Provides
                     public DeltaLakeMetastore getDeltaLakeMetastore(@RawHiveMetastoreFactory HiveMetastoreFactory hiveMetastoreFactory)
                     {
-                        return new HiveMetastoreBackedDeltaLakeMetastore(
-                                hiveMetastoreFactory.createMetastore(Optional.empty()),
-                                new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
+                        return new HiveMetastoreBackedDeltaLakeMetastore(hiveMetastoreFactory.createMetastore(Optional.empty()));
                     }
                 });
 
