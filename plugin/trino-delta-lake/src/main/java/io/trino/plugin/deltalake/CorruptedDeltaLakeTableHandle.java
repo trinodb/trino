@@ -21,12 +21,14 @@ import static java.util.Objects.requireNonNull;
 
 public record CorruptedDeltaLakeTableHandle(
         SchemaTableName schemaTableName,
+        String location,
         TrinoException originalException)
         implements ConnectorTableHandle
 {
     public CorruptedDeltaLakeTableHandle
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(location, "location is null");
         requireNonNull(originalException, "originalException is null");
     }
 

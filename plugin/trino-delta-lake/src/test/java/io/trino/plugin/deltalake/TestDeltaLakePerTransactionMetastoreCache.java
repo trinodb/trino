@@ -143,7 +143,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
             // caching and not because of caching done by some other layer.
             assertMetastoreInvocations(queryRunner, "SELECT * FROM nation JOIN region ON nation.regionkey = region.regionkey",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 12)
+                            .addCopies(GET_TABLE, 6)
                             .build());
         }
     }

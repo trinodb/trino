@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.deltalake.procedure;
 
+import io.trino.plugin.deltalake.CorruptedDeltaLakeTableHandle;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -79,10 +82,14 @@ public class DropExtendedStatsProcedure
 
         SchemaTableName name = new SchemaTableName(schema, table);
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
-        if (metadata.getTableHandle(session, name) == null) {
+        ConnectorTableHandle tableHandle = metadata.getTableHandle(session, name);
+        if (tableHandle == null) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
         }
+        if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
+            throw corruptedTableHandle.originalException();
+        }
         accessControl.checkCanInsertIntoTable(null, name);
-        statsAccess.deleteExtendedStatistics(session, metadata.getMetastore().getTableLocation(name));
+        statsAccess.deleteExtendedStatistics(session, ((DeltaLakeTableHandle) tableHandle).getLocation());
     }
 }
