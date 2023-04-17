@@ -423,26 +423,7 @@ public class PinotMetadata
 
     private Optional<AggregateExpression> applyCountDistinct(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments, PinotTableHandle tableHandle, Optional<AggregateExpression> rewriteResult)
     {
-        AggregateFunctionRule.RewriteContext<Void> context = new AggregateFunctionRule.RewriteContext<>()
-        {
-            @Override
-            public Map<String, ColumnHandle> getAssignments()
-            {
-                return assignments;
-            }
-
-            @Override
-            public ConnectorSession getSession()
-            {
-                return session;
-            }
-
-            @Override
-            public Optional<Void> rewriteExpression(ConnectorExpression expression)
-            {
-                throw new UnsupportedOperationException();
-            }
-        };
+        AggregateFunctionRule.RewriteContext<Void> context = new CountDistinctContext(assignments, session);
 
         if (implementCountDistinct.getPattern().matches(aggregate, context)) {
             Variable argument = (Variable) getOnlyElement(aggregate.getArguments());
@@ -533,5 +514,36 @@ public class PinotMetadata
             return listTables(session, Optional.empty());
         }
         return ImmutableList.of(new SchemaTableName(prefix.getSchema().get(), prefix.getTable().get()));
+    }
+
+    private static class CountDistinctContext
+            implements AggregateFunctionRule.RewriteContext<Void>
+    {
+        private final Map<String, ColumnHandle> assignments;
+        private final ConnectorSession session;
+
+        CountDistinctContext(Map<String, ColumnHandle> assignments, ConnectorSession session)
+        {
+            this.assignments = requireNonNull(assignments, "assignments is null");
+            this.session = requireNonNull(session, "session is null");
+        }
+
+        @Override
+        public Map<String, ColumnHandle> getAssignments()
+        {
+            return assignments;
+        }
+
+        @Override
+        public ConnectorSession getSession()
+        {
+            return session;
+        }
+
+        @Override
+        public Optional<Void> rewriteExpression(ConnectorExpression expression)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }
