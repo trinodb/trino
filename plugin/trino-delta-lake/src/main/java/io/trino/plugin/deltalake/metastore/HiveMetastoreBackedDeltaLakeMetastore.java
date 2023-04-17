@@ -23,7 +23,6 @@ import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
@@ -191,14 +190,6 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         return transactionLogAccess.getMetadataEntry(tableSnapshot, session);
-    }
-
-    @Override
-    public ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot tableSnapshot)
-    {
-        return transactionLogAccess.getProtocolEntries(tableSnapshot, session)
-                .reduce((first, second) -> second)
-                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
     }
 
     @Override
