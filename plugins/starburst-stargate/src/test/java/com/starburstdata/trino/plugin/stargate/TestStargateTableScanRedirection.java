@@ -9,17 +9,13 @@
  */
 package com.starburstdata.trino.plugin.stargate;
 
-import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 
 public class TestStargateTableScanRedirection
         extends AbstractTableScanRedirectionTest
@@ -32,14 +28,8 @@ public class TestStargateTableScanRedirection
                 REQUIRED_TPCH_TABLES,
                 Optional.empty()));
 
-        Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
-                .put("connection-url", stargateConnectionUrl(remoteStarburst, "memory"))
-                .putAll(getRedirectionProperties("p2p_remote", "tiny"))
-                .buildOrThrow();
-
-        return createStargateQueryRunner(
-                false,
-                Map.of(),
-                connectorProperties);
+        return StargateQueryRunner.builder(remoteStarburst, "memory")
+                .withConnectorProperties(getRedirectionProperties("p2p_remote", "tiny"))
+                .build();
     }
 }

@@ -24,14 +24,11 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithHive;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.NATION;
@@ -64,9 +61,9 @@ public class TestStargateTableStatisticsWithHive
                 .setCatalog("hive")
                 .setSchema("tiny")
                 .build();
-        return createStargateQueryRunner(
-                true,
-                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "hive")));
+        return StargateQueryRunner.builder(remoteStarburst, "hive")
+                .enableWrites()
+                .build();
     }
 
     @BeforeClass

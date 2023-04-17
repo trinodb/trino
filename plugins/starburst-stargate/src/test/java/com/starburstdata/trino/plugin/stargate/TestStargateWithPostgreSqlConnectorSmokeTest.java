@@ -19,9 +19,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
-
 public class TestStargateWithPostgreSqlConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
@@ -40,9 +37,8 @@ public class TestStargateWithPostgreSqlConnectorSmokeTest
                 REQUIRED_TPCH_TABLES,
                 Optional.empty()));
 
-        return createStargateQueryRunner(
-                false,
-                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "postgresql")));
+        return StargateQueryRunner.builder(remoteStarburst, "postgresql")
+                .build();
     }
 
     @Override

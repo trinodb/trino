@@ -24,8 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,12 +43,12 @@ public class TestStargateUserImpersonation
                 ImmutableList.of(NATION),
                 Optional.of(new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, accessControlRules)))));
 
-        return createStargateQueryRunner(
-                true,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(remoteStarburst, "memory"),
+        return StargateQueryRunner.builder(remoteStarburst, "memory")
+                .enableWrites()
+                .withConnectorProperties(Map.of(
                         "starburst.impersonation.enabled", "true",
-                        "auth-to-local.config-file", authToLocalConfig));
+                        "auth-to-local.config-file", authToLocalConfig))
+                .build();
     }
 
     @Test

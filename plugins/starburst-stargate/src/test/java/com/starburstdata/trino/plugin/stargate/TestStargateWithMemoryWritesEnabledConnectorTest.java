@@ -15,12 +15,9 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,9 +33,9 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     {
         remoteStarburst = closeAfterClass(
                 createRemoteStarburstQueryRunnerWithMemory(REQUIRED_TPCH_TABLES, Optional.empty()));
-        return createStargateQueryRunner(
-                true,
-                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "memory")));
+        return StargateQueryRunner.builder(remoteStarburst, "memory")
+                .enableWrites()
+                .build();
     }
 
     @Override

@@ -40,8 +40,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
@@ -96,12 +94,11 @@ public class TestStargateTypeMapping
         starburstEnterprise = createRemoteStarburstQueryRunnerWithMemory(
                 List.of(),
                 Optional.empty());
-        return createStargateQueryRunner(
-                true,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(starburstEnterprise, "memory"),
-                        // TODO use synthetic testing type installed on remote Trino only
-                        "jdbc-types-mapped-to-varchar", "IPAddress"));
+        return StargateQueryRunner.builder(starburstEnterprise, "memory")
+                .enableWrites()
+                // TODO use synthetic testing type installed on remote Trino only
+                .withConnectorProperties(Map.of("jdbc-types-mapped-to-varchar", "IPAddress"))
+                .build();
     }
 
     @BeforeClass

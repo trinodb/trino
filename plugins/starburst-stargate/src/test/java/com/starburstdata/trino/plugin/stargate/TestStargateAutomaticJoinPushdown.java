@@ -25,8 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static java.lang.String.format;
 
 public class TestStargateAutomaticJoinPushdown
@@ -62,9 +60,8 @@ public class TestStargateAutomaticJoinPushdown
                 .setSchema("tiny")
                 .build();
 
-        return createStargateQueryRunner(
-                false,
-                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "postgresql")));
+        return StargateQueryRunner.builder(remoteStarburst, "postgresql")
+                .build();
     }
 
     @Override

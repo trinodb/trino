@@ -16,12 +16,9 @@ import io.trino.tpch.TpchTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Map;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -39,9 +36,9 @@ public class TestStargateWithWritesEnabledExtraTests
         DistributedQueryRunner remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunnerWithMemory(
                 TpchTable.getTables(),
                 Optional.empty()));
-        return createStargateQueryRunner(
-                true,
-                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, "memory")));
+        return StargateQueryRunner.builder(remoteStarburst, "memory")
+                .enableWrites()
+                .build();
     }
 
     @Test(dataProvider = "largeInValuesCount")

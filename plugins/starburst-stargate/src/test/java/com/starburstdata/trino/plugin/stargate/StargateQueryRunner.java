@@ -22,6 +22,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import java.net.URI;
 import java.nio.file.Path;
@@ -37,6 +38,8 @@ import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static java.util.Collections.emptyMap;
+import static java.util.Objects.requireNonNull;
 
 public final class StargateQueryRunner
 {
@@ -177,15 +180,7 @@ public final class StargateQueryRunner
         return queryRunner;
     }
 
-    public static DistributedQueryRunner createStargateQueryRunner(
-            boolean enableWrites,
-            Map<String, String> connectorProperties)
-            throws Exception
-    {
-        return createStargateQueryRunner(enableWrites, Map.of(), connectorProperties);
-    }
-
-    public static DistributedQueryRunner createStargateQueryRunner(
+    private static DistributedQueryRunner createStargateQueryRunner(
             boolean enableWrites,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties)
@@ -221,7 +216,7 @@ public final class StargateQueryRunner
         }
     }
 
-    public static String stargateConnectionUrl(DistributedQueryRunner stargateQueryRunner, String catalog)
+    private static String stargateConnectionUrl(DistributedQueryRunner stargateQueryRunner, String catalog)
     {
         return connectionUrl(stargateQueryRunner.getCoordinator().getBaseUrl(), catalog);
     }
@@ -270,10 +265,10 @@ public final class StargateQueryRunner
                 tempDir,
                 TpchTable.getTables());
 
-        DistributedQueryRunner queryRunner = createStargateQueryRunner(
-                true,
-                Map.of("http-server.http.port", "8080"),
-                Map.of("connection-url", stargateConnectionUrl(stargateQueryRunner, "memory")));
+        DistributedQueryRunner queryRunner = builder(stargateQueryRunner, "memory")
+                .enableWrites()
+                .withExtraProperties(Map.of("http-server.http.port", "8080"))
+                .build();
         queryRunner.createCatalog(
                 "p2p_remote_postgresql",
                 "stargate",
@@ -291,5 +286,78 @@ public final class StargateQueryRunner
         log.info("======== SERVER STARTED ========");
         log.info("\n====\nRemote Starburst: %s\n====", stargateQueryRunner.getCoordinator().getBaseUrl());
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+    }
+
+    public static Builder builder(DistributedQueryRunner remoteStarburst, String catalog)
+    {
+        return new Builder(remoteStarburst, catalog);
+    }
+
+    public static class Builder
+    {
+        private boolean enableWrites;
+        private Map<String, String> connectorProperties = emptyMap();
+        private Map<String, String> coordinatorProperties = emptyMap();
+        private Map<String, String> extraProperties = emptyMap();
+
+        private Builder(DistributedQueryRunner remoteStarburst, String catalog)
+        {
+            withConnectorProperties(ImmutableMap.of("connection-url", stargateConnectionUrl(remoteStarburst, catalog)));
+        }
+
+        public Builder enableWrites()
+        {
+            enableWrites = true;
+            return this;
+        }
+
+        public Builder withConnectorProperties(Map<String, String> connectorProperties)
+        {
+            this.connectorProperties = updateProperties(this.connectorProperties, connectorProperties);
+            return this;
+        }
+
+        public Builder withCoordinatorProperties(Map<String, String> coordinatorProperties)
+        {
+            this.coordinatorProperties = updateProperties(this.coordinatorProperties, coordinatorProperties);
+            return this;
+        }
+
+        public Builder withExtraProperties(Map<String, String> coordinatorProperties)
+        {
+            this.extraProperties = updateProperties(this.extraProperties, coordinatorProperties);
+            return this;
+        }
+
+        public Builder withStarburstStorage(JdbcDatabaseContainer<?> starburstStorage)
+        {
+            return withCoordinatorProperties(ImmutableMap.of(
+                    "insights.jdbc.url", starburstStorage.getJdbcUrl(),
+                    "insights.jdbc.user", starburstStorage.getUsername(),
+                    "insights.jdbc.password", starburstStorage.getPassword()));
+        }
+
+        public Builder withManagedStatistics()
+        {
+            return withCoordinatorProperties(ImmutableMap.of("starburst.managed-statistics.enabled", "true"))
+                    .withConnectorProperties(ImmutableMap.of(
+                            "statistics.enabled", "false", // disable collecting native jdbc stats
+                            "internal-communication.shared-secret", "internal-shared-secret", // This is required for the internal communication in the managed statistics
+                            "managed-statistics.enabled", "true"));
+        }
+
+        public DistributedQueryRunner build()
+                throws Exception
+        {
+            return createStargateQueryRunner(enableWrites, extraProperties, connectorProperties);
+        }
+
+        private static Map<String, String> updateProperties(Map<String, String> properties, Map<String, String> update)
+        {
+            return ImmutableMap.<String, String>builder()
+                    .putAll(requireNonNull(properties, "properties is null"))
+                    .putAll(requireNonNull(update, "update is null"))
+                    .buildOrThrow();
+        }
     }
 }

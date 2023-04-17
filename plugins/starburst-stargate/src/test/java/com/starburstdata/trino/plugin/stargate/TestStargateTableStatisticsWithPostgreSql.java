@@ -30,8 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.NATION;
@@ -67,11 +65,10 @@ public class TestStargateTableStatisticsWithPostgreSql
                 .setCatalog("postgresql")
                 .setSchema("tiny")
                 .build();
-        return createStargateQueryRunner(
-                true,
-                Map.of(
-                        "connection-url", stargateConnectionUrl(remoteStarburst, "postgresql"),
-                        "case-insensitive-name-matching", "true"));
+        return StargateQueryRunner.builder(remoteStarburst, "postgresql")
+                .enableWrites()
+                .withConnectorProperties(Map.of("case-insensitive-name-matching", "true"))
+                .build();
     }
 
     @BeforeClass

@@ -20,15 +20,12 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithHive;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createStargateQueryRunner;
-import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.stargateConnectionUrl;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,9 +46,8 @@ public class TestStargateWithHiveConnectorTest
                 tempDir,
                 REQUIRED_TPCH_TABLES,
                 Optional.empty()));
-        return createStargateQueryRunner(
-                false,
-                Map.of("connection-url", stargateConnectionUrl(remoteStarburst, getRemoteCatalogName())));
+        return StargateQueryRunner.builder(remoteStarburst, getRemoteCatalogName())
+                .build();
     }
 
     @Override
