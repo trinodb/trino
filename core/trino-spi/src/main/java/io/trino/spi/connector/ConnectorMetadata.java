@@ -463,6 +463,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Add the specified field, potentially nested, to a row.
+     *
+     * @param parentPath path to a field within the column, without leaf field name.
+     */
+    @Experimental(eta = "2023-06-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding fields");
+    }
+
+    /**
      * Set the specified column type
      */
     @Experimental(eta = "2023-04-01")

@@ -72,7 +72,7 @@ public class TestSqlFormatter
             return new CreateTable(
                     QualifiedName.of(ImmutableList.of(new Identifier(tableName, false))),
                     ImmutableList.of(new ColumnDefinition(
-                            new Identifier(columnName, false),
+                            QualifiedName.of(columnName),
                             new GenericDataType(location, type, ImmutableList.of()),
                             true,
                             ImmutableList.of(),

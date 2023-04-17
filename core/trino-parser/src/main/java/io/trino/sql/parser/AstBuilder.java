@@ -2964,7 +2964,7 @@ class AstBuilder
 
         return new ColumnDefinition(
                 getLocation(context),
-                (Identifier) visit(context.identifier()),
+                getQualifiedName(context.qualifiedName()),
                 (DataType) visit(context.type()),
                 nullable,
                 properties,

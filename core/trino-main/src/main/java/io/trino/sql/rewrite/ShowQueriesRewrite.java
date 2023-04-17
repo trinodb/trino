@@ -672,7 +672,7 @@ public final class ShowQueriesRewrite
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(targetTableName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
                             return new ColumnDefinition(
-                                    new Identifier(column.getName()),
+                                    QualifiedName.of(column.getName()),
                                     toSqlType(column.getType()),
                                     column.isNullable(),
                                     propertyNodes,

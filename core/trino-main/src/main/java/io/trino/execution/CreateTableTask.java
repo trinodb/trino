@@ -41,6 +41,7 @@ import io.trino.sql.analyzer.OutputColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
@@ -61,6 +62,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -160,22 +162,25 @@ public class CreateTableTask
         boolean includingProperties = false;
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition column) {
-                String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
+                if (column.getName().getParts().size() != 1) {
+                    throw semanticException(NOT_SUPPORTED, statement, "Column name '%s' must not be qualified", column.getName());
+                }
+                Identifier name = getOnlyElement(column.getName().getOriginalParts());
                 Type type;
                 try {
                     type = plannerContext.getTypeManager().getType(toTypeSignature(column.getType()));
                 }
                 catch (TypeNotFoundException e) {
-                    throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                    throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", column.getType(), name);
                 }
                 if (type.equals(UNKNOWN)) {
-                    throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                    throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", column.getType(), name);
                 }
-                if (columns.containsKey(name)) {
-                    throw semanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
+                if (columns.containsKey(name.getValue().toLowerCase(ENGLISH))) {
+                    throw semanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", name);
                 }
                 if (!column.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
-                    throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName, column.getName());
+                    throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName, name);
                 }
                 Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                         catalogName,
@@ -187,8 +192,8 @@ public class CreateTableTask
                         parameterLookup,
                         true);
 
-                columns.put(name, ColumnMetadata.builder()
-                        .setName(name)
+                columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
+                        .setName(name.getValue().toLowerCase(ENGLISH))
                         .setType(type)
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())

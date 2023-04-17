@@ -7024,6 +7024,22 @@ public class TestAnalyzer
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
     }
 
+    @Test
+    public void testAlterTableAddRowField()
+    {
+        assertFails("ALTER TABLE a.t1 ADD COLUMN b.f3 INTEGER NOT NULL")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Adding fields with NOT NULL constraint is unsupported");
+
+        assertFails("ALTER TABLE a.t1 ADD COLUMN b.f3 INTEGER WITH(foo='bar')")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Adding fields with column properties is unsupported");
+
+        assertFails("ALTER TABLE a.t1 ADD COLUMN b.f3 INTEGER COMMENT 'test comment'")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Adding fields with COMMENT is unsupported");
+    }
+
     @AfterAll
     public void tearDown()
             throws Exception

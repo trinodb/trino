@@ -129,6 +129,7 @@ import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
+import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CreateCatalog;
@@ -1030,6 +1031,18 @@ class StatementAnalyzer
         @Override
         protected Scope visitAddColumn(AddColumn node, Optional<Scope> scope)
         {
+            ColumnDefinition element = node.getColumn();
+            if (element.getName().getParts().size() > 1) {
+                if (!element.isNullable()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Adding fields with NOT NULL constraint is unsupported");
+                }
+                if (!element.getProperties().isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Adding fields with column properties is unsupported");
+                }
+                if (element.getComment().isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Adding fields with COMMENT is unsupported");
+                }
+            }
             return createAndAssignScope(node, scope);
         }
 
