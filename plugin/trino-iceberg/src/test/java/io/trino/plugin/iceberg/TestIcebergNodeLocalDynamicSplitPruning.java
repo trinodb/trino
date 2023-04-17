@@ -39,7 +39,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.RetryMode;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -189,7 +188,6 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         Optional.empty(),
                         tablePath,
                         ImmutableMap.of(),
-                        RetryMode.NO_RETRIES,
                         false,
                         Optional.empty()),
                 transaction);
