@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake.metastore;
 
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -49,8 +48,6 @@ public interface DeltaLakeMetastore
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
 
     MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session);
-
-    ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot table);
 
     String getTableLocation(SchemaTableName table);
 
