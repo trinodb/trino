@@ -155,6 +155,7 @@ public class InvocationConvention
     public enum InvocationReturnConvention
     {
         FAIL_ON_NULL(false),
+        DEFAULT_ON_NULL(false),
         NULLABLE_RETURN(true);
 
         private final boolean nullable;
