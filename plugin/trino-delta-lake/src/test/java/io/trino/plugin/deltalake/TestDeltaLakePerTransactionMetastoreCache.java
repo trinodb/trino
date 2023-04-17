@@ -140,12 +140,9 @@ public class TestDeltaLakePerTransactionMetastoreCache
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = createQueryRunner(false)) {
-            // Sanity check that getTable call is done more than twice if per-transaction cache is disabled.
-            // This is to be sure that `testPerTransactionHiveMetastoreCachingEnabled` passes because of per-transaction
-            // caching and not because of caching done by some other layer.
             assertMetastoreInvocations(queryRunner, "SELECT * FROM nation JOIN region ON nation.regionkey = region.regionkey",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 6)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
     }

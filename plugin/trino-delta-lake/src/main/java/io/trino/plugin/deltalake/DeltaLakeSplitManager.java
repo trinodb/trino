@@ -135,7 +135,7 @@ public class DeltaLakeSplitManager
             Constraint constraint)
     {
         DeltaLakeMetastore metastore = getMetastore(session, transaction);
-        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(metastore.getSnapshot(tableHandle.getSchemaTableName(), session), session);
+        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(metastore.getSnapshot(tableHandle.getSchemaTableName(), tableHandle.getLocation(), session), session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);

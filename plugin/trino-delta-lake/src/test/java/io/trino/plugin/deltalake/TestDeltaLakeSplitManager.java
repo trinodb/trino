@@ -288,7 +288,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session)
+        public TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
         {
             return null; // hack, unused
         }
