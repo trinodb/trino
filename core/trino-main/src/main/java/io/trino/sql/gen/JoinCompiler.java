@@ -1031,13 +1031,18 @@ public class JoinCompiler
             BytecodeExpression rightBlock,
             BytecodeExpression rightBlockPosition)
     {
-        MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+        MethodHandle equalOperator = typeOperators.getEqualOperator(
+                type,
+                simpleConvention(type.getJavaType().isPrimitive() ? FAIL_ON_NULL : NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
         BytecodeExpression equalInvocation = invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(callSiteBinder.bind(equalOperator).getBindingId()),
                 "equal",
                 equalOperator.type(),
                 leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+        if (type.getJavaType().isPrimitive()) {
+            return equalInvocation;
+        }
         return BytecodeExpressions.equal(equalInvocation, getStatic(Boolean.class, "TRUE"));
     }
 
