@@ -51,6 +51,7 @@
         <dep.antlr.version>4.11.1</dep.antlr.version>
         <dep.airlift.version>228</dep.airlift.version>
         <dep.arrow.version>9.0.0</dep.arrow.version>
+        <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.12.445</dep.aws-sdk.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
@@ -754,7 +755,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-20</version>
+                <version>3.1.2-21</version>
             </dependency>
 
             <dependency>
@@ -1730,7 +1731,13 @@
             <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
-                <version>1.11.0</version>
+                <version>${dep.avro.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro-mapred</artifactId>
+                <version>${dep.avro.version}</version>
             </dependency>
 
             <dependency>
