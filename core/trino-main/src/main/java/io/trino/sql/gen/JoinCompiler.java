@@ -91,8 +91,8 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.setStatic;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.operator.join.JoinUtils.getSingleBigintJoinChannel;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
@@ -1031,14 +1031,13 @@ public class JoinCompiler
             BytecodeExpression rightBlock,
             BytecodeExpression rightBlockPosition)
     {
-        MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
-        BytecodeExpression equalInvocation = invokeDynamic(
+        MethodHandle equalOperator = typeOperators.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        return invokeDynamic(
                 BOOTSTRAP_METHOD,
                 ImmutableList.of(callSiteBinder.bind(equalOperator).getBindingId()),
                 "equal",
                 equalOperator.type(),
                 leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
-        return BytecodeExpressions.equal(equalInvocation, getStatic(Boolean.class, "TRUE"));
     }
 
     public static class LookupSourceSupplierFactory
