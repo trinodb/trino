@@ -210,7 +210,7 @@ public class DeltaLakeTableHandle
     }
 
     @JsonProperty
-    public Optional<DeltaLakeTableHandle.WriteType> getWriteType()
+    public Optional<WriteType> getWriteType()
     {
         return writeType;
     }
