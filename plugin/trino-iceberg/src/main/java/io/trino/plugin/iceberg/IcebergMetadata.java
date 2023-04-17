@@ -1990,9 +1990,9 @@ public class IcebergMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        IcebergTableHandle handle = ((IcebergMergeTableHandle) tableHandle).getTableHandle();
+        IcebergTableHandle handle = ((IcebergMergeTableHandle) mergeTableHandle).getTableHandle();
         finishWrite(session, handle, fragments, true);
     }
 
