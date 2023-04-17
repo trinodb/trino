@@ -80,6 +80,8 @@ public class TestHiveCoercionOnUnpartitionedTable
                             timestamp_to_string                TIMESTAMP,
                             timestamp_to_bounded_varchar       TIMESTAMP,
                             timestamp_to_smaller_varchar       TIMESTAMP,
+                            smaller_varchar_to_timestamp       VARCHAR(4),
+                            varchar_to_timestamp               STRING,
                             id                                 BIGINT)
                        STORED AS\s""" + fileFormat);
     }
@@ -90,10 +92,11 @@ public class TestHiveCoercionOnUnpartitionedTable
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("""
                          CREATE TABLE %NAME%(
-                             timestamp_row_to_row       STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP>,
-                             timestamp_list_to_list     ARRAY<STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP>>,
-                             timestamp_map_to_map       MAP<SMALLINT, STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP>>,
+                             timestamp_row_to_row       STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING>,
+                             timestamp_list_to_list     ARRAY<STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING>>,
+                             timestamp_map_to_map       MAP<SMALLINT, STRUCT<keep: TIMESTAMP, si2i: SMALLINT, timestamp2string: TIMESTAMP, string2timestamp: STRING>>,
                              timestamp_to_string        TIMESTAMP,
+                             string_to_timestamp        STRING,
                              id                         BIGINT)
                         STORED AS\s""" + fileFormat);
     }
