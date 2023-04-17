@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
@@ -44,6 +43,4 @@ public interface DeltaLakeMetastore
     void dropTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, boolean deleteData);
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
-
-    TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session);
 }

@@ -437,7 +437,7 @@ public class DeltaLakeMetadata
         boolean managed = table.get().managed();
 
         String tableLocation = table.get().location();
-        TableSnapshot tableSnapshot = metastore.getSnapshot(dataTableName, tableLocation, session);
+        TableSnapshot tableSnapshot = getSnapshot(dataTableName, tableLocation, session);
         MetadataEntry metadataEntry;
         try {
             metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
@@ -621,7 +621,7 @@ public class DeltaLakeMetadata
                             return Stream.of();
                         }
                         String tableLocation = metastoreTable.get().location();
-                        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(metastore.getSnapshot(table, tableLocation, session), session);
+                        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(getSnapshot(table, tableLocation, session), session);
                         Map<String, String> columnComments = getColumnComments(metadata);
                         Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
                         Map<String, String> columnGenerations = getGeneratedColumnExpressions(metadata);
@@ -662,7 +662,7 @@ public class DeltaLakeMetadata
         if (!isTableStatisticsEnabled(session)) {
             return TableStatistics.empty();
         }
-        return tableStatisticsProvider.getTableStatistics(session, handle, metastore.getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session));
+        return tableStatisticsProvider.getTableStatistics(session, handle, getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session));
     }
 
     @Override
@@ -1164,7 +1164,7 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Column name %s is forbidden when change data feed is enabled".formatted(newColumnMetadata.getName()));
         }
 
-        if (!newColumnMetadata.isNullable() && !transactionLogAccess.getActiveFiles(metastore.getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session), session).isEmpty()) {
+        if (!newColumnMetadata.isNullable() && !transactionLogAccess.getActiveFiles(getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session), session).isEmpty()) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add NOT NULL column '%s' for non-empty table: %s.%s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName()));
         }
 
@@ -1759,7 +1759,7 @@ public class DeltaLakeMetadata
 
     private ProtocolEntry getProtocolEntry(ConnectorSession session, DeltaLakeTableHandle handle)
     {
-        return getProtocolEntry(session, metastore.getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session));
+        return getProtocolEntry(session, getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session));
     }
 
     private ProtocolEntry getProtocolEntry(ConnectorSession session, TableSnapshot tableSnapshot)
@@ -1767,6 +1767,16 @@ public class DeltaLakeMetadata
         return transactionLogAccess.getProtocolEntries(tableSnapshot, session)
                 .reduce((first, second) -> second)
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
+    }
+
+    private TableSnapshot getSnapshot(SchemaTableName schemaTableName, String tableLocation, ConnectorSession session)
+    {
+        try {
+            return transactionLogAccess.loadSnapshot(schemaTableName, tableLocation, session);
+        }
+        catch (IOException | RuntimeException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot for " + schemaTableName, e);
+        }
     }
 
     private ProtocolEntry protocolEntryForNewTable(Map<String, Object> properties)
@@ -1785,7 +1795,7 @@ public class DeltaLakeMetadata
         try {
             // We are writing checkpoint synchronously. It should not be long lasting operation for tables where transaction log is not humongous.
             // Tables with really huge transaction logs would behave poorly in read flow already.
-            TableSnapshot snapshot = metastore.getSnapshot(table, tableLocation, session);
+            TableSnapshot snapshot = getSnapshot(table, tableLocation, session);
             long lastCheckpointVersion = snapshot.getLastCheckpointVersion().orElse(0L);
             if (newVersion - lastCheckpointVersion < checkpointInterval.orElse(defaultCheckpointInterval)) {
                 return;
