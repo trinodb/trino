@@ -1456,12 +1456,11 @@ public class DeltaLakeMetadata
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
 
-        Map<Boolean, List<DataFileInfo>> splitted = allFiles.stream()
+        Map<Boolean, List<DataFileInfo>> split = allFiles.stream()
                 .collect(partitioningBy(dataFile -> dataFile.getDataFileType() == DATA));
 
-        List<DataFileInfo> newFiles = ImmutableList.copyOf(splitted.get(true));
-
-        List<DataFileInfo> cdfFiles = ImmutableList.copyOf(splitted.get(false));
+        List<DataFileInfo> newFiles = ImmutableList.copyOf(split.get(true));
+        List<DataFileInfo> cdfFiles = ImmutableList.copyOf(split.get(false));
 
         if (handle.isRetriesEnabled()) {
             cleanExtraOutputFilesForUpdate(session, handle.getLocation(), allFiles);
