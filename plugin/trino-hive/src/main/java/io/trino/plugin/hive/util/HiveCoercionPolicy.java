@@ -63,7 +63,8 @@ public final class HiveCoercionPolicy
                     toHiveType.equals(HIVE_BYTE) ||
                     toHiveType.equals(HIVE_SHORT) ||
                     toHiveType.equals(HIVE_INT) ||
-                    toHiveType.equals(HIVE_LONG);
+                    toHiveType.equals(HIVE_LONG) ||
+                    toHiveType.equals(HIVE_TIMESTAMP);
         }
         if (fromType instanceof CharType) {
             return toType instanceof CharType;
