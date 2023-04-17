@@ -198,7 +198,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (NOT NULL)? (COMMENT string)? (WITH properties)?
+    : qualifiedName type (NOT NULL)? (COMMENT string)? (WITH properties)?
     ;
 
 likeClause
