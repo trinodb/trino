@@ -53,7 +53,6 @@ import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.fs.DirectoryLister;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -65,7 +64,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Singleton;
 
@@ -152,14 +150,6 @@ public class DeltaLakeModule
 
         Multibinder<TableProcedureMetadata> tableProcedures = newSetBinder(binder, TableProcedureMetadata.class);
         tableProcedures.addBinding().toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
-    }
-
-    @Singleton
-    @Provides
-    public BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> createHiveMetastoreGetter(DeltaLakeTransactionManager transactionManager)
-    {
-        return (identity, transactionHandle) ->
-                transactionManager.get(transactionHandle, identity).getMetastore().getHiveMetastore();
     }
 
     @Singleton
