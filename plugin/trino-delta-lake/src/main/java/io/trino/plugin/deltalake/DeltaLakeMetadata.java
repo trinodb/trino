@@ -432,6 +432,7 @@ public class DeltaLakeMetadata
             return null;
         }
 
+        String tableLocation = metastore.getTableLocation(dataTableName);
         TableSnapshot tableSnapshot = metastore.getSnapshot(dataTableName, session);
         MetadataEntry metadataEntry;
         try {
@@ -439,7 +440,7 @@ public class DeltaLakeMetadata
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
-                return new CorruptedDeltaLakeTableHandle(dataTableName, e);
+                return new CorruptedDeltaLakeTableHandle(dataTableName, tableLocation, e);
             }
             throw e;
         }
@@ -457,7 +458,7 @@ public class DeltaLakeMetadata
         return new DeltaLakeTableHandle(
                 dataTableName.getSchemaName(),
                 dataTableName.getTableName(),
-                metastore.getTableLocation(dataTableName),
+                tableLocation,
                 metadataEntry,
                 TupleDomain.all(),
                 TupleDomain.all(),
@@ -484,7 +485,6 @@ public class DeltaLakeMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         DeltaLakeTableHandle tableHandle = checkValidTableHandle(table);
-        String location = metastore.getTableLocation(tableHandle.getSchemaTableName());
         MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
         Map<String, String> columnComments = getColumnComments(metadataEntry);
         Map<String, Boolean> columnsNullability = getColumnsNullability(metadataEntry);
@@ -498,7 +498,7 @@ public class DeltaLakeMetadata
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.<String, Object>builder()
-                .put(LOCATION_PROPERTY, location);
+                .put(LOCATION_PROPERTY, tableHandle.getLocation());
         List<String> partitionColumnNames = metadataEntry.getCanonicalPartitionColumns();
         if (!partitionColumnNames.isEmpty()) {
             properties.put(PARTITIONED_BY_PROPERTY, partitionColumnNames);
@@ -1472,8 +1472,7 @@ public class DeltaLakeMetadata
 
         Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
 
-        String tableLocation = metastore.getTableLocation(handle.getSchemaTableName());
-
+        String tableLocation = handle.getLocation();
         boolean writeCommitted = false;
         try {
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
@@ -1717,8 +1716,7 @@ public class DeltaLakeMetadata
     private boolean allowWrite(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         try {
-            String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName());
-            String tableMetadataDirectory = appendPath(getParent(tableLocation), tableHandle.getTableName());
+            String tableMetadataDirectory = appendPath(getParent(tableHandle.getLocation()), tableHandle.getTableName());
             boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableMetadataDirectory).isUnsafe();
             return !requiresOptIn || unsafeWritesEnabled;
         }
@@ -1828,18 +1826,21 @@ public class DeltaLakeMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName schemaTableName;
+        String tableLocation;
         if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
             schemaTableName = corruptedTableHandle.schemaTableName();
+            tableLocation = corruptedTableHandle.location();
         }
         else {
             DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
             schemaTableName = handle.getSchemaTableName();
+            tableLocation = handle.getLocation();
         }
 
         Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
 
-        metastore.dropTable(session, schemaTableName.getSchemaName(), schemaTableName.getTableName(), table.getTableType().equals(MANAGED_TABLE.toString()));
+        metastore.dropTable(session, schemaTableName.getSchemaName(), schemaTableName.getTableName(), tableLocation, table.getTableType().equals(MANAGED_TABLE.toString()));
     }
 
     @Override
@@ -2325,12 +2326,11 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) table;
         AnalyzeHandle analyzeHandle = tableHandle.getAnalyzeHandle().orElseThrow(() -> new IllegalArgumentException("analyzeHandle not set"));
-        String location = metastore.getTableLocation(tableHandle.getSchemaTableName());
         Optional<Instant> maxFileModificationTime = getMaxFileModificationTime(computedStatistics);
         updateTableStatistics(
                 session,
                 Optional.of(analyzeHandle),
-                location,
+                tableHandle.getLocation(),
                 maxFileModificationTime,
                 computedStatistics);
     }
@@ -2526,6 +2526,7 @@ public class DeltaLakeMetadata
         if (tableHandle instanceof CorruptedDeltaLakeTableHandle) {
             return Optional.empty();
         }
+        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
 
         Optional<DeltaLakeTableType> tableType = DeltaLakeTableName.tableTypeFrom(tableName.getTableName());
         if (tableType.isEmpty()) {
@@ -2536,7 +2537,7 @@ public class DeltaLakeMetadata
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new DeltaLakeHistoryTable(
                     systemTableName,
-                    getCommitInfoEntries(((DeltaLakeTableHandle) tableHandle).getSchemaTableName(), session),
+                    getCommitInfoEntries(handle.getSchemaTableName(), handle.getLocation(), session),
                     typeManager));
         };
     }
@@ -2617,11 +2618,11 @@ public class DeltaLakeMetadata
         return metastore;
     }
 
-    private List<CommitInfoEntry> getCommitInfoEntries(SchemaTableName table, ConnectorSession session)
+    private List<CommitInfoEntry> getCommitInfoEntries(SchemaTableName table, String tableLocation, ConnectorSession session)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            return TransactionLogTail.loadNewTail(fileSystem, metastore.getTableLocation(table), Optional.empty()).getFileEntries().stream()
+            return TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.empty()).getFileEntries().stream()
                     .map(DeltaLakeTransactionLogEntry::getCommitInfo)
                     .filter(Objects::nonNull)
                     .collect(toImmutableList());

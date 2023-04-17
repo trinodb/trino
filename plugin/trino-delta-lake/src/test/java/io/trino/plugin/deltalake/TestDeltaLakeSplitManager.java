@@ -71,7 +71,7 @@ public class TestDeltaLakeSplitManager
     private static final DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
             "schema",
             "table",
-            "location",
+            TABLE_PATH,
             metadataEntry,
             TupleDomain.all(),
             TupleDomain.all(),
@@ -269,7 +269,7 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean deleteData)
+        public void dropTable(ConnectorSession session, String databaseName, String tableName, String tableLocation, boolean deleteData)
         {
             throw new UnsupportedOperationException("Unimplemented");
         }
