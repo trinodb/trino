@@ -71,6 +71,7 @@ public class TestDeltaLakeSplitManager
     private static final DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
             "schema",
             "table",
+            true,
             TABLE_PATH,
             metadataEntry,
             TupleDomain.all(),
