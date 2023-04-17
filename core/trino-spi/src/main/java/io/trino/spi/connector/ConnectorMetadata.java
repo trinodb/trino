@@ -686,11 +686,11 @@ public interface ConnectorMetadata
      * Finish a merge query
      *
      * @param session The session
-     * @param tableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
+     * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
      * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
      */
-    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
     }
