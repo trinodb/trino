@@ -423,7 +423,7 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public LocatedTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
         if (!DeltaLakeTableName.isDataTable(tableName.getTableName())) {
@@ -1901,22 +1901,8 @@ public class DeltaLakeMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        SchemaTableName schemaTableName;
-        boolean managed;
-        String tableLocation;
-        if (tableHandle instanceof CorruptedDeltaLakeTableHandle corruptedTableHandle) {
-            schemaTableName = corruptedTableHandle.schemaTableName();
-            tableLocation = corruptedTableHandle.location();
-            managed = corruptedTableHandle.managed();
-        }
-        else {
-            DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
-            schemaTableName = handle.getSchemaTableName();
-            tableLocation = handle.getLocation();
-            managed = handle.isManaged();
-        }
-
-        metastore.dropTable(session, schemaTableName.getSchemaName(), schemaTableName.getTableName(), tableLocation, managed);
+        LocatedTableHandle handle = (LocatedTableHandle) tableHandle;
+        metastore.dropTable(session, handle.schemaTableName(), handle.location(), handle.managed());
     }
 
     @Override

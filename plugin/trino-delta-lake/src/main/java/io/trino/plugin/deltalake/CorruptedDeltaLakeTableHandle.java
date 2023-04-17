@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
 import static java.util.Objects.requireNonNull;
@@ -24,7 +23,7 @@ public record CorruptedDeltaLakeTableHandle(
         boolean managed,
         String location,
         TrinoException originalException)
-        implements ConnectorTableHandle
+        implements LocatedTableHandle
 {
     public CorruptedDeltaLakeTableHandle
     {
