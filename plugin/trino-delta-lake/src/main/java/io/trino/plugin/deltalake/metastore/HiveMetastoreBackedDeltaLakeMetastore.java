@@ -164,9 +164,9 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public void dropTable(ConnectorSession session, String databaseName, String tableName, String tableLocation, boolean deleteData)
+    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, boolean deleteData)
     {
-        delegate.dropTable(databaseName, tableName, deleteData);
+        delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), deleteData);
         statisticsAccess.invalidateCache(tableLocation);
         transactionLogAccess.invalidateCaches(tableLocation);
         if (deleteData) {
@@ -174,7 +174,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 fileSystemFactory.create(session).deleteDirectory(tableLocation);
             }
             catch (IOException e) {
-                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, tableName), e);
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, schemaTableName), e);
             }
         }
     }
