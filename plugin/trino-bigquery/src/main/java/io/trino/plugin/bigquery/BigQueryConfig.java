@@ -58,6 +58,7 @@ public class BigQueryConfig
     private boolean queryResultsCacheEnabled;
     private String queryLabelName;
     private String queryLabelFormat;
+    private boolean proxyEnabled;
 
     public Optional<String> getProjectId()
     {
@@ -291,6 +292,19 @@ public class BigQueryConfig
     public BigQueryConfig setQueryLabelName(String queryLabelName)
     {
         this.queryLabelName = queryLabelName;
+        return this;
+    }
+
+    public boolean isProxyEnabled()
+    {
+        return proxyEnabled;
+    }
+
+    @Config("bigquery.rpc-proxy.enabled")
+    @ConfigDescription("Enables proxying of RPC and gRPC requests to BigQuery APIs")
+    public BigQueryConfig setProxyEnabled(boolean proxyEnabled)
+    {
+        this.proxyEnabled = proxyEnabled;
         return this;
     }
 

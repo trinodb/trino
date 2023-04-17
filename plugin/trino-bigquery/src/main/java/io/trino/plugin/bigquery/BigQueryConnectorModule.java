@@ -81,6 +81,14 @@ public class BigQueryConnectorModule
             optionsConfigurers.addBinding().to(CredentialsOptionsConfigurer.class).in(Scopes.SINGLETON);
             optionsConfigurers.addBinding().to(HeaderOptionsConfigurer.class).in(Scopes.SINGLETON);
             optionsConfigurers.addBinding().to(RetryOptionsConfigurer.class).in(Scopes.SINGLETON);
+
+            install(conditionalModule(
+                    BigQueryConfig.class,
+                    BigQueryConfig::isProxyEnabled,
+                    proxyBinder -> {
+                        configBinder(proxyBinder).bindConfig(BigQueryProxyConfig.class);
+                        newSetBinder(proxyBinder, BigQueryOptionsConfigurer.class).addBinding().to(ProxyOptionsConfigurer.class).in(Scopes.SINGLETON);
+                    }));
         }
 
         @Provides
