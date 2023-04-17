@@ -21,7 +21,6 @@ import com.google.inject.Injector;
 import com.google.inject.Provides;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
@@ -168,9 +167,7 @@ public class TestDeltaLakeMetadata
                     @Provides
                     public DeltaLakeMetastore getDeltaLakeMetastore(@RawHiveMetastoreFactory HiveMetastoreFactory hiveMetastoreFactory)
                     {
-                        return new HiveMetastoreBackedDeltaLakeMetastore(
-                                hiveMetastoreFactory.createMetastore(Optional.empty()),
-                                new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
+                        return new HiveMetastoreBackedDeltaLakeMetastore(hiveMetastoreFactory.createMetastore(Optional.empty()));
                     }
                 });
 
