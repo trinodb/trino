@@ -139,7 +139,7 @@ public class DeltaLakeSplitManager
 
         boolean splittable =
                 // Delta Lake handles updates and deletes by copying entire data files, minus updates/deletes. Because of this we can only have one Split/UpdatablePageSource
-                // per file.
+                // per file. TODO (https://github.com/trinodb/trino/issues/17063) use deletion vectors instead of copy-on-write and remove DeltaLakeTableHandle.writeType
                 tableHandle.getWriteType().isEmpty() &&
                         // When only partitioning columns projected, there is no point splitting the files
                         mayAnyDataColumnProjected(tableHandle);
