@@ -204,10 +204,10 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session)
+    public TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
     {
         try {
-            return transactionLogAccess.loadSnapshot(table, getTableLocation(table), session);
+            return transactionLogAccess.loadSnapshot(table, tableLocation, session);
         }
         catch (NotADeltaLakeTableException e) {
             throw e;
@@ -220,7 +220,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
-        TableSnapshot tableSnapshot = getSnapshot(tableHandle.getSchemaTableName(), session);
+        TableSnapshot tableSnapshot = getSnapshot(tableHandle.getSchemaTableName(), tableHandle.getLocation(), session);
 
         double numRecords = 0L;
 
