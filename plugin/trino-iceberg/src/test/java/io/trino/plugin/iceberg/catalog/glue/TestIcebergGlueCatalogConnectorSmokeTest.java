@@ -143,32 +143,6 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     }
 
     @Test
-    public void testCommentView()
-    {
-        // TODO: Consider moving to BaseConnectorSmokeTest
-        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
-            // comment set
-            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'new comment'");
-            assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
-            assertThat(getTableComment(view.getName())).isEqualTo("new comment");
-
-            // comment updated
-            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'updated comment'");
-            assertThat(getTableComment(view.getName())).isEqualTo("updated comment");
-
-            // comment set to empty
-            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS ''");
-            assertThat(getTableComment(view.getName())).isEmpty();
-
-            // comment deleted
-            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'a comment'");
-            assertThat(getTableComment(view.getName())).isEqualTo("a comment");
-            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
-            assertThat(getTableComment(view.getName())).isNull();
-        }
-    }
-
-    @Test
     public void testCommentViewColumn()
     {
         // TODO: Consider moving to BaseConnectorSmokeTest
