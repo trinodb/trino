@@ -41,6 +41,7 @@ import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
 import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
+import io.trino.plugin.deltalake.statistics.DeltaLakeTableStatisticsProvider;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -311,6 +312,7 @@ public class DeltaLakeMetadata
 
     private final DeltaLakeMetastore metastore;
     private final TransactionLogAccess transactionLogAccess;
+    private final DeltaLakeTableStatisticsProvider tableStatisticsProvider;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
     private final AccessControlMetadata accessControlMetadata;
@@ -334,6 +336,7 @@ public class DeltaLakeMetadata
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
             TransactionLogAccess transactionLogAccess,
+            DeltaLakeTableStatisticsProvider tableStatisticsProvider,
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             AccessControlMetadata accessControlMetadata,
@@ -354,6 +357,7 @@ public class DeltaLakeMetadata
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
+        this.tableStatisticsProvider = requireNonNull(tableStatisticsProvider, "tableStatisticsProvider is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
@@ -658,7 +662,7 @@ public class DeltaLakeMetadata
         if (!isTableStatisticsEnabled(session)) {
             return TableStatistics.empty();
         }
-        return metastore.getTableStatistics(session, handle);
+        return tableStatisticsProvider.getTableStatistics(session, handle, metastore.getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session));
     }
 
     @Override

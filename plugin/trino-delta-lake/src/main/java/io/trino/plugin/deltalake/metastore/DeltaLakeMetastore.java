@@ -13,14 +13,12 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.statistics.TableStatistics;
 
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +46,4 @@ public interface DeltaLakeMetastore
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
 
     TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session);
-
-    TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle);
 }
