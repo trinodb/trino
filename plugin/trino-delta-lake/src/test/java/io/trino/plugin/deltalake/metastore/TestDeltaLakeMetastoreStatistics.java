@@ -164,6 +164,7 @@ public class TestDeltaLakeMetastoreStatistics
         return new DeltaLakeTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
+                true,
                 "location",
                 metadataEntry,
                 TupleDomain.all(),
@@ -293,6 +294,7 @@ public class TestDeltaLakeMetastoreStatistics
         DeltaLakeTableHandle tableHandleWithUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
+                tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 TupleDomain.all(),
@@ -316,6 +318,7 @@ public class TestDeltaLakeMetastoreStatistics
         DeltaLakeTableHandle tableHandleWithNoneEnforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
+                tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 TupleDomain.none(),
@@ -329,6 +332,7 @@ public class TestDeltaLakeMetastoreStatistics
         DeltaLakeTableHandle tableHandleWithNoneUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
+                tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 TupleDomain.all(),
