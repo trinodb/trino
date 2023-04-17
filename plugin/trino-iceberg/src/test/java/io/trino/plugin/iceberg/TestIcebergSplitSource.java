@@ -60,7 +60,6 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
-import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.tpch.TpchTable.NATION;
@@ -129,7 +128,6 @@ public class TestIcebergSplitSource
                 Optional.empty(),
                 nationTable.location(),
                 nationTable.properties(),
-                NO_RETRIES,
                 false,
                 Optional.empty());
 
