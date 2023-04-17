@@ -14,8 +14,6 @@
 package io.trino.plugin.deltalake.metastore;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
-import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -31,7 +29,6 @@ import java.util.Optional;
 
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
-import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_TABLE;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
@@ -45,16 +42,13 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public static final String TABLE_PROVIDER_VALUE = "DELTA";
 
     private final HiveMetastore delegate;
-    private final TransactionLogAccess transactionLogAccess;
     private final TrinoFileSystemFactory fileSystemFactory;
 
     public HiveMetastoreBackedDeltaLakeMetastore(
             HiveMetastore delegate,
-            TransactionLogAccess transactionLogAccess,
             TrinoFileSystemFactory fileSystemFactory)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogSupport is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
@@ -123,14 +117,6 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges)
     {
-        String tableLocation = table.getStorage().getLocation();
-        try {
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(table.getSchemaTableName(), tableLocation, session);
-            transactionLogAccess.getMetadataEntry(tableSnapshot, session); // verify metadata exists
-        }
-        catch (IOException | RuntimeException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
-        }
         delegate.createTable(table, principalPrivileges);
     }
 
