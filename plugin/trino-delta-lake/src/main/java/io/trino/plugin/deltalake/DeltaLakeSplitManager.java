@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.SplitWeight;
@@ -70,6 +71,7 @@ public class DeltaLakeSplitManager
         implements ConnectorSplitManager
 {
     private final TypeManager typeManager;
+    private final TransactionLogAccess transactionLogAccess;
     private final BiFunction<ConnectorSession, HiveTransactionHandle, DeltaLakeMetastore> metastoreProvider;
     private final ExecutorService executor;
     private final int maxInitialSplits;
@@ -80,11 +82,13 @@ public class DeltaLakeSplitManager
     @Inject
     public DeltaLakeSplitManager(
             TypeManager typeManager,
+            TransactionLogAccess transactionLogAccess,
             BiFunction<ConnectorSession, HiveTransactionHandle, DeltaLakeMetastore> metastoreProvider,
             ExecutorService executor,
             DeltaLakeConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.maxInitialSplits = config.getMaxInitialSplits();
@@ -132,7 +136,7 @@ public class DeltaLakeSplitManager
     {
         DeltaLakeMetastore metastore = getMetastore(session, transaction);
         String tableLocation = metastore.getTableLocation(tableHandle.getSchemaTableName());
-        List<AddFileEntry> validDataFiles = metastore.getValidDataFiles(tableHandle.getSchemaTableName(), session);
+        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(metastore.getSnapshot(tableHandle.getSchemaTableName(), session), session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);

@@ -234,12 +234,6 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public List<AddFileEntry> getValidDataFiles(SchemaTableName table, ConnectorSession session)
-    {
-        return transactionLogAccess.getActiveFiles(getSnapshot(table, session), session);
-    }
-
-    @Override
     public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         TableSnapshot tableSnapshot = getSnapshot(tableHandle.getSchemaTableName(), session);

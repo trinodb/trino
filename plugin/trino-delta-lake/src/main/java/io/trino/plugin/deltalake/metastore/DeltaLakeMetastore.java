@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.metastore;
 
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
-import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -56,8 +55,6 @@ public interface DeltaLakeMetastore
     String getTableLocation(SchemaTableName table);
 
     TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session);
-
-    List<AddFileEntry> getValidDataFiles(SchemaTableName table, ConnectorSession session);
 
     TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle);
 

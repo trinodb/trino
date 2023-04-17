@@ -51,6 +51,7 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry.Format;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
@@ -308,6 +309,7 @@ public class DeltaLakeMetadata
     private static final String CHECK_CONSTRAINT_CONVERT_FAIL_EXPRESSION = "CAST(fail('Failed to convert Delta check constraints to Trino expression') AS boolean)";
 
     private final DeltaLakeMetastore metastore;
+    private final TransactionLogAccess transactionLogAccess;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
     private final AccessControlMetadata accessControlMetadata;
@@ -330,6 +332,7 @@ public class DeltaLakeMetadata
 
     public DeltaLakeMetadata(
             DeltaLakeMetastore metastore,
+            TransactionLogAccess transactionLogAccess,
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             AccessControlMetadata accessControlMetadata,
@@ -349,6 +352,7 @@ public class DeltaLakeMetadata
             boolean allowManagedTableRename)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
@@ -1149,7 +1153,7 @@ public class DeltaLakeMetadata
             throw new TrinoException(NOT_SUPPORTED, "Column name %s is forbidden when change data feed is enabled".formatted(newColumnMetadata.getName()));
         }
 
-        if (!newColumnMetadata.isNullable() && !metastore.getValidDataFiles(handle.getSchemaTableName(), session).isEmpty()) {
+        if (!newColumnMetadata.isNullable() && !transactionLogAccess.getActiveFiles(metastore.getSnapshot(handle.getSchemaTableName(), session), session).isEmpty()) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to add NOT NULL column '%s' for non-empty table: %s.%s", newColumnMetadata.getName(), handle.getSchemaName(), handle.getTableName()));
         }
 
