@@ -179,6 +179,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getHiveCatalogName;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCollectExtendedStatisticsColumnStatisticsOnWrite;
@@ -1927,7 +1928,16 @@ public class DeltaLakeMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LocatedTableHandle handle = (LocatedTableHandle) tableHandle;
-        metastore.dropTable(session, handle.schemaTableName(), handle.location(), handle.managed());
+        boolean deleteData = handle.managed();
+        metastore.dropTable(session, handle.schemaTableName(), handle.location(), deleteData);
+        if (deleteData) {
+            try {
+                fileSystemFactory.create(session).deleteDirectory(handle.location());
+            }
+            catch (IOException e) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", handle.location(), handle.schemaTableName()), e);
+            }
+        }
         // As a precaution, clear the caches
         statisticsAccess.invalidateCache(handle.location());
         transactionLogAccess.invalidateCaches(handle.location());
