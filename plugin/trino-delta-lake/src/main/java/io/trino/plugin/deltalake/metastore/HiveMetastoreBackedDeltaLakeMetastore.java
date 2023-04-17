@@ -33,7 +33,6 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
@@ -61,6 +60,7 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -117,11 +117,21 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     }
 
     @Override
-    public Optional<Table> getTable(String databaseName, String tableName)
+    public Optional<Table> getRawMetastoreTable(String databaseName, String tableName)
     {
-        Optional<Table> candidate = delegate.getTable(databaseName, tableName);
-        candidate.ifPresent(HiveMetastoreBackedDeltaLakeMetastore::verifyDeltaLakeTable);
-        return candidate;
+        return delegate.getTable(databaseName, tableName);
+    }
+
+    @Override
+    public Optional<DeltaMetastoreTable> getTable(String databaseName, String tableName)
+    {
+        return getRawMetastoreTable(databaseName, tableName).map(table -> {
+            verifyDeltaLakeTable(table);
+            return new DeltaMetastoreTable(
+                    new SchemaTableName(databaseName, tableName),
+                    table.getTableType().equals(MANAGED_TABLE.name()),
+                    getTableLocation(table));
+        });
     }
 
     public static void verifyDeltaLakeTable(Table table)
@@ -183,14 +193,6 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
         delegate.renameTable(from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
-    }
-
-    @Override
-    public String getTableLocation(SchemaTableName tableName)
-    {
-        Table table = getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-        return getTableLocation(table);
     }
 
     public static String getTableLocation(Table table)
@@ -383,11 +385,5 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     {
         // Delta considers NaN a valid min/max value but Trino does not
         return d != null && !d.isNaN();
-    }
-
-    @Override
-    public HiveMetastore getHiveMetastore()
-    {
-        return delegate;
     }
 }
