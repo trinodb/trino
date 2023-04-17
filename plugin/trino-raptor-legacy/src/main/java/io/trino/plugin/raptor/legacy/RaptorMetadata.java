@@ -852,9 +852,9 @@ public class RaptorMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        RaptorMergeTableHandle handle = (RaptorMergeTableHandle) tableHandle;
+        RaptorMergeTableHandle handle = (RaptorMergeTableHandle) mergeTableHandle;
         long transactionId = handle.getInsertTableHandle().getTransactionId();
         finishDelete(session, handle.getTableHandle(), transactionId, fragments);
     }
