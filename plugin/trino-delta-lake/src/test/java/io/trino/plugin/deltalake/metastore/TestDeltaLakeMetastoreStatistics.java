@@ -165,7 +165,7 @@ public class TestDeltaLakeMetastoreStatistics
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 true,
-                "location",
+                tableLocation,
                 metadataEntry,
                 TupleDomain.all(),
                 TupleDomain.all(),
