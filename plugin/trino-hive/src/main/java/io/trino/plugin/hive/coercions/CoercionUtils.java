@@ -16,6 +16,8 @@ package io.trino.plugin.hive.coercions;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToLongTimestampCoercer;
+import io.trino.plugin.hive.coercions.TimestampCoercer.VarcharToShortTimestampCoercer;
 import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hive.type.ListTypeInfo;
 import io.trino.plugin.hive.type.MapTypeInfo;
@@ -90,6 +92,12 @@ public final class CoercionUtils
         }
         if (fromType instanceof VarcharType fromVarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return Optional.of(new VarcharToIntegerNumberCoercer<>(fromVarcharType, toType));
+        }
+        if (fromType instanceof VarcharType varcharType && toType instanceof TimestampType timestampType) {
+            if (timestampType.isShort()) {
+                return Optional.of(new VarcharToShortTimestampCoercer(varcharType, timestampType));
+            }
+            return Optional.of(new VarcharToLongTimestampCoercer(varcharType, timestampType));
         }
         if (fromType instanceof VarcharType fromVarcharType && toType instanceof VarcharType toVarcharType) {
             if (narrowerThan(toVarcharType, fromVarcharType)) {
