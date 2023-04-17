@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
@@ -27,7 +28,6 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManag
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -246,7 +246,13 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public Optional<Table> getTable(String databaseName, String tableName)
+        public Optional<Table> getRawMetastoreTable(String databaseName, String tableName)
+        {
+            throw new UnsupportedOperationException("Unimplemented");
+        }
+
+        @Override
+        public Optional<DeltaMetastoreTable> getTable(String databaseName, String tableName)
         {
             throw new UnsupportedOperationException("Unimplemented");
         }
@@ -282,12 +288,6 @@ public class TestDeltaLakeSplitManager
         }
 
         @Override
-        public String getTableLocation(SchemaTableName table)
-        {
-            return TABLE_PATH;
-        }
-
-        @Override
         public TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
         {
             return null; // hack, unused
@@ -295,12 +295,6 @@ public class TestDeltaLakeSplitManager
 
         @Override
         public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public HiveMetastore getHiveMetastore()
         {
             throw new UnsupportedOperationException("Unimplemented");
         }
