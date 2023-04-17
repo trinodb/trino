@@ -40,7 +40,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
@@ -291,12 +290,6 @@ public class TestDeltaLakeSplitManager
         public TableSnapshot getSnapshot(SchemaTableName table, String tableLocation, ConnectorSession session)
         {
             return null; // hack, unused
-        }
-
-        @Override
-        public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
         }
     }
 }
