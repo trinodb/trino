@@ -21,7 +21,6 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -283,12 +282,6 @@ public class TestDeltaLakeSplitManager
 
         @Override
         public MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot tableSnapshot)
         {
             throw new UnsupportedOperationException("Unimplemented");
         }
