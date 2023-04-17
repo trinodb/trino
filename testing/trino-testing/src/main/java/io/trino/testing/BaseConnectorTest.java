@@ -2959,8 +2959,13 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
 
-        Session newSession = Session.builder(getSession())
-                .setIdentity(Identity.ofUser("ADMIN"))
+        Session defaultSession = getSession();
+        Identity defaultIdentity = defaultSession.getIdentity();
+        Session newSession = Session.builder(defaultSession)
+                .setIdentity(
+                        Identity.from(defaultIdentity)
+                                .withUser("ADMIN")
+                                .build())
                 .build();
         String schemaName = "test_schema_create_uppercase_owner_name_" + randomNameSuffix();
         assertUpdate(newSession, createSchemaSql(schemaName));
