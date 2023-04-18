@@ -691,17 +691,6 @@ public class DistributedQueryRunner
             return self();
         }
 
-        /**
-         * Sets coordinator properties being equal to a map containing given key and value.
-         * Note, that calling this method OVERWRITES previously set property values.
-         * As a result, it should only be used when only one coordinator property needs to be set.
-         */
-        @CanIgnoreReturnValue
-        public SELF setSingleCoordinatorProperty(String key, String value)
-        {
-            return setCoordinatorProperties(ImmutableMap.of(key, value));
-        }
-
         @CanIgnoreReturnValue
         public SELF setEnvironment(String environment)
         {

@@ -213,11 +213,10 @@ public final class DeltaLakeQueryRunner
                 .setSchema(schemaName)
                 .build();
 
-        Builder builder = builder(session);
-        coordinatorProperties.forEach(builder::setSingleCoordinatorProperty);
-        return builder
+        return builder(session)
                 .setCatalogName(catalogName)
                 .setAdditionalSetup(additionalSetup)
+                .setCoordinatorProperties(coordinatorProperties)
                 .addExtraProperties(extraProperties)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
