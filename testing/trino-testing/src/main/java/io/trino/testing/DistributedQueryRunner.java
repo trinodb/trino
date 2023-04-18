@@ -652,6 +652,13 @@ public class DistributedQueryRunner
         }
 
         @CanIgnoreReturnValue
+        public SELF addExtraProperties(Map<String, String> extraProperties)
+        {
+            this.extraProperties.putAll(extraProperties);
+            return self();
+        }
+
+        @CanIgnoreReturnValue
         public SELF addExtraProperty(String key, String value)
         {
             this.extraProperties.put(key, value);
