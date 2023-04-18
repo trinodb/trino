@@ -61,6 +61,7 @@ import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.types.Types;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -305,6 +306,129 @@ public class TestIcebergV2
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
         assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
+    }
+
+    @Test
+    public void testMultipleEqualityDeletes()
+            throws Exception
+    {
+        String tableName = "test_multiple_equality_deletes_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+
+        for (int i = 1; i < 3; i++) {
+            writeEqualityDeleteToNationTable(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("regionkey", Integer.toUnsignedLong(i)));
+        }
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE  (regionkey != 1L AND regionkey != 2L)");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMultipleEqualityDeletesWithEquivalentSchemas()
+            throws Exception
+    {
+        String tableName = "test_multiple_equality_deletes_equivalent_schemas_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        Schema deleteRowSchema = new Schema(ImmutableList.of("regionkey", "name").stream()
+                .map(name -> icebergTable.schema().findField(name))
+                .collect(toImmutableList()));
+        List<Integer> equalityFieldIds = ImmutableList.of("regionkey", "name").stream()
+                .map(name -> deleteRowSchema.findField(name).fieldId())
+                .collect(toImmutableList());
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("regionkey", 1L, "name", "BRAZIL"),
+                deleteRowSchema,
+                equalityFieldIds);
+        Schema equivalentDeleteRowSchema = new Schema(ImmutableList.of("name", "regionkey").stream()
+                .map(name -> icebergTable.schema().findField(name))
+                .collect(toImmutableList()));
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("name", "INDIA", "regionkey", 2L),
+                equivalentDeleteRowSchema,
+                equalityFieldIds);
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR (regionkey = 2 AND name = 'INDIA'))");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMultipleEqualityDeletesWithDifferentSchemas()
+            throws Exception
+    {
+        String tableName = "test_multiple_equality_deletes_different_schemas_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("regionkey", 1L, "name", "BRAZIL"),
+                Optional.of(ImmutableList.of("regionkey", "name")));
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("name", "ALGERIA"),
+                Optional.of(ImmutableList.of("name")));
+        writeEqualityDeleteToNationTableWithDeleteColumns(
+                icebergTable,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("regionkey", 2L),
+                Optional.of(ImmutableList.of("regionkey")));
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE NOT ((regionkey = 1 AND name = 'BRAZIL') OR regionkey = 2 OR name = 'ALGERIA')");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMultipleEqualityDeletesWithNestedFields()
+            throws Exception
+    {
+        String tableName = "test_multiple_equality_deletes_nested_fields_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " ( id BIGINT, root ROW(nested BIGINT, nested_other BIGINT))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(10, 100))", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(20, 200))", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, row(20, 200))", 1);
+        Table icebergTable = loadTable(tableName);
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+
+        List<String> deleteFileColumns = ImmutableList.of("root.nested");
+        Schema deleteRowSchema = icebergTable.schema().select(deleteFileColumns);
+        List<Integer> equalityFieldIds = ImmutableList.of("root.nested").stream()
+                .map(name -> deleteRowSchema.findField(name).fieldId())
+                .collect(toImmutableList());
+        Types.StructType nestedStructType = (Types.StructType) deleteRowSchema.findField("root").type();
+        Record nestedStruct = GenericRecord.create(nestedStructType);
+        nestedStruct.setField("nested", 20L);
+        for (int i = 1; i < 3; i++) {
+            writeEqualityDeleteToNationTableWithDeleteColumns(
+                    icebergTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of("root", nestedStruct),
+                    deleteRowSchema,
+                    equalityFieldIds);
+        }
+
+        // TODO: support read equality deletes with nested fields(https://github.com/trinodb/trino/issues/18625)
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName)).hasMessageContaining("Multiple entries with same key");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -826,22 +950,50 @@ public class TestIcebergV2
         writeEqualityDeleteToNationTable(icebergTable, partitionSpec, partitionData, ImmutableMap.of("regionkey", 1L));
     }
 
-    private void writeEqualityDeleteToNationTable(Table icebergTable, Optional<PartitionSpec> partitionSpec, Optional<PartitionData> partitionData, Map<String, Object> overwriteValues)
+    private void writeEqualityDeleteToNationTable(
+            Table icebergTable,
+            Optional<PartitionSpec> partitionSpec,
+            Optional<PartitionData> partitionData,
+            Map<String, Object> overwriteValues)
+            throws Exception
+    {
+        writeEqualityDeleteToNationTableWithDeleteColumns(icebergTable, partitionSpec, partitionData, overwriteValues, Optional.empty());
+    }
+
+    private void writeEqualityDeleteToNationTableWithDeleteColumns(
+            Table icebergTable,
+            Optional<PartitionSpec> partitionSpec,
+            Optional<PartitionData> partitionData,
+            Map<String, Object> overwriteValues,
+            Optional<List<String>> deleteFileColumns)
+            throws Exception
+    {
+        List<String> deleteColumns = deleteFileColumns.orElse(new ArrayList<>(overwriteValues.keySet()));
+        Schema deleteRowSchema = icebergTable.schema().select(deleteColumns);
+        List<Integer> equalityDeleteFieldIds = deleteColumns.stream()
+                .map(name -> deleteRowSchema.findField(name).fieldId())
+                .collect(toImmutableList());
+       writeEqualityDeleteToNationTableWithDeleteColumns(icebergTable, partitionSpec, partitionData, overwriteValues, deleteRowSchema, equalityDeleteFieldIds);
+    }
+
+    private void writeEqualityDeleteToNationTableWithDeleteColumns(
+            Table icebergTable,
+            Optional<PartitionSpec> partitionSpec,
+            Optional<PartitionData> partitionData,
+            Map<String, Object> overwriteValues,
+            Schema deleteRowSchema,
+            List<Integer> equalityDeleteFieldIds)
             throws Exception
     {
         Path metadataDir = new Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + UUID.randomUUID();
         FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
 
-        Schema deleteRowSchema = icebergTable.schema().select(overwriteValues.keySet());
-        List<Integer> equalityFieldIds = overwriteValues.keySet().stream()
-                .map(name -> deleteRowSchema.findField(name).fieldId())
-                .collect(toImmutableList());
         Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(fileIo.newOutputFile(new Path(metadataDir, deleteFileName).toString()))
                 .forTable(icebergTable)
                 .rowSchema(deleteRowSchema)
                 .createWriterFunc(GenericParquetWriter::buildWriter)
-                .equalityFieldIds(equalityFieldIds)
+                .equalityFieldIds(equalityDeleteFieldIds)
                 .overwrite();
         if (partitionSpec.isPresent() && partitionData.isPresent()) {
             writerBuilder = writerBuilder
