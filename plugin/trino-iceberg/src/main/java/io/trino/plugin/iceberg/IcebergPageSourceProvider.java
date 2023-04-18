@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Traverser;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -61,6 +62,7 @@ import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
+import io.trino.plugin.iceberg.delete.EqualityDeleteFilter;
 import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
 import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
@@ -92,6 +94,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.MappedField;
@@ -100,6 +103,9 @@ import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Conversions;
+import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.util.StructLikeSet;
+import org.apache.iceberg.util.StructProjection;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -353,6 +359,7 @@ public class IcebergPageSourceProvider
             List<DeleteFilter> deleteFilters = readDeletes(
                     session,
                     tableSchema,
+                    readColumns,
                     path,
                     deletes,
                     readerPageSourceWithRowPositions.getStartRowPosition(),
@@ -390,6 +397,7 @@ public class IcebergPageSourceProvider
     private List<DeleteFilter> readDeletes(
             ConnectorSession session,
             Schema schema,
+            List<IcebergColumnHandle> readColumns,
             String dataFilePath,
             List<DeleteFile> deleteFiles,
             Optional<Long> startRowPosition,
@@ -400,6 +408,7 @@ public class IcebergPageSourceProvider
         Slice targetPath = utf8Slice(dataFilePath);
         List<DeleteFilter> filters = new ArrayList<>();
         LongBitmapDataProvider deletedRows = new Roaring64Bitmap();
+        Map<Set<Integer>, EqualityDeleteSet> deletesSetByFieldIds = new HashMap<>();
 
         IcebergColumnHandle deleteFilePath = getColumnHandle(DELETE_FILE_PATH, typeManager);
         IcebergColumnHandle deleteFilePos = getColumnHandle(DELETE_FILE_POS, typeManager);
@@ -436,14 +445,17 @@ public class IcebergPageSourceProvider
                 }
             }
             else if (delete.content() == EQUALITY_DELETES) {
-                List<Integer> fieldIds = delete.equalityFieldIds();
+                Set<Integer> fieldIds = ImmutableSet.copyOf(delete.equalityFieldIds());
                 verify(!fieldIds.isEmpty(), "equality field IDs are missing");
-                List<IcebergColumnHandle> columns = fieldIds.stream()
-                        .map(id -> getColumnHandle(schema.findField(id), typeManager))
+                Schema deleteSchema = TypeUtil.select(schema, fieldIds);
+                List<IcebergColumnHandle> columns = deleteSchema.columns().stream()
+                        .map(column -> getColumnHandle(column, typeManager))
                         .collect(toImmutableList());
 
+                EqualityDeleteSet equalityDeleteSet = deletesSetByFieldIds.computeIfAbsent(fieldIds, key -> new EqualityDeleteSet(deleteSchema, schemaFromHandles(readColumns)));
+
                 try (ConnectorPageSource pageSource = openDeletes(session, delete, columns, TupleDomain.all())) {
-                    filters.add(readEqualityDeletes(pageSource, columns, schema));
+                    readEqualityDeletes(pageSource, columns, equalityDeleteSet::add);
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
@@ -456,6 +468,10 @@ public class IcebergPageSourceProvider
 
         if (!deletedRows.isEmpty()) {
             filters.add(new PositionDeleteFilter(deletedRows));
+        }
+
+        for (EqualityDeleteSet equalityDeleteSet : deletesSetByFieldIds.values()) {
+            filters.add(new EqualityDeleteFilter(equalityDeleteSet::contains));
         }
 
         return filters;
@@ -1535,6 +1551,29 @@ public class IcebergPageSourceProvider
         public int hashCode()
         {
             return Objects.hash(baseColumnIdentity, path);
+        }
+    }
+
+    @NotThreadSafe
+    private static class EqualityDeleteSet
+    {
+        private final StructLikeSet deleteSet;
+        private final StructProjection projection;
+
+        public EqualityDeleteSet(Schema deleteSchema, Schema dataSchema)
+        {
+            this.deleteSet = StructLikeSet.create(deleteSchema.asStruct());
+            this.projection = StructProjection.create(dataSchema, deleteSchema);
+        }
+
+        public void add(StructLike row)
+        {
+            deleteSet.add(row);
+        }
+
+        public boolean contains(StructLike row)
+        {
+            return deleteSet.contains(projection.wrap(row));
         }
     }
 }
