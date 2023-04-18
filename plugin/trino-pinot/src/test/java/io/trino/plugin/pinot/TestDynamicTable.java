@@ -183,7 +183,9 @@ public class TestDynamicTable
     public void testFilterWithUdf()
     {
         String tableName = realtimeOnlyTable.getTableName();
-        String query = format("select FlightNum from %s where DivLongestGTimes = FLOOR(EXP(2 * LN(3))) AND 5 < EXP(CarrierDelay) limit 60", tableName.toLowerCase(ENGLISH));
+        // Note: before Pinot 0.12.1 the below query produced different results due to handling IEEE-754 approximate numerics
+        // See https://github.com/apache/pinot/issues/10637
+        String query = format("select FlightNum from %s where DivLongestGTimes = FLOOR(EXP(2 * LN(3)) + 0.1) AND 5 < EXP(CarrierDelay) limit 60", tableName.toLowerCase(ENGLISH));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         String expectedPql = "select \"FlightNum\" from realtimeOnly where AND((\"DivLongestGTimes\") = '9.0', (exp(\"CarrierDelay\")) > '5') limit 60";
         assertEquals(extractPql(dynamicTable, TupleDomain.all()), expectedPql);
