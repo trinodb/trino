@@ -45,7 +45,7 @@ public final class StargateQueryRunner
 {
     private StargateQueryRunner() {}
 
-    private static DistributedQueryRunner createRemoteStarburstQueryRunner(Optional<SystemAccessControl> systemAccessControl)
+    public static DistributedQueryRunner createRemoteStarburstQueryRunner(Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -183,7 +183,8 @@ public final class StargateQueryRunner
     private static DistributedQueryRunner createStargateQueryRunner(
             boolean enableWrites,
             Map<String, String> extraProperties,
-            Map<String, String> connectorProperties)
+            Map<String, String> connectorProperties,
+            Map<String, String> coordinatorProperties)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -195,7 +196,9 @@ public final class StargateQueryRunner
         try {
             DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(session);
             extraProperties.forEach(builder::addExtraProperty);
-            queryRunner = builder.build();
+            queryRunner = builder
+                    .setCoordinatorProperties(coordinatorProperties)
+                    .build();
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -349,7 +352,7 @@ public final class StargateQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return createStargateQueryRunner(enableWrites, extraProperties, connectorProperties);
+            return createStargateQueryRunner(enableWrites, extraProperties, connectorProperties, coordinatorProperties);
         }
 
         private static Map<String, String> updateProperties(Map<String, String> properties, Map<String, String> update)

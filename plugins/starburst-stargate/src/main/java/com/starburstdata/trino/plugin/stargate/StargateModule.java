@@ -15,6 +15,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
+import com.starburstdata.presto.plugin.jdbc.statistics.JdbcManagedStatisticsModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ConfiguringConnectionFactory;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -22,7 +23,6 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
-import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.ptf.Query;
@@ -55,7 +55,6 @@ public class StargateModule
                 new SslModule(),
                 new NoSslModule()));
 
-        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(StargateMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StargateClient.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> {
@@ -66,6 +65,7 @@ public class StargateModule
         install(new StargateAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
+        install(new JdbcManagedStatisticsModule(StargateMetadataFactory.class));
 
         @SuppressWarnings("TrinoExperimentalSpi")
         Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;

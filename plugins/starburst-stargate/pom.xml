@@ -185,6 +185,13 @@
 
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-managed-statistics</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-postgresql</artifactId>
             <scope>test</scope>
             <exclusions>
@@ -205,6 +212,12 @@
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-trino-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -311,6 +324,12 @@
         <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>jdbc</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -19,6 +19,7 @@ import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
 import static com.starburstdata.presto.license.StarburstFeature.STARGATE;
+import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
@@ -40,12 +41,12 @@ public class StargatePlugin
     private ConnectorFactory getConnectorFactory(LicenseManager licenseManager, boolean enableWrites)
     {
         requireNonNull(licenseManager, "licenseManager is null");
-        return new JdbcConnectorFactory(
+        return withManagedStatistics(new JdbcConnectorFactory(
                 // "stargate" will be used also for the parallel variant, with implementation chosen by a configuration property
                 "stargate",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),
-                        new StargateModule()));
+                        new StargateModule())));
     }
 }
