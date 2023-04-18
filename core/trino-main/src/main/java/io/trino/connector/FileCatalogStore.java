@@ -50,6 +50,7 @@ import static io.trino.spi.StandardErrorCode.CATALOG_STORE_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.deleteIfExists;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
 
@@ -130,7 +131,12 @@ public final class FileCatalogStore
     {
         checkModifiable();
         catalogs.remove(catalogName);
-        toFile(catalogName).delete();
+        try {
+            deleteIfExists(toFile(catalogName).toPath());
+        }
+        catch (IOException e) {
+            log.warn(e, "Could not remove catalog properties for %s", catalogName);
+        }
     }
 
     private void checkModifiable()
