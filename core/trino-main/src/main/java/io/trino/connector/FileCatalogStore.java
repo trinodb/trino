@@ -49,6 +49,7 @@ import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
 import static io.trino.spi.StandardErrorCode.CATALOG_STORE_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
+import static java.nio.file.Files.createDirectories;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
 
@@ -108,6 +109,7 @@ public final class FileCatalogStore
 
         try {
             File temporary = new File(file.getPath() + ".tmp");
+            createDirectories(temporary.getParentFile().toPath());
             try (FileOutputStream out = new FileOutputStream(temporary)) {
                 properties.store(out, null);
                 out.flush();
