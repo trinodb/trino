@@ -325,7 +325,7 @@ public class HiveSplitManager
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     Lists.transform(partitionBatch, HivePartition::getPartitionId));
-            ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builder();
+            ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builderWithExpectedSize(batch.size());
             for (Map.Entry<String, Optional<Partition>> entry : batch.entrySet()) {
                 if (entry.getValue().isEmpty()) {
                     throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
@@ -337,7 +337,7 @@ public class HiveSplitManager
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
             }
 
-            ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
+            ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builderWithExpectedSize(partitionBatch.size());
             for (HivePartition hivePartition : partitionBatch) {
                 Partition partition = partitions.get(hivePartition.getPartitionId());
                 if (partition == null) {
@@ -448,7 +448,7 @@ public class HiveSplitManager
 
     private TableToPartitionMapping getTableToPartitionMappingByColumnNames(SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns, HiveTimestampPrecision hiveTimestampPrecision)
     {
-        ImmutableMap.Builder<String, Integer> partitionColumnIndexesBuilder = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Integer> partitionColumnIndexesBuilder = ImmutableMap.builderWithExpectedSize(partitionColumns.size());
         for (int i = 0; i < partitionColumns.size(); i++) {
             partitionColumnIndexesBuilder.put(partitionColumns.get(i).getName().toLowerCase(ENGLISH), i);
         }
@@ -539,7 +539,7 @@ public class HiveSplitManager
                 }
 
                 int count = 0;
-                ImmutableList.Builder<T> builder = ImmutableList.builder();
+                ImmutableList.Builder<T> builder = ImmutableList.builderWithExpectedSize(currentSize);
                 while (values.hasNext() && count < currentSize) {
                     builder.add(values.next());
                     ++count;
