@@ -21,10 +21,10 @@ import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
+import okhttp3.Call;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 
@@ -73,7 +73,7 @@ class StatementClientV1
             firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
 
-    private final OkHttpClient httpClient;
+    private final Call.Factory httpCallFactory;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
     private final AtomicReference<String> setCatalog = new AtomicReference<>();
@@ -94,13 +94,13 @@ class StatementClientV1
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
-    public StatementClientV1(OkHttpClient httpClient, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
+    public StatementClientV1(Call.Factory httpCallFactory, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
-        requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(httpCallFactory, "httpCallFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(query, "query is null");
 
-        this.httpClient = httpClient;
+        this.httpCallFactory = httpCallFactory;
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
@@ -116,7 +116,7 @@ class StatementClientV1
         Request request = buildQueryRequest(session, query);
 
         // Always materialize the first response to avoid losing the response body if the initial response parsing fails
-        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.empty());
+        JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, OptionalLong.empty());
         if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
             state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
             throw requestFailedException("starting query", request, response);
@@ -378,7 +378,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
             }
             catch (RuntimeException e) {
                 cause = e;
@@ -487,7 +487,7 @@ class StatementClientV1
                 .delete()
                 .build();
         try {
-            httpClient.newCall(request)
+            httpCallFactory.newCall(request)
                     .execute()
                     .close();
         }

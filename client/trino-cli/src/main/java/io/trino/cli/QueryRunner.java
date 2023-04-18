@@ -24,6 +24,7 @@ import io.trino.client.auth.external.HttpTokenPoller;
 import io.trino.client.auth.external.KnownToken;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
+import okhttp3.Call;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 
@@ -156,7 +157,7 @@ public class QueryRunner
         sslSetup.accept(builder);
         OkHttpClient client = builder.build();
 
-        return newStatementClient(client, session, query);
+        return newStatementClient((Call.Factory) client, session, query);
     }
 
     @Override
