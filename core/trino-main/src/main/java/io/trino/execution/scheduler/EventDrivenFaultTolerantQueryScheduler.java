@@ -1295,7 +1295,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             StagePartition partition = getStagePartition(partitionId);
-            partition.seal(partitionId);
+            partition.seal();
 
             if (!partition.isRunning()) {
                 // if partition is not yet running update its priority as it is no longer speculative
@@ -1769,7 +1769,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             return finalSelectors.contains(planNodeId);
         }
 
-        public void seal(int partitionId)
+        public void seal()
         {
             checkState(openTaskDescriptor.isPresent(), "openTaskDescriptor is empty");
             TaskDescriptor taskDescriptor = openTaskDescriptor.get().createTaskDescriptor(partitionId);
