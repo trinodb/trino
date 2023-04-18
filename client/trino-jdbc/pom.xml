@@ -65,6 +65,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-okhttp-3.0</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
         </dependency>
@@ -77,6 +82,12 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -371,6 +382,10 @@
                                     <shadedPattern>${shadeBase}.okhttp3</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>io.opentelemetry.instrumentation</pattern>
+                                    <shadedPattern>${shadeBase}.opentelemetry.instrumentation</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>okio</pattern>
                                     <shadedPattern>${shadeBase}.okio</shadedPattern>
                                 </relocation>
@@ -406,6 +421,9 @@
                                         <exclude>META-INF/*-NOTICE</exclude>
                                         <exclude>META-INF/*-LICENSE</exclude>
                                         <exclude>META-INF/LICENSE**</exclude>
+                                        <exclude>META-INF/io/opentelemetry/**</exclude>
+                                        <exclude>io/opentelemetry/semconv/**</exclude>
+                                        <exclude>META-INF/native-image/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
