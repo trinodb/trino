@@ -33,7 +33,7 @@ public final class DynamicTablePqlExtractor
     public static String extractPql(DynamicTable table, TupleDomain<ColumnHandle> tupleDomain)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append("select ");
+        builder.append("SELECT ");
         if (!table.getProjections().isEmpty()) {
             builder.append(table.getProjections().stream()
                     .map(DynamicTablePqlExtractor::formatExpression)
@@ -49,34 +49,34 @@ public final class DynamicTablePqlExtractor
                     .map(DynamicTablePqlExtractor::formatExpression)
                     .collect(joining(", ")));
         }
-        builder.append(" from ");
+        builder.append(" FROM ");
         builder.append(table.getTableName());
         builder.append(table.getSuffix().orElse(""));
 
         Optional<String> filter = getFilter(table.getFilter(), tupleDomain, false);
         if (filter.isPresent()) {
-            builder.append(" where ")
+            builder.append(" WHERE ")
                     .append(filter.get());
         }
         if (!table.getGroupingColumns().isEmpty()) {
-            builder.append(" group by ");
+            builder.append(" GROUP BY ");
             builder.append(table.getGroupingColumns().stream()
                     .map(PinotColumnHandle::getExpression)
                     .collect(joining(", ")));
         }
         Optional<String> havingClause = getFilter(table.getHavingExpression(), tupleDomain, true);
         if (havingClause.isPresent()) {
-            builder.append(" having ")
+            builder.append(" HAVING ")
                     .append(havingClause.get());
         }
         if (!table.getOrderBy().isEmpty()) {
-            builder.append(" order by ")
+            builder.append(" ORDER BY ")
                     .append(table.getOrderBy().stream()
                             .map(DynamicTablePqlExtractor::convertOrderByExpressionToPql)
                             .collect(joining(", ")));
         }
         if (table.getLimit().isPresent()) {
-            builder.append(" limit ");
+            builder.append(" LIMIT ");
             if (table.getOffset().isPresent()) {
                 builder.append(table.getOffset().getAsLong())
                         .append(", ");
@@ -108,7 +108,7 @@ public final class DynamicTablePqlExtractor
         StringBuilder builder = new StringBuilder()
                 .append(orderByExpression.getExpression());
         if (!orderByExpression.isAsc()) {
-            builder.append(" desc");
+            builder.append(" DESC");
         }
         return builder.toString();
     }
