@@ -1303,7 +1303,7 @@ public abstract class BasePinotConnectorSmokeTest
         assertQueryFails("SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
                         "  LIMIT " + (MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES + 1) + "\"",
-                "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"select \"updated_at_seconds\", \"string_col\" from too_many_broker_rows limit 13\"");
+                "Broker query returned '13' rows, maximum allowed is '12' rows. with query \"SELECT \"updated_at_seconds\", \"string_col\" FROM too_many_broker_rows LIMIT 13\"");
 
         // Pinot issue preventing Integer.MAX_VALUE from being a limit: https://github.com/apache/incubator-pinot/issues/7110
         // This is now resolved in pinot 0.8.0
@@ -1312,7 +1312,7 @@ public abstract class BasePinotConnectorSmokeTest
         // Pinot broker requests do not handle limits greater than Integer.MAX_VALUE
         // Note that -2147483648 is due to an integer overflow in Pinot: https://github.com/apache/pinot/issues/7242
         assertQueryFails("SELECT * FROM \"SELECT string_col, long_col FROM " + ALL_TYPES_TABLE + " LIMIT " + ((long) Integer.MAX_VALUE + 1) + "\"",
-                "(?s)Query select \"string_col\", \"long_col\" from alltypes limit -2147483648 encountered exception .* with query \"select \"string_col\", \"long_col\" from alltypes limit -2147483648\"");
+                "(?s)Query SELECT \"string_col\", \"long_col\" FROM alltypes LIMIT -2147483648 encountered exception .* with query \"SELECT \"string_col\", \"long_col\" FROM alltypes LIMIT -2147483648\"");
 
         List<String> tooManyBrokerRowsTableValues = new ArrayList<>();
         for (int i = 0; i < MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES; i++) {
