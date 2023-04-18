@@ -16,96 +16,87 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.common.reflect.ClassPath;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchEntity;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
+import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
-import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
+import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.write;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
 @Test(singleThreaded = true) // tests use shared invocation counter map
 public class TestDeltaLakePerTransactionMetastoreCache
 {
-    private static final String BUCKET_NAME = "delta-lake-per-transaction-metastore-cache";
-    private HiveMinioDataLake hiveMinioDataLake;
     private CountingAccessHiveMetastore metastore;
 
     private DistributedQueryRunner createQueryRunner(boolean enablePerTransactionHiveMetastoreCaching)
             throws Exception
     {
-        boolean createdDeltaLake = false;
-        if (hiveMinioDataLake == null) {
-            // share environment between testcases to speed things up
-            hiveMinioDataLake = new HiveMinioDataLake(BUCKET_NAME);
-            hiveMinioDataLake.start();
-            createdDeltaLake = true;
-        }
         Session session = testSessionBuilder()
                 .setCatalog(DELTA_CATALOG)
                 .setSchema("default")
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        try {
+            FileHiveMetastore fileMetastore = createTestingFileHiveMetastore(queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toFile());
+            metastore = new CountingAccessHiveMetastore(fileMetastore);
+            queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
 
-        metastore = new CountingAccessHiveMetastore(new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
-                .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                .thriftMetastoreConfig(new ThriftMetastoreConfig()
-                        .setMetastoreTimeout(new Duration(1, MINUTES))) // read timed out sometimes happens with the default timeout
-                .build()));
+            ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
+            deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
+            deltaLakeProperties.put("delta.register-table-procedure.enabled", "true");
+            if (!enablePerTransactionHiveMetastoreCaching) {
+                // almost disable the cache; 0 is not allowed as config property value
+                deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
+            }
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
+            queryRunner.createCatalog(DELTA_CATALOG, "delta_lake", deltaLakeProperties.buildOrThrow());
+            queryRunner.execute("CREATE SCHEMA " + session.getSchema().orElseThrow());
 
-        ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
-        deltaLakeProperties.put("hive.s3.aws-access-key", MINIO_ACCESS_KEY);
-        deltaLakeProperties.put("hive.s3.aws-secret-key", MINIO_SECRET_KEY);
-        deltaLakeProperties.put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress());
-        deltaLakeProperties.put("hive.s3.path-style-access", "true");
-        deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
-        deltaLakeProperties.put("delta.register-table-procedure.enabled", "true");
-        if (!enablePerTransactionHiveMetastoreCaching) {
-            // almost disable the cache; 0 is not allowed as config property value
-            deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
-        }
-
-        queryRunner.createCatalog(DELTA_CATALOG, "delta_lake", deltaLakeProperties.buildOrThrow());
-
-        if (createdDeltaLake) {
-            List<TpchTable<? extends TpchEntity>> tpchTables = List.of(TpchTable.NATION, TpchTable.REGION);
-            tpchTables.forEach(table -> {
+            for (TpchTable<? extends TpchEntity> table : List.of(TpchTable.NATION, TpchTable.REGION)) {
                 String tableName = table.getTableName();
-                hiveMinioDataLake.copyResources("io/trino/plugin/deltalake/testing/resources/databricks/" + tableName, tableName);
-                queryRunner.execute(format("CALL %1$s.system.register_table('%2$s', '%3$s', 's3://%4$s/%3$s')",
-                        DELTA_CATALOG,
-                        "default",
-                        tableName,
-                        BUCKET_NAME));
-            });
+                String resourcePath = "io/trino/plugin/deltalake/testing/resources/databricks/" + tableName + "/";
+                Path tableDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("%s-%s".formatted(tableName, randomNameSuffix()));
+
+                for (ClassPath.ResourceInfo resourceInfo : ClassPath.from(getClass().getClassLoader()).getResources()) {
+                    if (resourceInfo.getResourceName().startsWith(resourcePath)) {
+                        Path targetFile = tableDirectory.resolve(resourceInfo.getResourceName().substring(resourcePath.length()));
+                        createDirectories(targetFile.getParent());
+                        write(targetFile, resourceInfo.asByteSource().read());
+                    }
+                }
+
+                queryRunner.execute(format("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')", tableName, tableDirectory));
+            }
+        }
+        catch (Throwable e) {
+            Closables.closeAllSuppress(e, queryRunner);
+            throw e;
         }
 
         return queryRunner;
@@ -126,16 +117,6 @@ public class TestDeltaLakePerTransactionMetastoreCache
         {
             binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
             binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
-        }
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-            throws Exception
-    {
-        if (hiveMinioDataLake != null) {
-            hiveMinioDataLake.close();
-            hiveMinioDataLake = null;
         }
     }
 
