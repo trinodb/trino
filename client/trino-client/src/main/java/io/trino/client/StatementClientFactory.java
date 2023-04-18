@@ -13,6 +13,7 @@
  */
 package io.trino.client;
 
+import okhttp3.Call;
 import okhttp3.OkHttpClient;
 
 import java.util.Optional;
@@ -22,13 +23,13 @@ public final class StatementClientFactory
 {
     private StatementClientFactory() {}
 
-    public static StatementClient newStatementClient(OkHttpClient httpClient, ClientSession session, String query)
+    public static StatementClient newStatementClient(Call.Factory httpCallFactory, ClientSession session, String query)
     {
-        return new StatementClientV1(httpClient, session, query, Optional.empty());
+        return new StatementClientV1(httpCallFactory, session, query, Optional.empty());
     }
 
     public static StatementClient newStatementClient(OkHttpClient httpClient, ClientSession session, String query, Optional<Set<String>> clientCapabilities)
     {
-        return new StatementClientV1(httpClient, session, query, clientCapabilities);
+        return new StatementClientV1((Call.Factory) httpClient, session, query, clientCapabilities);
     }
 }
