@@ -69,6 +69,7 @@ public class PagePartitioner
     private final PageSerializer serializer;
     private final PositionsAppenderPageBuilder[] positionsAppenders;
     private final boolean replicatesAnyRow;
+    private final boolean partitionProcessRleAndDictionaryBlocks;
     private final int nullChannel; // when >= 0, send the position to every partition if this channel is null
     private PartitionedOutputInfoSupplier partitionedOutputInfoSupplier;
 
@@ -86,7 +87,8 @@ public class PagePartitioner
             DataSize maxMemory,
             PositionsAppenderFactory positionsAppenderFactory,
             Optional<Slice> exchangeEncryptionKey,
-            AggregatedMemoryContext aggregatedMemoryContext)
+            AggregatedMemoryContext aggregatedMemoryContext,
+            boolean partitionProcessRleAndDictionaryBlocks)
     {
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -104,6 +106,7 @@ public class PagePartitioner
         this.nullChannel = nullChannel.orElse(-1);
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         this.serializer = serdeFactory.createSerializer(exchangeEncryptionKey.map(Ciphers::deserializeAesEncryptionKey));
+        this.partitionProcessRleAndDictionaryBlocks = partitionProcessRleAndDictionaryBlocks;
 
         //  Ensure partition channels align with constant arguments provided
         for (int i = 0; i < this.partitionChannels.length; i++) {
@@ -123,6 +126,11 @@ public class PagePartitioner
         }
         this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(PagePartitioner.class.getSimpleName());
         updateMemoryUsage();
+    }
+
+    public PartitionFunction getPartitionFunction()
+    {
+        return partitionFunction;
     }
 
     // sets up this partitioner for the new operator
@@ -232,12 +240,12 @@ public class PagePartitioner
 
         Page partitionFunctionArgs = getPartitionFunctionArguments(page);
 
-        if (partitionFunctionArgs.getChannelCount() > 0 && onlyRleBlocks(partitionFunctionArgs)) {
+        if (partitionProcessRleAndDictionaryBlocks && partitionFunctionArgs.getChannelCount() > 0 && onlyRleBlocks(partitionFunctionArgs)) {
             // we need at least one Rle block since with no blocks partition function
             // can return a different value per invocation (e.g. RoundRobinBucketFunction)
             partitionBySingleRleValue(page, position, partitionFunctionArgs, partitionPositions);
         }
-        else if (partitionFunctionArgs.getChannelCount() == 1 && isDictionaryProcessingFaster(partitionFunctionArgs.getBlock(0))) {
+        else if (partitionProcessRleAndDictionaryBlocks && partitionFunctionArgs.getChannelCount() == 1 && isDictionaryProcessingFaster(partitionFunctionArgs.getBlock(0))) {
             partitionBySingleDictionary(page, position, partitionFunctionArgs, partitionPositions);
         }
         else {

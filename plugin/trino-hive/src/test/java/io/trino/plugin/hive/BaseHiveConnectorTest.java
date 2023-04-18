@@ -4112,22 +4112,23 @@ public abstract class BaseHiveConnectorTest
     @Test(dataProvider = "taskWritersLimitParams")
     public void testWriterTasksCountLimitUnpartitioned(boolean scaleWriters, boolean redistributeWrites, int expectedFilesCount)
     {
-        testLimitWriterTasks(2, expectedFilesCount, scaleWriters, redistributeWrites, false);
+        testLimitWriterTasks(2, expectedFilesCount, scaleWriters, redistributeWrites, false, DataSize.of(1, MEGABYTE));
     }
 
     @Test
     public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
     {
-        testLimitWriterTasks(2, 2, false, true, true);
+        testLimitWriterTasks(2, 2, false, true, true, DataSize.of(1, MEGABYTE));
     }
 
     @Test
     public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
     {
-        testLimitWriterTasks(2, 2, true, true, true);
+        testLimitWriterTasks(2, 4, true, true, true, DataSize.of(1, MEGABYTE));
+        testLimitWriterTasks(2, 2, true, true, true, DataSize.of(32, MEGABYTE));
     }
 
-    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned)
+    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerMinSize)
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
@@ -4135,7 +4136,7 @@ public abstract class BaseHiveConnectorTest
                 .setSystemProperty(REDISTRIBUTE_WRITES, Boolean.toString(redistributeWrites))
                 .setSystemProperty(TASK_WRITER_COUNT, "1")
                 .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
-                .setSystemProperty(WRITER_MIN_SIZE, "1MB")
+                .setSystemProperty(WRITER_MIN_SIZE, writerMinSize.toString())
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .build();
         String tableName = "writing_tasks_limit_%s".formatted(randomNameSuffix());
