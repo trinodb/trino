@@ -16,6 +16,7 @@ package io.trino.plugin.pinot.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -53,12 +54,24 @@ import io.trino.plugin.pinot.query.PinotQueryInfo;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import org.apache.pinot.common.auth.NullAuthProvider;
+import org.apache.pinot.common.auth.StaticTokenAuthProvider;
+import org.apache.pinot.common.exception.HttpErrorStatusException;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
+import org.apache.pinot.common.restlet.resources.StartReplaceSegmentsRequest;
+import org.apache.pinot.common.utils.FileUploadDownloadClient;
+import org.apache.pinot.common.utils.SimpleHttpResponse;
+import org.apache.pinot.spi.auth.AuthProvider;
+import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.data.Schema;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -91,6 +104,7 @@ import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_AMBIGUOUS_TABLE_NAME;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
 import static io.trino.plugin.pinot.PinotMetadata.SCHEMA_NAME;
 import static java.lang.String.format;
@@ -98,6 +112,11 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.joining;
+import static org.apache.pinot.common.utils.http.HttpClient.DEFAULT_SOCKET_TIMEOUT_MS;
+import static org.apache.pinot.spi.config.table.TableType.OFFLINE;
+import static org.apache.pinot.spi.config.table.TableType.REALTIME;
+import static org.apache.pinot.spi.utils.JsonUtils.jsonNodeToObject;
+import static org.apache.pinot.spi.utils.JsonUtils.stringToJsonNode;
 import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTableName;
 
 public class PinotClient
@@ -109,6 +128,9 @@ public class PinotClient
     private static final JsonCodec<Map<String, Map<String, List<String>>>> ROUTING_TABLE_CODEC = mapJsonCodec(String.class, mapJsonCodec(String.class, listJsonCodec(String.class)));
     private static final Object ALL_TABLES_CACHE_KEY = new Object();
     private static final JsonCodec<QueryRequest> QUERY_REQUEST_JSON_CODEC = jsonCodec(QueryRequest.class);
+    private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
+    private static final JsonCodec<List<Map<String, List<String>>>> ALL_SEGMENTS_CODEC = listJsonCodec(mapJsonCodec(String.class, listJsonCodec(String.class)));
+    private static final JsonCodec<PinotStartReplaceSegmentsResponse> PINOT_START_REPLACE_SEGMENTS_RESPONSE_JSON_CODEC = jsonCodec(PinotStartReplaceSegmentsResponse.class);
 
     private static final String GET_ALL_TABLES_API_TEMPLATE = "tables";
     private static final String TABLE_INSTANCES_API_TEMPLATE = "tables/%s/instances";
@@ -132,7 +154,9 @@ public class PinotClient
     private final JsonCodec<Schema> schemaJsonCodec;
     private final JsonCodec<BrokerResponseNative> brokerResponseCodec;
     private final PinotControllerAuthenticationProvider controllerAuthenticationProvider;
+    private final AuthProvider controllerAuthProvider;
     private final PinotBrokerAuthenticationProvider brokerAuthenticationProvider;
+    private final FileUploadDownloadClient fileUploadDownloadClient;
 
     @Inject
     public PinotClient(
@@ -168,7 +192,9 @@ public class PinotClient
                         .refreshAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS),
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
+        this.controllerAuthProvider = toAuthProvider(controllerAuthenticationProvider);
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
+        this.fileUploadDownloadClient = new FileUploadDownloadClient();
     }
 
     public static void addJsonBinders(JsonCodecBinder jsonCodecBinder)
@@ -213,13 +239,26 @@ public class PinotClient
         return response;
     }
 
-    private <T> T sendHttpGetToControllerJson(String path, JsonCodec<T> codec)
+    private <T> T sendHttpGetToControllerJson(String path, JsonCodec<T> codec, Multimap<String, String> parameters)
+    {
+        ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
+        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+        HttpUriBuilder controllerPathUriBuilder = uriBuilderFrom(getControllerUrl()).appendPath(path).scheme(scheme);
+        parameters.asMap().entrySet().forEach(entry -> controllerPathUriBuilder.addParameter(entry.getKey(), entry.getValue()));
+        URI controllerPathUri = controllerPathUriBuilder.build();
+        return doHttpActionWithHeadersJson(
+                Request.Builder.prepareGet().setUri(controllerPathUri),
+                Optional.empty(),
+                codec,
+                additionalHeadersBuilder.build());
+    }
+
+    private <T> T sendHttpDeleteToControllerJson(String path, JsonCodec<T> codec)
     {
         ImmutableMultimap.Builder<String, String> additionalHeadersBuilder = ImmutableMultimap.builder();
         controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
         URI controllerPathUri = uriBuilderFrom(getControllerUrl()).appendPath(path).scheme(scheme).build();
-        return doHttpActionWithHeadersJson(
-                Request.Builder.prepareGet().setUri(controllerPathUri),
+        return doHttpActionWithHeadersJson(Request.Builder.prepareDelete().setUri(controllerPathUri),
                 Optional.empty(),
                 codec,
                 additionalHeadersBuilder.build());
@@ -250,6 +289,69 @@ public class PinotClient
         return controllerUrls.get(ThreadLocalRandom.current().nextInt(controllerUrls.size()));
     }
 
+    public PinotTableConfig getTableConfig(String pinotTableName)
+    {
+        URI controllerUrl = getControllerUrl();
+        HostAndPort controllerHostAndPort = HostAndPort.fromParts(controllerUrl.getHost(), controllerUrl.getPort());
+        ImmutableMap.Builder<String, String> additionalHeadersBuilder = ImmutableMap.builder();
+        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> additionalHeadersBuilder.put(AUTHORIZATION, token));
+        try {
+            SimpleHttpResponse response = fileUploadDownloadClient.getHttpClient().sendGetRequest(
+                    FileUploadDownloadClient.getRetrieveTableConfigURI(controllerUrl.getScheme(),
+                            controllerHostAndPort.getHost(), controllerHostAndPort.getPort(), pinotTableName), additionalHeadersBuilder.buildOrThrow());
+            return PinotTableConfig.fromResponse(response.getResponse());
+        }
+        catch (URISyntaxException | IOException e) {
+            throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "Could not get configuration for " + pinotTableName);
+        }
+    }
+
+    public static class PinotTableConfig
+    {
+        private final Optional<TableConfig> realtimeConfig;
+        private final Optional<TableConfig> offlineConfig;
+
+        public static PinotTableConfig fromResponse(String response)
+        {
+            try {
+                JsonNode realtimeConfigJson = stringToJsonNode(response).get(REALTIME.name());
+                Optional<TableConfig> realtimeConfig = Optional.empty();
+                if (realtimeConfigJson != null) {
+                    realtimeConfig = Optional.of(jsonNodeToObject(realtimeConfigJson, TableConfig.class));
+                }
+                JsonNode offlineConfigJson = stringToJsonNode(response).get(OFFLINE.name());
+                Optional<TableConfig> offlineConfig = Optional.empty();
+                if (offlineConfigJson != null) {
+                    offlineConfig = Optional.of(jsonNodeToObject(offlineConfigJson, TableConfig.class));
+                }
+
+                return new PinotTableConfig(realtimeConfig, offlineConfig);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        public PinotTableConfig(Optional<TableConfig> realtimeConfig, Optional<TableConfig> offlineConfig)
+        {
+            requireNonNull(realtimeConfig, "realtimeConfig is null");
+            requireNonNull(offlineConfig, "offlineConfig is null");
+            checkState(realtimeConfig.isPresent() || offlineConfig.isPresent());
+            this.realtimeConfig = realtimeConfig;
+            this.offlineConfig = offlineConfig;
+        }
+
+        public Optional<TableConfig> getRealtimeConfig()
+        {
+            return realtimeConfig;
+        }
+
+        public Optional<TableConfig> getOfflineConfig()
+        {
+            return offlineConfig;
+        }
+    }
+
     public static class GetTables
     {
         private final List<String> tables;
@@ -268,7 +370,7 @@ public class PinotClient
 
     protected Multimap<String, String> getAllTables()
     {
-        List<String> allTables = sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec).getTables();
+        List<String> allTables = sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec, ImmutableListMultimap.of()).getTables();
         ImmutableListMultimap.Builder<String, String> builder = ImmutableListMultimap.builder();
         for (String table : allTables) {
             builder.put(table.toLowerCase(ENGLISH), table);
@@ -277,9 +379,8 @@ public class PinotClient
     }
 
     public Schema getTableSchema(String table)
-            throws Exception
     {
-        return sendHttpGetToControllerJson(format(TABLE_SCHEMA_API_TEMPLATE, table), schemaJsonCodec);
+        return sendHttpGetToControllerJson(format(TABLE_SCHEMA_API_TEMPLATE, table), schemaJsonCodec, ImmutableListMultimap.of());
     }
 
     public List<String> getPinotTableNames()
@@ -359,7 +460,7 @@ public class PinotClient
     @VisibleForTesting
     public List<String> getAllBrokersForTable(String table)
     {
-        ArrayList<String> brokers = sendHttpGetToControllerJson(format(TABLE_INSTANCES_API_TEMPLATE, table), brokersForTableJsonCodec)
+        ArrayList<String> brokers = sendHttpGetToControllerJson(format(TABLE_INSTANCES_API_TEMPLATE, table), brokersForTableJsonCodec, ImmutableListMultimap.of())
                 .getBrokers().stream()
                 .flatMap(broker -> broker.getInstances().stream())
                 .distinct()
@@ -416,6 +517,120 @@ public class PinotClient
             }
         }
         return routingTableMap.buildOrThrow();
+    }
+
+    public static class PinotSegments
+    {
+        private final List<String> realtime;
+        private final List<String> offline;
+
+        @JsonCreator
+        public PinotSegments(@JsonProperty("REALTIME") List<String> realtime, @JsonProperty("OFFLINE") List<String> offline)
+        {
+            requireNonNull(realtime, "realtime is null");
+            requireNonNull(offline, "offline is null");
+            this.realtime = ImmutableList.copyOf(realtime);
+            this.offline = ImmutableList.copyOf(offline);
+        }
+
+        @JsonProperty("REALTIME")
+        public List<String> getRealtime()
+        {
+            return realtime;
+        }
+
+        @JsonProperty("OFFLINE")
+        public List<String> getOffline()
+        {
+            return offline;
+        }
+
+        public int size()
+        {
+            return offline.size() + realtime.size();
+        }
+    }
+
+    public PinotSegments getSegments(String table)
+    {
+        List<Map<String, List<String>>> allSegments = sendHttpGetToControllerJson(format("segments/%s", table), ALL_SEGMENTS_CODEC, ImmutableListMultimap.<String, String>builder()
+                .put("excludeReplacedSegments", "true")
+                .build());
+        requireNonNull(allSegments, "Segments response is null");
+        List<String> realtime = ImmutableList.of();
+        List<String> offline = ImmutableList.of();
+        for (Map<String, List<String>> segments : allSegments) {
+            if (segments.containsKey(REALTIME.name())) {
+                realtime = segments.get(REALTIME.name());
+            }
+            else if (segments.containsKey(OFFLINE.name())) {
+                offline = segments.get(OFFLINE.name());
+            }
+        }
+        return new PinotSegments(realtime, offline);
+    }
+
+    public void deleteSegments(String table, List<String> segments)
+    {
+        Map<String, PinotSuccessResponse> undeletedSegments = segments.stream()
+                .map(segment -> new AbstractMap.SimpleImmutableEntry<>(segment, sendHttpDeleteToControllerJson(format("segments/%s/%s", table, segment), PINOT_SUCCESS_RESPONSE_JSON_CODEC)))
+                .filter(entry -> !entry.getValue().getStatus().equals("Segment deleted"))
+                .collect(toImmutableMap(k -> k.getKey(), v -> v.getValue()));
+        if (!undeletedSegments.isEmpty()) {
+            String message = format("Could not delete the following segments for table '%s': %s", table, undeletedSegments.entrySet().stream()
+                    .map(entry -> format("%s: %s", entry.getKey(), entry.getValue().getStatus()))
+                    .collect(joining(",")));
+            throw new PinotException(PINOT_EXCEPTION, Optional.empty(), message);
+        }
+    }
+
+    public static class PinotStartReplaceSegmentsResponse
+    {
+        private final String segmentLineageEntryId;
+
+        @JsonCreator
+        public PinotStartReplaceSegmentsResponse(@JsonProperty("segmentLineageEntryId") String segmentLineageEntryId)
+        {
+            this.segmentLineageEntryId = requireNonNull(segmentLineageEntryId, "segmentLineageEntryId is null");
+        }
+
+        @JsonProperty
+        public String getSegmentLineageEntryId()
+        {
+            return segmentLineageEntryId;
+        }
+    }
+
+    public PinotStartReplaceSegmentsResponse startReplaceSegments(String tableName, List<String> segmentsToReplace, List<String> newSegments, boolean forceCleanup)
+    {
+        try {
+            // Force cleanup is set to false as Pinot will delete all but the last 2 snapshots.
+            // This can lead to a multi segment insert removing in progress segment lineage keys.
+            // If that happens the segments will instantly appear, violating the atomicity of the segment replacement.
+            // This can happen due to a race condition or when the segment lineage key does not exist:  https://github.com/apache/pinot/issues/10103
+            PinotStartReplaceSegmentsResponse response = PINOT_START_REPLACE_SEGMENTS_RESPONSE_JSON_CODEC.fromJson(fileUploadDownloadClient.startReplaceSegments(FileUploadDownloadClient.getStartReplaceSegmentsURI(getControllerUrl(), tableName, OFFLINE.name(), forceCleanup),
+                    new StartReplaceSegmentsRequest(segmentsToReplace, newSegments), controllerAuthProvider).getResponse());
+            return response;
+        }
+        catch (URISyntaxException | HttpErrorStatusException | IOException e) {
+            throw new PinotException(PINOT_EXCEPTION, Optional.empty(), "Could not start replace segments for " + tableName);
+        }
+    }
+
+    public void endReplaceSegments(String tableName, PinotStartReplaceSegmentsResponse pinotStartReplaceSegmentsResponse)
+    {
+        try {
+            SimpleHttpResponse response = fileUploadDownloadClient.endReplaceSegments(FileUploadDownloadClient.getEndReplaceSegmentsURI(getControllerUrl(), tableName, OFFLINE.name(), pinotStartReplaceSegmentsResponse.getSegmentLineageEntryId()), DEFAULT_SOCKET_TIMEOUT_MS, controllerAuthProvider);
+            checkState(response.getStatusCode() == 200, "Could not end replace segments for " + tableName + ", " + pinotStartReplaceSegmentsResponse + ": " + response.getResponse());
+        }
+        catch (URISyntaxException | HttpErrorStatusException | IOException e) {
+            throw new PinotException(PINOT_EXCEPTION, Optional.empty(), "Could not end replace segments for " + tableName + ", " + pinotStartReplaceSegmentsResponse);
+        }
+    }
+
+    private static AuthProvider toAuthProvider(PinotControllerAuthenticationProvider controllerAuthenticationProvider)
+    {
+        return controllerAuthenticationProvider.getAuthenticationToken().map(token -> (AuthProvider) new StaticTokenAuthProvider(token)).orElse(new NullAuthProvider());
     }
 
     public static class TimeBoundary
@@ -639,5 +854,22 @@ public class PinotClient
             }
         }
         throw firstError;
+    }
+
+    public static class PinotSuccessResponse
+    {
+        private final String status;
+
+        @JsonCreator
+        public PinotSuccessResponse(@JsonProperty("status") String status)
+        {
+            this.status = requireNonNull(status, "status is null");
+        }
+
+        @JsonProperty
+        public String getStatus()
+        {
+            return status;
+        }
     }
 }
