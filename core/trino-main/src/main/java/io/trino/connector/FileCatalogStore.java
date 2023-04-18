@@ -67,7 +67,7 @@ public final class FileCatalogStore
     {
         requireNonNull(config, "config is null");
         readOnly = config.isReadOnly();
-        catalogsDirectory = config.getCatalogConfigurationDir();
+        catalogsDirectory = config.getCatalogConfigurationDir().getAbsoluteFile();
         List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
 
         for (File file : listCatalogFiles(catalogsDirectory)) {
