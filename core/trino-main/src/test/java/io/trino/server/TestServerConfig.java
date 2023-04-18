@@ -31,7 +31,7 @@ public class TestServerConfig
     {
         assertRecordedDefaults(recordDefaults(ServerConfig.class)
                 .setCoordinator(true)
-                .setConcurrentStartup(false)
+                .setConcurrentStartup(true)
                 .setIncludeExceptionInResponse(true)
                 .setGracePeriod(new Duration(2, MINUTES))
                 .setQueryResultsCompressionEnabled(true)
@@ -43,7 +43,7 @@ public class TestServerConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("coordinator", "false")
-                .put("experimental.concurrent-startup", "true")
+                .put("concurrent-startup", "false")
                 .put("http.include-exception-in-response", "false")
                 .put("shutdown.grace-period", "5m")
                 .put("query-results.compression-enabled", "false")
@@ -52,7 +52,7 @@ public class TestServerConfig
 
         ServerConfig expected = new ServerConfig()
                 .setCoordinator(false)
-                .setConcurrentStartup(true)
+                .setConcurrentStartup(false)
                 .setIncludeExceptionInResponse(false)
                 .setGracePeriod(new Duration(5, MINUTES))
                 .setQueryResultsCompressionEnabled(false)
