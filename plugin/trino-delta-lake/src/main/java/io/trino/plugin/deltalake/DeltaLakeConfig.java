@@ -61,7 +61,7 @@ public class DeltaLakeConfig
     private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
     private boolean unsafeWritesEnabled;
-    private boolean checkpointRowStatisticsWritingEnabled = true;
+    private boolean checkpointRowStatisticsWritingEnabled = false;
     private long defaultCheckpointWritingInterval = 10;
     private Duration vacuumMinRetention = new Duration(7, DAYS);
     private Optional<String> hiveCatalogName = Optional.empty();
