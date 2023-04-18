@@ -127,6 +127,7 @@ import io.trino.operator.join.PartitionedLookupSourceFactory;
 import io.trino.operator.join.unspilled.HashBuilderOperator;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.operator.output.PositionsAppenderFactory;
+import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.operator.output.TaskOutputOperator.TaskOutputFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
@@ -328,6 +329,10 @@ import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumula
 import static io.trino.operator.join.JoinUtils.isBuildSideReplicated;
 import static io.trino.operator.join.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static io.trino.operator.join.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
+import static io.trino.operator.output.SkewedPartitionRebalancer.checkCanScalePartitionsRemotely;
+import static io.trino.operator.output.SkewedPartitionRebalancer.createPartitionFunction;
+import static io.trino.operator.output.SkewedPartitionRebalancer.createSkewedPartitionRebalancer;
+import static io.trino.operator.output.SkewedPartitionRebalancer.getTaskCount;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.CLASSIFIER;
 import static io.trino.operator.window.pattern.PhysicalValuePointer.MATCH_NUMBER;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
@@ -566,7 +571,20 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
         }
 
-        PartitionFunction partitionFunction = nodePartitioningManager.getPartitionFunction(taskContext.getSession(), partitioningScheme, partitionChannelTypes);
+        PartitionFunction partitionFunction;
+        Optional<SkewedPartitionRebalancer> skewedPartitionRebalancer = Optional.empty();
+        int taskCount = getTaskCount(partitioningScheme);
+        if (checkCanScalePartitionsRemotely(taskContext.getSession(), taskCount, partitioningScheme.getPartitioning().getHandle(), nodePartitioningManager)) {
+            partitionFunction = createPartitionFunction(taskContext.getSession(), nodePartitioningManager, partitioningScheme, partitionChannelTypes);
+            skewedPartitionRebalancer = Optional.of(createSkewedPartitionRebalancer(
+                    partitionFunction.getPartitionCount(),
+                    taskCount,
+                    getTaskPartitionedWriterCount(taskContext.getSession()),
+                    getWriterMinSize(taskContext.getSession()).toBytes()));
+        }
+        else {
+            partitionFunction = nodePartitioningManager.getPartitionFunction(taskContext.getSession(), partitioningScheme, partitionChannelTypes);
+        }
         OptionalInt nullChannel = OptionalInt.empty();
         Set<Symbol> partitioningColumns = partitioningScheme.getPartitioning().getColumns();
 
@@ -593,7 +611,8 @@ public class LocalExecutionPlanner
                         positionsAppenderFactory,
                         taskContext.getSession().getExchangeEncryptionKey(),
                         taskContext.newAggregateMemoryContext(),
-                        getPagePartitioningBufferPoolSize(taskContext.getSession())));
+                        getPagePartitioningBufferPoolSize(taskContext.getSession()),
+                        skewedPartitionRebalancer));
     }
 
     public LocalExecutionPlan plan(
