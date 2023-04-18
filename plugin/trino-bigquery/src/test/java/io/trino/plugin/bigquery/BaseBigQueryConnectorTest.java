@@ -858,6 +858,13 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Override
+    public void testInsertRowConcurrently()
+    {
+        // TODO https://github.com/trinodb/trino/issues/15158 Enable this test after switching to storage write API
+        throw new SkipException("Test fails with a timeout sometimes and is flaky");
+    }
+
+    @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
         return format(".*Invalid date: '%s'.*", date);
