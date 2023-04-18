@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.pinot.PinotSessionProperties.InsertExistingSegmentsBehavior;
+import io.trino.plugin.pinot.deepstore.PinotDeepStore.DeepStoreProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -48,7 +50,21 @@ public class TestPinotConfig
                         .setCountDistinctPushdownEnabled(true)
                         .setGrpcEnabled(true)
                         .setProxyEnabled(false)
-                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
+                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE))
+                        .setSegmentCreationBaseDirectory("/tmp")
+                        .setSegmentCreationDataSize(DataSize.of(256, MEGABYTE))
+                        .setSegmentBuilderParallelism(40)
+                        .setSegmentBuilderQueueSize(4)
+                        .setPerQuerySegmentBuilderParallelism(3)
+                        .setSegmentBuilderQueueTimeout(new Duration(60, TimeUnit.MINUTES))
+                        .setSegmentBuildTimeout(new Duration(60, TimeUnit.MINUTES))
+                        .setSegmentUploadTimeout(new Duration(60, TimeUnit.SECONDS))
+                        .setFinishInsertTimeout(new Duration(60, TimeUnit.MINUTES))
+                        .setSegmentBuildOnHeapEnabled(false)
+                        .setDeepStoreProvider(DeepStoreProvider.NONE)
+                        .setInsertExistingSegmentsBehavior(InsertExistingSegmentsBehavior.APPEND)
+                        .setForceCleanupAfterInsertEnabled(false)
+                        .setInsertTimeoutThreads(3));
     }
 
     @Test
@@ -70,6 +86,20 @@ public class TestPinotConfig
                 .put("pinot.grpc.enabled", "false")
                 .put("pinot.proxy.enabled", "true")
                 .put("pinot.target-segment-page-size", "2MB")
+                .put("pinot.segment-creation-base-directory", "/foo")
+                .put("pinot.segment-creation-data-size", "1MB")
+                .put("pinot.per-query-segment-builder-parallelism", "2")
+                .put("pinot.segment-builder-parallelism", "3")
+                .put("pinot.segment-builder-queue-size", "2")
+                .put("pinot.segment-builder-queue-timeout", "1m")
+                .put("pinot.segment-build-timeout", "2m")
+                .put("pinot.segment-upload-timeout", "2m")
+                .put("pinot.finish-insert-timeout", "2m")
+                .put("pinot.segment-build-on-heap-enabled", "true")
+                .put("pinot.deep-store-provider", "S3")
+                .put("pinot.insert-existing-segments-behavior", "OVERWRITE")
+                .put("pinot.force-cleanup-after-insert.enabled", "true")
+                .put("pinot.insert-timeout-threads", "5")
                 .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
@@ -87,7 +117,21 @@ public class TestPinotConfig
                 .setCountDistinctPushdownEnabled(false)
                 .setGrpcEnabled(false)
                 .setProxyEnabled(true)
-                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
+                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE))
+                .setSegmentCreationBaseDirectory("/foo")
+                .setSegmentCreationDataSize(DataSize.of(1, MEGABYTE))
+                .setPerQuerySegmentBuilderParallelism(2)
+                .setSegmentBuilderParallelism(3)
+                .setSegmentBuilderQueueSize(2)
+                .setSegmentBuilderQueueTimeout(new Duration(1, TimeUnit.MINUTES))
+                .setSegmentBuildTimeout(new Duration(2, TimeUnit.MINUTES))
+                .setSegmentUploadTimeout(new Duration(2, TimeUnit.MINUTES))
+                .setFinishInsertTimeout(new Duration(2, TimeUnit.MINUTES))
+                .setSegmentBuildOnHeapEnabled(true)
+                .setDeepStoreProvider(DeepStoreProvider.S3)
+                .setInsertExistingSegmentsBehavior(InsertExistingSegmentsBehavior.OVERWRITE)
+                .setForceCleanupAfterInsertEnabled(true)
+                .setInsertTimeoutThreads(5);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

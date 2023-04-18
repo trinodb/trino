@@ -139,4 +139,10 @@ public class PinotSessionProperties
     {
         return sessionProperties;
     }
+
+    public enum InsertExistingSegmentsBehavior
+    {
+        APPEND,
+        OVERWRITE,
+    }
 }
