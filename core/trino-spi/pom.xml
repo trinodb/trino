@@ -240,6 +240,12 @@
                                     <justification>It is just marked @Experimental</justification>
                                 </item>
                                 <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>enum io.trino.spi.ptf.EmptyTableFunctionHandle</old>
+                                    <justification>Default implementation should not be used, as ConnectorTableHandle represents table function identity.</justification>
+                                </item>
+                                <item>
                                     <regex>true</regex>
                                     <code>java.class.externalClassExposedInAPI</code>
                                     <newArchive>io.opentelemetry:opentelemetry-(api|context):.*</newArchive>

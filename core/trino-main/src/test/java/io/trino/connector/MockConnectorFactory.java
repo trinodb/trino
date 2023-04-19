@@ -52,7 +52,6 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.FunctionProvider;
-import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -64,7 +63,6 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.statistics.TableStatistics;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -126,7 +124,7 @@ public class MockConnectorFactory
     private final Supplier<List<PropertyMetadata<?>>> tableProperties;
     private final Supplier<List<PropertyMetadata<?>>> columnProperties;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
-    private final Map<SchemaFunctionName, Function<ConnectorTableFunctionHandle, ConnectorSplitSource>> tableFunctionSplitsSources;
+    private final Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources;
 
     // access control
     private final ListRoleGrants roleGrants;
@@ -178,7 +176,7 @@ public class MockConnectorFactory
             boolean supportsReportingWrittenBytes,
             Optional<ConnectorAccessControl> accessControl,
             boolean allowMissingColumnsOnInsert,
-            Map<SchemaFunctionName, Function<ConnectorTableFunctionHandle, ConnectorSplitSource>> tableFunctionSplitsSources,
+            Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute)
     {
@@ -224,7 +222,7 @@ public class MockConnectorFactory
         this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
         this.allowMissingColumnsOnInsert = allowMissingColumnsOnInsert;
         this.supportsReportingWrittenBytes = supportsReportingWrittenBytes;
-        this.tableFunctionSplitsSources = ImmutableMap.copyOf(tableFunctionSplitsSources);
+        this.tableFunctionSplitsSources = requireNonNull(tableFunctionSplitsSources, "tableFunctionSplitsSources is null");
         this.maxWriterTasks = maxWriterTasks;
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
     }
@@ -409,7 +407,7 @@ public class MockConnectorFactory
         private Supplier<List<PropertyMetadata<?>>> tableProperties = ImmutableList::of;
         private Supplier<List<PropertyMetadata<?>>> columnProperties = ImmutableList::of;
         private Optional<ConnectorNodePartitioningProvider> partitioningProvider = Optional.empty();
-        private final Map<SchemaFunctionName, Function<ConnectorTableFunctionHandle, ConnectorSplitSource>> tableFunctionSplitsSources = new HashMap<>();
+        private Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources = handle -> null;
 
         // access control
         private boolean provideAccessControl;
@@ -678,9 +676,9 @@ public class MockConnectorFactory
             return this;
         }
 
-        public Builder withTableFunctionSplitSource(SchemaFunctionName name, Function<ConnectorTableFunctionHandle, ConnectorSplitSource> sourceProvider)
+        public Builder withTableFunctionSplitSources(Function<ConnectorTableFunctionHandle, ConnectorSplitSource> sourceProvider)
         {
-            tableFunctionSplitsSources.put(name, sourceProvider);
+            tableFunctionSplitsSources = requireNonNull(sourceProvider, "sourceProvider is null");
             return this;
         }
 

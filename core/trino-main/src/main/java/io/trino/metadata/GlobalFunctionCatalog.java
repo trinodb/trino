@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
-import io.trino.operator.table.ExcludeColumns;
-import io.trino.operator.table.Sequence;
+import io.trino.operator.table.ExcludeColumns.ExcludeColumnsFunctionHandle;
+import io.trino.operator.table.Sequence.SequenceFunctionHandle;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
@@ -33,6 +33,7 @@ import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.function.WindowFunctionSupplier;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.type.TypeSignature;
 
@@ -178,12 +179,12 @@ public class GlobalFunctionCatalog
     }
 
     @Override
-    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(SchemaFunctionName name)
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
     {
-        if (name.equals(new SchemaFunctionName(BUILTIN_SCHEMA, ExcludeColumns.NAME))) {
+        if (functionHandle instanceof ExcludeColumnsFunctionHandle) {
             return getExcludeColumnsFunctionProcessorProvider();
         }
-        if (name.equals(new SchemaFunctionName(BUILTIN_SCHEMA, Sequence.NAME))) {
+        if (functionHandle instanceof SequenceFunctionHandle) {
             return getSequenceFunctionProcessorProvider();
         }
 
