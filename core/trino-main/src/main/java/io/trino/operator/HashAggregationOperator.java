@@ -291,8 +291,8 @@ public class HashAggregationOperator
 
     // for yield when memory is not available
     private Work<?> unfinishedWork;
-    private long numberOfInputRowsProcessed;
-    private long numberOfUniqueRowsProduced;
+    private long aggregationInputRowsProcessed;
+    private long aggregationUniqueRowsProduced;
 
     private HashAggregationOperator(
             OperatorContext operatorContext,
@@ -437,7 +437,7 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
         aggregationBuilder.updateMemory();
-        numberOfInputRowsProcessed += page.getPositionCount();
+        aggregationInputRowsProcessed += page.getPositionCount();
     }
 
     private boolean isSpillable()
@@ -511,7 +511,7 @@ public class HashAggregationOperator
         }
 
         Page result = outputPages.getResult();
-        numberOfUniqueRowsProduced += result.getPositionCount();
+        aggregationUniqueRowsProduced += result.getPositionCount();
         return result;
     }
 
@@ -538,9 +538,9 @@ public class HashAggregationOperator
         }
         memoryContext.setBytes(0);
         partialAggregationController.ifPresent(
-                controller -> controller.onFlush(numberOfInputRowsProcessed, numberOfUniqueRowsProduced));
-        numberOfInputRowsProcessed = 0;
-        numberOfUniqueRowsProduced = 0;
+                controller -> controller.onFlush(aggregationInputRowsProcessed, aggregationUniqueRowsProduced));
+        aggregationInputRowsProcessed = 0;
+        aggregationUniqueRowsProduced = 0;
     }
 
     private Page getGlobalAggregationOutput()
