@@ -59,6 +59,16 @@ public final class SparkExpressionConverter
         }
 
         @Override
+        protected String visitBetweenExpression(BetweenPredicate node, Void context)
+        {
+            return "(%s %s %s AND %s)".formatted(
+                    process(node.getValue(), context),
+                    node.getOperator().getValue(),
+                    process(node.getMin(), context),
+                    process(node.getMax(), context));
+        }
+
+        @Override
         protected String visitIdentifier(Identifier node, Void context)
         {
             return '"' + node.getValue().replace("\"", "\"\"") + '"';
@@ -80,6 +90,12 @@ public final class SparkExpressionConverter
         protected String visitStringLiteral(StringLiteral node, Void context)
         {
             return "'" + node.getValue().replace("'", "''") + "'";
+        }
+
+        @Override
+        protected String visitNullLiteral(NullLiteral node, Void context)
+        {
+            return "NULL";
         }
     }
 }
