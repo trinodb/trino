@@ -155,9 +155,9 @@ public abstract class BaseTestAvroSchemaEvolution
         alterTableSchemaLiteral(readSchemaLiteralFromUrl(INCOMPATIBLE_TYPE_SCHEMA));
 
         assertQueryFailure(() -> onTrino().executeQuery(format(selectStarStatement, tableWithSchemaUrl)))
-                .hasMessageContaining("Found int, expecting string");
+                .hasStackTraceContaining("Found int, expecting string");
         assertQueryFailure(() -> onTrino().executeQuery(format(selectStarStatement, tableWithSchemaLiteral)))
-                .hasMessageContaining("Found int, expecting string");
+                .hasStackTraceContaining("Found int, expecting string");
     }
 
     @Test(groups = AVRO)
