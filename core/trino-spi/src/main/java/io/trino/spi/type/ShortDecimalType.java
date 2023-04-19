@@ -38,7 +38,7 @@ import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
 
-final class ShortDecimalType
+public final class ShortDecimalType
         extends DecimalType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(ShortDecimalType.class, lookup(), long.class);
