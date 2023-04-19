@@ -23,15 +23,18 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class IrArrayAccessor
-        extends IrAccessor
+        extends IrPathNode
 {
+    private final IrPathNode base;
+
     // list of subscripts or empty list for wildcard array accessor
     private final List<Subscript> subscripts;
 
     @JsonCreator
     public IrArrayAccessor(@JsonProperty("base") IrPathNode base, @JsonProperty("subscripts") List<Subscript> subscripts, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "array accessor base is null");
         this.subscripts = requireNonNull(subscripts, "subscripts is null");
     }
 
@@ -39,6 +42,12 @@ public class IrArrayAccessor
     protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrArrayAccessor(this, context);
+    }
+
+    @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
     }
 
     @JsonProperty
