@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
@@ -37,12 +38,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.pinot.PinotSessionProperties.getNonAggregateLimitForBrokerQueries;
 import static io.trino.plugin.pinot.PinotSessionProperties.isPreferBrokerQueries;
-import static io.trino.plugin.pinot.PinotSplit.createBrokerSplit;
-import static io.trino.plugin.pinot.PinotSplit.createSegmentSplit;
+import static io.trino.plugin.pinot.PinotSplit.SplitType.SEGMENT;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -71,17 +73,20 @@ public class PinotSplitManager
             PinotTableHandle tableHandle,
             ConnectorSession session)
     {
+        checkState(tableHandle.getNodes().isPresent(), "Nodes missing from table handle");
         String tableName = tableHandle.getTableName();
         Map<String, Map<String, List<String>>> routingTable = pinotClient.getRoutingTableForTable(tableName);
         LOG.info("Got routing table for %s: %s", tableName, routingTable);
         List<ConnectorSplit> splits = new ArrayList<>();
         if (!routingTable.isEmpty()) {
             PinotClient.TimeBoundary timeBoundary = new PinotClient.TimeBoundary(null, null);
+            AtomicInteger bucketCounter = new AtomicInteger();
+            int bucketCount = tableHandle.getSegmentCount().getAsInt();
             if (routingTable.containsKey(tableName + REALTIME_SUFFIX) && routingTable.containsKey(tableName + OFFLINE_SUFFIX)) {
                 timeBoundary = pinotClient.getTimeBoundaryForTable(tableName);
             }
-            generateSegmentSplits(splits, routingTable, tableName, REALTIME_SUFFIX, session, timeBoundary.getOnlineTimePredicate());
-            generateSegmentSplits(splits, routingTable, tableName, OFFLINE_SUFFIX, session, timeBoundary.getOfflineTimePredicate());
+            generateSegmentSplits(splits, routingTable, tableName, REALTIME_SUFFIX, session, timeBoundary.getOnlineTimePredicate(), bucketCounter, bucketCount);
+            generateSegmentSplits(splits, routingTable, tableName, OFFLINE_SUFFIX, session, timeBoundary.getOfflineTimePredicate(), bucketCounter, bucketCount);
         }
 
         Collections.shuffle(splits);
@@ -94,7 +99,9 @@ public class PinotSplitManager
             String tableName,
             String tableNameSuffix,
             ConnectorSession session,
-            Optional<String> timePredicate)
+            Optional<String> timePredicate,
+            AtomicInteger bucketCounter,
+            int bucketCount)
     {
         String finalTableName = tableName + tableNameSuffix;
         int segmentsPerSplitConfigured = PinotSessionProperties.getSegmentsPerSplit(session);
@@ -108,8 +115,7 @@ public class PinotSplitManager
                 int numSegmentsInThisSplit = Math.min(segments.size(), segmentsPerSplitConfigured);
                 // segments is already shuffled
                 Iterables.partition(segments, numSegmentsInThisSplit).forEach(
-                        segmentsForThisSplit -> splits.add(
-                                createSegmentSplit(tableNameSuffix, segmentsForThisSplit, host, timePredicate)));
+                        segmentsForThisSplit -> createSegmentSplit(tableNameSuffix, segmentsForThisSplit, host, timePredicate, bucketCounter.getAndIncrement() % bucketCount).ifPresent(splits::add));
             });
         }
     }
@@ -179,5 +185,30 @@ public class PinotSplitManager
     {
         return tableHandle.getQuery().isPresent() ||
                 (isPreferBrokerQueries(session) && tableHandle.getLimit().orElse(Integer.MAX_VALUE) < getNonAggregateLimitForBrokerQueries(session));
+    }
+
+    private static Optional<PinotSplit> createSegmentSplit(String suffix, List<String> segments, String segmentHost, Optional<String> timePredicate, int bucket)
+    {
+        if (segments.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new PinotSplit(
+                SEGMENT,
+                Optional.of(requireNonNull(suffix, "suffix is null")),
+                requireNonNull(segments, "segments are null"),
+                Optional.of(requireNonNull(segmentHost, "segmentHost is null")),
+                requireNonNull(timePredicate, "timePredicate is null"),
+                bucket));
+    }
+
+    private static PinotSplit createBrokerSplit()
+    {
+        return new PinotSplit(
+                PinotSplit.SplitType.BROKER,
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                0);
     }
 }
