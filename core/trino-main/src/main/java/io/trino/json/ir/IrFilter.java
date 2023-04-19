@@ -22,14 +22,16 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class IrFilter
-        extends IrAccessor
+        extends IrPathNode
 {
+    private final IrPathNode base;
     private final IrPredicate predicate;
 
     @JsonCreator
     public IrFilter(@JsonProperty("base") IrPathNode base, @JsonProperty("predicate") IrPredicate predicate, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "filter base is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
     }
 
@@ -37,6 +39,12 @@ public class IrFilter
     protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrFilter(this, context);
+    }
+
+    @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
     }
 
     @JsonProperty

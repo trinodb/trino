@@ -18,18 +18,29 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class IrKeyValueMethod
-        extends IrMethod
+        extends IrPathNode
 {
+    private final IrPathNode base;
+
     @JsonCreator
     public IrKeyValueMethod(@JsonProperty("base") IrPathNode base)
     {
-        super(base, Optional.empty());
+        super(Optional.empty());
+        this.base = requireNonNull(base, "keyvalue() method base is null");
     }
 
     @Override
     protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrKeyValueMethod(this, context);
+    }
+
+    @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
     }
 }
