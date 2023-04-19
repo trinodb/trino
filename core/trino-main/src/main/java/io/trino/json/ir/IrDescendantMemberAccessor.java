@@ -22,14 +22,16 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class IrDescendantMemberAccessor
-        extends IrAccessor
+        extends IrPathNode
 {
+    private final IrPathNode base;
     private final String key;
 
     @JsonCreator
     public IrDescendantMemberAccessor(@JsonProperty("base") IrPathNode base, @JsonProperty("key") String key, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "descendant member accessor base is null");
         this.key = requireNonNull(key, "key is null");
     }
 
@@ -37,6 +39,12 @@ public class IrDescendantMemberAccessor
     protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrDescendantMemberAccessor(this, context);
+    }
+
+    @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
     }
 
     @JsonProperty

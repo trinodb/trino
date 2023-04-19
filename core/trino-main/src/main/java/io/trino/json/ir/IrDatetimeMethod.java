@@ -22,14 +22,16 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class IrDatetimeMethod
-        extends IrMethod
+        extends IrPathNode
 {
+    private final IrPathNode base;
     private final Optional<String> format; // this is a string literal
 
     @JsonCreator
     public IrDatetimeMethod(@JsonProperty("base") IrPathNode base, @JsonProperty("format") Optional<String> format, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "datetime() method base is null");
         this.format = requireNonNull(format, "format is null");
     }
 
@@ -37,6 +39,12 @@ public class IrDatetimeMethod
     protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrDatetimeMethod(this, context);
+    }
+
+    @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
     }
 
     @JsonProperty
