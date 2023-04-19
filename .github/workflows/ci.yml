@@ -78,7 +78,28 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install -B --strict-checksums -V -T 1C -DskipTests -P ci -pl '!:trino-server-rpm'
+          $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci -pl '!:trino-server-rpm'
+      - name: Remove Trino from local Maven repo to avoid caching it
+        # Avoid caching artifacts built in this job, cache should only include dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: rm -rf ~/.m2/repository/io/trino/trino-*
+
+  artifact-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+          ref: |
+            ${{ github.event_name == 'repository_dispatch' &&
+                github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
+                format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - uses: ./.github/actions/setup
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -86,7 +107,7 @@ jobs:
       - name: Test JDBC shading
         # Run only integration tests to verify JDBC driver shading
         run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"          
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN failsafe:integration-test -B --strict-checksums -P ci -pl :trino-jdbc
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
