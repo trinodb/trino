@@ -57,6 +57,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -72,6 +73,7 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
@@ -217,9 +219,6 @@ public class ParquetPageSourceFactory
             Optional<ParquetWriteValidation> parquetWriteValidation,
             int domainCompactionThreshold)
     {
-        // Ignore predicates on partial columns for now.
-        effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
-
         MessageType fileSchema;
         MessageType requestedSchema;
         MessageColumnIO messageColumn;
@@ -433,18 +432,32 @@ public class ParquetPageSourceFactory
             }
 
             ColumnDescriptor descriptor;
-            if (useColumnNames) {
-                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+
+            Optional<org.apache.parquet.schema.Type> baseColumnType = getBaseColumnParquetType(columnHandle, fileSchema, useColumnNames);
+            // Parquet file has fewer column than partition
+            if (baseColumnType.isEmpty()) {
+                continue;
+            }
+
+            if (baseColumnType.get().isPrimitive()) {
+                descriptor = descriptorsByPath.get(ImmutableList.of(baseColumnType.get().getName()));
             }
             else {
-                Optional<org.apache.parquet.schema.Type> parquetField = getBaseColumnParquetType(columnHandle, fileSchema, false);
-                if (parquetField.isEmpty() || !parquetField.get().isPrimitive()) {
-                    // Parquet file has fewer column than partition
-                    // Or the field is a complex type
+                if (columnHandle.getHiveColumnProjectionInfo().isEmpty()) {
                     continue;
                 }
-                descriptor = descriptorsByPath.get(ImmutableList.of(parquetField.get().getName()));
+                Optional<List<Type>> subfieldTypes = dereferenceSubFieldTypes(baseColumnType.get().asGroupType(), columnHandle.getHiveColumnProjectionInfo().get());
+                // failed to look up subfields from the file schema
+                if (subfieldTypes.isEmpty()) {
+                    continue;
+                }
+
+                descriptor = descriptorsByPath.get(ImmutableList.<String>builder()
+                        .add(baseColumnType.get().getName())
+                        .addAll(subfieldTypes.get().stream().map(Type::getName).collect(toImmutableList()))
+                        .build());
             }
+
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());
             }

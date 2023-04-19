@@ -14,16 +14,31 @@
 package io.trino.plugin.hive.parquet;
 
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.testing.BaseTestParquetComplexTypePredicatePushDown;
+import io.trino.testing.BaseTestFileFormatComplexTypesPredicatePushDown;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.Test;
+
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveParquetComplexTypePredicatePushDown
-        extends BaseTestParquetComplexTypePredicatePushDown
+        extends BaseTestFileFormatComplexTypesPredicatePushDown
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return HiveQueryRunner.builder().build();
+        return HiveQueryRunner.builder()
+                .addHiveProperty("hive.storage-format", "PARQUET")
+                .build();
+    }
+
+    @Test
+    public void ensureFormatParquet()
+    {
+        String tableName = "test_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (colTest BIGINT)");
+        assertThat(((String) computeScalar("SHOW CREATE TABLE " + tableName))).contains("PARQUET");
+        assertUpdate("DROP TABLE " + tableName);
     }
 }
