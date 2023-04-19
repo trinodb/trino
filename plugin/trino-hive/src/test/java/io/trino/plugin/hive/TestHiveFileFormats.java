@@ -23,6 +23,7 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
+import io.trino.plugin.hive.avro.AvroHivePageSourceFactory;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
@@ -430,6 +431,7 @@ public class TestHiveFileFormats
                 .withColumns(getTestColumnsSupportedByAvro())
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
+                .isReadableByPageSource(new AvroHivePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS))
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
@@ -446,6 +448,7 @@ public class TestHiveFileFormats
             splitProperties.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
             splitProperties.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
             testCursorProvider(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), split, splitProperties, getTestColumnsSupportedByAvro(), SESSION, file.length(), rowCount);
+            testPageSourceFactory(new AvroHivePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS), split, AVRO, getTestColumnsSupportedByAvro(), SESSION, file.length(), rowCount);
         }
         finally {
             //noinspection ResultOfMethodCallIgnored
@@ -592,7 +595,8 @@ public class TestHiveFileFormats
         assertThatFileFormat(AVRO)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new AvroHivePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
 
         assertThatFileFormat(SEQUENCEFILE)
                 .withWriteColumns(ImmutableList.of(writeColumn))
@@ -629,7 +633,8 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
-                .isReadableByRecordCursorPageSource(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
+                .isReadableByRecordCursorPageSource(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
+                .isReadableByPageSource(new AvroHivePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
     }
 
     @Test(dataProvider = "rowCount")

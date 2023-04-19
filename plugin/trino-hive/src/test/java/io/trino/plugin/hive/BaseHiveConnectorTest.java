@@ -5495,10 +5495,10 @@ public abstract class BaseHiveConnectorTest
         // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
-            assertUpdate("INSERT INTO evolve_test values (2, row('def', 2), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row('def', 2), 2)", 1);
             assertQueryFails("SELECT a.b FROM evolve_test where d = 1", ".*There is a mismatch between the table and partition schemas.*");
         }
         finally {
@@ -5509,10 +5509,10 @@ public abstract class BaseHiveConnectorTest
         // i.e. "a.c" produces null for rows that were inserted before type of "a" was changed
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
-            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def'), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row(2, 'def'), 2)", 1);
             assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
         }
         finally {
@@ -5522,10 +5522,10 @@ public abstract class BaseHiveConnectorTest
         // Verify field access when the row evolves without changes to field type
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar, e int)");
-            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def', 2), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row(2, 'def', 2), 2)", 1);
             assertQuery("SELECT a.b FROM evolve_test", "VALUES 1, 2");
         }
         finally {
@@ -5537,7 +5537,7 @@ public abstract class BaseHiveConnectorTest
     public void testSubfieldReordering()
     {
         // Validate for formats for which subfield access is name based
-        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET);
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
 
         for (HiveStorageFormat format : formats) {
             // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file

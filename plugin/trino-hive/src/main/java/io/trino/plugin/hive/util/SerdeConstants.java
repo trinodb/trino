@@ -33,6 +33,7 @@ public final class SerdeConstants
 
     public static final String LIST_COLUMNS = "columns";
     public static final String LIST_COLUMN_TYPES = "columns.types";
+    public static final String LIST_COLUMN_COMMENTS = "columns.comments";
 
     public static final String COLUMN_NAME_DELIMITER = "column.name.delimiter";
 
