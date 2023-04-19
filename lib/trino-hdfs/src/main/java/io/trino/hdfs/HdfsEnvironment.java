@@ -14,10 +14,12 @@
 package io.trino.hdfs;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.log.Logger;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.hadoop.HadoopNative;
 import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.hdfs.authentication.HdfsAuthentication;
+import io.trino.spi.Plugin;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -25,9 +27,11 @@ import org.apache.hadoop.fs.FileSystemManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Optional;
 
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
@@ -39,6 +43,8 @@ public class HdfsEnvironment
         HadoopNative.requireHadoopNative();
         FileSystemManager.registerCache(TrinoFileSystemCache.INSTANCE);
     }
+
+    private static final Logger log = Logger.get(HdfsEnvironment.class);
 
     private final OpenTelemetry openTelemetry;
     private final HdfsConfiguration hdfsConfiguration;
@@ -66,6 +72,18 @@ public class HdfsEnvironment
         this.verifyChecksum = config.isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
         this.newDirectoryPermissions = config.getNewDirectoryFsPermissions();
+    }
+
+    @PreDestroy
+    public void shutdown()
+            throws IOException
+    {
+        // shut down if running in a plugin classloader
+        if (!getClass().getClassLoader().equals(Plugin.class.getClassLoader())) {
+            FileSystemFinalizerService.getInstance().shutdown();
+            stopFileSystemStatsThread();
+            TrinoFileSystemCache.INSTANCE.closeAll();
+        }
     }
 
     public Configuration getConfiguration(HdfsContext context, Path path)
@@ -111,5 +129,17 @@ public class HdfsEnvironment
     public void doAs(ConnectorIdentity identity, Runnable action)
     {
         hdfsAuthentication.doAs(identity, action);
+    }
+
+    private static void stopFileSystemStatsThread()
+    {
+        try {
+            Field field = FileSystem.Statistics.class.getDeclaredField("STATS_DATA_CLEANER");
+            field.setAccessible(true);
+            ((Thread) field.get(null)).interrupt();
+        }
+        catch (ReflectiveOperationException | RuntimeException e) {
+            log.error(e, "Error stopping file system stats thread");
+        }
     }
 }
