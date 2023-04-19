@@ -304,6 +304,13 @@ public class PinotSegmentPageSource
                     INTEGER.writeInt(blockBuilder, element);
                 }
                 break;
+            case TIMESTAMP_ARRAY:
+                long[] timestampArray = currentDataTable.getDataTable().getLongArray(rowIndex, columnIndex);
+                blockBuilder = elementType.createBlockBuilder(null, timestampArray.length);
+                for (long element : timestampArray) {
+                    BIGINT.writeLong(blockBuilder, PinotTimestamps.toMicros(element));
+                }
+                break;
             case LONG_ARRAY:
                 long[] longArray = currentDataTable.getDataTable().getLongArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, longArray.length);
@@ -331,6 +338,13 @@ public class PinotSegmentPageSource
                 for (String element : stringArray) {
                     Slice slice = getUtf8Slice(element);
                     elementType.writeSlice(blockBuilder, slice, 0, slice.length());
+                }
+                break;
+            case BOOLEAN_ARRAY:
+                int[] intArrayOfBoolean = currentDataTable.getDataTable().getIntArray(rowIndex, columnIndex);
+                blockBuilder = elementType.createBlockBuilder(null, intArrayOfBoolean.length);
+                for (int element : intArrayOfBoolean) {
+                    elementType.writeBoolean(blockBuilder, element != 0);
                 }
                 break;
             default:
