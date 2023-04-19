@@ -137,7 +137,7 @@ public final class DeltaLakeSchemaSupport
         }
         return schema.stream()
                 .filter(entry -> canonicalPartitionColumns.contains(entry.getName()))
-                .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), OptionalInt.empty(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY))
+                .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), OptionalInt.empty(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY, Optional.empty()))
                 .collect(toImmutableList());
     }
 
@@ -165,10 +165,10 @@ public final class DeltaLakeSchemaSupport
 
         schema.put("fields", columns.stream()
                 .map(column -> {
-                    String columnName = column.getName();
+                    String columnName = column.getColumnName();
                     return serializeStructField(
-                            column.getName(),
-                            column.getType(),
+                            columnName,
+                            column.getBaseType(),
                             columnComments.get(columnName),
                             columnNullability.get(columnName),
                             columnMetadata.get(columnName));
