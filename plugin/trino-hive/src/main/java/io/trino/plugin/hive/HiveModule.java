@@ -109,7 +109,8 @@ public class HiveModule
         newOptionalBinder(binder, TransactionalMetadataFactory.class)
                 .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorSplitManager.class)
+                .setDefault().to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
         newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
