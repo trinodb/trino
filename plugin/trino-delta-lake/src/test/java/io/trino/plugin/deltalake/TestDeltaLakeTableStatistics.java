@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
 public class TestDeltaLakeTableStatistics
@@ -138,6 +139,30 @@ public class TestDeltaLakeTableStatistics
                         "('pk2', null, 3.0, 0.0, null, null, null)," +
                         "('val_col', null, 3.0, 0.0, null, 23, 26)," +
                         "(null, null, null, null, 3.0, null, null)");
+    }
+
+    @Test
+    public void testShowStatsForSelectNestedFieldWithWhereClause()
+    {
+        String tableName = "show_stats_select_nested_field_with_where_clause_" + randomNameSuffix();
+
+        assertUpdate(
+                "CREATE TABLE " + tableName + " (pk, int_col, row_col)" +
+                        "WITH(partitioned_by = ARRAY['pk']) " +
+                        "AS VALUES " +
+                        "('pk1', null, CAST(ROW(23, 'field1') AS ROW(f1 INT, f2 VARCHAR))), " +
+                        "(null, 12, CAST(ROW(24, 'field2') AS ROW(f1 INT, f2 VARCHAR))), " +
+                        "('pk1', 13, CAST(ROW(25, null) AS ROW(f1 INT, f2 VARCHAR))), " +
+                        "('pk1', 14, CAST(ROW(26, 'field1') AS ROW(f1 INT, f2 VARCHAR)))",
+                4);
+        assertQuery(
+                "SHOW STATS FOR (SELECT int_col, row_col.f1, row_col FROM " + tableName + " WHERE row_col.f2 IS NOT NULL)",
+                "VALUES " +
+                        //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
+                        "('int_col', null, 3.0, 0.25, null, 12, 14), " +
+                        "('f1', null, null, null, null, null, null), " +
+                        "('row_col', null, null, null, null, null, null), " +
+                        "(null, null, null, null, null, null, null)");
     }
 
     @Test

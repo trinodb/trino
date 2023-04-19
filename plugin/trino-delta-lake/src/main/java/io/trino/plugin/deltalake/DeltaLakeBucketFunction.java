@@ -22,6 +22,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -37,7 +38,8 @@ public class DeltaLakeBucketFunction
     public DeltaLakeBucketFunction(TypeOperators typeOperators, List<DeltaLakeColumnHandle> partitioningColumns, int bucketCount)
     {
         this.hashCodeInvokers = partitioningColumns.stream()
-                .map(DeltaLakeColumnHandle::getType)
+                .peek(column -> verify(column.isBaseColumn(), "Unexpected dereference: %s", column))
+                .map(DeltaLakeColumnHandle::getBaseType)
                 .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
                 .collect(toImmutableList());
         this.bucketCount = bucketCount;

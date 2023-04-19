@@ -112,22 +112,31 @@ public class DeltaLakeJsonFileStatistics
     @Override
     public Optional<Object> getMaxColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        Optional<Object> value = getStat(columnHandle.getPhysicalName(), maxValues);
+        if (!columnHandle.isBaseColumn()) {
+            return Optional.empty();
+        }
+        Optional<Object> value = getStat(columnHandle.getBasePhysicalColumnName(), maxValues);
         return value.flatMap(o -> deserializeStatisticsValue(columnHandle, String.valueOf(o)));
     }
 
     @Override
     public Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        Optional<Object> value = getStat(columnHandle.getPhysicalName(), minValues);
+        if (!columnHandle.isBaseColumn()) {
+            return Optional.empty();
+        }
+        Optional<Object> value = getStat(columnHandle.getBasePhysicalColumnName(), minValues);
         return value.flatMap(o -> deserializeStatisticsValue(columnHandle, String.valueOf(o)));
     }
 
     private Optional<Object> deserializeStatisticsValue(DeltaLakeColumnHandle columnHandle, String statValue)
     {
+        if (!columnHandle.isBaseColumn()) {
+            return Optional.empty();
+        }
         Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp);
 
-        Type columnType = columnHandle.getType();
+        Type columnType = columnHandle.getBaseType();
         if (columnType.equals(DATE)) {
             long epochDate = (long) columnValue;
             if (LocalDate.ofEpochDay(epochDate).isBefore(START_OF_MODERN_ERA)) {

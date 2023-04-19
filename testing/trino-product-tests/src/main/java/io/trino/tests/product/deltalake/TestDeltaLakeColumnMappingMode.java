@@ -55,7 +55,7 @@ public class TestDeltaLakeColumnMappingMode
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
-                " (a_number INT)" +
+                " (a_number INT, nested STRUCT<field1: STRING>)" +
                 " USING delta " +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
@@ -63,12 +63,12 @@ public class TestDeltaLakeColumnMappingMode
                 " 'delta.minWriterVersion'='5')");
 
         try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, struct('nested 1'))");
 
-            List<Row> expectedRows = ImmutableList.of(row(1));
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+            List<Row> expectedRows = ImmutableList.of(row(1, "nested 1"));
+            assertThat(onDelta().executeQuery("SELECT a_number, nested.field1 FROM default." + tableName))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+            assertThat(onTrino().executeQuery("SELECT a_number, nested.field1 FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
         }
         finally {
@@ -434,6 +434,54 @@ public class TestDeltaLakeColumnMappingMode
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testProjectionPushdownDmlWithColumnMappingMode(String mode)
+    {
+        String sourceTableName = "test_projection_pushdown_source_column_mapping_mode_" + randomNameSuffix();
+        String targetTableName = "test_projection_pushdown_target_column_mapping_mode_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + targetTableName + " (nation STRUCT<key INT, name STRING>, regionkey INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + targetTableName + "'" +
+                "TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
+        onDelta().executeQuery("CREATE TABLE default." + sourceTableName + "  (nation STRUCT<key INT, name STRING>, regionkey INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + sourceTableName + "'");
+        try {
+            onDelta().executeQuery("INSERT INTO default." + targetTableName + " VALUES (struct(1, 'nation1'), 100), (struct(2, 'nation2'), 200), (struct(3, 'nation3'), 300), (struct(4, 'nation4'), 400)");
+            onDelta().executeQuery("INSERT INTO default." + sourceTableName + " VALUES (struct(1000, 'nation1000'), 1000), (struct(2, 'nation2'), 20000), (struct(3000, 'nation3000'), 3000), (struct(4, 'nation4'), 40000)");
+
+            onDelta().executeQuery("MERGE INTO default." + targetTableName + " target USING default." + sourceTableName + " source " +
+                    "ON (target.nation.key = source.nation.key) " +
+                    "WHEN MATCHED AND source.nation.name = 'nation4' THEN DELETE " +
+                    "WHEN MATCHED THEN UPDATE SET nation.key = (target.nation.key + source.nation.key + source.regionkey) " +
+                    "WHEN NOT MATCHED THEN INSERT (nation, regionkey) VALUES (source.nation, source.regionkey)");
+
+            assertThat(onTrino().executeQuery("SELECT nation.key, nation.name, regionkey FROM " + targetTableName))
+                    .containsOnly(
+                            row(1000, "nation1000", 1000),
+                            row(3000, "nation3000", 3000),
+                            row(1, "nation1", 100),
+                            row(3, "nation3", 300),
+                            row(20004, "nation2", 200));
+
+            onDelta().executeQuery("DELETE FROM " + targetTableName + " WHERE regionkey = 100");
+            onDelta().executeQuery("UPDATE " + targetTableName + " SET nation.name = 'nation20004' WHERE regionkey = 200");
+
+            assertThat(onTrino().executeQuery("SELECT nation.key, nation.name, regionkey FROM " + targetTableName))
+                    .containsOnly(
+                            row(1000, "nation1000", 1000),
+                            row(3000, "nation3000", 3000),
+                            row(3, "nation3", 300),
+                            row(20004, "nation20004", 200));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + targetTableName);
+            dropDeltaTableWithRetry("default." + sourceTableName);
         }
     }
 
