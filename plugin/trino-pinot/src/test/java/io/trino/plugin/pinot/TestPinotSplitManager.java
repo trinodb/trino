@@ -20,7 +20,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
@@ -28,7 +27,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalLong;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.pinot.PinotSplit.SplitType.BROKER;
@@ -53,7 +51,7 @@ public class TestPinotSplitManager
         SchemaTableName schemaTableName = new SchemaTableName("default", format("SELECT %s, %s FROM %s LIMIT %d", "AirlineID", "OriginStateName", "airlineStats", 100));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, schemaTableName, mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
 
-        PinotTableHandle pinotTableHandle = new PinotTableHandle("default", dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+        PinotTableHandle pinotTableHandle = testingPinotTableHandle("default", dynamicTable.getTableName(), Optional.of(dynamicTable));
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, false);
         assertSplits(splits, 1, BROKER);
     }
@@ -61,7 +59,7 @@ public class TestPinotSplitManager
     @Test(expectedExceptions = PinotSplitManager.QueryNotAdequatelyPushedDownException.class)
     public void testBrokerNonShortQuery()
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(realtimeOnlyTable.getSchemaName(), realtimeOnlyTable.getTableName());
+        PinotTableHandle pinotTableHandle = testingPinotTableHandle(realtimeOnlyTable.getSchemaName(), realtimeOnlyTable.getTableName(), Optional.empty());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, true);
         assertSplits(splits, 1, BROKER);
     }
@@ -74,7 +72,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = testingPinotTableHandle(table.getSchemaName(), table.getTableName(), Optional.empty());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
@@ -82,7 +80,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = testingPinotTableHandle(table.getSchemaName(), table.getTableName(), Optional.empty());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);

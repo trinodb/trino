@@ -36,6 +36,7 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
+import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -58,12 +59,16 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
+import org.apache.pinot.spi.config.table.TableConfig;
+import org.apache.pinot.spi.data.DateTimeFieldSpec;
+import org.apache.pinot.spi.data.DateTimeFormatSpec;
 import org.apache.pinot.spi.data.Schema;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -88,6 +93,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
+import static java.util.stream.Collectors.toList;
 
 public class PinotMetadata
         implements ConnectorMetadata
@@ -160,13 +166,34 @@ public class PinotMetadata
     {
         if (tableName.getTableName().trim().startsWith("select ")) {
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, tableName, pinotClient, typeConverter);
-            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable), Optional.empty(), OptionalInt.empty(), Optional.empty());
         }
         String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
         if (pinotTableName == null) {
             return null;
         }
-        return new PinotTableHandle(tableName.getSchemaName(), pinotTableName);
+        return new PinotTableHandle(tableName.getSchemaName(), pinotTableName, TupleDomain.all(), OptionalLong.empty(), Optional.empty(), Optional.of(getNodes()), OptionalInt.of(pinotClient.getSegments(pinotTableName).size()), getPinotDateTimeField(pinotTableName));
+    }
+
+    private List<String> getNodes()
+    {
+        List<String> nodes = nodeManager.getRequiredWorkerNodes().stream().map(Node::getNodeIdentifier).collect(toList());
+        return nodes;
+    }
+
+    private Optional<PinotDateTimeField> getPinotDateTimeField(String pinotTableName)
+    {
+        Schema schema = pinotClient.getTableSchema(pinotTableName);
+        PinotClient.PinotTableConfig pinotTableConfig = pinotClient.getTableConfig(pinotTableName);
+        TableConfig tableConfig;
+        if (pinotTableConfig.getOfflineConfig().isPresent()) {
+            tableConfig = pinotTableConfig.getOfflineConfig().get();
+        }
+        else {
+            tableConfig = pinotTableConfig.getRealtimeConfig().get();
+        }
+        DateTimeFieldSpec dateTimeFieldSpec = schema.getDateTimeSpec(tableConfig.getValidationConfig().getTimeColumnName());
+        return Optional.ofNullable(dateTimeFieldSpec).map(fieldSpec -> new PinotDateTimeField(dateTimeFieldSpec.getName(), new DateTimeFormatSpec(dateTimeFieldSpec.getFormat()).getColumnUnit(), typeConverter.toTrinoType(dateTimeFieldSpec)));
     }
 
     @Override
@@ -271,7 +298,10 @@ public class PinotMetadata
                 handle.getTableName(),
                 handle.getConstraint(),
                 OptionalLong.of(limit),
-                dynamicTable);
+                dynamicTable,
+                handle.getNodes(),
+                handle.getSegmentCount(),
+                handle.getDateTimeField());
         boolean singleSplit = dynamicTable.isPresent();
         return Optional.of(new LimitApplicationResult<>(handle, singleSplit, false));
     }
@@ -322,7 +352,10 @@ public class PinotMetadata
                 handle.getTableName(),
                 newDomain,
                 handle.getLimit(),
-                handle.getQuery());
+                handle.getQuery(),
+                handle.getNodes(),
+                handle.getSegmentCount(),
+                handle.getDateTimeField());
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
     }
 
@@ -441,7 +474,7 @@ public class PinotMetadata
                 limitForDynamicTable,
                 OptionalLong.empty(),
                 newQuery);
-        tableHandle = new PinotTableHandle(tableHandle.getSchemaName(), tableHandle.getTableName(), tableHandle.getConstraint(), tableHandle.getLimit(), Optional.of(dynamicTable));
+        tableHandle = new PinotTableHandle(tableHandle.getSchemaName(), tableHandle.getTableName(), tableHandle.getConstraint(), tableHandle.getLimit(), Optional.of(dynamicTable), tableHandle.getNodes(), tableHandle.getSegmentCount(), tableHandle.getDateTimeField());
 
         return Optional.of(new AggregationApplicationResult<>(tableHandle, projections.build(), resultAssignments.build(), ImmutableMap.of(), false));
     }

@@ -17,12 +17,15 @@ import io.airlift.json.JsonCodec;
 import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.trino.plugin.pinot.TestPinotQueryBase.testingPinotTableHandle;
 import static org.testng.Assert.assertEquals;
 
 public class TestPinotTableHandle
 {
-    private final PinotTableHandle tableHandle = new PinotTableHandle("schemaName", "tableName");
+    private final PinotTableHandle tableHandle = testingPinotTableHandle("schemaName", "tableName", Optional.empty());
 
     @Test
     public void testJsonRoundTrip()
@@ -38,14 +41,14 @@ public class TestPinotTableHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new PinotTableHandle("schema", "table"),
-                        new PinotTableHandle("schema", "table"))
+                        testingPinotTableHandle("schema", "table", Optional.empty()),
+                        testingPinotTableHandle("schema", "table", Optional.empty()))
                 .addEquivalentGroup(
-                        new PinotTableHandle("schemaX", "table"),
-                        new PinotTableHandle("schemaX", "table"))
+                        testingPinotTableHandle("schemaX", "table", Optional.empty()),
+                        testingPinotTableHandle("schemaX", "table", Optional.empty()))
                 .addEquivalentGroup(
-                        new PinotTableHandle("schema", "tableX"),
-                        new PinotTableHandle("schema", "tableX"))
+                        testingPinotTableHandle("schema", "tableX", Optional.empty()),
+                        testingPinotTableHandle("schema", "tableX", Optional.empty()))
                 .check();
     }
 }

@@ -20,8 +20,10 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -35,11 +37,9 @@ public class PinotTableHandle
     private final TupleDomain<ColumnHandle> constraint;
     private final OptionalLong limit;
     private final Optional<DynamicTable> query;
-
-    public PinotTableHandle(String schemaName, String tableName)
-    {
-        this(schemaName, tableName, TupleDomain.all(), OptionalLong.empty(), Optional.empty());
-    }
+    private final Optional<List<String>> nodes;
+    private final OptionalInt segmentCount;
+    private final Optional<PinotDateTimeField> dateTimeField;
 
     @JsonCreator
     public PinotTableHandle(
@@ -47,7 +47,10 @@ public class PinotTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("limit") OptionalLong limit,
-            @JsonProperty("query") Optional<DynamicTable> query)
+            @JsonProperty("query") Optional<DynamicTable> query,
+            @JsonProperty("nodes") Optional<List<String>> nodes,
+            @JsonProperty("segmentCount") OptionalInt segmentCount,
+            @JsonProperty("dateTimeField") Optional<PinotDateTimeField> dateTimeField)
 
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -55,6 +58,9 @@ public class PinotTableHandle
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.query = requireNonNull(query, "query is null");
+        this.nodes = requireNonNull(nodes, "nodes is null");
+        this.segmentCount = requireNonNull(segmentCount, "segments is null");
+        this.dateTimeField = requireNonNull(dateTimeField, "dateTimeField is null");
     }
 
     @JsonProperty
@@ -87,6 +93,23 @@ public class PinotTableHandle
         return query;
     }
 
+    public Optional<List<String>> getNodes()
+    {
+        return nodes;
+    }
+
+    @JsonProperty
+    public OptionalInt getSegmentCount()
+    {
+        return segmentCount;
+    }
+
+    @JsonProperty
+    public Optional<PinotDateTimeField> getDateTimeField()
+    {
+        return dateTimeField;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -116,6 +139,9 @@ public class PinotTableHandle
                 .add("constraint", constraint)
                 .add("limit", limit)
                 .add("query", query)
+                .add("nodes", nodes)
+                .add("segmentCount", segmentCount)
+                .add("dateTimeField", dateTimeField)
                 .toString();
     }
 }
