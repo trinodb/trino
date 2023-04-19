@@ -16,7 +16,7 @@ package io.trino.spi.ptf;
 import io.trino.spi.Experimental;
 import io.trino.spi.connector.ConnectorSession;
 
-@Experimental(eta = "2023-03-31")
+@Experimental(eta = "2023-07-31")
 public interface TableFunctionProcessorProvider
 {
     /**
