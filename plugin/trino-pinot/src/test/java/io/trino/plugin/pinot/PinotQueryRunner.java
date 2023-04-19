@@ -52,10 +52,10 @@ public class PinotQueryRunner
 
     public static Session createSession(String schema)
     {
-        return createSession(schema, new PinotConfig());
+        return createSessionBuilder(schema, new PinotConfig()).build();
     }
 
-    public static Session createSession(String schema, PinotConfig config)
+    public static Session.SessionBuilder createSessionBuilder(String schema, PinotConfig config)
     {
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
@@ -63,8 +63,7 @@ public class PinotQueryRunner
                 CatalogServiceProvider.singleton(createTestCatalogHandle(PINOT_CATALOG), Maps.uniqueIndex(pinotSessionProperties.getSessionProperties(), PropertyMetadata::getName)));
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog(PINOT_CATALOG)
-                .setSchema(schema)
-                .build();
+                .setSchema(schema);
     }
 
     public static void main(String[] args)
@@ -72,7 +71,7 @@ public class PinotQueryRunner
     {
         TestingKafka kafka = TestingKafka.createWithSchemaRegistry();
         kafka.start();
-        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME);
+        TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false, false, Optional.empty(), PINOT_LATEST_IMAGE_NAME);
         pinot.start();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()

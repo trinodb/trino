@@ -21,12 +21,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.deepstore.PinotDeepStore;
+import io.trino.plugin.pinot.encoders.PinotWrittenSegments;
 import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.plugin.pinot.query.DynamicTableBuilder;
@@ -43,13 +45,19 @@ import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTablePartitioning;
+import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.expression.ConnectorExpression;
@@ -57,6 +65,7 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import org.apache.pinot.spi.config.table.TableConfig;
@@ -64,6 +73,7 @@ import org.apache.pinot.spi.data.DateTimeFieldSpec;
 import org.apache.pinot.spi.data.DateTimeFormatSpec;
 import org.apache.pinot.spi.data.Schema;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +93,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.plugin.pinot.PinotPageSink.PROCESSED_SEGMENT_METADATA_JSON_CODEC;
 import static io.trino.plugin.pinot.PinotSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.pinot.query.AggregateExpression.replaceIdentifier;
 import static io.trino.plugin.pinot.query.DynamicTablePqlExtractor.quoteIdentifier;
@@ -268,6 +279,69 @@ public class PinotMetadata
             ColumnHandle columnHandle)
     {
         return ((PinotColumnHandle) columnHandle).getColumnMetadata();
+    }
+
+    @Override
+    public Optional<Object> getInfo(ConnectorTableHandle table)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        PinotTableHandle pinotTableHandle = (PinotTableHandle) table;
+        if (pinotTableHandle.getDateTimeField().isPresent()) {
+            PinotDateTimeField dateTimeField = pinotTableHandle.getDateTimeField().get();
+            PinotColumnHandle partitionColumn = new PinotColumnHandle(dateTimeField.getColumnName(), dateTimeField.getType());
+            return new ConnectorTableProperties(
+                    TupleDomain.all(),
+                    Optional.of(new ConnectorTablePartitioning(new PinotPartitioningHandle(pinotTableHandle.getNodes(), pinotTableHandle.getDateTimeField(), pinotTableHandle.getSegmentCount()), ImmutableList.of(partitionColumn))),
+                    Optional.empty(),
+                    ImmutableList.of());
+        }
+        return new ConnectorTableProperties();
+    }
+
+    @Override
+    public ConnectorTableHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorPartitioningHandle partitioningHandle)
+    {
+        PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
+        PinotPartitioningHandle pinotPartitioningHandle = (PinotPartitioningHandle) partitioningHandle;
+        return new PinotTableHandle(
+                pinotTableHandle.getSchemaName(),
+                pinotTableHandle.getTableName(),
+                pinotTableHandle.getConstraint(),
+                pinotTableHandle.getLimit(),
+                pinotTableHandle.getQuery(),
+                pinotPartitioningHandle.getNodes(),
+                pinotTableHandle.getSegmentCount(),
+                pinotPartitioningHandle.getDateTimeField());
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
+    {
+        PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(((PinotTableHandle) tableHandle).getTableName());
+        List<PinotColumnHandle> pinotColumnHandles = columns.stream()
+                .map(column -> (PinotColumnHandle) column)
+                .collect(toImmutableList());
+        return new PinotInsertTableHandle(pinotTableName, pinotTableHandle.getDateTimeField(), pinotColumnHandles);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        if (deepStoreProvider != PinotDeepStore.DeepStoreProvider.NONE) {
+            List<String> processedSegmentMetadata = fragments.stream()
+                    .map(Slice::getBytes)
+                    .map(PROCESSED_SEGMENT_METADATA_JSON_CODEC::fromJson)
+                    .map(PROCESSED_SEGMENT_METADATA_JSON_CODEC::toJson)
+                    .collect(toImmutableList());
+            return Optional.of(new PinotWrittenSegments(processedSegmentMetadata));
+        }
+        return Optional.empty();
     }
 
     @Override

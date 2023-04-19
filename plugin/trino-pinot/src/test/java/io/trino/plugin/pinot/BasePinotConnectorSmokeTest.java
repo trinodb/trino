@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.trino.Session;
 import io.trino.plugin.pinot.client.PinotHostMapper;
@@ -73,6 +75,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -82,16 +85,24 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
+import static io.trino.plugin.pinot.PinotQueryRunner.PINOT_CATALOG;
 import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
+import static io.trino.plugin.pinot.PinotQueryRunner.createSessionBuilder;
+import static io.trino.plugin.pinot.PinotSessionProperties.INSERT_EXISTING_SEGMENTS_BEHAVIOR;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_PREVIOUS_IMAGE_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static java.lang.Integer.toHexString;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.time.temporal.ChronoUnit.DAYS;
+import static java.time.temporal.ChronoUnit.HOURS;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.apache.pinot.spi.utils.JsonUtils.inputStreamToObject;
@@ -121,12 +132,14 @@ public abstract class BasePinotConnectorSmokeTest
     private static final String RESERVED_KEYWORD_TABLE = "reserved_keyword";
     private static final String QUOTES_IN_COLUMN_NAME_TABLE = "quotes_in_column_name";
     private static final String DUPLICATE_VALUES_IN_COLUMNS_TABLE = "duplicate_values_in_columns";
+    private static final String OFFLINE_INSERT_TABLE = "offline_insert";
     // Use a recent value for updated_at to ensure Pinot doesn't clean up records older than retentionTimeValue as defined in the table specs
     private static final Instant initialUpdatedAt = Instant.now().minus(Duration.ofDays(1)).truncatedTo(SECONDS);
     // Use a fixed instant for testing date time functions
     private static final Instant CREATED_AT_INSTANT = Instant.parse("2021-05-10T00:00:00.00Z");
 
     private static final DateTimeFormatter MILLIS_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneOffset.UTC);
+    private static final Optional<String> BUCKET = Optional.of("pinot-test-bucket");
 
     protected abstract boolean isSecured();
 
@@ -140,13 +153,18 @@ public abstract class BasePinotConnectorSmokeTest
         return PINOT_PREVIOUS_IMAGE_NAME;
     }
 
+    protected boolean isDeepStoreEnabled()
+    {
+        return false;
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingKafka kafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         kafka.start();
-        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured(), getPinotImageName()));
+        TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), isSecured(), isDeepStoreEnabled(), BUCKET, getPinotImageName()));
         pinot.start();
 
         createAndPopulateAllTypesTopic(kafka, pinot);
@@ -162,6 +180,7 @@ public abstract class BasePinotConnectorSmokeTest
         createAndPopulateTableHavingReservedKeywordColumnNames(kafka, pinot);
         createAndPopulateHavingQuotesInColumnNames(kafka, pinot);
         createAndPopulateHavingMultipleColumnsWithDuplicateValues(kafka, pinot);
+        createOfflineInsert(pinot);
 
         DistributedQueryRunner queryRunner = createPinotQueryRunner(
                 ImmutableMap.of(),
@@ -646,6 +665,15 @@ public abstract class BasePinotConnectorSmokeTest
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("nation_realtimeSpec.json"), nationTableName);
     }
 
+    private void createOfflineInsert(TestingPinotCluster pinot)
+            throws Exception
+    {
+        String schemaResource = "offline_insert_schema.json";
+        pinot.createSchema(getClass().getClassLoader().getResourceAsStream(schemaResource), OFFLINE_INSERT_TABLE);
+        pinot.addOfflineTable(getClass().getClassLoader().getResourceAsStream("offline_insert_spec.json"), OFFLINE_INSERT_TABLE);
+    }
+
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -2757,10 +2785,10 @@ public abstract class BasePinotConnectorSmokeTest
                 "(VARCHAR 'string_9', BIGINT '9', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(2000)) + "')," +
                 "(VARCHAR 'string_10', BIGINT '10', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(3000)) + "')," +
                 "(VARCHAR 'string_11', BIGINT '11', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.minus(1, DAYS).plusMillis(4000)) + "')";
-        assertThat(query("SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME))
+        assertThat(query("SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME + " WHERE longcol < 12"))
                 .matches(expectedValues);
         // Verify that this matches the time boundary behavior on the broker
-        assertThat(query("SELECT stringcol, longcol, updatedat FROM \"SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME + "\""))
+        assertThat(query("SELECT stringcol, longcol, updatedat FROM \"SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME + " WHERE longcol < 12\""))
                 .matches(expectedValues);
     }
 
@@ -2832,5 +2860,194 @@ public abstract class BasePinotConnectorSmokeTest
                 "  GROUP BY city HAVING SUM(long_number) > 10000"))
                 .matches("VALUES (VARCHAR 'Los Angeles', BIGINT '50000')")
                 .isFullyPushedDown();
+    }
+
+    private static String getInsertStatement(String tableName, List<String> columnNames, String valuesClause)
+    {
+        return "INSERT INTO " + tableName + "(" + getColumnListSql(columnNames) + ")\n  " + valuesClause;
+    }
+
+    private static String getSelectStatementForInsertValuesCheck(String tableName, List<String> columnNames)
+    {
+        return "SELECT " + getColumnListSql(columnNames) + " FROM " + tableName;
+    }
+
+    private static String getValuesClause(List<String>... values)
+    {
+        return "VALUES " + join(",\n", Arrays.stream(values).flatMap(List::stream).collect(toUnmodifiableList()));
+    }
+
+    private static List<String> getValueRows(List<List<String>> values)
+    {
+        return values.stream()
+                .map(row -> "(" + join(", ", row) + ")")
+                .collect(toUnmodifiableList());
+    }
+
+    private static String getColumnListSql(List<String> columnNames)
+    {
+        return join(", ", columnNames);
+    }
+
+    private List<List<String>> createValuesForInsert(int start, int end, String uniqueSuffix)
+    {
+        Instant startInstant = initialUpdatedAt.truncatedTo(DAYS);
+        ImmutableList.Builder<List<String>> initialValuesBuilder = ImmutableList.builder();
+        // To avoid https://errorprone.info/bugpattern/NarrowCalculation errors below
+        long step = 21600;
+        for (int i = start; i < end; i++) {
+            ImmutableList.Builder<String> rowBuilder = ImmutableList.builder();
+            rowBuilder.add("VARCHAR 'string_col" + uniqueSuffix + i + "'");
+            rowBuilder.add(String.valueOf(i % 2 == 0));
+            rowBuilder.add("X'" + toHexString('a' + i) + toHexString('A' + i) + "'");
+            rowBuilder.add("CAST(ARRAY[" + "'string_col" + uniqueSuffix + i + "', " + "'string_col" + uniqueSuffix + (i * 10) + "', " + "'string_col" + uniqueSuffix + (i * 10) + "'] AS ARRAY(VARCHAR))");
+            rowBuilder.add("ARRAY[" + (i % 2 == 0) + ", " + (i % 3 == 0) + "]");
+            rowBuilder.add("ARRAY[" + i + ", " + i * 10 + ", " + i * 100 + "]");
+            rowBuilder.add("ARRAY[" + i + ", " + i * 10 + ", null]");
+            rowBuilder.add("CAST(ARRAY[" + (i * .1) + ", " + (i * .01) + ", " + (i * .001) + "] AS ARRAY(REAL))");
+            rowBuilder.add("CAST(ARRAY[" + (i * .1) + ", " + (i * .01) + ", " + (i * .001) + "] AS ARRAY(DOUBLE))");
+            rowBuilder.add("CAST(ARRAY[" + i + ", " + i * 10 + ", " + i * 100 + "] AS ARRAY(BIGINT))");
+            rowBuilder.add("TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(i * step)) + "'");
+            rowBuilder.add("ARRAY[TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(i * step)) + "', " +
+                    "TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(i * step + 100)) + "']");
+            rowBuilder.add("JSON '{\"foo\": \"bar" + uniqueSuffix + "\"}'");
+            rowBuilder.add("INTEGER '" + i + "'");
+            rowBuilder.add("REAL '" + (i * .1) + "'");
+            rowBuilder.add("DOUBLE '" + (i * .1) + "'");
+            rowBuilder.add("BIGINT '" + i + "'");
+            rowBuilder.add("BIGINT '" + TimeUnit.SECONDS.convert(Duration.ofMillis(startInstant.plusSeconds(i * step).truncatedTo(SECONDS).toEpochMilli())) + "'");
+            rowBuilder.add("BIGINT '" + TimeUnit.SECONDS.convert(Duration.ofMillis(startInstant.truncatedTo(HOURS).toEpochMilli())) + "'");
+            rowBuilder.add("TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(i * step)) + "'");
+            initialValuesBuilder.add(rowBuilder.build());
+        }
+        return initialValuesBuilder.build();
+    }
+
+    // Substitute array null default to match inserted values
+    private List<String> getExpectedValuesForInsert(List<List<String>> valuesForInsert)
+    {
+        int intArrayWithColumnIndex = 6;
+        ImmutableList.Builder<String> expectedValues = ImmutableList.builder();
+        for (int rowIndex = 0; rowIndex < valuesForInsert.size(); rowIndex++) {
+            ImmutableList.Builder<String> rowBuilder = ImmutableList.builder();
+            for (int columnIndex = 0; columnIndex < valuesForInsert.get(rowIndex).size(); columnIndex++) {
+                String value = valuesForInsert.get(rowIndex).get(columnIndex);
+                if (columnIndex == intArrayWithColumnIndex) {
+                    value = value.replace("null", "7");
+                }
+                rowBuilder.add(value);
+            }
+            expectedValues.add("(" + join(", ", rowBuilder.build()) + ")");
+        }
+        return expectedValues.build();
+    }
+
+    @Test
+    public void testInsertIntoHybridTableWithTimestamp()
+    {
+        // Note: This table uses Pinot TIMESTAMP and not LONG as the time column type.
+        Instant startInstant = initialUpdatedAt.truncatedTo(DAYS);
+        String expectedValues = "(VARCHAR 'string_8', BIGINT '8', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(-86_400_000 + 1000)) + "')," +
+                "(VARCHAR 'string_9', BIGINT '9', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(-86_400_000 + 2000)) + "')," +
+                "(VARCHAR 'string_10', BIGINT '10', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(-86_400_000 + 3000)) + "')," +
+                "(VARCHAR 'string_11', BIGINT '11', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(-86_400_000 + 4000)) + "')";
+        assertThat(query("SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME))
+                .matches("VALUES " + expectedValues);
+        // Verify that this matches the time boundary behavior on the broker
+        assertThat(query("SELECT stringcol, longcol, updatedat FROM \"SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME + "\""))
+                .matches("VALUES " + expectedValues);
+
+        assertUpdate("INSERT INTO " + HYBRID_TABLE_NAME + "(stringcol, longcol, updatedat)" +
+                "  VALUES (VARCHAR 'string_12', BIGINT '12', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(1000)) + "')," +
+                "  (VARCHAR 'string_13', BIGINT '13', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(2000)) + "')," +
+                "  (VARCHAR 'string_14', BIGINT '14', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(3000)) + "')," +
+                "  (VARCHAR 'string_15', BIGINT '15', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(4000)) + "')", 4);
+        String additionalExpectedValues = expectedValues + ",\n" +
+                "  (VARCHAR 'string_12', BIGINT '12', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(1000)) + "')," +
+                "  (VARCHAR 'string_13', BIGINT '13', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(2000)) + "')," +
+                "  (VARCHAR 'string_14', BIGINT '14', TIMESTAMP '" + MILLIS_FORMATTER.format(startInstant.plusMillis(3000)) + "')";
+
+        Failsafe.with(
+                        RetryPolicy.builder()
+                                .withMaxAttempts(3)
+                                .withBackoff(1000, 10_0000, MILLIS)
+                                .build())
+                .run(() -> assertThat(query("SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME))
+                        .matches("VALUES " + additionalExpectedValues));
+        // Verify that this matches the time boundary behavior on the broker
+        Failsafe.with(
+                        RetryPolicy.builder()
+                                .withMaxAttempts(3)
+                                .withBackoff(1000, 10_0000, MILLIS)
+                                .build())
+                .run(() -> assertThat(query("SELECT stringcol, longcol, updatedat FROM \"SELECT stringcol, longcol, updatedat FROM " + HYBRID_TABLE_NAME + "\""))
+                        .matches("VALUES " + additionalExpectedValues));
+    }
+
+    @Override
+    public void testInsert()
+    {
+        // Note: timestamp array is not supported in pinot 0.11.0
+        List<String> columnList = List.of(
+                "string_col",
+                "bool_col",
+                "bytes_col",
+                "string_array_col",
+                "bool_array_col",
+                "int_array_col",
+                "int_array_col_with_pinot_default",
+                "float_array_col",
+                "double_array_col",
+                "long_array_col",
+                "timestamp_col",
+                "timestamp_array_col",
+                "json_col",
+                "int_col",
+                "float_col",
+                "double_col",
+                "long_col",
+                "updated_at_seconds",
+                "updated_at_hours",
+                "ts");
+
+        // First insert into an empty table can fail if multiple segments attempt to create the segment lineage key
+        // see https://github.com/apache/pinot/issues/10103
+        // Note: for batch ingestion, time column does not allow values older than epoch millis of 1971-01-01 00:00:00.00, but does allow null values for realtime ingestion: see https://github.com/apache/pinot/issues/10073
+        // This is why we put the non-null value for the time column below:
+        String insertedNullValues = "(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, bigint '31536000', NULL, NULL)";
+        List<String> expectedNullValues = List.of("(VARCHAR 'null', false, X'', ARRAY[VARCHAR 'null'], ARRAY[FALSE], ARRAY[-2147483648], ARRAY[7], ARRAY[CAST(-INFINITY() AS REAL)], ARRAY[-INFINITY()], ARRAY[BIGINT '-9223372036854775808'], TIMESTAMP '1970-01-01 00:00:00.000', ARRAY[TIMESTAMP '1970-01-01 00:00:00.000'], JSON 'null', 0, REAL '0.0', DOUBLE '0.0', BIGINT '0', BIGINT '31536000', BIGINT '0', TIMESTAMP '1970-01-01 00:00:00.000')");
+
+        assertUpdate(getInsertStatement(OFFLINE_INSERT_TABLE, columnList, getValuesClause(List.of(insertedNullValues))), 1);
+        assertThat(query(getSelectStatementForInsertValuesCheck(OFFLINE_INSERT_TABLE, columnList)))
+                .matches(getValuesClause(expectedNullValues));
+
+        // Test inserting 2 segments
+        List<List<String>> initialValues = createValuesForInsert(0, 8, "a");
+        List<String> expectedInitialValues = getExpectedValuesForInsert(initialValues);
+
+        assertUpdate(getInsertStatement(OFFLINE_INSERT_TABLE, columnList, getValuesClause(getValueRows(initialValues))), initialValues.size());
+        assertThat(query(getSelectStatementForInsertValuesCheck(OFFLINE_INSERT_TABLE, columnList)))
+                .matches(getValuesClause(expectedInitialValues, expectedNullValues));
+
+        List<List<String>> additionalValues = createValuesForInsert(4, 8, "b");
+
+        // Test appending data
+        assertUpdate(getInsertStatement(OFFLINE_INSERT_TABLE, columnList, getValuesClause(getValueRows(additionalValues))), additionalValues.size());
+        assertThat(query(getSelectStatementForInsertValuesCheck(OFFLINE_INSERT_TABLE, columnList) + "" +
+                "  WHERE string_col like 'string_colb%'"))
+                .matches(getValuesClause(getExpectedValuesForInsert(additionalValues)));
+
+        // Verify the initial data is there
+        assertThat(query(getSelectStatementForInsertValuesCheck(OFFLINE_INSERT_TABLE, columnList) + "" +
+                "  WHERE string_col like 'string_col%' and int_col < 8 "))
+                .matches(getValuesClause(getExpectedValuesForInsert(initialValues), getExpectedValuesForInsert(additionalValues)));
+        Session sessionWithOverwriteBehavior = createSessionBuilder("default", new PinotConfig())
+                .setCatalogSessionProperty(PINOT_CATALOG, INSERT_EXISTING_SEGMENTS_BEHAVIOR, PinotSessionProperties.InsertExistingSegmentsBehavior.OVERWRITE.name())
+                .build();
+        List<List<String>> replacementValues = createValuesForInsert(4, 8, "c");
+        assertUpdate(sessionWithOverwriteBehavior, getInsertStatement(OFFLINE_INSERT_TABLE, columnList, getValuesClause(getValueRows(replacementValues))), replacementValues.size());
+        assertThat(query(getSelectStatementForInsertValuesCheck(OFFLINE_INSERT_TABLE, columnList) + "" +
+                "  WHERE string_col like 'string_col%' and int_col between 4 and 7"))
+                .matches(getValuesClause(getExpectedValuesForInsert(replacementValues)));
     }
 }
