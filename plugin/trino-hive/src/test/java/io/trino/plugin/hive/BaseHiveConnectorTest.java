@@ -5302,15 +5302,6 @@ public abstract class BaseHiveConnectorTest
                 results -> assertThat(results.getRowCount()).isEqualTo(4096));
     }
 
-    private void assertNoDataRead(@Language("SQL") String sql)
-    {
-        assertQueryStats(
-                getSession(),
-                sql,
-                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
-                results -> assertThat(results.getRowCount()).isEqualTo(0));
-    }
-
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithQueryId queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
