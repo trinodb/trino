@@ -71,7 +71,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.unmodifiableList;
@@ -154,7 +153,7 @@ public class MongoPageSink
             return TINYINT.getByte(block, position);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat(REAL.getInt(block, position));
+            return REAL.getFloat(block, position);
         }
         if (type.equals(DOUBLE)) {
             return DOUBLE.getDouble(block, position);

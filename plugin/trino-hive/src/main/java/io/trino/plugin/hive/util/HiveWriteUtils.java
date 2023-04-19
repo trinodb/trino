@@ -124,7 +124,6 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
@@ -314,7 +313,7 @@ public final class HiveWriteUtils
             return TINYINT.getByte(block, position);
         }
         if (REAL.equals(type)) {
-            return intBitsToFloat(REAL.getInt(block, position));
+            return REAL.getFloat(block, position);
         }
         if (DOUBLE.equals(type)) {
             return DOUBLE.getDouble(block, position);

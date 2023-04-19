@@ -57,7 +57,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
 import static java.time.temporal.ChronoField.HOUR_OF_DAY;
 import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
@@ -155,7 +154,7 @@ public class OpenXJsonSerializer
             return value.toBigDecimal().toString();
         }
         else if (REAL.equals(type)) {
-            return intBitsToFloat(REAL.getInt(block, position));
+            return REAL.getFloat(block, position);
         }
         else if (DOUBLE.equals(type)) {
             return DOUBLE.getDouble(block, position);

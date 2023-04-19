@@ -94,7 +94,6 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
@@ -232,7 +231,7 @@ public final class JsonUtil
                 return (block, position) -> String.valueOf(BIGINT.getLong(block, position));
             }
             if (type.equals(REAL)) {
-                return (block, position) -> String.valueOf(intBitsToFloat(REAL.getInt(block, position)));
+                return (block, position) -> String.valueOf(REAL.getFloat(block, position));
             }
             if (type.equals(DOUBLE)) {
                 return (block, position) -> String.valueOf(DOUBLE.getDouble(block, position));
@@ -382,7 +381,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                float value = intBitsToFloat(REAL.getInt(block, position));
+                float value = REAL.getFloat(block, position);
                 jsonGenerator.writeNumber(value);
             }
         }

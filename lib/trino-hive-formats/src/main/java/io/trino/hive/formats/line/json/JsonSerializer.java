@@ -51,7 +51,6 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 
 /**
  * Deserializer that is bug for bug compatible with Hive JsonSerDe.
@@ -128,7 +127,7 @@ public class JsonSerializer
             generator.writeNumber(value.toBigDecimal().toString());
         }
         else if (REAL.equals(type)) {
-            generator.writeNumber(intBitsToFloat(REAL.getInt(block, position)));
+            generator.writeNumber(REAL.getFloat(block, position));
         }
         else if (DOUBLE.equals(type)) {
             generator.writeNumber(DOUBLE.getDouble(block, position));
@@ -212,7 +211,7 @@ public class JsonSerializer
             return type.getObjectValue(null, block, position).toString();
         }
         else if (REAL.equals(type)) {
-            return String.valueOf(intBitsToFloat(REAL.getInt(block, position)));
+            return String.valueOf(REAL.getFloat(block, position));
         }
         else if (DOUBLE.equals(type)) {
             return String.valueOf(DOUBLE.getDouble(block, position));
