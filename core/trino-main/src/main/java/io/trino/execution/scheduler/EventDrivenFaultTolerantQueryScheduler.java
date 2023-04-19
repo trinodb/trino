@@ -2006,6 +2006,12 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             return priority < SPECULATIVE_EXECUTION_PRIORITY;
         }
+
+        @Override
+        public String toString()
+        {
+            return "" + task.stageId() + "/" + task.partitionId() + "[" + priority + "]";
+        }
     }
 
     private static class SchedulingQueue
