@@ -365,7 +365,7 @@ public abstract class BaseSapHanaConnectorTest
 
     @Test
     @Override
-    public void testAddNotNullColumnToNonEmptyTable()
+    public void testAddNotNullColumn()
     {
         throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9683");
     }
