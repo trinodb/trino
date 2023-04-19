@@ -89,6 +89,12 @@ public class TestDeltaLakeCheckConstraintCompatibility
                 {"a INT, b INT", "a = b % 2", "1, 5", row(1, 5), "1, 6"},
                 {"a INT, b INT", "a = b & 5", "1, 3", row(1, 3), "1, 4"},
                 {"a INT, b INT", "a = b ^ 5", "6, 3", row(6, 3), "6, 4"},
+                // Between
+                {"a INT", "a BETWEEN 1 AND 10", "1", row(1), "0"},
+                {"a INT", "a BETWEEN 1 AND 10", "10", row(10), "11"},
+                {"a INT", "a NOT BETWEEN 1 AND 10", "0", row(0), "1"},
+                {"a INT", "a NOT BETWEEN 1 AND 10", "11", row(11), "10"},
+                {"a INT, b INT, c INT", "a BETWEEN b AND c", "5, 1, 10", row(5, 1, 10), "11, 1, 10"},
                 // Supported types
                 {"a INT", "a < 100", "1", row(1), "100"},
                 {"a STRING", "a = 'valid'", "'valid'", row("valid"), "'invalid'"},

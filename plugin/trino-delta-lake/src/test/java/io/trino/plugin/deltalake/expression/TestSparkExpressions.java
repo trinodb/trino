@@ -139,6 +139,18 @@ public class TestSparkExpressions
     }
 
     @Test
+    public void testBetween()
+    {
+        assertExpressionTranslates("a BETWEEN 1 AND 10", "(\"a\" BETWEEN 1 AND 10)");
+        assertExpressionTranslates("a NOT BETWEEN 1 AND 10", "(\"a\" NOT BETWEEN 1 AND 10)");
+        assertExpressionTranslates("a BETWEEN NULL AND 10", "(\"a\" BETWEEN NULL AND 10)");
+        assertExpressionTranslates("a BETWEEN 1 AND NULL", "(\"a\" BETWEEN 1 AND NULL)");
+        assertExpressionTranslates("a NOT BETWEEN NULL AND NULL", "(\"a\" NOT BETWEEN NULL AND NULL)");
+        assertExpressionTranslates("a not between null and null", "(\"a\" NOT BETWEEN NULL AND NULL)");
+        assertExpressionTranslates("a BETWEEN b AND c", "(\"a\" BETWEEN \"b\" AND \"c\")");
+    }
+
+    @Test
     public void testInvalidNotBoolean()
     {
         assertParseFailure("'Spark' || 'SQL'");
@@ -165,7 +177,6 @@ public class TestSparkExpressions
         assertParseFailure("a == 1");
         assertParseFailure("a = b::INTEGER");
         assertParseFailure("a = json_column:root");
-        assertParseFailure("a BETWEEN 1 AND 10");
         assertParseFailure("a IS NULL");
         assertParseFailure("a IS DISTINCT FROM b");
         assertParseFailure("a IS true");
