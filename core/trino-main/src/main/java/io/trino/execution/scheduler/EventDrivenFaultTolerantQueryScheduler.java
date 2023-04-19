@@ -2045,7 +2045,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (prioritizedTask.isNonSpeculative()) {
                 nonSpeculativeTaskCount++;
             }
-            queue.addOrUpdate(prioritizedTask.task(), prioritizedTask.priority());
+            // using negative priority here as will return entries with lowest pririty first and here we use bigger number for tasks with lower priority
+            queue.addOrUpdate(prioritizedTask.task(), -prioritizedTask.priority());
         }
     }
 
