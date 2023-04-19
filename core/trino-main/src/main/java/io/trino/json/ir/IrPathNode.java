@@ -58,10 +58,6 @@ import static java.util.Objects.requireNonNull;
 })
 public abstract class IrPathNode
 {
-    // `type` is intentionally skipped in equals() and hashCode() methods of all IrPathNodes, so that
-    // those methods consider te node's structure only. `type` is a function of the other properties,
-    // and it might be optionally set or not, depending on when and how the node is created - e.g. either
-    // initially or by some optimization that will be added in the future (like constant folding, tree flattening).
     private final Optional<Type> type;
 
     protected IrPathNode(Optional<Type> type)
@@ -88,10 +84,4 @@ public abstract class IrPathNode
     {
         return type;
     }
-
-    @Override
-    public abstract boolean equals(Object obj);
-
-    @Override
-    public abstract int hashCode();
 }

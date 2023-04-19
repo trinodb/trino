@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -48,25 +47,6 @@ public class IrArrayAccessor
         return subscripts;
     }
 
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrArrayAccessor other = (IrArrayAccessor) obj;
-        return Objects.equals(this.base, other.base) && Objects.equals(this.subscripts, other.subscripts);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base, subscripts);
-    }
-
     public static class Subscript
     {
         private final IrPathNode from;
@@ -89,25 +69,6 @@ public class IrArrayAccessor
         public Optional<IrPathNode> getTo()
         {
             return to;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            Subscript other = (Subscript) obj;
-            return Objects.equals(this.from, other.from) && Objects.equals(this.to, other.to);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(from, to);
         }
     }
 }

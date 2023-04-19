@@ -16,7 +16,6 @@ package io.trino.json.ir;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -42,24 +41,5 @@ public abstract class IrAccessor
     public IrPathNode getBase()
     {
         return base;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrAccessor other = (IrAccessor) obj;
-        return Objects.equals(this.base, other.base);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base);
     }
 }
