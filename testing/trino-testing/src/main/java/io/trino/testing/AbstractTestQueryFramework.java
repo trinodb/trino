@@ -561,6 +561,15 @@ public abstract class AbstractTestQueryFramework
         resultAssertion.accept(resultWithQueryId.getResult());
     }
 
+    protected void assertNoDataRead(@Language("SQL") String sql)
+    {
+        assertQueryStats(
+                getSession(),
+                sql,
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
+    }
+
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return h2QueryRunner.execute(getSession(), sql, resultTypes);
