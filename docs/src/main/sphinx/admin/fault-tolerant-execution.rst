@@ -56,6 +56,7 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
     * :doc:`/connector/mongodb`
     * :doc:`/connector/mysql`
     * :doc:`/connector/postgresql`
+    * :doc:`/connector/redshift`
     * :doc:`/connector/sqlserver`
 
 The following configuration properties control the behavior of fault-tolerant
