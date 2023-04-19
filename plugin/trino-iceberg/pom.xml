@@ -525,24 +525,6 @@
             </plugin>
 
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <configuration>
-                    <rules>
-                        <requireUpperBoundDeps>
-                            <excludes combine.children="append">
-                                <exclude>com.google.guava:guava</exclude>
-                            </excludes>
-                        </requireUpperBoundDeps>
-                        <RestrictImports>
-                            <includeTestCode>false</includeTestCode>
-                            <bannedImport>org.apache.hadoop.**</bannedImport>
-                        </RestrictImports>
-                    </rules>
-                </configuration>
-            </plugin>
-
-            <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>
