@@ -29,6 +29,11 @@ public abstract class SparkExpressionTreeVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitBetweenExpression(BetweenPredicate node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitLogicalExpression(LogicalExpression node, C context)
     {
         return visitExpression(node, context);
@@ -60,6 +65,11 @@ public abstract class SparkExpressionTreeVisitor<R, C>
     }
 
     protected R visitStringLiteral(StringLiteral node, C context)
+    {
+        return visitLiteral(node, context);
+    }
+
+    protected R visitNullLiteral(NullLiteral node, C context)
     {
         return visitLiteral(node, context);
     }

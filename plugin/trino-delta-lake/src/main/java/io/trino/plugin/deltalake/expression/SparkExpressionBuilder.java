@@ -107,6 +107,20 @@ public class SparkExpressionBuilder
     }
 
     @Override
+    public SparkExpression visitBetween(SparkExpressionBaseParser.BetweenContext context)
+    {
+        BetweenPredicate.Operator operator = BetweenPredicate.Operator.BETWEEN;
+        if (context.NOT() != null) {
+            operator = BetweenPredicate.Operator.NOT_BETWEEN;
+        }
+        return new BetweenPredicate(
+                operator,
+                visit(context.value, SparkExpression.class),
+                visit(context.lower, SparkExpression.class),
+                visit(context.upper, SparkExpression.class));
+    }
+
+    @Override
     public Object visitColumnReference(SparkExpressionBaseParser.ColumnReferenceContext context)
     {
         return visit(context.identifier());
@@ -148,6 +162,12 @@ public class SparkExpressionBuilder
     public Object visitUnicodeStringLiteral(SparkExpressionBaseParser.UnicodeStringLiteralContext context)
     {
         return new StringLiteral(decodeUnicodeLiteral(context));
+    }
+
+    @Override
+    public SparkExpression visitNullLiteral(SparkExpressionBaseParser.NullLiteralContext context)
+    {
+        return new NullLiteral();
     }
 
     private static String decodeUnicodeLiteral(SparkExpressionBaseParser.UnicodeStringLiteralContext context)
