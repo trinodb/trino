@@ -18,6 +18,7 @@ import io.airlift.configuration.ConfigDescription;
 
 public class HiveFormatsConfig
 {
+    private boolean avroFileNativeReaderEnabled = true;
     private boolean csvNativeReaderEnabled = true;
     private boolean csvNativeWriterEnabled = true;
     private boolean jsonNativeReaderEnabled = true;
@@ -29,6 +30,19 @@ public class HiveFormatsConfig
     private boolean textFileNativeWriterEnabled = true;
     private boolean sequenceFileNativeReaderEnabled = true;
     private boolean sequenceFileNativeWriterEnabled = true;
+
+    public boolean isAvroFileNativeReaderEnabled()
+    {
+        return avroFileNativeReaderEnabled;
+    }
+
+    @Config("avro.native-reader.enabled")
+    @ConfigDescription("Use native Avro file reader")
+    public HiveFormatsConfig setAvroFileNativeReaderEnabled(boolean avroFileNativeReaderEnabled)
+    {
+        this.avroFileNativeReaderEnabled = avroFileNativeReaderEnabled;
+        return this;
+    }
 
     public boolean isCsvNativeReaderEnabled()
     {

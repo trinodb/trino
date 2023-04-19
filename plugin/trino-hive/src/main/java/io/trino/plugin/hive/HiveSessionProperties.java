@@ -61,6 +61,7 @@ public final class HiveSessionProperties
     private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
+    private static final String AVRO_NATIVE_READER_ENABLED = "avro_native_reader_enabled";
     private static final String CSV_NATIVE_READER_ENABLED = "csv_native_reader_enabled";
     private static final String CSV_NATIVE_WRITER_ENABLED = "csv_native_writer_enabled";
     private static final String JSON_NATIVE_READER_ENABLED = "json_native_reader_enabled";
@@ -201,6 +202,11 @@ public final class HiveSessionProperties
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
+                booleanProperty(
+                        AVRO_NATIVE_READER_ENABLED,
+                        "Use native Avro file reader",
+                        hiveFormatsConfig.isAvroFileNativeReaderEnabled(),
+                        false),
                 booleanProperty(
                         CSV_NATIVE_READER_ENABLED,
                         "Use native CSV reader",
@@ -660,6 +666,11 @@ public final class HiveSessionProperties
     public static InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior(ConnectorSession session)
     {
         return session.getProperty(INSERT_EXISTING_PARTITIONS_BEHAVIOR, InsertExistingPartitionsBehavior.class);
+    }
+
+    public static boolean isAvroNativeReaderEnabled(ConnectorSession session)
+    {
+        return session.getProperty(AVRO_NATIVE_READER_ENABLED, Boolean.class);
     }
 
     public static boolean isCsvNativeReaderEnabled(ConnectorSession session)
