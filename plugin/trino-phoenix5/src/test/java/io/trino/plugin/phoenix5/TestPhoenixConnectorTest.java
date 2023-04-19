@@ -264,7 +264,7 @@ public class TestPhoenixConnectorTest
         }
         assertThatThrownBy(() -> super.testRenameColumnName(columnName))
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
-                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+                .hasMessageContaining("ERROR 722 (43M05): Schema does not exist schemaName=TPCH");
         throw new SkipException("Rename column is not yet supported by Phoenix connector");
     }
 

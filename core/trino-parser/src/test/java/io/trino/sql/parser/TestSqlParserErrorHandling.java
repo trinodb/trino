@@ -126,7 +126,7 @@ public class TestSqlParserErrorHandling
                         "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FETCH', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', " +
                                 "'MATCH_RECOGNIZE', 'NATURAL', 'OFFSET', 'ORDER', 'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', 'WINDOW', <EOF>"),
                 Arguments.of("SELECT * FROM t WHERE EXISTS (",
-                        "line 1:31: mismatched input '<EOF>'. Expecting: <query>"),
+                        "line 1:31: mismatched input '<EOF>'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'"),
                 Arguments.of("SELECT \"\" FROM t",
                         "line 1:8: Zero-length delimited identifier not allowed"),
                 Arguments.of("SELECT a FROM \"\"",

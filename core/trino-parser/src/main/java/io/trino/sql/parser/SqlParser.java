@@ -112,21 +112,6 @@ public class SqlParser
             SqlBaseParser parser = new SqlBaseParser(tokenStream);
             initializer.accept(lexer, parser);
 
-            // Override the default error strategy to not attempt inserting or deleting a token.
-            // Otherwise, it messes up error reporting
-            parser.setErrorHandler(new DefaultErrorStrategy()
-            {
-                @Override
-                public Token recoverInline(Parser recognizer)
-                        throws RecognitionException
-                {
-                    if (nextTokensContext == null) {
-                        throw new InputMismatchException(recognizer);
-                    }
-                    throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
-                }
-            });
-
             parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames()), parser));
 
             lexer.removeErrorListeners();
@@ -136,16 +121,20 @@ public class SqlParser
             parser.addErrorListener(PARSER_ERROR_HANDLER);
 
             ParserRuleContext tree;
+            // https://github.com/antlr/antlr4/issues/192#issuecomment-15238595
+            // save a great deal of time on correct inputs by using a two-stage parsing strategy
             try {
-                // first, try parsing with potentially faster SLL mode
+                // first, try parsing with potentially faster SLL mode w/ TrinoBailErrorStrategy
+                parser.setErrorHandler(new TrinoBailErrorStrategy());
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
                 tree = parseFunction.apply(parser);
             }
             catch (ParseCancellationException ex) {
-                // if we fail, parse with LL mode
+                // if we fail, parse with LL mode w/ TrinoErrorStrategy
                 tokenStream.seek(0); // rewind input stream
                 parser.reset();
 
+                parser.setErrorHandler(new TrinoErrorStrategy());
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
                 tree = parseFunction.apply(parser);
             }
@@ -155,6 +144,65 @@ public class SqlParser
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");
         }
+    }
+
+    // Override the default error strategy to not attempt inserting or deleting a token.
+    // Otherwise, it messes up error reporting
+    private static class TrinoErrorStrategy
+            extends DefaultErrorStrategy
+    {
+        @Override
+        public Token recoverInline(Parser recognizer)
+                throws RecognitionException
+        {
+            if (nextTokensContext == null) {
+                throw new InputMismatchException(recognizer);
+            }
+            throw new InputMismatchException(recognizer, nextTokensState, nextTokensContext);
+        }
+    }
+
+    // Inspired by org.antlr.v4.runtime.BailErrorStrategy, used in two-stage parsing
+    private static class TrinoBailErrorStrategy
+            extends TrinoErrorStrategy
+    {
+        /**
+         * Instead of recovering from exception {@code e}, re-throw it wrapped
+         * in a {@link ParseCancellationException} so it is not caught by the
+         * rule function catches.  Use {@link Exception#getCause()} to get the
+         * original {@link RecognitionException}.
+         */
+        @Override
+        public void recover(Parser recognizer, RecognitionException e)
+        {
+            for (ParserRuleContext context = recognizer.getContext(); context != null; context = context.getParent()) {
+                context.exception = e;
+            }
+
+            throw new ParseCancellationException(e);
+        }
+
+        /**
+         * Make sure we don't attempt to recover inline; if the parser
+         * successfully recovers, it won't throw an exception.
+         */
+        @Override
+        public Token recoverInline(Parser recognizer)
+                throws RecognitionException
+        {
+            InputMismatchException e = new InputMismatchException(recognizer);
+            for (ParserRuleContext context = recognizer.getContext(); context != null; context = context.getParent()) {
+                context.exception = e;
+            }
+
+            throw new ParseCancellationException(e);
+        }
+
+        /**
+         * Make sure we don't attempt to recover from problems in subrules.
+         */
+        @Override
+        public void sync(Parser recognizer) {}
     }
 
     private static class PostProcessor
