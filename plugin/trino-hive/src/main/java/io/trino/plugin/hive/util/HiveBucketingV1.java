@@ -104,7 +104,7 @@ final class HiveBucketingV1
                 }
                 if (trinoType.equals(REAL)) {
                     // convert to canonical NaN if necessary
-                    return floatToIntBits(intBitsToFloat(REAL.getInt(block, position)));
+                    return floatToIntBits(REAL.getFloat(block, position));
                 }
                 if (trinoType.equals(DOUBLE)) {
                     long doubleValue = doubleToLongBits(DOUBLE.getDouble(block, position));

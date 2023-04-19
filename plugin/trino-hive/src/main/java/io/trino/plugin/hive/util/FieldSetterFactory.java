@@ -61,7 +61,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -266,7 +265,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(intBitsToFloat(REAL.getInt(block, position)));
+            value.set(REAL.getFloat(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

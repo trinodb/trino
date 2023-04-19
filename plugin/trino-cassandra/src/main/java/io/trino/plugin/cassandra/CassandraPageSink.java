@@ -67,7 +67,6 @@ import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -174,7 +173,7 @@ public class CassandraPageSink
             values.add(DOUBLE.getDouble(block, position));
         }
         else if (REAL.equals(type)) {
-            values.add(intBitsToFloat(REAL.getInt(block, position)));
+            values.add(REAL.getFloat(block, position));
         }
         else if (DATE.equals(type)) {
             values.add(toCassandraDate.apply(DATE.getInt(block, position)));

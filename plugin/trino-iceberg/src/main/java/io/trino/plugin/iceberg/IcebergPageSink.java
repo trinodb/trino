@@ -81,7 +81,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -471,7 +470,7 @@ public class IcebergPageSink
             return readBigDecimal(decimalType, block, position);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat(REAL.getInt(block, position));
+            return REAL.getFloat(block, position);
         }
         if (type.equals(DOUBLE)) {
             return DOUBLE.getDouble(block, position);
