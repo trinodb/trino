@@ -250,7 +250,7 @@ public final class HiveType
                 try {
                     if (fieldIndex == 0) {
                         //  union's tag field, defined in {@link io.trino.plugin.hive.util.HiveTypeTranslator#toTypeSignature}
-                        return Optional.of(HiveType.toHiveType(UNION_FIELD_TAG_TYPE));
+                        return Optional.of(toHiveType(UNION_FIELD_TAG_TYPE));
                     }
                     else {
                         typeInfo = unionTypeInfo.getAllUnionObjectTypeInfos().get(fieldIndex - 1);
