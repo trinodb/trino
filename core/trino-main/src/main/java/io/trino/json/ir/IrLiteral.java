@@ -19,7 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -63,24 +62,5 @@ public class IrLiteral
     public Block getValueAsBlock()
     {
         return nativeValueToBlock(getType().orElseThrow(), value);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrLiteral other = (IrLiteral) obj;
-        return Objects.equals(this.value, other.value) && Objects.equals(this.getType(), other.getType());
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(value, getType());
     }
 }

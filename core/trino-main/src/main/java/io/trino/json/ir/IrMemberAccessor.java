@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -45,24 +44,5 @@ public class IrMemberAccessor
     public Optional<String> getKey()
     {
         return key;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrMemberAccessor other = (IrMemberAccessor) obj;
-        return Objects.equals(this.base, other.base) && Objects.equals(this.key, other.key);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base, key);
     }
 }

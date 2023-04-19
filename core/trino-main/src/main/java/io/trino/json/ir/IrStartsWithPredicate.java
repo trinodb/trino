@@ -16,8 +16,6 @@ package io.trino.json.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
 public class IrStartsWithPredicate
@@ -50,25 +48,5 @@ public class IrStartsWithPredicate
     public IrPathNode getPrefix()
     {
         return prefix;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrStartsWithPredicate other = (IrStartsWithPredicate) obj;
-        return Objects.equals(this.value, other.value) &&
-                Objects.equals(this.prefix, other.prefix);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(value, prefix);
     }
 }

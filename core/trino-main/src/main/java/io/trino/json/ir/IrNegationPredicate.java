@@ -16,8 +16,6 @@ package io.trino.json.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
 public class IrNegationPredicate
@@ -42,24 +40,5 @@ public class IrNegationPredicate
     public IrPredicate getPredicate()
     {
         return predicate;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrNegationPredicate other = (IrNegationPredicate) obj;
-        return Objects.equals(this.predicate, other.predicate);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(predicate);
     }
 }

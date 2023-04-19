@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -65,27 +64,6 @@ public class IrArithmeticBinary
     public IrPathNode getRight()
     {
         return right;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrArithmeticBinary other = (IrArithmeticBinary) obj;
-        return this.operator == other.operator &&
-                Objects.equals(this.left, other.left) &&
-                Objects.equals(this.right, other.right);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(operator, left, right);
     }
 
     public enum Operator

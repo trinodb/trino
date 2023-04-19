@@ -16,8 +16,6 @@ package io.trino.json.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
 public class IrExistsPredicate
@@ -42,24 +40,5 @@ public class IrExistsPredicate
     public IrPathNode getPath()
     {
         return path;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrExistsPredicate other = (IrExistsPredicate) obj;
-        return Objects.equals(this.path, other.path);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(path);
     }
 }
