@@ -25,6 +25,7 @@ import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
+import io.trino.filesystem.Location;
 import io.trino.hadoop.TextLineLengthLimitExceededException;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.orc.OrcWriterOptions;
@@ -207,6 +208,11 @@ public final class HiveUtil
             .precomputed();
 
     private static final CharMatcher DOT_MATCHER = CharMatcher.is('.');
+
+    public static String splitError(Throwable t, Location location, long start, long length)
+    {
+        return format("Error opening Hive split %s (offset=%s, length=%s): %s", location, start, length, t.getMessage());
+    }
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
