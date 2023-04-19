@@ -45,6 +45,9 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.avro.AvroTypeUtils.UNION_FIELD_FIELD_PREFIX;
+import static io.trino.hive.formats.avro.AvroTypeUtils.UNION_FIELD_TAG_NAME;
+import static io.trino.hive.formats.avro.AvroTypeUtils.UNION_FIELD_TAG_TYPE;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.HiveType.HIVE_BINARY;
 import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
@@ -90,10 +93,6 @@ import static java.util.Objects.requireNonNull;
 public final class HiveTypeTranslator
 {
     private HiveTypeTranslator() {}
-
-    public static final String UNION_FIELD_TAG_NAME = "tag";
-    public static final String UNION_FIELD_FIELD_PREFIX = "field";
-    public static final Type UNION_FIELD_TAG_TYPE = TINYINT;
 
     public static TypeInfo toTypeInfo(Type type)
     {
