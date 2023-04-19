@@ -225,6 +225,8 @@ The order of values returned from a single JSON object is arbitrary. The
 sub-sequences from all JSON objects are concatenated in the same order in which
 the JSON objects appear in the input sequence.
 
+.. _json_descendant_member_accessor:
+
 descendant member accessor
 ''''''''''''''''''''''''''
 
