@@ -331,11 +331,11 @@ public class ParquetPageSourceFactory
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
     {
-        Optional<org.apache.parquet.schema.Type> columnType = getBaseColumnParquetType(column, messageType, useParquetColumnNames);
-        if (columnType.isEmpty() || column.getHiveColumnProjectionInfo().isEmpty()) {
-            return columnType;
+        Optional<org.apache.parquet.schema.Type> baseColumnType = getBaseColumnParquetType(column, messageType, useParquetColumnNames);
+        if (baseColumnType.isEmpty() || column.getHiveColumnProjectionInfo().isEmpty()) {
+            return baseColumnType;
         }
-        GroupType baseType = columnType.get().asGroupType();
+        GroupType baseType = baseColumnType.get().asGroupType();
         ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
         org.apache.parquet.schema.Type parentType = baseType;
 
