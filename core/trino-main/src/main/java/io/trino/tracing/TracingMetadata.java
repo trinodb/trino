@@ -902,8 +902,7 @@ public class TracingMetadata
     {
         Span span = startSpan("applyTableFunction")
                 .setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName())
-                .setAttribute(TrinoAttributes.SCHEMA, handle.getSchemaFunctionName().getSchemaName())
-                .setAttribute(TrinoAttributes.FUNCTION, handle.getSchemaFunctionName().getFunctionName());
+                .setAttribute(TrinoAttributes.HANDLE, handle.getFunctionHandle().toString());
         try (var ignored = scopedSpan(span)) {
             return delegate.applyTableFunction(session, handle);
         }

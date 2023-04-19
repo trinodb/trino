@@ -23,7 +23,6 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
-import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
@@ -93,7 +92,7 @@ public class GlobalSystemConnector
         return new ConnectorSplitManager()
         {
             @Override
-            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, SchemaFunctionName name, ConnectorTableFunctionHandle functionHandle)
+            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle functionHandle)
             {
                 if (functionHandle instanceof SequenceFunctionHandle sequenceFunctionHandle) {
                     return getSequenceFunctionSplitSource(sequenceFunctionHandle);

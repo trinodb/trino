@@ -140,7 +140,7 @@ public class ExcludeColumns
             return TableFunctionAnalysis.builder()
                     .requiredColumns(TABLE_ARGUMENT_NAME, requiredColumns.build())
                     .returnedType(new Descriptor(returnedType))
-                    // there's no information to remember. All logic is effectively delegated to the engine via `requiredColumns`. We do not pass a ConnectorTableHandle. EMPTY_HANDLE will be used.
+                    .handle(new ExcludeColumnsFunctionHandle())
                     .build();
         }
     }
@@ -160,5 +160,11 @@ public class ExcludeColumns
                 };
             }
         };
+    }
+
+    public record ExcludeColumnsFunctionHandle()
+            implements ConnectorTableFunctionHandle
+    {
+        // there's no information to remember. All logic is effectively delegated to the engine via `requiredColumns`.
     }
 }
