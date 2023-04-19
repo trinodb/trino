@@ -285,7 +285,7 @@ public class HashAggregationOperator
     private HashAggregationBuilder aggregationBuilder;
     private final LocalMemoryContext memoryContext;
     private WorkProcessor<Page> outputPages;
-    private boolean inputProcessed;
+    private long totalInputRowsProcessed;
     private boolean finishing;
     private boolean finished;
 
@@ -378,7 +378,7 @@ public class HashAggregationOperator
         checkState(unfinishedWork == null, "Operator has unfinished work");
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
-        inputProcessed = true;
+        totalInputRowsProcessed += page.getPositionCount();
 
         if (aggregationBuilder == null) {
             boolean partialAggregationDisabled = partialAggregationController
@@ -481,7 +481,7 @@ public class HashAggregationOperator
 
         if (outputPages == null) {
             if (finishing) {
-                if (!inputProcessed && produceDefaultOutput) {
+                if (totalInputRowsProcessed == 0 && produceDefaultOutput) {
                     // global aggregations always generate an output row with the default aggregation output (e.g. 0 for COUNT, NULL for SUM)
                     finished = true;
                     return getGlobalAggregationOutput();
