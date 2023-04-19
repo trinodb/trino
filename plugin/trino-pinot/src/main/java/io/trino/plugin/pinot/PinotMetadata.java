@@ -26,6 +26,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.pinot.client.PinotClient;
+import io.trino.plugin.pinot.deepstore.PinotDeepStore;
 import io.trino.plugin.pinot.query.AggregateExpression;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.plugin.pinot.query.DynamicTableBuilder;
@@ -35,6 +36,7 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -102,17 +104,21 @@ public class PinotMetadata
     private final ImplementCountDistinct implementCountDistinct;
     private final PinotClient pinotClient;
     private final PinotTypeConverter typeConverter;
+    private final NodeManager nodeManager;
+    private final PinotDeepStore.DeepStoreProvider deepStoreProvider;
 
     @Inject
     public PinotMetadata(
             PinotClient pinotClient,
             PinotConfig pinotConfig,
             @ForPinot ExecutorService executor,
-            PinotTypeConverter typeConverter)
+            PinotTypeConverter typeConverter,
+            NodeManager nodeManager)
     {
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
         long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.typeConverter = requireNonNull(typeConverter, "typeConverter is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pinotTableColumnCache = buildNonEvictableCache(
                 CacheBuilder.newBuilder()
                         .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS),
@@ -140,6 +146,7 @@ public class PinotMetadata
                         .add(new ImplementApproxDistinct(identifierQuote))
                         .add(implementCountDistinct)
                         .build());
+        this.deepStoreProvider = pinotConfig.getDeepStoreProvider();
     }
 
     @Override
