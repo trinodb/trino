@@ -71,6 +71,7 @@ public final class TestGroups
     public static final String KAFKA = "kafka";
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
+    public static final String ICEBERG_DELTA_LAKE_MIGRATION = "iceberg_delta_lake_migration";
     public static final String ICEBERG_FORMAT_VERSION_COMPATIBILITY = "iceberg_format_version_compatibility";
     public static final String ICEBERG_REST = "iceberg_rest";
     public static final String ICEBERG_JDBC = "iceberg_jdbc";

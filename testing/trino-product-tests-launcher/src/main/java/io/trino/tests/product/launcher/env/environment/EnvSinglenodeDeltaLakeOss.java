@@ -99,6 +99,10 @@ public class EnvSinglenodeDeltaLakeOss
                 "delta_lake",
                 forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
+        builder.addConnector(
+                "iceberg",
+                forHostPath(configDir.getPath("iceberg.properties")),
+                CONTAINER_TRINO_ETC + "/catalog/iceberg.properties");
 
         builder.configureContainer(TESTS, dockerContainer -> {
             dockerContainer.withEnv("S3_BUCKET", s3Bucket)

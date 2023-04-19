@@ -15,6 +15,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -44,10 +45,16 @@ public class TestIcebergMigrateProcedure
         dataDirectory = Files.createTempDirectory("_test_hidden");
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
         queryRunner.installPlugin(new TestingHivePlugin());
+        queryRunner.installPlugin(new TestingDeltaLakePlugin());
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "file")
                         .put("hive.metastore.catalog.dir", dataDirectory.toString())
                         .put("hive.security", "allow-all")
+                .buildOrThrow());
+        queryRunner.createCatalog("delta", "delta_lake", ImmutableMap.<String, String>builder()
+                .put("hive.metastore", "file")
+                .put("hive.metastore.catalog.dir", dataDirectory.toUri().toString())
+                .put("delta.enable-non-concurrent-writes", "true")
                 .buildOrThrow());
         return queryRunner;
     }
@@ -82,6 +89,40 @@ public class TestIcebergMigrateProcedure
     }
 
     @Test
+    public void testMigrateDeltaLakeTable()
+    {
+        String tableName = "test_migrate_delta_table_" + randomNameSuffix();
+        String deltaTableName = "delta.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + deltaTableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("DELETE FROM " + deltaTableName + " WHERE nationkey = 10", 1);
+        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+        assertQuery("SELECT * FROM " + icebergTableName, "SELECT * FROM nation WHERE nationkey != 10");
+
+        assertUpdate("DROP TABLE " + icebergTableName);
+    }
+
+    @Test
+    public void testMigrateDeltaLakeTableWithRowType()
+    {
+        String tableName = "test_migrate_delta_table_with_row_type_" + randomNameSuffix();
+        String deltaTableName = "delta.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + deltaTableName + " (id INT, root ROW(a INT, b INT))");
+        assertUpdate("INSERT INTO " + deltaTableName + " VALUES (1, ROW(2, 3))", 1);
+        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+        assertQuery("SELECT id, root.a, root.b FROM " + icebergTableName, "VALUES (1, 2, 3)");
+
+        assertUpdate("DROP TABLE " + icebergTableName);
+    }
+
+    @Test
     public void testMigratePartitionedTable()
     {
         String tableName = "test_migrate_partitioned_" + randomNameSuffix();
@@ -103,6 +144,28 @@ public class TestIcebergMigrateProcedure
         assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2, 'part2')", 1);
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'part1'), (2, 'part2')");
 
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMigratePartitionedDeltaTable()
+    {
+        String tableName = "test_migrate_partitioned_delta_" + randomNameSuffix();
+
+        String deltaTableName = "delta.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + deltaTableName + " WITH (partitioned_by = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("DELETE FROM " + deltaTableName + " WHERE regionkey = 3", 5);
+        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertQuery("SELECT * FROM " + icebergTableName, "SELECT * FROM nation WHERE regionkey != 3");
+
+        // Make sure partition column is preserved
+        assertThat(query("SELECT partition.regionkey FROM iceberg.tpch.\"" + tableName + "$partitions\""))
+                .matches("VALUES BIGINT '0', BIGINT '1', BIGINT '2', BIGINT '4'");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -198,6 +261,21 @@ public class TestIcebergMigrateProcedure
         String hiveTableName = "hive.tpch." + tableName;
 
         assertUpdate("CREATE TABLE " + hiveTableName + "(col int COMMENT 'column comment') COMMENT 'table comment'");
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertEquals(getTableComment(tableName), "table comment");
+        assertEquals(getColumnComment(tableName, "col"), "column comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMigrateTablePreservesDeltaComments()
+    {
+        String tableName = "test_migrate_comments_delta_" + randomNameSuffix();
+        String deltaTableName = "delta.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + deltaTableName + "(col int COMMENT 'column comment') COMMENT 'table comment'");
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
 
         assertEquals(getTableComment(tableName), "table comment");

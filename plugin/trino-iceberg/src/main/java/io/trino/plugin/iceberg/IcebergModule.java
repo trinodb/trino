@@ -19,6 +19,9 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.SortingFileWriterConfig;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
@@ -93,5 +96,10 @@ public class IcebergModule
         tableProcedures.addBinding().toProvider(DropExtendedStatsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding().toProvider(ExpireSnapshotsTableProcedure.class).in(Scopes.SINGLETON);
         tableProcedures.addBinding().toProvider(RemoveOrphanFilesTableProcedure.class).in(Scopes.SINGLETON);
+
+        // Used for migrating Delta Lake tables to Iceberg. Intentionally not exposing Delta Lake config via configBinder
+        binder.bind(DeltaLakeConfig.class).in(Scopes.SINGLETON);
+        binder.bind(TransactionLogAccess.class).in(Scopes.SINGLETON);
+        binder.bind(CheckpointSchemaManager.class).in(Scopes.SINGLETON);
     }
 }

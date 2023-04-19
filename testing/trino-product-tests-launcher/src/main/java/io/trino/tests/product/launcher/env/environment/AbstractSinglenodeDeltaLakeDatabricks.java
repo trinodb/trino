@@ -63,6 +63,10 @@ public abstract class AbstractSinglenodeDeltaLakeDatabricks
                 "delta_lake",
                 forHostPath(configDir.getPath("delta.properties")),
                 CONTAINER_TRINO_ETC + "/catalog/delta.properties");
+        builder.addConnector(
+                "iceberg",
+                forHostPath(configDir.getPath("iceberg.properties")),
+                CONTAINER_TRINO_ETC + "/catalog/iceberg.properties");
 
         builder.configureContainer(TESTS, container -> exportAWSCredentials(container)
                 .withEnv("S3_BUCKET", s3Bucket)

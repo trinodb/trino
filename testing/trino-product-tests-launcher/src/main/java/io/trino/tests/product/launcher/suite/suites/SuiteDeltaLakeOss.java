@@ -43,7 +43,7 @@ public class SuiteDeltaLakeOss
                 testOnEnvironment(EnvSinglenodeDeltaLakeOss.class)
                         // TODO: make the list of tests run here as close to those run on SinglenodeDeltaLakeDatabricks
                         //  e.g. replace `delta-lake-oss` group with `delta-lake-databricks` + any exclusions, of needed
-                        .withGroups("configured_features", "delta-lake-oss")
+                        .withGroups("configured_features", "delta-lake-oss", "iceberg_delta_lake_migration")
                         .build());
     }
 }

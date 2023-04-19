@@ -21,6 +21,16 @@ import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
+import io.trino.plugin.deltalake.DeltaLakeColumnType;
+import io.trino.plugin.deltalake.DeltaLakeSplitManager;
+import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -36,16 +46,20 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionSpec;
@@ -72,12 +86,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.concat;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -85,6 +106,7 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
+import static io.trino.plugin.iceberg.IcebergPageSink.getIcebergValue;
 import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -93,6 +115,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.parseBoolean;
+import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -115,6 +138,7 @@ public class MigrateProcedure
 
     private final TrinoCatalogFactory catalogFactory;
     private final HiveMetastoreFactory metastoreFactory;
+    private final TransactionLogAccess transactionLogAccess;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
     private final int formatVersion;
@@ -143,6 +167,7 @@ public class MigrateProcedure
     public MigrateProcedure(
             TrinoCatalogFactory catalogFactory,
             @RawHiveMetastoreFactory HiveMetastoreFactory metastoreFactory,
+            TransactionLogAccess transactionLogAccess,
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             IcebergConfig icebergConfig,
@@ -150,6 +175,7 @@ public class MigrateProcedure
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastoreFactory is null");
+        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.formatVersion = icebergConfig.getFormatVersion();
@@ -193,7 +219,7 @@ public class MigrateProcedure
             throw new TrinoException(NOT_SUPPORTED, "The procedure doesn't support migrating %s table type".formatted(hiveTable.getTableType()));
         }
         else if (isDeltaLakeTable(hiveTable)) {
-            throw new TrinoException(NOT_SUPPORTED, "The procedure doesn't support migrating Delta Lake tables");
+            migrateDeltaLakeTable(session, metastore, sourceTableName, hiveTable);
         }
         else if (isHudiTable(hiveTable)) {
             throw new TrinoException(NOT_SUPPORTED, "The procedure doesn't support migrating Hudi tables");
@@ -206,6 +232,107 @@ public class MigrateProcedure
                     .orElseThrow(() -> new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Invalid recursive_directory: " + recursiveDirectory));
             migrateHiveTable(session, recursive, metastore, sourceTableName, hiveTable);
         }
+    }
+
+    private void migrateDeltaLakeTable(
+            ConnectorSession session,
+            HiveMetastore metastore,
+            SchemaTableName schemaTableName,
+            io.trino.plugin.hive.metastore.Table hiveTable)
+    {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
+
+        Map<String, String> serdeParameters = hiveTable.getStorage().getSerdeParameters();
+        String location = serdeParameters.get(PATH_PROPERTY);
+        if (location == null) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, format("No %s property defined for table: %s", PATH_PROPERTY, hiveTable));
+        }
+
+        TableSnapshot tableSnapshot;
+        try {
+            tableSnapshot = transactionLogAccess.loadSnapshot(schemaTableName, location, session);
+        }
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Unable to load Delta Lake table for migration", e);
+        }
+
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntries(tableSnapshot, session)
+                .reduce((first, second) -> second)
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
+
+        if (protocolEntry.getMinReaderVersion() > 1) {
+            throw new TrinoException(NOT_SUPPORTED, "Migration of Delta Lake tables using reader versions above 1 is not supported");
+        }
+        if (protocolEntry.getMinWriterVersion() > 2) {
+            throw new TrinoException(NOT_SUPPORTED, "Migration of Delta Lake tables using writer versions above 2 is not supported");
+        }
+
+        List<DeltaLakeColumnMetadata> deltaLakeColumns = DeltaLakeSchemaSupport.extractSchema(metadataEntry, typeManager);
+        AtomicInteger nextFieldId = new AtomicInteger(1);
+        List<Types.NestedField> icebergColumns = new ArrayList<>();
+        for (DeltaLakeColumnMetadata column : deltaLakeColumns) {
+            int index = nextFieldId.getAndIncrement();
+            Type deltaType = typeManager.getType(column.getType().getTypeSignature());
+            org.apache.iceberg.types.Type icebergType;
+            if (deltaType instanceof TimestampWithTimeZoneType) {
+                throw new TrinoException(NOT_SUPPORTED, "Migrations of tables with Timestamp with Time Zone columns are not supported");
+            }
+            else {
+                icebergType = toIcebergTypeForNewColumn(deltaType, nextFieldId);
+            }
+            Types.NestedField field = Types.NestedField.of(index, column.getColumnMetadata().isNullable(), column.getName(), icebergType, column.getColumnMetadata().getComment());
+            icebergColumns.add(field);
+        }
+        org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
+        AtomicInteger freshFieldIds = new AtomicInteger(1);
+        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, freshFieldIds::getAndIncrement);
+        Schema schema = new Schema(icebergSchema.asStructType().fields());
+
+        NameMapping nameMapping = MappingUtil.create(schema);
+        Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, Optional.ofNullable(metadataEntry.getDescription()));
+        PartitionSpec partitionSpec = partitionSpecFromDeltaLake(schema, metadataEntry);
+
+        Map<String, DeltaLakeColumnHandle> columnHandles = deltaLakeColumns.stream().collect(toImmutableMap(
+                DeltaLakeColumnMetadata::getName,
+                columnMetadata -> new DeltaLakeColumnHandle(
+                        columnMetadata.getName(),
+                        columnMetadata.getType(),
+                        OptionalInt.empty(),
+                        columnMetadata.getPhysicalName(),
+                        columnMetadata.getPhysicalColumnType(),
+                        DeltaLakeColumnType.REGULAR)));
+
+        ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
+        List<AddFileEntry> deltaLakeAddFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, session);
+        int fileCount = 0;
+        for (AddFileEntry addFileEntry : deltaLakeAddFileEntries) {
+            // TODO: Rewrite Delta Lake metrics rather than re-reading the file
+            String filePath = DeltaLakeSplitManager.buildSplitPath(location, addFileEntry);
+            log.debug("Building data files from '%s' from Delta Lake file %d of %d", filePath, fileCount++, deltaLakeAddFileEntries.size());
+            InputFile inputFile = new ForwardingInputFile(fileSystem.newInputFile(filePath));
+            Metrics metrics = ParquetUtil.fileMetrics(inputFile, METRICS_CONFIG, nameMapping);
+            dataFilesBuilder.add(DataFiles.builder(partitionSpec)
+                    .withPath(filePath)
+                    .withFormat(FileFormat.PARQUET)
+                    .withFileSizeInBytes(addFileEntry.getSize())
+                    .withMetrics(metrics)
+                    .withPartition(partitionDataFromDeltaLake(schema, partitionSpec, columnHandles, addFileEntry.getCanonicalPartitionValues()))
+                    .build());
+        }
+
+        commitNewTable(
+                session,
+                catalog,
+                metastore,
+                hiveTable,
+                schemaTableName,
+                schema,
+                partitionSpec,
+                location,
+                properties,
+                dataFilesBuilder.build());
     }
 
     private void migrateHiveTable(
@@ -227,7 +354,7 @@ public class MigrateProcedure
         HiveStorageFormat storageFormat = extractHiveStorageFormat(hiveTable.getStorage().getStorageFormat());
         String location = hiveTable.getStorage().getLocation();
 
-        Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping);
+        Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, Optional.ofNullable(hiveTable.getParameters().get(TABLE_COMMENT)));
         List<String> partitionColumnNames = hiveTable.getPartitionColumns().stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
@@ -307,7 +434,7 @@ public class MigrateProcedure
         log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
     }
 
-    private Map<String, String> icebergTableProperties(String location, Map<String, String> hiveTableProperties, NameMapping nameMapping)
+    private Map<String, String> icebergTableProperties(String location, Map<String, String> hiveTableProperties, NameMapping nameMapping, Optional<String> tableComment)
     {
         Map<String, String> icebergTableProperties = new HashMap<>();
 
@@ -323,6 +450,8 @@ public class MigrateProcedure
         icebergTableProperties.put(METADATA_LOCATION_PROP, location);
         icebergTableProperties.put(DEFAULT_NAME_MAPPING, toJson(nameMapping));
         icebergTableProperties.put(FORMAT_VERSION, String.valueOf(formatVersion));
+
+        tableComment.ifPresent(comment -> icebergTableProperties.put(TABLE_COMMENT, comment));
 
         return ImmutableMap.copyOf(icebergTableProperties);
     }
@@ -408,5 +537,33 @@ public class MigrateProcedure
                 .withMetrics(metrics)
                 .withPartition(partition)
                 .build();
+    }
+
+    private static PartitionSpec partitionSpecFromDeltaLake(Schema icebergSchema, MetadataEntry metadataEntry)
+    {
+        if (metadataEntry.getCanonicalPartitionColumns().isEmpty()) {
+            return PartitionSpec.unpartitioned();
+        }
+
+        PartitionSpec.Builder partitionSpecBuilder = PartitionSpec.builderFor(icebergSchema);
+        metadataEntry.getCanonicalPartitionColumns().forEach(partitionSpecBuilder::identity);
+        return partitionSpecBuilder.build();
+    }
+
+    private static PartitionData partitionDataFromDeltaLake(Schema icebergSchema, PartitionSpec partitionSpec, Map<String, DeltaLakeColumnHandle> columnHandles, Map<String, Optional<String>> deltaPartitioning)
+    {
+        Object[] partition = partitionSpec.fields().stream()
+                .map(partitionField -> {
+                    String columnName = icebergSchema.findField(partitionField.sourceId()).name();
+                    Optional<String> deltaPartitionValue = deltaPartitioning.get(columnName);
+                    DeltaLakeColumnHandle columnHandle = columnHandles.get(columnName);
+                    if (columnHandle == null) {
+                        throw new IllegalStateException("Missing DeltaLakeColumnHandle for partition field " + partitionField);
+                    }
+                    Object trinoValue = deserializePartitionValue(columnHandle, deltaPartitionValue);
+                    return getIcebergValue(RunLengthEncodedBlock.create(columnHandle.getType(), trinoValue, 1), 0, columnHandle.getType());
+                })
+                .toArray();
+        return new PartitionData(partition);
     }
 }
