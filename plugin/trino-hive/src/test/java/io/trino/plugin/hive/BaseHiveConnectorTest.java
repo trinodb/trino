@@ -5289,32 +5289,6 @@ public abstract class BaseHiveConnectorTest
         assertNoDataRead("SELECT * FROM " + tableName + " WHERE n = 3");
     }
 
-    @Test
-    public void testParquetOnlyNullsRowGroupPruning()
-    {
-        String tableName = "test_primitive_column_nulls_pruning_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (col BIGINT) WITH (format = 'PARQUET')");
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM unnest(repeat(NULL, 4096))", 4096);
-        assertNoDataRead("SELECT * FROM " + tableName + " WHERE col IS NOT NULL");
-
-        tableName = "test_nested_column_nulls_pruning_" + randomNameSuffix();
-        // Nested column `a` has nulls count of 4096 and contains only nulls
-        // Nested column `b` also has nulls count of 4096, but it contains non nulls as well
-        assertUpdate("CREATE TABLE " + tableName + " (col ROW(a BIGINT, b ARRAY(DOUBLE))) WITH (format = 'PARQUET')");
-        assertUpdate("INSERT INTO " + tableName + " SELECT * FROM unnest(transform(repeat(1, 4096), x -> ROW(ROW(NULL, ARRAY [NULL, rand()]))))", 4096);
-        // TODO replace with assertNoDataRead after nested column predicate pushdown
-        assertQueryStats(
-                getSession(),
-                "SELECT * FROM " + tableName + " WHERE col.a IS NOT NULL",
-                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
-                results -> assertThat(results.getRowCount()).isEqualTo(0));
-        assertQueryStats(
-                getSession(),
-                "SELECT * FROM " + tableName + " WHERE col.b IS NOT NULL",
-                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isGreaterThan(0),
-                results -> assertThat(results.getRowCount()).isEqualTo(4096));
-    }
-
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithQueryId queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.getQueryId());
