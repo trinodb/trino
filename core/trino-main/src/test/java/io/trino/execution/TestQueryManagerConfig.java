@@ -49,8 +49,10 @@ public class TestQueryManagerConfig
                 .setMinScheduleSplitBatchSize(100)
                 .setMaxConcurrentQueries(1000)
                 .setMaxQueuedQueries(5000)
+                .setDeterminePartitionCountForWriteEnabled(false)
                 .setMaxHashPartitionCount(100)
                 .setMinHashPartitionCount(4)
+                .setMinHashPartitionCountForWrite(50)
                 .setQueryManagerExecutorPoolSize(5)
                 .setQueryExecutorPoolSize(1000)
                 .setMaxStateMachineCallbackThreads(5)
@@ -94,6 +96,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.15)))
                 .setFaultTolerantExecutionMaxPartitionCount(50)
                 .setFaultTolerantExecutionMinPartitionCount(4)
+                .setFaultTolerantExecutionMinPartitionCountForWrite(50)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true)
                 .setMaxWriterTasksCount(100));
     }
@@ -112,8 +115,10 @@ public class TestQueryManagerConfig
                 .put("query.min-schedule-split-batch-size", "9")
                 .put("query.max-concurrent-queries", "10")
                 .put("query.max-queued-queries", "15")
+                .put("query.determine-partition-count-for-write-enabled", "true")
                 .put("query.max-hash-partition-count", "16")
                 .put("query.min-hash-partition-count", "2")
+                .put("query.min-hash-partition-count-for-write", "88")
                 .put("query.manager-executor-pool-size", "11")
                 .put("query.executor-pool-size", "111")
                 .put("query.max-state-machine-callback-threads", "112")
@@ -157,6 +162,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-task-descriptor-storage-max-memory", "3GB")
                 .put("fault-tolerant-execution-max-partition-count", "123")
                 .put("fault-tolerant-execution-min-partition-count", "12")
+                .put("fault-tolerant-execution-min-partition-count-for-write", "99")
                 .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
                 .put("query.max-writer-task-count", "101")
                 .buildOrThrow();
@@ -172,8 +178,10 @@ public class TestQueryManagerConfig
                 .setMinScheduleSplitBatchSize(9)
                 .setMaxConcurrentQueries(10)
                 .setMaxQueuedQueries(15)
+                .setDeterminePartitionCountForWriteEnabled(true)
                 .setMaxHashPartitionCount(16)
                 .setMinHashPartitionCount(2)
+                .setMinHashPartitionCountForWrite(88)
                 .setQueryManagerExecutorPoolSize(11)
                 .setQueryExecutorPoolSize(111)
                 .setMaxStateMachineCallbackThreads(112)
@@ -217,6 +225,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.of(3, GIGABYTE))
                 .setFaultTolerantExecutionMaxPartitionCount(123)
                 .setFaultTolerantExecutionMinPartitionCount(12)
+                .setFaultTolerantExecutionMinPartitionCountForWrite(99)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false)
                 .setMaxWriterTasksCount(101);
 

@@ -48,12 +48,15 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinPartitionCountForWrite;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getMinHashPartitionCount;
+import static io.trino.SystemSessionProperties.getMinHashPartitionCountForWrite;
 import static io.trino.SystemSessionProperties.getMinInputRowsPerTask;
 import static io.trino.SystemSessionProperties.getMinInputSizePerTask;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isDeterminePartitionCountForWriteEnabled;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
@@ -111,14 +114,15 @@ public class DeterminePartitionCount
         requireNonNull(types, "types is null");
         requireNonNull(tableStatsProvider, "tableStatsProvider is null");
 
-        // Skip for write nodes since writing partitioned data with small amount of nodes could cause
+        // Unless enabled, skip for write nodes since writing partitioned data with small amount of nodes could cause
         // memory related issues even when the amount of data is small.
-        if (PlanNodeSearcher.searchFrom(plan).whereIsInstanceOfAny(INSERT_NODES).matches()) {
+        boolean isWriteQuery = PlanNodeSearcher.searchFrom(plan).whereIsInstanceOfAny(INSERT_NODES).matches();
+        if (isWriteQuery && !isDeterminePartitionCountForWriteEnabled(session)) {
             return plan;
         }
 
         try {
-            return determinePartitionCount(plan, session, types, tableStatsProvider)
+            return determinePartitionCount(plan, session, types, tableStatsProvider, isWriteQuery)
                     .map(partitionCount -> rewriteWith(new Rewriter(partitionCount), plan))
                     .orElse(plan);
         }
@@ -129,7 +133,12 @@ public class DeterminePartitionCount
         return plan;
     }
 
-    private Optional<Integer> determinePartitionCount(PlanNode plan, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    private Optional<Integer> determinePartitionCount(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            TableStatsProvider tableStatsProvider,
+            boolean isWriteQuery)
     {
         long minInputSizePerTask = getMinInputSizePerTask(session).toBytes();
         long minInputRowsPerTask = getMinInputRowsPerTask(session);
@@ -145,19 +154,25 @@ public class DeterminePartitionCount
         int minPartitionCount;
         int maxPartitionCount;
         if (getRetryPolicy(session).equals(RetryPolicy.TASK)) {
-            minPartitionCount = getFaultTolerantExecutionMinPartitionCount(session);
+            if (isWriteQuery) {
+                minPartitionCount = getFaultTolerantExecutionMinPartitionCountForWrite(session);
+            }
+            else {
+                minPartitionCount = getFaultTolerantExecutionMinPartitionCount(session);
+            }
             maxPartitionCount = getFaultTolerantExecutionMaxPartitionCount(session);
-            verify(minPartitionCount <= maxPartitionCount,
-                    "faultTolerantExecutionMinPartitionCount %s larger than faultTolerantExecutionMaxPartitionCount %s",
-                    minPartitionCount, maxPartitionCount);
         }
         else {
-            minPartitionCount = getMinHashPartitionCount(session);
+            if (isWriteQuery) {
+                minPartitionCount = getMinHashPartitionCountForWrite(session);
+            }
+            else {
+                minPartitionCount = getMinHashPartitionCount(session);
+            }
             maxPartitionCount = getMaxHashPartitionCount(session);
-            verify(minPartitionCount <= maxPartitionCount,
-                    "minHashPartitionCount %s larger than maxHashPartitionCount %s",
-                    minPartitionCount, maxPartitionCount);
         }
+        verify(minPartitionCount <= maxPartitionCount, "minPartitionCount %s larger than maxPartitionCount %s",
+                minPartitionCount, maxPartitionCount);
 
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
         long queryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
