@@ -29,7 +29,7 @@ public interface ConnectorSplitManager
         throw new UnsupportedOperationException();
     }
 
-    @Experimental(eta = "2023-03-31")
+    @Experimental(eta = "2023-07-31")
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,

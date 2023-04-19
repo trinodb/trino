@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
  * Note: when the input is empty, the only valid index value is null, because there are no input rows that could be attached to output. In such case, for performance
  * reasons, the validation of indexes is skipped, and all pass-through columns are filled with nulls.
  */
-@Experimental(eta = "2023-03-31")
+@Experimental(eta = "2023-07-31")
 public sealed interface TableFunctionProcessorState
         permits TableFunctionProcessorState.Blocked, TableFunctionProcessorState.Finished, TableFunctionProcessorState.Processed
 {
