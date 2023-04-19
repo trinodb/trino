@@ -1129,7 +1129,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private static List<SubPlan> sortPlanInTopologicalOrder(SubPlan subPlan)
         {
             ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
-            Traverser.forTree(SubPlan::getChildren).depthFirstPreOrder(subPlan).forEach(result::add);
+            Traverser.forTree(SubPlan::getChildren).depthFirstPostOrder(subPlan).forEach(result::add);
             return result.build();
         }
 
