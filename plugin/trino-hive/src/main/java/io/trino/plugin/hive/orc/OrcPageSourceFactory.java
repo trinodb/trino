@@ -100,6 +100,7 @@ import static io.trino.plugin.hive.orc.OrcTypeTranslator.createCoercer;
 import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
 import static io.trino.plugin.hive.util.HiveClassNames.ORC_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.HiveUtil.splitError;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -538,11 +539,6 @@ public class OrcPageSourceFactory
     private static boolean hasOriginalFiles(AcidInfo acidInfo)
     {
         return !acidInfo.getOriginalFiles().isEmpty();
-    }
-
-    private static String splitError(Throwable t, Location path, long start, long length)
-    {
-        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
     private static void verifyFileHasColumnNames(List<OrcColumn> columns, Location path)

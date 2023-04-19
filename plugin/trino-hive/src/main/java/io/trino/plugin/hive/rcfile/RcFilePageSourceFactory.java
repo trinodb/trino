@@ -66,9 +66,9 @@ import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.util.HiveClassNames.COLUMNAR_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.HiveUtil.splitError;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RcFilePageSourceFactory
@@ -192,10 +192,5 @@ public class RcFilePageSourceFactory
             }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
-    }
-
-    private static String splitError(Throwable t, Location path, long start, long length)
-    {
-        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 }
