@@ -77,6 +77,7 @@ public class DeltaLakeConfig
     private boolean uniqueTableLocation = true;
     private boolean legacyCreateTableWithExistingLocationEnabled;
     private boolean registerTableProcedureEnabled;
+    private boolean projectionPushdownEnabled = true;
 
     public Duration getMetadataCacheTtl()
     {
@@ -473,6 +474,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setRegisterTableProcedureEnabled(boolean registerTableProcedureEnabled)
     {
         this.registerTableProcedureEnabled = registerTableProcedureEnabled;
+        return this;
+    }
+
+    public boolean isProjectionPushdownEnabled()
+    {
+        return projectionPushdownEnabled;
+    }
+
+    @Config("delta.projection-pushdown-enabled")
+    @ConfigDescription("Read only required fields from a row column")
+    public DeltaLakeConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
+    {
+        this.projectionPushdownEnabled = projectionPushdownEnabled;
         return this;
     }
 }

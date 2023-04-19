@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -348,8 +347,7 @@ public class HivePageSourceProvider
                 HivePageSourceProvider::getProjection);
     }
 
-    @VisibleForTesting
-    static List<Integer> getProjection(ColumnHandle expected, ColumnHandle read)
+    public static List<Integer> getProjection(ColumnHandle expected, ColumnHandle read)
     {
         HiveColumnHandle expectedColumn = (HiveColumnHandle) expected;
         HiveColumnHandle readColumn = (HiveColumnHandle) read;
@@ -707,9 +705,17 @@ public class HivePageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@param columns} and base columns if required.
+     * Creates a mapping between the input {@param columns} and base columns based on baseHiveColumnIndex if required.
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
+    {
+        return projectBaseColumns(columns, false);
+    }
+
+    /**
+     * Creates a mapping between the input {@param columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
+     */
+    public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns, boolean useColumnNames)
     {
         requireNonNull(columns, "columns is null");
 
@@ -720,16 +726,16 @@ public class HivePageSourceProvider
 
         ImmutableList.Builder<ColumnHandle> projectedColumns = ImmutableList.builder();
         ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
-        Map<Integer, Integer> mappedHiveColumnIndices = new HashMap<>();
+        Map<String, Integer> mappedHiveBaseColumnKeys = new HashMap<>();
         int projectedColumnCount = 0;
 
         for (HiveColumnHandle column : columns) {
-            int hiveColumnIndex = column.getBaseHiveColumnIndex();
-            Integer mapped = mappedHiveColumnIndices.get(hiveColumnIndex);
+            String baseColumnKey = useColumnNames ? column.getBaseColumnName() : String.valueOf(column.getBaseHiveColumnIndex());
+            Integer mapped = mappedHiveBaseColumnKeys.get(baseColumnKey);
 
             if (mapped == null) {
                 projectedColumns.add(column.getBaseColumn());
-                mappedHiveColumnIndices.put(hiveColumnIndex, projectedColumnCount);
+                mappedHiveBaseColumnKeys.put(baseColumnKey, projectedColumnCount);
                 outputColumnMapping.add(projectedColumnCount);
                 projectedColumnCount++;
             }

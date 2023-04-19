@@ -255,7 +255,8 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                         columnMeta.getFieldId(),
                         columnMeta.getPhysicalName(),
                         columnMeta.getPhysicalColumnType(),
-                        metadata.getCanonicalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR))
+                        metadata.getCanonicalPartitionColumns().contains(columnMeta.getName()) ? PARTITION_KEY : REGULAR,
+                        Optional.empty()))
                 .collect(toImmutableList());
 
         Map<DeltaLakeColumnHandle, Double> nullCounts = new HashMap<>();
@@ -272,7 +273,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         }
 
         Set<String> predicatedColumnNames = tableHandle.getNonPartitionConstraint().getDomains().orElseThrow().keySet().stream()
-                .map(DeltaLakeColumnHandle::getName)
+                .map(DeltaLakeColumnHandle::getBaseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> predicatedColumns = columnMetadata.stream()
                 .filter(column -> predicatedColumnNames.contains(column.getName()))
@@ -304,7 +305,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
             numRecords += stats.getNumRecords().get();
             for (DeltaLakeColumnHandle column : columns) {
                 if (column.getColumnType() == PARTITION_KEY) {
-                    Optional<String> partitionValue = addEntry.getCanonicalPartitionValues().get(column.getPhysicalName());
+                    Optional<String> partitionValue = addEntry.getCanonicalPartitionValues().get(column.getBasePhysicalColumnName());
                     if (partitionValue.isEmpty()) {
                         nullCounts.merge(column, (double) stats.getNumRecords().get(), Double::sum);
                     }
@@ -316,7 +317,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                     }
                 }
                 else {
-                    Optional<Long> maybeNullCount = stats.getNullCount(column.getPhysicalName());
+                    Optional<Long> maybeNullCount = stats.getNullCount(column.getBasePhysicalColumnName());
                     if (maybeNullCount.isPresent()) {
                         nullCounts.put(column, nullCounts.get(column) + maybeNullCount.get());
                     }
@@ -328,13 +329,13 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
                 // Math.min returns NaN if any operand is NaN
                 stats.getMinColumnValue(column)
-                        .map(parsedValue -> toStatsRepresentation(column.getType(), parsedValue))
+                        .map(parsedValue -> toStatsRepresentation(column.getBaseType(), parsedValue))
                         .filter(OptionalDouble::isPresent)
                         .map(OptionalDouble::getAsDouble)
                         .ifPresent(parsedValueAsDouble -> minValues.merge(column, parsedValueAsDouble, Math::min));
 
                 stats.getMaxColumnValue(column)
-                        .map(parsedValue -> toStatsRepresentation(column.getType(), parsedValue))
+                        .map(parsedValue -> toStatsRepresentation(column.getBaseType(), parsedValue))
                         .filter(OptionalDouble::isPresent)
                         .map(OptionalDouble::getAsDouble)
                         .ifPresent(parsedValueAsDouble -> maxValues.merge(column, parsedValueAsDouble, Math::max));
@@ -375,7 +376,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
                 columnStatsBuilder.setDistinctValuesCount(Estimate.of(partitioningColumnsDistinctValues.get(column).size()));
             }
             if (statistics.isPresent()) {
-                DeltaLakeColumnStatistics deltaLakeColumnStatistics = statistics.get().getColumnStatistics().get(column.getPhysicalName());
+                DeltaLakeColumnStatistics deltaLakeColumnStatistics = statistics.get().getColumnStatistics().get(column.getBasePhysicalColumnName());
                 if (deltaLakeColumnStatistics != null && column.getColumnType() != PARTITION_KEY) {
                     deltaLakeColumnStatistics.getTotalSizeInBytes().ifPresent(size -> columnStatsBuilder.setDataSize(Estimate.of(size)));
                     columnStatsBuilder.setDistinctValuesCount(Estimate.of(deltaLakeColumnStatistics.getNdvSummary().cardinality()));

@@ -174,7 +174,8 @@ public class TestDeltaLakeSchemaSupport
                 OptionalInt.empty(),
                 "arr",
                 new ArrayType(new ArrayType(INTEGER)),
-                REGULAR);
+                REGULAR,
+                Optional.empty());
 
         DeltaLakeColumnHandle structColumn = new DeltaLakeColumnHandle(
                 "str",
@@ -190,7 +191,8 @@ public class TestDeltaLakeSchemaSupport
                         new RowType.Field(Optional.of("s2"), RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("i1"), INTEGER),
                                 new RowType.Field(Optional.of("d2"), DecimalType.createDecimalType(38, 0))))))),
-                REGULAR);
+                REGULAR,
+                Optional.empty());
 
         TypeOperators typeOperators = new TypeOperators();
         DeltaLakeColumnHandle mapColumn = new DeltaLakeColumnHandle(
@@ -205,7 +207,8 @@ public class TestDeltaLakeSchemaSupport
                         INTEGER,
                         new MapType(INTEGER, INTEGER, typeOperators),
                         typeOperators),
-                REGULAR);
+                REGULAR,
+                Optional.empty());
 
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/nested_schema.json");
         ObjectMapper objectMapper = new ObjectMapper();
@@ -225,7 +228,7 @@ public class TestDeltaLakeSchemaSupport
                 .map(DeltaLakeColumnMetadata::getColumnMetadata)
                 .collect(toImmutableList());
         List<DeltaLakeColumnHandle> columnHandles = schema.stream()
-                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), OptionalInt.empty(), metadata.getName(), metadata.getType(), REGULAR))
+                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), OptionalInt.empty(), metadata.getName(), metadata.getType(), REGULAR, Optional.empty()))
                 .collect(toImmutableList());
         ObjectMapper objectMapper = new ObjectMapper();
         String jsonEncoding = serializeSchemaAsJson(columnHandles, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());

@@ -37,6 +37,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -186,7 +187,8 @@ public class DeltaLakePageSinkProvider
                         metadata.getFieldId(),
                         metadata.getPhysicalName(),
                         metadata.getPhysicalColumnType(),
-                        partitionKeys.contains(metadata.getName()) ? PARTITION_KEY : REGULAR))
+                        partitionKeys.contains(metadata.getName()) ? PARTITION_KEY : REGULAR,
+                        Optional.empty()))
                 .collect(toImmutableList());
         List<DeltaLakeColumnHandle> allColumns = ImmutableList.<DeltaLakeColumnHandle>builder()
                 .addAll(tableColumns)
@@ -196,7 +198,8 @@ public class DeltaLakePageSinkProvider
                         OptionalInt.empty(),
                         CHANGE_TYPE_COLUMN_NAME,
                         VARCHAR,
-                        REGULAR))
+                        REGULAR,
+                        Optional.empty()))
                 .build();
 
         return new DeltaLakeCdfPageSink(

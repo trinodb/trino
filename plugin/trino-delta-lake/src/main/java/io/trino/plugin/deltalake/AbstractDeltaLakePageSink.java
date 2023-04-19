@@ -154,16 +154,16 @@ public abstract class AbstractDeltaLakePageSink
             DeltaLakeColumnHandle column = inputColumns.get(inputIndex);
             switch (column.getColumnType()) {
                 case PARTITION_KEY:
-                    int partitionPosition = canonicalToOriginalPartitionPositions.get(column.getName());
+                    int partitionPosition = canonicalToOriginalPartitionPositions.get(column.getBaseColumnName());
                     partitionColumnInputIndex[partitionPosition] = inputIndex;
-                    originalPartitionColumnNames[partitionPosition] = canonicalToOriginalPartitionColumns.get(column.getName());
-                    partitionColumnTypes[partitionPosition] = column.getType();
+                    originalPartitionColumnNames[partitionPosition] = canonicalToOriginalPartitionColumns.get(column.getBaseColumnName());
+                    partitionColumnTypes[partitionPosition] = column.getBaseType();
                     break;
                 case REGULAR:
                     dataColumnHandles.add(column);
                     dataColumnsInputIndex.add(inputIndex);
-                    dataColumnNames.add(column.getPhysicalName());
-                    dataColumnTypes.add(column.getPhysicalType());
+                    dataColumnNames.add(column.getBasePhysicalColumnName());
+                    dataColumnTypes.add(column.getBasePhysicalType());
                     break;
                 case SYNTHESIZED:
                     processSynthesizedColumn(column);

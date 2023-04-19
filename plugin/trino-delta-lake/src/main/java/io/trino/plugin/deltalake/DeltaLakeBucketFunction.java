@@ -37,7 +37,7 @@ public class DeltaLakeBucketFunction
     public DeltaLakeBucketFunction(TypeOperators typeOperators, List<DeltaLakeColumnHandle> partitioningColumns, int bucketCount)
     {
         this.hashCodeInvokers = partitioningColumns.stream()
-                .map(DeltaLakeColumnHandle::getType)
+                .map(DeltaLakeColumnHandle::getBaseType)
                 .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
                 .collect(toImmutableList());
         this.bucketCount = bucketCount;

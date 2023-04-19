@@ -55,7 +55,7 @@ public class TestDeltaLakeColumnMappingMode
 
         onDelta().executeQuery("" +
                 "CREATE TABLE default." + tableName +
-                " (a_number INT)" +
+                " (a_number INT, nested STRUCT<field1: STRING, field2: STRING>)" +
                 " USING delta " +
                 " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
                 " TBLPROPERTIES (" +
@@ -63,12 +63,12 @@ public class TestDeltaLakeColumnMappingMode
                 " 'delta.minWriterVersion'='5')");
 
         try {
-            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1)");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, struct('nested 1', 'nested 2'))");
 
-            List<Row> expectedRows = ImmutableList.of(row(1));
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+            List<Row> expectedRows = ImmutableList.of(row(1, "nested 1"));
+            assertThat(onDelta().executeQuery("SELECT a_number, nested.field1 FROM default." + tableName))
                     .containsOnly(expectedRows);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+            assertThat(onTrino().executeQuery("SELECT a_number, nested.field1 FROM delta.default." + tableName))
                     .containsOnly(expectedRows);
         }
         finally {

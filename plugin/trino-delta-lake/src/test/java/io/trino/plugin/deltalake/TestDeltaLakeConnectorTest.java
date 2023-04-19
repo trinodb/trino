@@ -26,6 +26,7 @@ import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -942,6 +943,336 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .contains("change_data_feed_enabled = true");
+    }
+
+    @Test
+    public void testHighlyNestedData()
+    {
+        // TODO consider moving this in BaseConnectorTest
+        String tableName = "test_highly_nested_data_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, row_t ROW(f1 INT, f2 INT, row_t ROW (f1 INT, f2 INT, row_t ROW(f1 INT, f2 INT))))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 3, ROW(4, 5, ROW(6, 7)))), (11, ROW(12, 13, ROW(14, 15, ROW(16, 17))))", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (21, ROW(22, 23, ROW(24, 25, ROW(26, 27))))", 1);
+
+        // Test select projected columns, with and without their parent column
+        assertQuery("SELECT id, row_t.row_t.row_t.f2 FROM " + tableName, "VALUES (1, 7), (11, 17), (21, 27)");
+        assertQuery("SELECT id, row_t.row_t.row_t.f2, CAST(row_t AS JSON) FROM " + tableName,
+                "VALUES (1, 7, '{\"f1\":2,\"f2\":3,\"row_t\":{\"f1\":4,\"f2\":5,\"row_t\":{\"f1\":6,\"f2\":7}}}'), " +
+                        "(11, 17, '{\"f1\":12,\"f2\":13,\"row_t\":{\"f1\":14,\"f2\":15,\"row_t\":{\"f1\":16,\"f2\":17}}}'), " +
+                        "(21, 27, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
+
+        // Test predicates on immediate child column and deeper nested column
+        assertQuery("SELECT id, CAST(row_t.row_t.row_t AS JSON) FROM " + tableName + " WHERE row_t.row_t.row_t.f2 = 27", "VALUES (21, '{\"f1\":26,\"f2\":27}')");
+        assertQuery("SELECT id, CAST(row_t.row_t.row_t AS JSON) FROM " + tableName + " WHERE row_t.row_t.row_t.f2 > 20", "VALUES (21, '{\"f1\":26,\"f2\":27}')");
+        assertQuery("SELECT id, CAST(row_t AS JSON) FROM " + tableName + " WHERE row_t.row_t.row_t.f2 = 27",
+                "VALUES (21, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
+        assertQuery("SELECT id, CAST(row_t AS JSON) FROM " + tableName + " WHERE row_t.row_t.row_t.f2 > 20",
+                "VALUES (21, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
+
+        // Test predicates on parent columns
+        assertQuery("SELECT id, row_t.row_t.row_t.f1 FROM " + tableName + " WHERE row_t.row_t.row_t = ROW(16, 17)", "VALUES (11, 16)");
+        assertQuery("SELECT id, row_t.row_t.row_t.f1 FROM " + tableName + " WHERE row_t = ROW(22, 23, ROW(24, 25, ROW(26, 27)))", "VALUES (21, 26)");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testProjectionWithCaseSensitiveField()
+    {
+        // TODO consider moving this in BaseConnectorTest
+        String tableName = "test_projection_with_case_sensitive_field_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, a ROW(\"UPPER_CASE\" INT, \"lower_case\" INT, \"MiXeD_cAsE\" INT))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 3, 4)), (5, ROW(6, 7, 8))", 2);
+
+        String expected = "VALUES (2, 3, 4), (6, 7, 8)";
+        assertQuery("SELECT a.UPPER_CASE, a.lower_case, a.MiXeD_cAsE FROM " + tableName, expected);
+        assertQuery("SELECT a.upper_case, a.lower_case, a.mixed_case FROM " + tableName, expected);
+        assertQuery("SELECT a.UPPER_CASE, a.LOWER_CASE, a.MIXED_CASE FROM " + tableName, expected);
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownReadsLessData()
+    {
+        // TODO consider moving this in BaseConnectorTest
+        String tableName = "test_projection_pushdown_reads_less_data_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, a ROW(b BIGINT, c BIGINT))");
+        assertUpdate("INSERT INTO " + tableName + " SELECT rand(), ROW(rand(), custkey) FROM tpch.sf1.customer", 150000);
+
+        MaterializedResult expectedResult = computeActual("SELECT custkey FROM tpch.sf1.customer");
+        String selectQuery = "SELECT a.c FROM " + tableName;
+        Session sessionWithoutPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
+                .build();
+
+        assertQueryStats(
+                getSession(),
+                selectQuery,
+                statsWithPushdown -> {
+                    DataSize physicalInputDataSizeWithPushdown = statsWithPushdown.getPhysicalInputDataSize();
+                    DataSize processedDataSizeWithPushdown = statsWithPushdown.getProcessedInputDataSize();
+                    assertQueryStats(
+                            sessionWithoutPushdown,
+                            selectQuery,
+                            statsWithoutPushdown -> {
+                                assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isGreaterThan(physicalInputDataSizeWithPushdown);
+                                assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown);
+                            },
+                            results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
+                },
+                results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownOnPartitionedTables()
+    {
+        String tableName1 = "test_table_with_partition_at_beginning_" + randomNameSuffix();
+        String tableName2 = "tes_table_with_partition_at_end_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName1 + " (id BIGINT, root ROW(f1 BIGINT, f2 BIGINT)) WITH (partitioned_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName1 + " VALUES (1, ROW(1, 2)), (1, ROW(2, 3)), (1, ROW(3, 4))", 3);
+        assertQuery("SELECT root.f1, id, root.f2 FROM " + tableName1, "VALUES (1, 1, 2), (2, 1, 3), (3, 1, 4)");
+
+        assertUpdate("CREATE TABLE " + tableName2 + " (root ROW(f1 BIGINT, f2 BIGINT), id BIGINT) WITH (partitioned_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES (ROW(1, 2), 1), (ROW(2, 3), 1), (ROW(3, 4), 1)", 3);
+        assertQuery("SELECT root.f2, id, root.f1 FROM " + tableName2, "VALUES (2, 1, 1), (3, 1, 2), (4, 1, 3)");
+
+        assertUpdate("DROP TABLE " + tableName1);
+        assertUpdate("DROP TABLE " + tableName2);
+    }
+
+    @Test
+    public void testProjectionPushdownMultipleRows()
+    {
+        String tableName = "test_projection_pushdown_multiple_rows_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName +
+                " (id BIGINT, nested1 ROW(child1 BIGINT, child2 VARCHAR, child3 INT), nested2 ROW(child1 DOUBLE, child2 BOOLEAN, child3 DATE))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES" +
+                        " (100, ROW(10, 'a', 100), ROW(10.10, true, DATE '2023-04-19'))," +
+                        " (3, ROW(30, 'to_be_deleted', 300), ROW(30.30, false, DATE '2000-04-16'))," +
+                        " (2, ROW(20, 'b', 200), ROW(20.20, false, DATE '1990-04-20'))," +
+                        " (4, ROW(40, NULL, 400), NULL)," +
+                        " (5, NULL, ROW(NULL, true, NULL))",
+                5);
+        assertUpdate("UPDATE " + tableName + " SET id = 1 WHERE nested2.child3 = DATE '2023-04-19'", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE nested1.child1 = 30 AND nested2.child2 = false", 1);
+
+        // Select one field from one row field
+        assertQuery("SELECT id, nested1.child1 FROM " + tableName, "VALUES (1, 10), (2, 20), (4, 40), (5, NULL)");
+        assertQuery("SELECT nested2.child3, id FROM " + tableName, "VALUES (DATE '2023-04-19', 1), (DATE '1990-04-20', 2), (NULL, 4), (NULL, 5)");
+
+        // Select one field each from multiple row fields
+        assertQuery("SELECT nested2.child1, id, nested1.child2 FROM " + tableName, "VALUES (10.10, 1, 'a'), (20.20, 2, 'b'), (NULL, 4, NULL), (NULL, 5, NULL)");
+
+        // Select multiple fields from one row field
+        assertQuery("SELECT nested1.child3, id, nested1.child2 FROM " + tableName, "VALUES (100, 1, 'a'), (200, 2, 'b'), (400, 4, NULL), (NULL, 5, NULL)");
+        assertQuery(
+                "SELECT nested2.child2, nested2.child3, id FROM " + tableName,
+                "VALUES (true, DATE '2023-04-19' , 1), (false, DATE '1990-04-20', 2), (NULL, NULL, 4), (true, NULL, 5)");
+
+        // Select multiple fields from multiple row fields
+        assertQuery(
+                "SELECT id, nested2.child1, nested1.child3, nested2.child2, nested1.child1 FROM " + tableName,
+                "VALUES (1, 10.10, 100, true, 10), (2, 20.20, 200, false, 20), (4, NULL, 400, NULL, 40), (5, NULL, NULL, true, NULL)");
+
+        // Select only nested fields
+        assertQuery("SELECT nested2.child2, nested1.child3 FROM " + tableName, "VALUES (true, 100), (false, 200), (NULL, 400), (true, NULL)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownAfterMerge()
+    {
+        String targetTable = "test_projection_pushdown_after_merge_target_" + randomNameSuffix();
+        String sourceTable = "test_projection_pushdown_after_merge_source_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + targetTable + " (customer VARCHAR, purchases INT, address ROW(city VARCHAR))" +
+                " WITH (partitioned_by = ARRAY['purchases'])");
+        assertUpdate("INSERT INTO " + targetTable + " (customer, purchases, address)" +
+                " VALUES ('Aaron', 5, ROW('Antioch')), ('Bill', 7, ROW('Buena')), ('Carol', 3, ROW('Cambridge')), ('Dave', 11, ROW('Devon'))", 4);
+
+        assertUpdate("CREATE TABLE " + sourceTable + " (customer VARCHAR, purchases INT, address ROW(city VARCHAR))");
+        assertUpdate("INSERT INTO " + sourceTable + " (customer, purchases, address)" +
+                " VALUES ('Aaron', 6, ROW('Arches')), ('Ed', 7, ROW('Etherville')), ('Carol', 9, ROW('Centreville')), ('Dave', 11, ROW('Darbyshire'))", 4);
+
+        @Language("SQL") String sql = "MERGE INTO " + targetTable + " t USING " + sourceTable + " s ON (t.customer = s.customer)" +
+                " WHEN MATCHED AND s.address.city = 'Centreville' THEN DELETE" +
+                " WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                " WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES (s.customer, s.purchases, s.address)";
+
+        assertUpdate(sql, 4);
+
+        assertQuery(
+                "SELECT customer, purchases, address.city FROM " + targetTable,
+                "VALUES ('Aaron', 11, 'Arches'), ('Ed', 7, 'Etherville'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire')");
+
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testProjectionPushdownColumnReorderInSchemaAndDataFile()
+    {
+        String tableName1 = "test_projection_pushdown_column_reorder_1_" + randomNameSuffix();
+        String tableName2 = "test_projection_pushdown_column_reorder_2_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName1 +
+                " (id BIGINT, nested1 ROW(a BIGINT, b VARCHAR, c INT), nested2 ROW(d DOUBLE, e BOOLEAN, f DATE))");
+        assertUpdate("INSERT INTO " + tableName1 + " VALUES" +
+                        " (100, ROW(10, 'a', 100), ROW(10.10, true, DATE '2023-04-19'))",
+                1);
+
+        assertUpdate("CREATE TABLE " + tableName2 +
+                " (nested2 ROW(d DOUBLE, e BOOLEAN, f DATE), id BIGINT, nested1 ROW(a BIGINT, b VARCHAR, c INT))");
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES" +
+                        " (ROW(10.10, true, DATE '2023-04-19'), 100, ROW(10, 'a', 100))",
+                1);
+
+        String table1DataFile = getTableFiles(tableName1).stream()
+                .filter(file -> !file.contains("/_delta_log/"))
+                .findAny()
+                .orElseThrow();
+        table1DataFile = table1DataFile.replaceFirst("s3://" + BUCKET_NAME, "");
+
+        String table2DataFile = getTableFiles(tableName2).stream()
+                .filter(file -> !file.contains("/_delta_log/"))
+                .findAny()
+                .orElseThrow();
+        table2DataFile = table2DataFile.replaceFirst("s3://" + BUCKET_NAME, "");
+
+        MinioClient client = hiveMinioDataLake.getMinioClient();
+        // Replace table1 data file with table2 data file, so that the table's schema and data's schema has different column order
+        client.copyObject(BUCKET_NAME, table2DataFile, BUCKET_NAME, table1DataFile);
+
+        assertQuery("SELECT nested2.e, nested1.a, nested2.f, nested1.b, id FROM " + tableName1, "VALUES (true, 10, DATE '2023-04-19', 'a', 100)");
+        assertQuery("SELECT nested2.e, nested1.a, nested2.f, nested1.b, id FROM " + tableName2, "VALUES (true, 10, DATE '2023-04-19', 'a', 100)");
+
+        assertUpdate("DROP TABLE " + tableName1);
+        assertUpdate("DROP TABLE " + tableName2);
+    }
+
+    @Test
+    public void testProjectionPushdownWithCdfEnabled()
+    {
+        String tableName = "test_projection_pushdown_with_cdf_enabled_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, root ROW(f1 BIGINT, f2 BIGINT)) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(1, 2)), (1, ROW(2, 3)), (1, ROW(3, 4))", 3);
+        assertQuery("SELECT id, root.f2 FROM " + tableName, "VALUES (1, 2), (1, 3), (1, 4)");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(4, 5))", 1);
+        assertQuery("SELECT id, root.f2 FROM " + tableName, "VALUES (1, 2), (1, 3), (1, 4), (1, 5)");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(5, 6))", 1);
+        assertQuery("SELECT id, root.f2 FROM " + tableName, "VALUES (1, 2), (1, 3), (1, 4), (1, 5), (1, 6)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownJoinOnNestedField()
+    {
+        String tableName1 = "test_projection_pushdown_join_On_nested_field_1_" + randomNameSuffix();
+        String tableName2 = "test_projection_pushdown_join_On_nested_field_2_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName1 + " (id BIGINT, root ROW(f1 BIGINT, f2 BIGINT))");
+        assertUpdate("INSERT INTO " + tableName1 + " VALUES (1, ROW(1, 2)), (1, ROW(2, 3)), (1, ROW(3, 4))", 3);
+
+        assertUpdate("CREATE TABLE " + tableName2 + " (id BIGINT, root ROW(f1 BIGINT, f2 VARCHAR))");
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES (1, ROW(1, 'a')), (1, ROW(2, 'b')), (1, ROW(3, 'c'))", 3);
+
+        assertQuery(
+                format("SELECT l.id, l.root.f2, r.root.f2 FROM %s l JOIN %s r ON l.root.f1 = r.root.f1", tableName1, tableName2),
+                "VALUES (1, 2, 'a'), (1, 3, 'b'), (1, 4, 'c')");
+
+        assertUpdate("DROP TABLE " + tableName2);
+        assertUpdate("DROP TABLE " + tableName1);
+    }
+
+    @Test
+    public void testProjectionPushdownExplain()
+    {
+        String tableName = "test_projection_pushdown_explain_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, root ROW(f1 BIGINT, f2 BIGINT)) WITH (partitioned_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(1, 2)), (1, ROW(2, 3)), (1, ROW(3, 4))", 3);
+
+        assertExplain(
+                "EXPLAIN SELECT id, root.f2 FROM " + tableName,
+                "TableScan\\[table = (.*)]",
+                "root#f2 := root#f2:bigint:REGULAR",
+                "id(.*) := id:bigint:PARTITION_KEY");
+
+        Session sessionWithoutPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
+                .build();
+        assertExplain(
+                sessionWithoutPushdown,
+                "EXPLAIN SELECT id, root.f2 FROM " + tableName,
+                "ScanProject\\[table = (.*)]",
+                "expr := \"root\"\\[2]",
+                "root := root:row\\(f1 bigint, f2 bigint\\):REGULAR",
+                "id := id:bigint:PARTITION_KEY");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownNonPrimitiveTypeExplain()
+    {
+        String tableName = "test_projection_pushdown_non_primtive_type_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName +
+                " (id BIGINT, _row ROW(child BIGINT), _array ARRAY(ROW(child BIGINT)), _map MAP(BIGINT, BIGINT))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES" +
+                        " (1, ROW(10), ARRAY[ROW(1), ROW(2)], MAP(ARRAY[1], ARRAY[100]))",
+                1);
+
+        assertExplain(
+                "EXPLAIN SELECT id, _row.child, _array[1].child, _map[1] FROM " + tableName,
+                "ScanProject\\[table = (.*)]",
+                "expr(.*) := \"_array(.*)\"\\[BIGINT '1']\\[1]",
+                "id(.*) := id:bigint:REGULAR",
+                "_array(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
+                "_map(.*) := _map:map\\(bigint, bigint\\):REGULAR",
+                "_row#child := _row#child:bigint:REGULAR");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testProjectionPushdownHighlyNestedExplain()
+    {
+        String tableName = "test_projection_pushdown_highly_nested_explain_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, row1_t ROW(f1 DOUBLE, f2 INT, row2_t ROW (f11 BOOLEAN, f12 VARCHAR, row3_t ROW(f21 DATE, f22 BOOLEAN))))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(98.98, 100, ROW(true, 'INDIA', ROW (DATE '2023-01-01', true))))", 1);
+
+        assertExplain(
+                "EXPLAIN SELECT id, row1_t.row2_t.row3_t, row1_t.row2_t.f12, row1_t.row2_t.row3_t.f22 FROM " + tableName + " WHERE row1_t.row2_t.row3_t.f21 = DATE '2023-01-01'",
+                "ScanFilterProject\\[table = (.*), filterPredicate = \\(\"row1_t#row2_t#row3_t#f21\" = DATE '2023-01-01'\\)]",
+                "id(.*) := id:integer:REGULAR",
+                "row1_t#row2_t#row3_t#f21 := row1_t#row2_t#row3_t#f21:date:REGULAR",
+                "row1_t#row2_t#f12(.*) := row1_t#row2_t#f12:varchar:REGULAR",
+                "row1_t#row2_t#row3_t(.*) := row1_t#row2_t#row3_t:row\\(f21 date, f22 boolean\\):REGULAR");
+
+        assertExplain(
+                "EXPLAIN SELECT id, row1_t.row2_t.row3_t.f21, row1_t.row2_t.f12, row1_t.row2_t.row3_t.f22 FROM " + tableName + " WHERE row1_t.row2_t.f12 = 'INDIA'",
+                "ScanFilter\\[table = (.*), filterPredicate = \\(\"row1_t#row2_t#f12\" = VARCHAR 'INDIA'\\)]",
+                "id(.*) := id:integer:REGULAR",
+                "row1_t#row2_t#f12 := row1_t#row2_t#f12:varchar:REGULAR",
+                "row1_t#row2_t#row3_t#f21 := row1_t#row2_t#row3_t#f21:date:REGULAR",
+                "row1_t#row2_t#row3_t#f22 := row1_t#row2_t#row3_t#f22:boolean:REGULAR");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override
