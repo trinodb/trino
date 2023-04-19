@@ -759,11 +759,7 @@ public class DeltaLakeMetadata
             if (!fileSystem.listFiles(deltaLogDirectory).hasNext()) {
                 validateTableColumns(tableMetadata);
 
-                List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
-                List<DeltaLakeColumnHandle> deltaLakeColumns = tableMetadata.getColumns()
-                        .stream()
-                        .map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionColumns))
-                        .collect(toImmutableList());
+                List<DeltaLakeColumnHandle> deltaLakeColumns = getColumnHandles(tableMetadata);
                 Map<String, String> columnComments = tableMetadata.getColumns().stream()
                         .filter(column -> column.getComment() != null)
                         .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getComment));
@@ -776,7 +772,7 @@ public class DeltaLakeMetadata
                         transactionLogWriter,
                         randomUUID().toString(),
                         deltaLakeColumns,
-                        partitionColumns,
+                        getPartitionedBy(tableMetadata.getProperties()),
                         columnComments,
                         columnsNullability,
                         deltaLakeColumns.stream().collect(toImmutableMap(DeltaLakeColumnHandle::getName, ignored -> ImmutableMap.of())),
@@ -864,7 +860,6 @@ public class DeltaLakeMetadata
         String tableName = schemaTableName.getTableName();
 
         Database schema = metastore.getDatabase(schemaName).orElseThrow(() -> new SchemaNotFoundException(schemaName));
-        List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
 
         boolean external = true;
         String location = getLocation(tableMetadata.getProperties());
@@ -886,7 +881,7 @@ public class DeltaLakeMetadata
         return new DeltaLakeOutputTableHandle(
                 schemaName,
                 tableName,
-                tableMetadata.getColumns().stream().map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionedBy)).collect(toImmutableList()),
+                getColumnHandles(tableMetadata),
                 location,
                 getCheckpointInterval(tableMetadata.getProperties()),
                 external,
@@ -1119,10 +1114,8 @@ public class DeltaLakeMetadata
         try {
             long commitVersion = deltaLakeTableHandle.getReadVersion() + 1;
 
-            List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
-            List<DeltaLakeColumnHandle> columns = tableMetadata.getColumns().stream()
-                    .filter(columnMetadata -> !columnMetadata.isHidden())
-                    .map(columnMetadata -> toColumnHandle(columnMetadata, columnMetadata.getName(), columnMetadata.getType(), partitionColumns))
+            List<DeltaLakeColumnHandle> columns = getColumnHandles(tableMetadata).stream()
+                    .filter(columnMetadata -> columnMetadata.getColumnType() != SYNTHESIZED)
                     .collect(toImmutableList());
 
             ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
@@ -1137,7 +1130,7 @@ public class DeltaLakeMetadata
                     transactionLogWriter,
                     deltaLakeTableHandle.getMetadataEntry().getId(),
                     columns,
-                    partitionColumns,
+                    getPartitionedBy(tableMetadata.getProperties()),
                     columnComments.buildOrThrow(),
                     getColumnsNullability(deltaLakeTableHandle.getMetadataEntry()),
                     getColumnsMetadata(deltaLakeTableHandle.getMetadataEntry()),
@@ -1178,10 +1171,7 @@ public class DeltaLakeMetadata
 
             List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
             ImmutableList.Builder<DeltaLakeColumnHandle> columnsBuilder = ImmutableList.builder();
-            columnsBuilder.addAll(tableMetadata.getColumns().stream()
-                    .filter(column -> !column.isHidden())
-                    .map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionColumns))
-                    .collect(toImmutableList()));
+            columnsBuilder.addAll(getColumnHandles(tableMetadata).stream().filter(column -> column.getColumnType() != SYNTHESIZED).collect(toImmutableList()));
             columnsBuilder.add(toColumnHandle(newColumnMetadata, newColumnMetadata.getName(), newColumnMetadata.getType(), partitionColumns));
             ImmutableMap.Builder<String, String> columnComments = ImmutableMap.builder();
             columnComments.putAll(getColumnComments(handle.getMetadataEntry()));
@@ -2851,6 +2841,15 @@ public class DeltaLakeMetadata
         return Domain.notNull(type);
     }
 
+    private static List<DeltaLakeColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata)
+    {
+        List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
+        List<ColumnMetadata> columnMetadata = tableMetadata.getColumns();
+        return columnMetadata.stream()
+                .map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionColumns))
+                .collect(toImmutableList());
+    }
+
     private static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, String physicalName, Type physicalType, Collection<String> partitionColumns)
     {
         return toColumnHandle(column, OptionalInt.empty(), physicalName, physicalType, partitionColumns);
@@ -2865,7 +2864,9 @@ public class DeltaLakeMetadata
                 fieldId,
                 physicalName,
                 physicalType,
-                isPartitionKey ? PARTITION_KEY : REGULAR);
+                column.isHidden()
+                        ? SYNTHESIZED
+                        : isPartitionKey ? PARTITION_KEY : REGULAR);
     }
 
     private static Optional<String> getQueryId(Database database)
