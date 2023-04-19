@@ -246,7 +246,7 @@ public class Sequence
     public static class SequenceFunctionProcessor
             implements TableFunctionSplitProcessor
     {
-        private final PageBuilder page = new PageBuilder(ImmutableList.of(BIGINT));
+        private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT));
         private final long step;
         private long start;
         private long stop;
@@ -264,39 +264,39 @@ public class Sequence
                 SequenceFunctionSplit sequenceSplit = (SequenceFunctionSplit) split;
                 start = sequenceSplit.getStart();
                 stop = sequenceSplit.getStop();
-                BlockBuilder block = page.getBlockBuilder(0);
-                while (start != stop && !page.isFull()) {
-                    page.declarePosition();
+                BlockBuilder block = pageBuilder.getBlockBuilder(0);
+                while (start != stop && !pageBuilder.isFull()) {
+                    pageBuilder.declarePosition();
                     BIGINT.writeLong(block, start);
                     start += step;
                 }
-                if (!page.isFull()) {
-                    page.declarePosition();
+                if (!pageBuilder.isFull()) {
+                    pageBuilder.declarePosition();
                     BIGINT.writeLong(block, start);
                     finished = true;
-                    return usedInputAndProduced(page.build());
+                    return usedInputAndProduced(pageBuilder.build());
                 }
-                return usedInputAndProduced(page.build());
+                return usedInputAndProduced(pageBuilder.build());
             }
 
             if (finished) {
                 return FINISHED;
             }
 
-            page.reset();
-            BlockBuilder block = page.getBlockBuilder(0);
-            while (start != stop && !page.isFull()) {
-                page.declarePosition();
+            pageBuilder.reset();
+            BlockBuilder block = pageBuilder.getBlockBuilder(0);
+            while (start != stop && !pageBuilder.isFull()) {
+                pageBuilder.declarePosition();
                 BIGINT.writeLong(block, start);
                 start += step;
             }
-            if (!page.isFull()) {
-                page.declarePosition();
+            if (!pageBuilder.isFull()) {
+                pageBuilder.declarePosition();
                 BIGINT.writeLong(block, start);
                 finished = true;
-                return produced(page.build());
+                return produced(pageBuilder.build());
             }
-            return produced(page.build());
+            return produced(pageBuilder.build());
         }
     }
 }
