@@ -70,7 +70,6 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.Reflection.methodHandle;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
@@ -199,7 +198,7 @@ public final class FormatFunction
             return (session, block) -> BIGINT.getLong(block, position);
         }
         if (type.equals(REAL)) {
-            return (session, block) -> intBitsToFloat(REAL.getInt(block, position));
+            return (session, block) -> REAL.getFloat(block, position);
         }
         if (type.equals(DOUBLE)) {
             return (session, block) -> DOUBLE.getDouble(block, position);

@@ -74,7 +74,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 import static org.apache.iceberg.util.DateTimeUtil.microsFromTimestamp;
@@ -153,7 +152,7 @@ public final class IcebergAvroDataConversion
             return BIGINT.getLong(block, position);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat(REAL.getInt(block, position));
+            return REAL.getFloat(block, position);
         }
         if (type.equals(DOUBLE)) {
             return DOUBLE.getDouble(block, position);

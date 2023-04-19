@@ -107,7 +107,7 @@ final class HiveBucketingV2
                     // convert to canonical NaN if necessary
                     // Sic! we're `floatToIntBits -> cast to float -> floatToRawIntBits` just as it is (implicitly) done in
                     // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L830
-                    return murmur3(bytes(floatToRawIntBits(floatToIntBits(intBitsToFloat(REAL.getInt(block, position))))));
+                    return murmur3(bytes(floatToRawIntBits(floatToIntBits(REAL.getFloat(block, position)))));
                 }
                 if (trinoType.equals(DOUBLE)) {
                     // Sic! we're `doubleToLongBits -> cast to double -> doubleToRawLongBits` just as it is (implicitly) done in
