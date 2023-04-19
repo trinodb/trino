@@ -272,7 +272,7 @@ public class ParquetPageSourceFactory
                 nextStart += block.getRowCount();
             }
 
-            Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
+            Optional<ReaderColumns> readerProjections = projectBaseColumns(columns, useColumnNames);
             List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
                             projection.get().stream()
                                     .map(HiveColumnHandle.class::cast)

@@ -89,14 +89,14 @@ public class TestDeltaLakeCreateTableStatistics
             assertThat(entry.getStats()).isPresent();
             DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
-            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("d", createUnboundedVarcharType(), OptionalInt.empty(), "d", createUnboundedVarcharType(), REGULAR);
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("d", createUnboundedVarcharType(), OptionalInt.empty(), "d", createUnboundedVarcharType(), REGULAR, Optional.empty());
             assertEquals(fileStatistics.getNumRecords(), Optional.of(2L));
             assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(utf8Slice("foo")));
             assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(utf8Slice("moo")));
             assertEquals(fileStatistics.getNullCount("d"), Optional.of(0L));
 
             for (String complexColumn : ImmutableList.of("a", "b", "c")) {
-                columnHandle = new DeltaLakeColumnHandle(complexColumn, createUnboundedVarcharType(), OptionalInt.empty(), complexColumn, createUnboundedVarcharType(), REGULAR);
+                columnHandle = new DeltaLakeColumnHandle(complexColumn, createUnboundedVarcharType(), OptionalInt.empty(), complexColumn, createUnboundedVarcharType(), REGULAR, Optional.empty());
                 assertThat(fileStatistics.getMaxColumnValue(columnHandle)).isEmpty();
                 assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEmpty();
                 assertThat(fileStatistics.getNullCount(complexColumn)).isEmpty();
@@ -115,7 +115,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
         try (TestTable table = new TestTable("test_nan_", ImmutableList.of(columnName), format("VALUES CAST(nan() AS %1$s), CAST(0.0 AS %1$s)", type))) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             AddFileEntry entry = getOnlyElement(addFileEntries);
@@ -134,7 +134,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_inf_",
                 ImmutableList.of(columnName),
@@ -156,7 +156,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_inf_nan_",
                 ImmutableList.of(columnName),
@@ -178,7 +178,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_nan_positive_",
                 ImmutableList.of(columnName),
@@ -200,7 +200,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_nan_positive_",
                 ImmutableList.of(columnName),
@@ -246,7 +246,7 @@ public class TestDeltaLakeCreateTableStatistics
         String negative = "-1" + "0".repeat(precision - scale) + "." + "0".repeat(scale - 1) + "1";
 
         String columnName = "t_decimal";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DecimalType.createDecimalType(precision, scale), OptionalInt.empty(), columnName, DecimalType.createDecimalType(precision, scale), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DecimalType.createDecimalType(precision, scale), OptionalInt.empty(), columnName, DecimalType.createDecimalType(precision, scale), REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_decimal_records_",
                 ImmutableList.of(columnName),
@@ -278,7 +278,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_double";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
         try (TestTable table = new TestTable("test_null_records_", ImmutableList.of(columnName), "VALUES null, 0, null, 1")) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             AddFileEntry entry = getOnlyElement(addFileEntries);
@@ -297,7 +297,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_varchar";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), OptionalInt.empty(), columnName, createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), OptionalInt.empty(), columnName, createUnboundedVarcharType(), REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_only_null_records_",
                 ImmutableList.of(columnName),
@@ -319,7 +319,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_date";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DateType.DATE, OptionalInt.empty(), columnName, DateType.DATE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DateType.DATE, OptionalInt.empty(), columnName, DateType.DATE, REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_date_records_",
                 ImmutableList.of(columnName),
@@ -341,7 +341,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_timestamp";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), columnName, TIMESTAMP_TZ_MILLIS, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), columnName, TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_timestamp_records_",
                 ImmutableList.of(columnName),
@@ -367,7 +367,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_string";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), OptionalInt.empty(), columnName, createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), OptionalInt.empty(), columnName, createUnboundedVarcharType(), REGULAR, Optional.empty());
         try (TestTable table = new TestTable("test_unicode_", ImmutableList.of(columnName), "VALUES 'ab\uFAD8', 'ab\uD83D\uDD74'")) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             AddFileEntry entry = getOnlyElement(addFileEntries);
@@ -386,7 +386,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "t_string";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), OptionalInt.empty(), columnName, createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, createUnboundedVarcharType(), OptionalInt.empty(), columnName, createUnboundedVarcharType(), REGULAR, Optional.empty());
         String partitionColumn = "t_int";
 
         try (TestTable table = new TestTable(
@@ -421,7 +421,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         String columnName = "key";
-        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR);
+        DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(columnName, DoubleType.DOUBLE, OptionalInt.empty(), columnName, DoubleType.DOUBLE, REGULAR, Optional.empty());
         try (TestTable table = new TestTable(
                 "test_multi_file_table_nan_value_",
                 ImmutableList.of(columnName),

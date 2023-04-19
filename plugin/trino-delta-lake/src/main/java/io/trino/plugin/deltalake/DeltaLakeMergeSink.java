@@ -62,6 +62,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -362,12 +363,13 @@ public class DeltaLakeMergeSink
 
         try {
             Closeable rollbackAction = () -> fileSystem.deleteFile(path);
+            dataColumns.forEach(column -> verify(column.isBaseColumn(), "Unexpected dereference: %s", column));
 
             List<Type> parquetTypes = dataColumns.stream()
-                    .map(column -> toParquetType(typeOperators, column.getPhysicalType()))
+                    .map(column -> toParquetType(typeOperators, column.getBasePhysicalType()))
                     .collect(toImmutableList());
             List<String> dataColumnNames = dataColumns.stream()
-                    .map(DeltaLakeColumnHandle::getPhysicalName)
+                    .map(DeltaLakeColumnHandle::getBasePhysicalColumnName)
                     .collect(toImmutableList());
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     parquetTypes,
@@ -481,7 +483,7 @@ public class DeltaLakeMergeSink
                 }
                 else {
                     outputBlocks[i] = RunLengthEncodedBlock.create(nativeValueToBlock(
-                                    nonSynthesizedColumns.get(i).getType(),
+                                    nonSynthesizedColumns.get(i).getBaseType(),
                                     deserializePartitionValue(
                                             nonSynthesizedColumns.get(i),
                                             Optional.ofNullable(partitionValues.get(partitionIndex)))),

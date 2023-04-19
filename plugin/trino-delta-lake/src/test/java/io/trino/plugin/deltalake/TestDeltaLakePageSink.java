@@ -188,7 +188,8 @@ public class TestDeltaLakePageSink
                     OptionalInt.empty(),
                     column.getColumnName(),
                     getTrinoType(column.getType()),
-                    REGULAR));
+                    REGULAR,
+                    Optional.empty()));
         }
         return handles.build();
     }

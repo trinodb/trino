@@ -111,7 +111,7 @@ public class DeltaLakeWriter
 
         ImmutableMap.Builder<Integer, Function<Block, Block>> coercers = ImmutableMap.builder();
         for (int i = 0; i < columnHandles.size(); i++) {
-            Optional<Function<Block, Block>> coercer = createCoercer(columnHandles.get(i).getType());
+            Optional<Function<Block, Block>> coercer = createCoercer(columnHandles.get(i).getBaseType());
             if (coercer.isPresent()) {
                 coercers.put(i, coercer.get());
             }
@@ -186,8 +186,8 @@ public class DeltaLakeWriter
             throws IOException
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(rootTableLocation.appendPath(relativeFilePath));
-        List<String> dataColumnNames = columnHandles.stream().map(DeltaLakeColumnHandle::getPhysicalName).collect(toImmutableList());
-        List<Type> dataColumnTypes = columnHandles.stream().map(DeltaLakeColumnHandle::getPhysicalType).collect(toImmutableList());
+        List<String> dataColumnNames = columnHandles.stream().map(DeltaLakeColumnHandle::getBasePhysicalColumnName).collect(toImmutableList());
+        List<Type> dataColumnTypes = columnHandles.stream().map(DeltaLakeColumnHandle::getBasePhysicalType).collect(toImmutableList());
         return new DataFileInfo(
                 relativeFilePath,
                 getWrittenBytes(),
