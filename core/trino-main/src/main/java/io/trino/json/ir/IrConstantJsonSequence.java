@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -54,24 +53,5 @@ public class IrConstantJsonSequence
     public List<JsonNode> getSequence()
     {
         return sequence;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrConstantJsonSequence other = (IrConstantJsonSequence) obj;
-        return Objects.equals(this.sequence, other.sequence);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(sequence);
     }
 }

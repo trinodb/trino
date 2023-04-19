@@ -33,19 +33,4 @@ public class IrContextVariable
     {
         return visitor.visitIrContextVariable(this, context);
     }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        return obj != null && getClass() == obj.getClass();
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return getClass().hashCode();
-    }
 }
