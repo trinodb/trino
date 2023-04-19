@@ -208,6 +208,11 @@ public final class HiveUtil
             .or(CharMatcher.anyOf("\"#%'*/:=?\\\u007F{[]^"))
             .precomputed();
 
+    public static String splitError(Throwable t, Path path, long start, long length)
+    {
+        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
+    }
+
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
                 DateTimeFormat.forPattern("yyyy-M-d").getParser(),

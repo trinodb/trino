@@ -39,6 +39,7 @@ import io.trino.plugin.hive.MonitoredTrinoInputFile;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -70,7 +71,6 @@ import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERD
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static java.lang.Math.min;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class RcFilePageSourceFactory
@@ -159,7 +159,7 @@ public class RcFilePageSourceFactory
             throw e;
         }
         catch (Exception e) {
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, HiveUtil.splitError(e, path, start, length), e);
         }
 
         // Split may be empty now that the correct file size is known
@@ -188,16 +188,11 @@ public class RcFilePageSourceFactory
             throw e;
         }
         catch (Throwable e) {
-            String message = splitError(e, path, start, length);
+            String message = HiveUtil.splitError(e, path, start, length);
             if (e instanceof FileCorruptionException) {
                 throw new TrinoException(HIVE_BAD_DATA, message, e);
             }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
-    }
-
-    private static String splitError(Throwable t, Path path, long start, long length)
-    {
-        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 }
