@@ -152,7 +152,7 @@ public class Query
             return Document.parse(filter);
         }
         catch (JsonParseException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Can't parse 'filter' argument as json");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Can't parse 'filter' argument as json", e);
         }
     }
 
