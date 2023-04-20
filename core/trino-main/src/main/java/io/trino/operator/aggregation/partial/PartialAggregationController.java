@@ -16,6 +16,8 @@ package io.trino.operator.aggregation.partial;
 import io.airlift.units.DataSize;
 import io.trino.operator.HashAggregationOperator;
 
+import java.util.OptionalLong;
+
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -23,7 +25,6 @@ import static java.util.Objects.requireNonNull;
  * for a particular plan node on a single node.
  * Partial aggregation is disabled after sampling sufficient amount of input
  * and the ratio between output(unique) and input rows is too high (> {@link #uniqueRowsRatioThreshold}).
- * TODO https://github.com/trinodb/trino/issues/11361 add support to adaptively re-enable partial aggregation.
  * <p>
  * The class is thread safe and objects of this class are used potentially by multiple threads/drivers simultaneously.
  * Different threads either:
@@ -37,6 +38,10 @@ public class PartialAggregationController
      * considering partial-aggregation to be turned off.
      */
     private static final double DISABLE_AGGREGATION_BUFFER_SIZE_TO_INPUT_BYTES_FACTOR = 1.5;
+    /**
+     * Re-enable partial aggregation periodically in case aggregation efficiency improved.
+     */
+    private static final double ENABLE_AGGREGATION_BUFFER_SIZE_TO_INPUT_BYTES_FACTOR = DISABLE_AGGREGATION_BUFFER_SIZE_TO_INPUT_BYTES_FACTOR * 200;
 
     private final DataSize maxPartialMemory;
     private final double uniqueRowsRatioThreshold;
@@ -57,14 +62,27 @@ public class PartialAggregationController
         return partialAggregationDisabled;
     }
 
-    public synchronized void onFlush(long bytesProcessed, long rowsProcessed, long uniqueRowsProduced)
+    public synchronized void onFlush(long bytesProcessed, long rowsProcessed, OptionalLong uniqueRowsProduced)
     {
+        if (!partialAggregationDisabled && uniqueRowsProduced.isEmpty()) {
+            // when PA is re-enabled, ignore stats from disabled flushes
+            return;
+        }
+
         totalBytesProcessed += bytesProcessed;
         totalRowProcessed += rowsProcessed;
-        totalUniqueRowsProduced += uniqueRowsProduced;
+        uniqueRowsProduced.ifPresent(value -> totalUniqueRowsProduced += value);
 
         if (!partialAggregationDisabled && shouldDisablePartialAggregation()) {
             partialAggregationDisabled = true;
+        }
+
+        if (partialAggregationDisabled
+                && totalBytesProcessed >= maxPartialMemory.toBytes() * ENABLE_AGGREGATION_BUFFER_SIZE_TO_INPUT_BYTES_FACTOR) {
+            totalBytesProcessed = 0;
+            totalRowProcessed = 0;
+            totalUniqueRowsProduced = 0;
+            partialAggregationDisabled = false;
         }
     }
 

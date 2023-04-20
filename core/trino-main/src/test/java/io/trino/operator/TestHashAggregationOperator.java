@@ -53,6 +53,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -766,8 +767,39 @@ public class TestHashAggregationOperator
                 .addBlocksPage(createRepeatedValuesBlock(1, 10), createRepeatedValuesBlock(1, 10))
                 .addBlocksPage(createRepeatedValuesBlock(2, 10), createRepeatedValuesBlock(2, 10))
                 .build();
-
         assertOperatorEquals(operatorFactory, operator2Input, operator2Expected);
+
+        // partial aggregation should be enabled again after enough data is processed
+        for (int i = 1; i <= 3; ++i) {
+            List<Page> operatorInput = rowPagesBuilder(false, hashChannels, BIGINT)
+                    .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8))
+                    .build();
+            List<Page> operatorExpected = rowPagesBuilder(BIGINT, BIGINT)
+                    .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8), createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8))
+                    .build();
+            assertOperatorEquals(operatorFactory, operatorInput, operatorExpected);
+            if (i <= 2) {
+                assertTrue(partialAggregationController.isPartialAggregationDisabled());
+            }
+            else {
+                assertFalse(partialAggregationController.isPartialAggregationDisabled());
+            }
+        }
+
+        // partial aggregation should still be enabled even after some late flush comes from disabled PA
+        partialAggregationController.onFlush(1_000_000, 1_000_000, OptionalLong.empty());
+
+        // partial aggregation should keep being enabled after good reduction has been observed
+        List<Page> operator3Input = rowPagesBuilder(false, hashChannels, BIGINT)
+                .addBlocksPage(createRepeatedValuesBlock(1, 100))
+                .addBlocksPage(createRepeatedValuesBlock(2, 100))
+                .build();
+        List<Page> operator3Expected = rowPagesBuilder(BIGINT, BIGINT)
+                .addBlocksPage(createRepeatedValuesBlock(1, 1), createRepeatedValuesBlock(1, 1))
+                .addBlocksPage(createRepeatedValuesBlock(2, 1), createRepeatedValuesBlock(2, 1))
+                .build();
+        assertOperatorEquals(operatorFactory, operator3Input, operator3Expected);
+        assertFalse(partialAggregationController.isPartialAggregationDisabled());
     }
 
     @Test
