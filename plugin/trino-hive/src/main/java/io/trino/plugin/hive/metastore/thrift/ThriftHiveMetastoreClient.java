@@ -56,6 +56,7 @@ import io.trino.hive.thrift.metastore.PrivilegeBag;
 import io.trino.hive.thrift.metastore.Role;
 import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.hive.thrift.metastore.TableMeta;
 import io.trino.hive.thrift.metastore.TableStatsRequest;
 import io.trino.hive.thrift.metastore.TableValidWriteIds;
 import io.trino.hive.thrift.metastore.ThriftHiveMetastore;
@@ -64,6 +65,7 @@ import io.trino.hive.thrift.metastore.UnlockRequest;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.metastore.thrift.MetastoreSupportsDateStatistics.DateStatisticsSupport;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -73,6 +75,7 @@ import org.apache.thrift.transport.TTransportException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -114,7 +117,9 @@ public class ThriftHiveMetastoreClient
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics;
     private final AtomicInteger chosenGetTableAlternative;
     private final AtomicInteger chosenTableParamAlternative;
+    private final AtomicInteger chosenGetAllTablesAlternative;
     private final AtomicInteger chosenGetAllViewsPerDatabaseAlternative;
+    private final AtomicInteger chosenGetAllViewsAlternative;
     private final AtomicInteger chosenAlterTransactionalTableAlternative;
     private final AtomicInteger chosenAlterPartitionsAlternative;
 
@@ -124,7 +129,9 @@ public class ThriftHiveMetastoreClient
             MetastoreSupportsDateStatistics metastoreSupportsDateStatistics,
             AtomicInteger chosenGetTableAlternative,
             AtomicInteger chosenTableParamAlternative,
+            AtomicInteger chosenGetAllTablesAlternative,
             AtomicInteger chosenGetAllViewsPerDatabaseAlternative,
+            AtomicInteger chosenGetAllViewsAlternative,
             AtomicInteger chosenAlterTransactionalTableAlternative,
             AtomicInteger chosenAlterPartitionsAlternative)
             throws TTransportException
@@ -137,6 +144,8 @@ public class ThriftHiveMetastoreClient
         this.chosenGetAllViewsPerDatabaseAlternative = requireNonNull(chosenGetAllViewsPerDatabaseAlternative, "chosenGetAllViewsPerDatabaseAlternative is null");
         this.chosenAlterTransactionalTableAlternative = requireNonNull(chosenAlterTransactionalTableAlternative, "chosenAlterTransactionalTableAlternative is null");
         this.chosenAlterPartitionsAlternative = requireNonNull(chosenAlterPartitionsAlternative, "chosenAlterPartitionsAlternative is null");
+        this.chosenGetAllTablesAlternative = requireNonNull(chosenGetAllTablesAlternative, "chosenGetAllTablesAlternative is null");
+        this.chosenGetAllViewsAlternative = requireNonNull(chosenGetAllViewsAlternative, "chosenGetAllViewsAlternative is null");
 
         connect();
     }
@@ -185,6 +194,18 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+            throws TException
+    {
+        return alternativeCall(
+                exception -> !isUnknownMethodExceptionalResponse(exception),
+                chosenGetAllTablesAlternative,
+                // Empty table types argument (the 3rd one) means all types of tables
+                () -> getSchemaTableNames(client.getTableMeta("*", "*", ImmutableList.of())),
+                Optional::empty);
+    }
+
+    @Override
     public List<String> getAllViews(String databaseName)
             throws TException
     {
@@ -194,6 +215,24 @@ public class ThriftHiveMetastoreClient
                 () -> client.getTablesByType(databaseName, ".*", VIRTUAL_VIEW.name()),
                 // fallback to enumerating Presto views only (Hive views can still be executed, but will be listed as tables and not views)
                 () -> getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+            throws TException
+    {
+        return alternativeCall(
+                exception -> !isUnknownMethodExceptionalResponse(exception),
+                chosenGetAllViewsAlternative,
+                () -> getSchemaTableNames(client.getTableMeta("*", "*", ImmutableList.of(VIRTUAL_VIEW.name()))),
+                Optional::empty);
+    }
+
+    private static Optional<List<SchemaTableName>> getSchemaTableNames(List<TableMeta> tablesMetadata)
+    {
+        return Optional.of(tablesMetadata.stream()
+                .map(metadata -> new SchemaTableName(metadata.getDbName(), metadata.getTableName()))
+                .collect(toImmutableList()));
     }
 
     @Override

@@ -21,6 +21,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
@@ -33,6 +34,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS;
+
 @ThreadSafe
 public class CountingAccessHiveMetastore
         implements HiveMetastore
@@ -44,9 +48,11 @@ public class CountingAccessHiveMetastore
         GET_ALL_DATABASES,
         GET_DATABASE,
         GET_TABLE,
+        GET_ALL_TABLES,
         GET_ALL_TABLES_FROM_DATABASE,
         GET_TABLE_WITH_PARAMETER,
         GET_TABLE_STATISTICS,
+        GET_ALL_VIEWS,
         GET_ALL_VIEWS_FROM_DATABASE,
         UPDATE_TABLE_STATISTICS,
         ADD_PARTITIONS,
@@ -117,6 +123,16 @@ public class CountingAccessHiveMetastore
     {
         methodInvocations.add(Method.GET_ALL_VIEWS_FROM_DATABASE);
         return delegate.getAllViews(databaseName);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        Optional<List<SchemaTableName>> allViews = delegate.getAllViews();
+        if (allViews.isPresent()) {
+            methodInvocations.add(GET_ALL_VIEWS);
+        }
+        return allViews;
     }
 
     @Override
@@ -346,5 +362,15 @@ public class CountingAccessHiveMetastore
     {
         methodInvocations.add(Method.GET_ALL_TABLES_FROM_DATABASE);
         return delegate.getAllTables(databaseName);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        Optional<List<SchemaTableName>> allTables = delegate.getAllTables();
+        if (allTables.isPresent()) {
+            methodInvocations.add(GET_ALL_TABLES);
+        }
+        return allTables;
     }
 }

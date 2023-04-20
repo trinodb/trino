@@ -440,6 +440,12 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         return getAllViews(databaseName, table -> parameterValue.equals(getTableParameters(table).get(parameterKey)));
@@ -449,6 +455,12 @@ public class GlueHiveMetastore
     public List<String> getAllViews(String databaseName)
     {
         return getAllViews(databaseName, table -> true);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return Optional.empty();
     }
 
     private List<String> getAllViews(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> additionalFilter)

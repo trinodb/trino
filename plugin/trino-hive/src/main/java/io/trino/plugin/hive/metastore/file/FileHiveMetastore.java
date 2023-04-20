@@ -491,6 +491,12 @@ public class FileHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         requireNonNull(parameterKey, "parameterKey is null");
@@ -540,6 +546,12 @@ public class FileHiveMetastore
                 .filter(table -> table.getTableType().equals(VIRTUAL_VIEW.name()))
                 .map(Table::getTableName)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return Optional.empty();
     }
 
     @Override
