@@ -24,6 +24,7 @@ import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
@@ -59,6 +60,7 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isDeterminePartitionCountForWriteEnabled;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.max;
@@ -66,12 +68,12 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * This rule looks at the amount of data read and processed by the query to determine the value of partition count
- * used for remote exchanges. It helps to increase the concurrency of the engine in the case of large cluster.
+ * used for remote partitioned exchanges. It helps to increase the concurrency of the engine in the case of large cluster.
  * This rule is also cautious about lack of or incorrect statistics therefore it skips for input multiplying nodes like
  * CROSS JOIN or UNNEST.
  *
  * E.g. 1:
- * Given query: SELECT count(column_a) FROM table_with_stats_a
+ * Given query: SELECT count(column_a) FROM table_with_stats_a group by column_b
  * config:
  * MIN_INPUT_SIZE_PER_TASK: 500 MB
  * Input table data size: 1000 MB
@@ -113,6 +115,11 @@ public class DeterminePartitionCount
         requireNonNull(session, "session is null");
         requireNonNull(types, "types is null");
         requireNonNull(tableStatsProvider, "tableStatsProvider is null");
+
+        // Skip partition count determination if no partitioned remote exchanges exist in the plan anyway
+        if (!isEligibleRemoteExchangePresent(plan)) {
+            return plan;
+        }
 
         // Unless enabled, skip for write nodes since writing partitioned data with small amount of nodes could cause
         // memory related issues even when the amount of data is small.
@@ -308,6 +315,24 @@ public class DeterminePartitionCount
                 .sum();
     }
 
+    private static boolean isEligibleRemoteExchangePresent(PlanNode root)
+    {
+        return PlanNodeSearcher.searchFrom(root)
+                .where(node -> node instanceof ExchangeNode exchangeNode && isEligibleRemoteExchange(exchangeNode))
+                .matches();
+    }
+
+    private static boolean isEligibleRemoteExchange(ExchangeNode exchangeNode)
+    {
+        if (exchangeNode.getScope() != REMOTE || exchangeNode.getType() != REPARTITION) {
+            return false;
+        }
+        PartitioningHandle partitioningHandle = exchangeNode.getPartitioningScheme().getPartitioning().getHandle();
+        return !partitioningHandle.isScaleWriters()
+                && !partitioningHandle.isSingleNode()
+                && partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle;
+    }
+
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
@@ -321,20 +346,20 @@ public class DeterminePartitionCount
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
         {
-            PartitioningHandle handle = node.getPartitioningScheme().getPartitioning().getHandle();
-            if (!(node.getScope() == REMOTE && handle.getConnectorHandle() instanceof SystemPartitioningHandle)) {
-                return node;
-            }
-
             List<PlanNode> sources = node.getSources().stream()
                     .map(context::rewrite)
                     .collect(toImmutableList());
+
+            PartitioningScheme partitioningScheme = node.getPartitioningScheme();
+            if (isEligibleRemoteExchange(node)) {
+                partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
+            }
 
             return new ExchangeNode(
                     node.getId(),
                     node.getType(),
                     node.getScope(),
-                    node.getPartitioningScheme().withPartitionCount(Optional.of(partitionCount)),
+                    partitioningScheme,
                     sources,
                     node.getInputs(),
                     node.getOrderingScheme());
