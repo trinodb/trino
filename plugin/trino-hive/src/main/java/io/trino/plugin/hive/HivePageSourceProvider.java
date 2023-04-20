@@ -71,6 +71,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
+import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
@@ -243,6 +244,7 @@ public class HivePageSourceProvider
                         bucketValidator,
                         adapter,
                         typeManager,
+                        getTimestampPrecision(session),
                         pageSource));
             }
         }
