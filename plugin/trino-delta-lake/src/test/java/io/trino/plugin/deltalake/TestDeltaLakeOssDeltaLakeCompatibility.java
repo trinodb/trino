@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-public class TestDeltaLakeOssDeltaLakeConnectorTest
-        extends BaseDeltaLakeMinioConnectorTest
+public class TestDeltaLakeOssDeltaLakeCompatibility
+        extends BaseDeltaLakeCompatibility
 {
-    public TestDeltaLakeOssDeltaLakeConnectorTest()
+    public TestDeltaLakeOssDeltaLakeCompatibility()
     {
         super("ossdeltalake-test-queries", "io/trino/plugin/deltalake/testing/resources/ossdeltalake/");
     }
