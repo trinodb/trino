@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.cache;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -27,10 +28,12 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.UnimplementedHiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.CachingHiveMetastoreBuilder;
@@ -40,6 +43,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreStats;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -78,10 +82,12 @@ import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
+import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.cache.TestCachingHiveMetastore.PartitionCachingAssertions.assertThatCachingWithDisabledPartitionCache;
@@ -121,6 +127,7 @@ public class TestCachingHiveMetastore
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
             .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
             .build();
+    private static final SchemaTableName TEST_SCHEMA_TABLE = new SchemaTableName(TEST_DATABASE, TEST_TABLE);
 
     private MockThriftMetastoreClient mockClient;
     private ListeningExecutorService executor;
@@ -246,6 +253,27 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getTableNamesStats().getRequestCount(), 3);
         assertEquals(metastore.getTableNamesStats().getHitRate(), 1.0 / 3);
+    }
+
+    @Test
+    public void testBatchGetAllTable()
+    {
+        assertEquals(mockClient.getAccessCount(), 0);
+        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertEquals(mockClient.getAccessCount(), 1);
+        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertEquals(mockClient.getAccessCount(), 1);
+        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
+        assertEquals(mockClient.getAccessCount(), 2);
+        assertEquals(metastore.getAllTableNamesStats().getRequestCount(), 2);
+        assertEquals(metastore.getAllTableNamesStats().getHitRate(), .5);
+
+        metastore.flushCache();
+
+        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertEquals(mockClient.getAccessCount(), 3);
+        assertEquals(metastore.getAllTableNamesStats().getRequestCount(), 3);
+        assertEquals(metastore.getAllTableNamesStats().getHitRate(), 1. / 3);
     }
 
     @Test
@@ -1115,6 +1143,70 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 4);
         assertNotNull(metastore.getPartition(table, TEST_PARTITION_VALUES1));
         assertEquals(mockClient.getAccessCount(), 5);
+    }
+
+    @Test
+    public void testAllDatabases()
+    {
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+
+        assertThat(metastore.getAllDatabases()).containsExactly(TEST_DATABASE);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getAllDatabases()).containsExactly(TEST_DATABASE);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1); // should read it from cache
+
+        metastore.dropDatabase(TEST_DATABASE, false);
+
+        assertThat(metastore.getAllDatabases()).containsExactly(TEST_DATABASE);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
+        assertThat(metastore.getAllDatabases()).containsExactly(TEST_DATABASE);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2); // should read it from cache
+
+        metastore.createDatabase(
+                Database.builder()
+                        .setDatabaseName(TEST_DATABASE)
+                        .setOwnerName(Optional.empty())
+                        .setOwnerType(Optional.empty())
+                        .build());
+
+        assertThat(metastore.getAllDatabases()).containsExactly(TEST_DATABASE);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
+        assertThat(metastore.getAllDatabases()).containsExactly(TEST_DATABASE);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3); // should read it from cache
+    }
+
+    @Test
+    public void testAllTables()
+    {
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+
+        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1); // should read it from cache
+
+        metastore.dropTable(TEST_DATABASE, TEST_TABLE, false);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2); // dropTable check if the table exists
+
+        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
+        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(3); // should read it from cache
+
+        metastore.createTable(
+                Table.builder()
+                        .setDatabaseName(TEST_DATABASE)
+                        .setTableName(TEST_TABLE)
+                        .setOwner(Optional.empty())
+                        .setTableType(VIRTUAL_VIEW.name())
+                        .withStorage(storage -> storage.setStorageFormat(VIEW_STORAGE_FORMAT))
+                        .build(),
+                new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+
+        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(4);
+        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(4); // should read it from cache
     }
 
     private static HiveColumnStatistics intColumnStats(int nullsCount)

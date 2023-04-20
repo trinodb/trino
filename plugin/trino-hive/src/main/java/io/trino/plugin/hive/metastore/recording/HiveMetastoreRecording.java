@@ -34,6 +34,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.trino.plugin.hive.metastore.UserTableKey;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.RoleGrant;
 import org.weakref.jmx.Managed;
 
@@ -72,8 +73,10 @@ public class HiveMetastoreRecording
     private final NonEvictableCache<HiveTableName, PartitionStatistics> tableStatisticsCache;
     private final NonEvictableCache<HivePartitionName, PartitionStatistics> partitionStatisticsCache;
     private final NonEvictableCache<String, List<String>> tableNamesCache;
+    private final NonEvictableCache<SingletonCacheKey, Optional<List<SchemaTableName>>> allTableNamesCache;
     private final NonEvictableCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
     private final NonEvictableCache<String, List<String>> viewNamesCache;
+    private final NonEvictableCache<SingletonCacheKey, Optional<List<SchemaTableName>>> allViewNamesCache;
     private final NonEvictableCache<HivePartitionName, Optional<Partition>> partitionCache;
     private final NonEvictableCache<HiveTableName, Optional<List<String>>> partitionNamesCache;
     private final NonEvictableCache<PartitionFilter, Optional<List<String>>> partitionNamesByPartsCache;
@@ -96,8 +99,10 @@ public class HiveMetastoreRecording
         tableStatisticsCache = createCache(replay, recordingDuration);
         partitionStatisticsCache = createCache(replay, recordingDuration);
         tableNamesCache = createCache(replay, recordingDuration);
+        allTableNamesCache = createCache(replay, recordingDuration);
         tablesWithParameterCache = createCache(replay, recordingDuration);
         viewNamesCache = createCache(replay, recordingDuration);
+        allViewNamesCache = createCache(replay, recordingDuration);
         partitionCache = createCache(replay, recordingDuration);
         partitionNamesCache = createCache(replay, recordingDuration);
         partitionNamesByPartsCache = createCache(replay, recordingDuration);
@@ -187,6 +192,16 @@ public class HiveMetastoreRecording
     public List<String> getAllViews(String databaseName, Supplier<List<String>> valueSupplier)
     {
         return loadValue(viewNamesCache, databaseName, valueSupplier);
+    }
+
+    public Optional<List<SchemaTableName>> getAllTables(Supplier<Optional<List<SchemaTableName>>> valueSupplier)
+    {
+        return loadValue(allTableNamesCache, SingletonCacheKey.INSTANCE, valueSupplier);
+    }
+
+    public Optional<List<SchemaTableName>> getAllViews(Supplier<Optional<List<SchemaTableName>>> valueSupplier)
+    {
+        return loadValue(allViewNamesCache, SingletonCacheKey.INSTANCE, valueSupplier);
     }
 
     public Optional<Partition> getPartition(HivePartitionName hivePartitionName, Supplier<Optional<Partition>> valueSupplier)
@@ -492,5 +507,10 @@ public class HiveMetastoreRecording
         {
             return value;
         }
+    }
+
+    private enum SingletonCacheKey
+    {
+        INSTANCE
     }
 }
