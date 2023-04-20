@@ -20,10 +20,11 @@
 
 ## Security
 
-* Disallow writing system information with the `default` system access control.
-  System information writes can be re-enabled by setting the
-  `access-control.name` configuration property to `allow-all`, or by configuring
-  [system information rules](system-file-auth-system_information). ({issue}`17105`)
+* Disallow requesting [graceful shutdown](/admin/graceful-shutdown) with the
+  `default` [system access control](/security/built-in-system-access-control).
+  Shutdowns can be re-enabled by using the `allow-all` system access control, or
+  by configuring [system information rules](system-file-auth-system_information)
+  with the `file` system access control. ({issue}`17105`)
 
 ## Delta Lake connector
 

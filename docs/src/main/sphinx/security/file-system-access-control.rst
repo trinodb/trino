@@ -694,12 +694,16 @@ composed of the following fields:
 * ``allow`` (required): set of access permissions granted to user. Values:
   ``read``, ``write``
 
-For example, if you want to allow only the role ``admin`` to read and write
-system information, allow ``alice`` to read system information, and deny all
-other access, you can use the following rules:
+The following configuration provides and example:
 
 .. literalinclude:: system-information-access.json
     :language: json
+
+* All users with the role ``admin`` have read and write access to system
+  information. This includes the ability to trigger
+  :doc:`/admin/graceful-shutdown`.
+* The user ``alice`` can read system information.
+* All other users and roles are denied access to system information.
 
 A fixed user can be set for management interfaces using the ``management.user``
 configuration property.  When this is configured, system information rules must
