@@ -119,10 +119,12 @@ public class CachingHiveMetastore
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
     private final LoadingCache<String, List<String>> tableNamesCache;
+    private final LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> allTableNamesCache;
     private final LoadingCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
     private final Cache<HiveTableName, AtomicReference<PartitionStatistics>> tableStatisticsCache;
     private final Cache<HivePartitionName, AtomicReference<PartitionStatistics>> partitionStatisticsCache;
     private final LoadingCache<String, List<String>> viewNamesCache;
+    private final LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> allViewNamesCache;
     private final Cache<HivePartitionName, AtomicReference<Optional<Partition>>> partitionCache;
     private final LoadingCache<PartitionFilter, Optional<List<String>>> partitionFilterCache;
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
@@ -360,10 +362,12 @@ public class CachingHiveMetastore
         databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
         tableNamesCache = cacheFactory.buildCache(this::loadAllTables);
+        allTableNamesCache = cacheFactory.buildCache(ignore -> loadAllTables());
         tablesWithParameterCache = cacheFactory.buildCache(this::loadTablesMatchingParameter);
         tableStatisticsCache = statsCacheFactory.buildCache(this::refreshTableStatistics);
         tableCache = cacheFactory.buildCache(this::loadTable);
         viewNamesCache = cacheFactory.buildCache(this::loadAllViews);
+        allViewNamesCache = cacheFactory.buildCache(ignore -> loadAllViews());
         tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal()));
         rolesCache = cacheFactory.buildCache(ignored -> loadRoles());
         roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
@@ -380,7 +384,9 @@ public class CachingHiveMetastore
     {
         databaseNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
+        allTableNamesCache.invalidateAll();
         viewNamesCache.invalidateAll();
+        allViewNamesCache.invalidateAll();
         databaseCache.invalidateAll();
         tableCache.invalidateAll();
         partitionCache.invalidateAll();
@@ -749,6 +755,17 @@ public class CachingHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return getOptional(allTableNamesCache, SingletonCacheKey.INSTANCE);
+    }
+
+    private Optional<List<SchemaTableName>> loadAllTables()
+    {
+        return delegate.getAllTables();
+    }
+
+    @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValue);
@@ -769,6 +786,17 @@ public class CachingHiveMetastore
     private List<String> loadAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return getOptional(allViewNamesCache, SingletonCacheKey.INSTANCE);
+    }
+
+    private Optional<List<SchemaTableName>> loadAllViews()
+    {
+        return delegate.getAllViews();
     }
 
     @Override
@@ -938,7 +966,9 @@ public class CachingHiveMetastore
     {
         invalidateTableCache(databaseName, tableName);
         tableNamesCache.invalidate(databaseName);
+        allTableNamesCache.invalidateAll();
         viewNamesCache.invalidate(databaseName);
+        allViewNamesCache.invalidateAll();
         tablePrivilegesCache.asMap().keySet().stream()
                 .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
                 .forEach(tablePrivilegesCache::invalidate);
@@ -1399,6 +1429,11 @@ public class CachingHiveMetastore
         return cacheBuilder.build();
     }
 
+    private enum SingletonCacheKey
+    {
+        INSTANCE
+    }
+
     //
     // Stats used for non-impersonation shared caching
     //
@@ -1433,6 +1468,13 @@ public class CachingHiveMetastore
 
     @Managed
     @Nested
+    public CacheStatsMBean getAllTableNamesStats()
+    {
+        return new CacheStatsMBean(allTableNamesCache);
+    }
+
+    @Managed
+    @Nested
     public CacheStatsMBean getTableWithParameterStats()
     {
         return new CacheStatsMBean(tablesWithParameterCache);
@@ -1457,6 +1499,13 @@ public class CachingHiveMetastore
     public CacheStatsMBean getViewNamesStats()
     {
         return new CacheStatsMBean(viewNamesCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getAllViewNamesStats()
+    {
+        return new CacheStatsMBean(allViewNamesCache);
     }
 
     @Managed
@@ -1531,6 +1580,11 @@ public class CachingHiveMetastore
         return tableNamesCache;
     }
 
+    LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> getAllTableNamesCache()
+    {
+        return allTableNamesCache;
+    }
+
     LoadingCache<TablesWithParameterCacheKey, List<String>> getTablesWithParameterCache()
     {
         return tablesWithParameterCache;
@@ -1549,6 +1603,11 @@ public class CachingHiveMetastore
     LoadingCache<String, List<String>> getViewNamesCache()
     {
         return viewNamesCache;
+    }
+
+    LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> getAllViewNamesCache()
+    {
+        return allViewNamesCache;
     }
 
     Cache<HivePartitionName, AtomicReference<Optional<Partition>>> getPartitionCache()

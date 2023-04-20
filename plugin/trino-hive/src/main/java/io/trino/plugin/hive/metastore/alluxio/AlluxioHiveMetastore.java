@@ -41,6 +41,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
@@ -213,6 +214,12 @@ public class AlluxioHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public List<String> getTablesWithParameter(
             String databaseName,
             String parameterKey,
@@ -246,6 +253,12 @@ public class AlluxioHiveMetastore
     {
         // TODO: Add views on the server side
         return Collections.emptyList();
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return Optional.empty();
     }
 
     @Override
