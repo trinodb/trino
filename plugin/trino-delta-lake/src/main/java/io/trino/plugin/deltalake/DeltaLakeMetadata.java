@@ -194,6 +194,8 @@ import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMe
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.deltalake.procedure.DeltaLakeTableProcedureId.OPTIMIZE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.APPEND_ONLY_CONFIGURATION_KEY;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.ID;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
@@ -1064,8 +1066,7 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
         checkSupportedWriterVersion(session, handle.getSchemaTableName());
         ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry());
-        if (columnMappingMode != NONE) {
-            // TODO https://github.com/trinodb/trino/issues/12638 Support setting a table comment for id and name column mapping mode
+        if (columnMappingMode != ID && columnMappingMode != NAME && columnMappingMode != NONE) {
             throw new TrinoException(NOT_SUPPORTED, "Setting a table comment with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
         }
 
@@ -1109,8 +1110,7 @@ public class DeltaLakeMetadata
         DeltaLakeColumnHandle deltaLakeColumnHandle = (DeltaLakeColumnHandle) column;
         checkSupportedWriterVersion(session, deltaLakeTableHandle.getSchemaTableName());
         ColumnMappingMode columnMappingMode = getColumnMappingMode(deltaLakeTableHandle.getMetadataEntry());
-        if (columnMappingMode != NONE) {
-            // TODO https://github.com/trinodb/trino/issues/12638 Support setting a column comment for id and name column mapping mode
+        if (columnMappingMode != ID && columnMappingMode != NAME && columnMappingMode != NONE) {
             throw new TrinoException(NOT_SUPPORTED, "Setting a column comment with column mapping %s is not supported".formatted(columnMappingMode.name().toLowerCase(ENGLISH)));
         }
 
