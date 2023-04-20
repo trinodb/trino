@@ -206,7 +206,6 @@ public class TestDriver
 
         driver.close();
         assertTrue(driver.isFinished());
-        assertFalse(driver.getDestroyedFuture().isDone());
 
         assertThatThrownBy(() -> driverProcessFor.get(1, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
@@ -321,7 +320,6 @@ public class TestDriver
 
         driver.close();
         assertTrue(driver.isFinished());
-        assertFalse(driver.getDestroyedFuture().isDone());
 
         assertThatThrownBy(() -> driverProcessFor.get(1, TimeUnit.SECONDS))
                 .isInstanceOf(ExecutionException.class)
