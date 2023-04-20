@@ -27,7 +27,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -46,39 +45,33 @@ import static com.google.common.collect.Sets.union;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CHANGE_DATA_FEED_COLUMN_NAMES;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
-public abstract class BaseDeltaLakeMinioConnectorTest
+public class TestDeltaLakeConnectorTest
         extends BaseConnectorTest
 {
     private static final String SCHEMA = "test_schema";
+    private static final String BUCKET_NAME = "trino-ci-test";
 
-    protected final String bucketName;
-    protected final String resourcePath;
     protected HiveMinioDataLake hiveMinioDataLake;
-
-    public BaseDeltaLakeMinioConnectorTest(String bucketName, String resourcePath)
-    {
-        this.bucketName = requireNonNull(bucketName);
-        this.resourcePath = requireNonNull(resourcePath);
-    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
         hiveMinioDataLake.start();
         QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
@@ -88,15 +81,8 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         "delta.register-table-procedure.enabled", "true"),
                 hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
-        TpchTable.getTables().forEach(table -> {
-            String tableName = table.getTableName();
-            hiveMinioDataLake.copyResources(resourcePath + tableName, SCHEMA + "/" + tableName);
-            queryRunner.execute(format("CALL system.register_table('%1$s', '%2$s', 's3://%3$s/%1$s/%2$s')",
-                    SCHEMA,
-                    tableName,
-                    bucketName));
-        });
+        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + BUCKET_NAME + "/" + SCHEMA + "')");
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), REQUIRED_TPCH_TABLES);
         return queryRunner;
     }
 
@@ -245,7 +231,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                         "   comment varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   location = \\E'.*/test_schema/orders'\n\\Q" +
+                        "   location = \\E'.*/test_schema/orders.*'\n\\Q" +
                         ")");
     }
 
@@ -255,7 +241,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         String tableName = "test_null_partitions_" + randomNameSuffix();
         assertUpdate("" +
-                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", bucketName, tableName) + "', partitioned_by = ARRAY['c']) " +
+                        "CREATE TABLE " + tableName + " (a, b, c) WITH (location = '" + format("s3://%s/%s", BUCKET_NAME, tableName) + "', partitioned_by = ARRAY['c']) " +
                         "AS VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3), (null, null, null), (4, 4, 4)",
                 "VALUES 5");
         assertQuery("SELECT a FROM " + tableName + " WHERE c % 5 = 1", "VALUES (1)");
@@ -269,7 +255,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 "CREATE TABLE " + tableName + "(data int, first varchar, second varchar) " +
                 "WITH (" +
                 "partitioned_by = ARRAY['second', 'first'], " +
-                "location = '" + format("s3://%s/%s", bucketName, tableName) + "')");
+                "location = '" + format("s3://%s/%s", BUCKET_NAME, tableName) + "')");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first#1', 'second#1')", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'first#1', 'second#1')");
@@ -292,7 +278,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
                 .isEqualTo(format("CREATE SCHEMA %s.%s\n" +
                         "WITH (\n" +
                         "   location = 's3://%s/test_schema'\n" +
-                        ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
+                        ")", getSession().getCatalog().orElseThrow(), schemaName, BUCKET_NAME));
     }
 
     /**
@@ -341,7 +327,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
             return;
         }
 
-        assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')");
+        assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + BUCKET_NAME + "/" + schemaName + "')");
         assertUpdate("CREATE TABLE " + schemaName + ".t(x int)");
         assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
         assertUpdate("DROP TABLE " + schemaName + ".t");
@@ -551,7 +537,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testTableLocationTrailingSpace()
     {
         String tableName = "table_with_space_" + randomNameSuffix();
-        String tableLocationWithTrailingSpace = "s3://" + bucketName + "/" + tableName + " ";
+        String tableLocationWithTrailingSpace = "s3://" + BUCKET_NAME + "/" + tableName + " ";
 
         assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = '%s')", tableName, tableLocationWithTrailingSpace));
         assertUpdate("INSERT INTO " + tableName + " (customer) VALUES ('Aaron'), ('Bill')", 2);
@@ -566,11 +552,11 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         String tableWithSlash = "table_with_slash";
         String tableWithoutSlash = "table_without_slash";
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s/')", tableWithSlash, bucketName, tableWithSlash));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s/')", tableWithSlash, BUCKET_NAME, tableWithSlash));
         assertUpdate(format("INSERT INTO %s (customer) VALUES ('Aaron'), ('Bill')", tableWithSlash), 2);
         assertQuery("SELECT * FROM " + tableWithSlash, "VALUES ('Aaron'), ('Bill')");
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s')", tableWithoutSlash, bucketName, tableWithoutSlash));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR) WITH (location = 's3://%s/%s')", tableWithoutSlash, BUCKET_NAME, tableWithoutSlash));
         assertUpdate(format("INSERT INTO %s (customer) VALUES ('Carol'), ('Dave')", tableWithoutSlash), 2);
         assertQuery("SELECT * FROM " + tableWithoutSlash, "VALUES ('Carol'), ('Dave')");
 
@@ -583,11 +569,11 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         String targetTable = "merge_simple_target_" + randomNameSuffix();
         String sourceTable = "merge_simple_source_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, bucketName, targetTable));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, BUCKET_NAME, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, bucketName, sourceTable));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, BUCKET_NAME, sourceTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
 
@@ -609,12 +595,12 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         String targetTable = "merge_formats_target_" + randomNameSuffix();
         String sourceTable = "merge_formats_source_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, bucketName, targetTable, partitionPhase));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, BUCKET_NAME, targetTable, partitionPhase));
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')");
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, bucketName, sourceTable));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, BUCKET_NAME, sourceTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')", sourceTable), 3);
 
@@ -645,7 +631,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         int targetCustomerCount = 32;
         String targetTable = "merge_multiple_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, bucketName, targetTable, partitioning));
+        assertUpdate(format("CREATE TABLE %s (purchase INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) WITH (location = 's3://%s/%s'%s)", targetTable, BUCKET_NAME, targetTable, partitioning));
         String originalInsertFirstHalf = IntStream.range(1, targetCustomerCount / 2)
                 .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
                 .collect(Collectors.joining(", "));
@@ -707,7 +693,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     public void testMergeSimpleQueryPartitioned()
     {
         String targetTable = "merge_simple_" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, bucketName, targetTable));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])", targetTable, BUCKET_NAME, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
@@ -730,11 +716,11 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     {
         String targetTable = "merge_multiple_target_" + randomNameSuffix();
         String sourceTable = "merge_multiple_source_" + randomNameSuffix();
-        assertUpdate(format(createTableSql, targetTable, bucketName, targetTable));
+        assertUpdate(format(createTableSql, targetTable, BUCKET_NAME, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable), 2);
 
-        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, bucketName, sourceTable));
+        assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')", sourceTable, BUCKET_NAME, sourceTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')", sourceTable), 2);
 
@@ -768,11 +754,11 @@ public abstract class BaseDeltaLakeMinioConnectorTest
         String targetTable = format("%s_target_%s", testDescription, randomNameSuffix());
         String sourceTable = format("%s_source_%s", testDescription, randomNameSuffix());
 
-        assertUpdate(format(createTargetTableSql, targetTable, bucketName, targetTable));
+        assertUpdate(format(createTargetTableSql, targetTable, BUCKET_NAME, targetTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
 
-        assertUpdate(format(createSourceTableSql, sourceTable, bucketName, sourceTable));
+        assertUpdate(format(createSourceTableSql, sourceTable, BUCKET_NAME, sourceTable));
 
         assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
 
@@ -967,7 +953,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     @Override
     protected String createSchemaSql(String schemaName)
     {
-        return "CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + bucketName + "/" + schemaName + "')";
+        return "CREATE SCHEMA " + schemaName + " WITH (location = 's3://" + BUCKET_NAME + "/" + schemaName + "')";
     }
 
     @Override
@@ -1016,7 +1002,7 @@ public abstract class BaseDeltaLakeMinioConnectorTest
     private List<String> getTableFiles(String tableName)
     {
         return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
-                .map(path -> format("s3://%s/%s", bucketName, path))
+                .map(path -> format("s3://%s/%s", BUCKET_NAME, path))
                 .collect(toImmutableList());
     }
 }
