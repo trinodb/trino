@@ -405,6 +405,7 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getLong("waiting_time_millis"), 107);
                     assertEquals(resultSet.getLong("analysis_time_millis"), 108);
                     assertEquals(resultSet.getLong("planning_time_millis"), 109);
+                    assertEquals(resultSet.getLong("planning_cpu_time_millis"), 1091);
                     assertEquals(resultSet.getLong("execution_time_millis"), 110);
                     assertEquals(resultSet.getLong("input_blocked_time_millis"), 111);
                     assertEquals(resultSet.getLong("failed_input_blocked_time_millis"), 112);
