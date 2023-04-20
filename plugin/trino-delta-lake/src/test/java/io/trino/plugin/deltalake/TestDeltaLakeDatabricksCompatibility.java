@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-public class TestDeltaLakeDatabricksConnectorTest
-        extends BaseDeltaLakeMinioConnectorTest
+public class TestDeltaLakeDatabricksCompatibility
+        extends BaseDeltaLakeCompatibility
 {
-    public TestDeltaLakeDatabricksConnectorTest()
+    public TestDeltaLakeDatabricksCompatibility()
     {
         super("databricks-test-queries", "io/trino/plugin/deltalake/testing/resources/databricks/");
     }
