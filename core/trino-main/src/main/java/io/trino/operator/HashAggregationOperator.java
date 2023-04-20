@@ -40,6 +40,7 @@ import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -540,9 +541,11 @@ public class HashAggregationOperator
             inputRowsProcessedWithPartialAggregationDisabled += aggregationInputRowsProcessed;
             operatorContext.setLatestMetrics(new Metrics(ImmutableMap.of(
                     INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME, new LongCount(inputRowsProcessedWithPartialAggregationDisabled))));
+            partialAggregationController.ifPresent(controller -> controller.onFlush(aggregationInputBytesProcessed, aggregationInputRowsProcessed, OptionalLong.empty()));
         }
-        partialAggregationController.ifPresent(
-                controller -> controller.onFlush(aggregationInputBytesProcessed, aggregationInputRowsProcessed, aggregationUniqueRowsProduced));
+        else {
+            partialAggregationController.ifPresent(controller -> controller.onFlush(aggregationInputBytesProcessed, aggregationInputRowsProcessed, OptionalLong.of(aggregationUniqueRowsProduced)));
+        }
         aggregationInputBytesProcessed = 0;
         aggregationInputRowsProcessed = 0;
         aggregationUniqueRowsProduced = 0;
