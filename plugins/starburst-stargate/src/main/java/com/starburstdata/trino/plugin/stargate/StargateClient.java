@@ -809,11 +809,6 @@ public class StargateClient
     {
         try {
             TrinoConnection remoteConnection = connection.unwrap(TrinoConnection.class);
-            // Disabling prefer_partial_aggregation allows estimates
-            // to be propagated through the aggregate node.
-            remoteConnection.setSessionProperty("prefer_partial_aggregation", "false");
-            // Disabling partial TopN allows estimates to be propagated through TopN node.
-            remoteConnection.setSessionProperty("use_partial_topn", "false");
             // Disabling partial DistinctLimit allows estimates to be propagated through DistinctLimit node.
             remoteConnection.setSessionProperty("use_partial_distinct_limit", "false");
             return connection;
