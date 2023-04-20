@@ -13,12 +13,15 @@
  */
 package io.trino.operator.aggregation.partial;
 
+import io.airlift.units.DataSize;
 import io.trino.operator.HashAggregationOperator;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Controls whenever partial aggregation is enabled across all {@link HashAggregationOperator}s
  * for a particular plan node on a single node.
- * Partial aggregation is disabled once enough rows has been processed ({@link #minNumberOfRowsProcessed})
+ * Partial aggregation is disabled after sampling sufficient amount of input
  * and the ratio between output(unique) and input rows is too high (> {@link #uniqueRowsRatioThreshold}).
  * TODO https://github.com/trinodb/trino/issues/11361 add support to adaptively re-enable partial aggregation.
  * <p>
@@ -29,16 +32,23 @@ import io.trino.operator.HashAggregationOperator;
  */
 public class PartialAggregationController
 {
-    private final long minNumberOfRowsProcessed;
+    /**
+     * Process enough pages to fill up partial-aggregation buffer before
+     * considering partial-aggregation to be turned off.
+     */
+    private static final double DISABLE_AGGREGATION_BUFFER_SIZE_TO_INPUT_BYTES_FACTOR = 1.5;
+
+    private final DataSize maxPartialMemory;
     private final double uniqueRowsRatioThreshold;
 
     private volatile boolean partialAggregationDisabled;
+    private long totalBytesProcessed;
     private long totalRowProcessed;
     private long totalUniqueRowsProduced;
 
-    public PartialAggregationController(long minNumberOfRowsProcessedToDisable, double uniqueRowsRatioThreshold)
+    public PartialAggregationController(DataSize maxPartialMemory, double uniqueRowsRatioThreshold)
     {
-        this.minNumberOfRowsProcessed = minNumberOfRowsProcessedToDisable;
+        this.maxPartialMemory = requireNonNull(maxPartialMemory, "maxPartialMemory is null");
         this.uniqueRowsRatioThreshold = uniqueRowsRatioThreshold;
     }
 
@@ -47,27 +57,25 @@ public class PartialAggregationController
         return partialAggregationDisabled;
     }
 
-    public synchronized void onFlush(long rowsProcessed, long uniqueRowsProduced)
+    public synchronized void onFlush(long bytesProcessed, long rowsProcessed, long uniqueRowsProduced)
     {
-        if (partialAggregationDisabled) {
-            return;
-        }
-
+        totalBytesProcessed += bytesProcessed;
         totalRowProcessed += rowsProcessed;
         totalUniqueRowsProduced += uniqueRowsProduced;
-        if (shouldDisablePartialAggregation()) {
+
+        if (!partialAggregationDisabled && shouldDisablePartialAggregation()) {
             partialAggregationDisabled = true;
         }
     }
 
     private boolean shouldDisablePartialAggregation()
     {
-        return totalRowProcessed >= minNumberOfRowsProcessed
+        return totalBytesProcessed >= maxPartialMemory.toBytes() * DISABLE_AGGREGATION_BUFFER_SIZE_TO_INPUT_BYTES_FACTOR
                 && ((double) totalUniqueRowsProduced / totalRowProcessed) > uniqueRowsRatioThreshold;
     }
 
     public PartialAggregationController duplicate()
     {
-        return new PartialAggregationController(minNumberOfRowsProcessed, uniqueRowsRatioThreshold);
+        return new PartialAggregationController(maxPartialMemory, uniqueRowsRatioThreshold);
     }
 }

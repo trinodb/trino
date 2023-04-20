@@ -15,6 +15,7 @@ package io.trino.sql.planner;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -29,6 +30,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+@DefunctConfig("adaptive-partial-aggregation.min-rows")
 public class OptimizerConfig
 {
     private double cpuCostWeight = 75;
@@ -90,7 +92,6 @@ public class OptimizerConfig
     private boolean useCostBasedPartitioning = true;
     // adaptive partial aggregation
     private boolean adaptivePartialAggregationEnabled = true;
-    private long adaptivePartialAggregationMinRows = 100_000;
     private double adaptivePartialAggregationUniqueRowsRatioThreshold = 0.8;
     private long joinPartitionedBuildMinRowCount = 1_000_000L;
     private DataSize minInputSizePerTask = DataSize.of(5, GIGABYTE);
@@ -720,19 +721,6 @@ public class OptimizerConfig
     public OptimizerConfig setAdaptivePartialAggregationEnabled(boolean adaptivePartialAggregationEnabled)
     {
         this.adaptivePartialAggregationEnabled = adaptivePartialAggregationEnabled;
-        return this;
-    }
-
-    public long getAdaptivePartialAggregationMinRows()
-    {
-        return adaptivePartialAggregationMinRows;
-    }
-
-    @Config("adaptive-partial-aggregation.min-rows")
-    @ConfigDescription("Minimum number of processed rows before partial aggregation might be adaptively turned off")
-    public OptimizerConfig setAdaptivePartialAggregationMinRows(long adaptivePartialAggregationMinRows)
-    {
-        this.adaptivePartialAggregationMinRows = adaptivePartialAggregationMinRows;
         return this;
     }
 

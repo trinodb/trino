@@ -295,7 +295,6 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static com.google.common.collect.Sets.difference;
-import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationMinRows;
 import static io.trino.SystemSessionProperties.getAdaptivePartialAggregationUniqueRowsRatioThreshold;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
@@ -4045,15 +4044,15 @@ public class LocalExecutionPlanner
                     spillerFactory,
                     joinCompiler,
                     blockTypeOperators,
-                    createPartialAggregationController(step, session));
+                    createPartialAggregationController(maxPartialAggregationMemorySize, step, session));
         }
     }
 
-    private static Optional<PartialAggregationController> createPartialAggregationController(AggregationNode.Step step, Session session)
+    private static Optional<PartialAggregationController> createPartialAggregationController(Optional<DataSize> maxPartialAggregationMemorySize, AggregationNode.Step step, Session session)
     {
-        return step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session) ?
+        return maxPartialAggregationMemorySize.isPresent() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session) ?
                 Optional.of(new PartialAggregationController(
-                        getAdaptivePartialAggregationMinRows(session),
+                        maxPartialAggregationMemorySize.get(),
                         getAdaptivePartialAggregationUniqueRowsRatioThreshold(session))) :
                 Optional.empty();
     }
