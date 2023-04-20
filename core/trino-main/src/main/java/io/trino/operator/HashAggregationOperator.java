@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.LocalMemoryContext;
@@ -25,8 +26,10 @@ import io.trino.operator.aggregation.builder.SpillableHashAggregationBuilder;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
 import io.trino.operator.aggregation.partial.SkipAggregationBuilder;
 import io.trino.operator.scalar.CombineHashFunction;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillerFactory;
@@ -49,6 +52,7 @@ import static java.util.Objects.requireNonNull;
 public class HashAggregationOperator
         implements Operator
 {
+    static final String INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME = "Input rows processed without partial aggregation enabled";
     private static final double MERGE_WITH_MEMORY_RATIO = 0.9;
 
     public static class HashAggregationOperatorFactory
@@ -286,6 +290,7 @@ public class HashAggregationOperator
     private final LocalMemoryContext memoryContext;
     private WorkProcessor<Page> outputPages;
     private long totalInputRowsProcessed;
+    private long inputRowsProcessedWithPartialAggregationDisabled;
     private boolean finishing;
     private boolean finished;
 
@@ -529,6 +534,16 @@ public class HashAggregationOperator
 
     private void closeAggregationBuilder()
     {
+        if (aggregationBuilder instanceof SkipAggregationBuilder) {
+            inputRowsProcessedWithPartialAggregationDisabled += aggregationInputRowsProcessed;
+            operatorContext.setLatestMetrics(new Metrics(ImmutableMap.of(
+                    INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME, new LongCount(inputRowsProcessedWithPartialAggregationDisabled))));
+        }
+        partialAggregationController.ifPresent(
+                controller -> controller.onFlush(aggregationInputRowsProcessed, aggregationUniqueRowsProduced));
+        aggregationInputRowsProcessed = 0;
+        aggregationUniqueRowsProduced = 0;
+
         outputPages = null;
         if (aggregationBuilder != null) {
             aggregationBuilder.close();
@@ -537,10 +552,6 @@ public class HashAggregationOperator
             aggregationBuilder = null;
         }
         memoryContext.setBytes(0);
-        partialAggregationController.ifPresent(
-                controller -> controller.onFlush(aggregationInputRowsProcessed, aggregationUniqueRowsProduced));
-        aggregationInputRowsProcessed = 0;
-        aggregationUniqueRowsProduced = 0;
     }
 
     private Page getGlobalAggregationOutput()

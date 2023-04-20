@@ -28,6 +28,7 @@ import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
@@ -73,6 +74,7 @@ import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.operator.GroupByHashYieldAssertion.GroupByHashYieldResult;
 import static io.trino.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.trino.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
+import static io.trino.operator.HashAggregationOperator.INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME;
 import static io.trino.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.assertPagesEqualIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.dropChannel;
@@ -790,6 +792,7 @@ public class TestHashAggregationOperator
                 // use 5 rows threshold to trigger adaptive partial aggregation after each page flush
                 Optional.of(partialAggregationController));
 
+        DriverContext driverContext = createDriverContext(1024);
         List<Page> operator1Input = rowPagesBuilder(false, hashChannels, BIGINT)
                 .addSequencePage(10, 0) // first page are unique values, so it would trigger adaptation, but it won't because flush is not called
                 .addBlocksPage(createRepeatedValuesBlock(1, 2)) // second page will be hashed to existing value 1
@@ -798,10 +801,11 @@ public class TestHashAggregationOperator
         List<Page> operator1Expected = rowPagesBuilder(BIGINT, BIGINT)
                 .addSequencePage(10, 0, 0) // we are expecting second page to be squashed with the first
                 .build();
-        assertOperatorEquals(operatorFactory, operator1Input, operator1Expected);
+        assertOperatorEquals(driverContext, operatorFactory, operator1Input, operator1Expected);
 
         // the first operator flush disables partial aggregation
         assertTrue(partialAggregationController.isPartialAggregationDisabled());
+        assertInputRowsWithPartialAggregationDisabled(driverContext, 0);
 
         // second operator using the same factory, reuses PartialAggregationControl, so it will only produce raw pages (partial aggregation is disabled at this point)
         List<Page> operator2Input = rowPagesBuilder(false, hashChannels, BIGINT)
@@ -813,12 +817,29 @@ public class TestHashAggregationOperator
                 .addBlocksPage(createRepeatedValuesBlock(2, 10), createRepeatedValuesBlock(2, 10))
                 .build();
 
-        assertOperatorEquals(operatorFactory, operator2Input, operator2Expected);
+        driverContext = createDriverContext(1024);
+        assertOperatorEquals(driverContext, operatorFactory, operator2Input, operator2Expected);
+        assertInputRowsWithPartialAggregationDisabled(driverContext, 20);
+    }
+
+    private void assertInputRowsWithPartialAggregationDisabled(DriverContext context, long expectedRowCount)
+    {
+        LongCount metric = ((LongCount) context.getDriverStats().getOperatorStats().get(0).getMetrics().getMetrics().get(INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME));
+        if (metric == null) {
+            assertEquals(0, expectedRowCount);
+        }
+        else {
+            assertEquals(metric.getTotal(), expectedRowCount);
+        }
     }
 
     private void assertOperatorEquals(OperatorFactory operatorFactory, List<Page> input, List<Page> expectedPages)
     {
-        DriverContext driverContext = createDriverContext(1024);
+        assertOperatorEquals(createDriverContext(1024), operatorFactory, input, expectedPages);
+    }
+
+    private void assertOperatorEquals(DriverContext driverContext, OperatorFactory operatorFactory, List<Page> input, List<Page> expectedPages)
+    {
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, BIGINT)
                 .pages(expectedPages)
                 .build();
