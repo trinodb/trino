@@ -182,36 +182,56 @@ public class MigrateProcedure
     public void doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         SchemaTableName sourceTableName = new SchemaTableName(schemaName, tableName);
-        TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
         HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
-        RecursiveDirectory recursive = Enums.getIfPresent(RecursiveDirectory.class, recursiveDirectory.toUpperCase(ENGLISH)).toJavaUtil()
-                .orElseThrow(() -> new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Invalid recursive_directory: " + recursiveDirectory));
 
         io.trino.plugin.hive.metastore.Table hiveTable = metastore.getTable(schemaName, tableName).orElseThrow(() -> new TableNotFoundException(sourceTableName));
         String transactionalProperty = hiveTable.getParameters().get(TRANSACTIONAL);
         if (parseBoolean(transactionalProperty)) {
             throw new TrinoException(NOT_SUPPORTED, "Migrating transactional tables is unsupported");
         }
-        if (!"MANAGED_TABLE".equalsIgnoreCase(hiveTable.getTableType()) && !"EXTERNAL_TABLE".equalsIgnoreCase(hiveTable.getTableType())) {
+        else if (!"MANAGED_TABLE".equalsIgnoreCase(hiveTable.getTableType()) && !"EXTERNAL_TABLE".equalsIgnoreCase(hiveTable.getTableType())) {
             throw new TrinoException(NOT_SUPPORTED, "The procedure doesn't support migrating %s table type".formatted(hiveTable.getTableType()));
         }
-        if (isDeltaLakeTable(hiveTable)) {
+        else if (isDeltaLakeTable(hiveTable)) {
             throw new TrinoException(NOT_SUPPORTED, "The procedure doesn't support migrating Delta Lake tables");
         }
-        if (isHudiTable(hiveTable)) {
+        else if (isHudiTable(hiveTable)) {
             throw new TrinoException(NOT_SUPPORTED, "The procedure doesn't support migrating Hudi tables");
         }
-        if (isIcebergTable(hiveTable)) {
+        else if (isIcebergTable(hiveTable)) {
             throw new TrinoException(NOT_SUPPORTED, "The table is already an Iceberg table");
         }
+        else {
+            RecursiveDirectory recursive = Enums.getIfPresent(RecursiveDirectory.class, recursiveDirectory.toUpperCase(ENGLISH)).toJavaUtil()
+                    .orElseThrow(() -> new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Invalid recursive_directory: " + recursiveDirectory));
+            migrateHiveTable(session, recursive, metastore, sourceTableName, hiveTable);
+        }
+    }
 
+    private void migrateHiveTable(
+            ConnectorSession session,
+            RecursiveDirectory recursive,
+            HiveMetastore metastore,
+            SchemaTableName sourceTableName,
+            io.trino.plugin.hive.metastore.Table hiveTable)
+    {
+        hiveTable.getStorage()
+                .getBucketProperty()
+                .ifPresent(bucket -> {
+                    throw new TrinoException(NOT_SUPPORTED, "Cannot migrate bucketed table: " + bucket.getBucketedBy());
+                });
+
+        TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
         Schema schema = toIcebergSchema(concat(hiveTable.getDataColumns().stream(), hiveTable.getPartitionColumns().stream()).toList());
         NameMapping nameMapping = MappingUtil.create(schema);
         HiveStorageFormat storageFormat = extractHiveStorageFormat(hiveTable.getStorage().getStorageFormat());
         String location = hiveTable.getStorage().getLocation();
 
         Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping);
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitionColumnNames(hiveTable));
+        List<String> partitionColumnNames = hiveTable.getPartitionColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, partitionColumnNames);
         try {
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
             if (hiveTable.getPartitionColumns().isEmpty()) {
@@ -230,37 +250,61 @@ public class MigrateProcedure
                 }
             }
 
-            log.debug("Start new transaction");
-            Transaction transaction = catalog.newCreateTableTransaction(
+            commitNewTable(
                     session,
+                    catalog,
+                    metastore,
+                    hiveTable,
                     sourceTableName,
                     schema,
-                    parsePartitionFields(schema, toPartitionFields(hiveTable)),
-                    unsorted(),
+                    partitionSpec,
                     location,
-                    properties);
-
-            List<DataFile> dataFiles = dataFilesBuilder.build();
-            log.debug("Append data %d data files", dataFiles.size());
-            Table table = transaction.table();
-            AppendFiles append = table.newAppend();
-            dataFiles.forEach(append::appendFile);
-            append.commit();
-
-            log.debug("Set preparatory table properties in a metastore for migrations");
-            PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
-            io.trino.plugin.hive.metastore.Table newTable = io.trino.plugin.hive.metastore.Table.builder(hiveTable)
-                    .setParameter(METADATA_LOCATION_PROP, location)
-                    .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
-                    .build();
-            metastore.replaceTable(schemaName, tableName, newTable, principalPrivileges);
-
-            transaction.commitTransaction();
-            log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
+                    properties,
+                    dataFilesBuilder.build());
         }
         catch (Exception e) {
             throw new TrinoException(ICEBERG_COMMIT_ERROR, "Failed to migrate table", e);
         }
+    }
+
+    private void commitNewTable(
+            ConnectorSession session,
+            TrinoCatalog catalog,
+            HiveMetastore metastore,
+            io.trino.plugin.hive.metastore.Table hiveTable,
+            SchemaTableName sourceTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            String location,
+            Map<String, String> properties,
+            List<DataFile> dataFiles)
+    {
+        log.debug("Start new transaction");
+        Transaction transaction = catalog.newCreateTableTransaction(
+                session,
+                sourceTableName,
+                schema,
+                partitionSpec,
+                unsorted(),
+                location,
+                properties);
+
+        log.debug("Append data %d data files", dataFiles.size());
+        Table table = transaction.table();
+        AppendFiles append = table.newAppend();
+        dataFiles.forEach(append::appendFile);
+        append.commit();
+
+        log.debug("Set preparatory table properties in a metastore for migrations");
+        PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
+        io.trino.plugin.hive.metastore.Table newTable = io.trino.plugin.hive.metastore.Table.builder(hiveTable)
+                .setParameter(METADATA_LOCATION_PROP, location)
+                .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
+                .build();
+        metastore.replaceTable(sourceTableName.getSchemaName(), sourceTableName.getTableName(), newTable, principalPrivileges);
+
+        transaction.commitTransaction();
+        log.debug("Successfully migrated %s table to Iceberg format", sourceTableName);
     }
 
     private Map<String, String> icebergTableProperties(String location, Map<String, String> hiveTableProperties, NameMapping nameMapping)
@@ -353,24 +397,6 @@ public class MigrateProcedure
             case AVRO -> new Metrics(Avro.rowCount(inputFile), null, null, null, null);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported storage format: " + storageFormat);
         };
-    }
-
-    private static List<String> toPartitionFields(io.trino.plugin.hive.metastore.Table table)
-    {
-        ImmutableList.Builder<String> fields = ImmutableList.builder();
-        fields.addAll(getPartitionColumnNames(table));
-        table.getStorage().getBucketProperty()
-                .ifPresent(bucket -> {
-                    throw new TrinoException(NOT_SUPPORTED, "Cannot migrate bucketed table: " + bucket.getBucketedBy());
-                });
-        return fields.build();
-    }
-
-    private static List<String> getPartitionColumnNames(io.trino.plugin.hive.metastore.Table table)
-    {
-        return table.getPartitionColumns().stream()
-                .map(Column::getName)
-                .collect(toImmutableList());
     }
 
     private static DataFile buildDataFile(FileEntry file, StructLike partition, PartitionSpec spec, String format, Metrics metrics)
