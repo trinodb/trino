@@ -1298,7 +1298,6 @@ public abstract class BasePinotConnectorSmokeTest
 
     @Test
     public void testMaxLimitForPassthroughQueries()
-            throws InterruptedException
     {
         assertQueryFails("SELECT string_col, updated_at_seconds" +
                         "  FROM  \"SELECT updated_at_seconds, string_col FROM " + TOO_MANY_BROKER_ROWS_TABLE +
