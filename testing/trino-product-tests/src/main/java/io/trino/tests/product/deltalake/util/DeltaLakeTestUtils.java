@@ -76,6 +76,12 @@ public final class DeltaLakeTestUtils
         return (String) result.row(2).get(1);
     }
 
+    public static String getTableCommentOnTrino(String schemaName, String tableName)
+    {
+        return (String) onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'delta' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'")
+                .getOnlyValue();
+    }
+
     public static String getTableCommentOnDelta(String schemaName, String tableName)
     {
         QueryResult result = onDelta().executeQuery(format("DESCRIBE EXTENDED %s.%s", schemaName, tableName));
