@@ -4941,11 +4941,16 @@ public abstract class BaseIcebergConnectorTest
                 getSession(),
                 selectQuery,
                 statsWithPushdown -> {
+                    DataSize physicalDataSizeWithPushdown = statsWithPushdown.getPhysicalInputDataSize();
                     DataSize processedDataSizeWithPushdown = statsWithPushdown.getProcessedInputDataSize();
                     assertQueryStats(
                             sessionWithoutPushdown,
                             selectQuery,
-                            statsWithoutPushdown -> assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown),
+                            statsWithoutPushdown -> {
+                                //TODO (https://github.com/trinodb/trino/issues/17156) add dereference pushdown on the physical layer
+                                assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isEqualTo(physicalDataSizeWithPushdown);
+                                assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown);
+                            },
                             results -> assertEquals(results.getOnlyColumnAsSet(), expected));
                 },
                 results -> assertEquals(results.getOnlyColumnAsSet(), expected));
