@@ -17,7 +17,9 @@ Trino offers the following built-in implementations:
 ================================================== =================================================================
 System access control name                         Description
 ================================================== =================================================================
-``default``                                        All operations are permitted, except for user impersonation.
+``default``                                        All operations are permitted, except for user impersonation or
+                                                   updating node system information (like node shutdown).
+
                                                    This is the default access control if none are configured.
 
 ``allow-all``                                      All operations are permitted.
@@ -31,6 +33,10 @@ System access control name                         Description
 
 If you want to limit access on a system level in any other way than the ones
 listed above, you must implement a custom :doc:`/develop/system-access-control`.
+
+Notice that access control needs to be configured on the coordinator. However authorization for certain operations
+like updating node system information that covers request of node shutdown is performed on worker. In such cases
+access control should be configured on workers too.
 
 Read only system access control
 ===============================

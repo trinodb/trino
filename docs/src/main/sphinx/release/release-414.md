@@ -20,10 +20,13 @@
 
 ## Security
 
-* Disallow writing system information with the `default` system access control.
+* Disallow updating node system information with the `default` system access control.
+  This provides default authorization for requesting node shutdown.
   System information writes can be re-enabled by setting the
   `access-control.name` configuration property to `allow-all`, or by configuring
   [system information rules](system-file-auth-system_information). ({issue}`17105`)
+  Notice that access control for updating node system information needs to be configured
+  on all worker nodes.
 
 ## Delta Lake connector
 
