@@ -27,7 +27,6 @@ public class TestAdaptivePartialAggregation
     {
         return TpchQueryRunnerBuilder.builder()
                 .setExtraProperties(ImmutableMap.of(
-                        "adaptive-partial-aggregation.min-rows", "0",
                         "task.max-partial-aggregation-memory", "0B"))
                 .build();
     }

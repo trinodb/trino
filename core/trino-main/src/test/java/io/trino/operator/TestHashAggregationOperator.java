@@ -723,7 +723,8 @@ public class TestHashAggregationOperator
     {
         List<Integer> hashChannels = Ints.asList(0);
 
-        PartialAggregationController partialAggregationController = new PartialAggregationController(5, 0.8);
+        DataSize maxPartialMemory = DataSize.ofBytes(1);
+        PartialAggregationController partialAggregationController = new PartialAggregationController(maxPartialMemory, 0.8);
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -735,10 +736,10 @@ public class TestHashAggregationOperator
                 Optional.empty(),
                 Optional.empty(),
                 100,
-                Optional.of(DataSize.ofBytes(1)), // this setting makes operator to flush after each page
+                Optional.of(maxPartialMemory), // this setting makes operator to flush after each page
                 joinCompiler,
                 blockTypeOperators,
-                // use 5 rows threshold to trigger adaptive partial aggregation after each page flush
+                // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 
         // at the start partial aggregation is enabled
@@ -774,7 +775,7 @@ public class TestHashAggregationOperator
     {
         List<Integer> hashChannels = Ints.asList(0);
 
-        PartialAggregationController partialAggregationController = new PartialAggregationController(5, 0.8);
+        PartialAggregationController partialAggregationController = new PartialAggregationController(DataSize.ofBytes(1), 0.8);
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
@@ -789,7 +790,7 @@ public class TestHashAggregationOperator
                 Optional.of(DataSize.of(16, MEGABYTE)), // this setting makes operator to flush only after all pages
                 joinCompiler,
                 blockTypeOperators,
-                // use 5 rows threshold to trigger adaptive partial aggregation after each page flush
+                // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 
         DriverContext driverContext = createDriverContext(1024);

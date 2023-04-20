@@ -296,6 +296,7 @@ public class HashAggregationOperator
 
     // for yield when memory is not available
     private Work<?> unfinishedWork;
+    private long aggregationInputBytesProcessed;
     private long aggregationInputRowsProcessed;
     private long aggregationUniqueRowsProduced;
 
@@ -442,6 +443,7 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
         aggregationBuilder.updateMemory();
+        aggregationInputBytesProcessed += page.getSizeInBytes();
         aggregationInputRowsProcessed += page.getPositionCount();
     }
 
@@ -540,7 +542,8 @@ public class HashAggregationOperator
                     INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME, new LongCount(inputRowsProcessedWithPartialAggregationDisabled))));
         }
         partialAggregationController.ifPresent(
-                controller -> controller.onFlush(aggregationInputRowsProcessed, aggregationUniqueRowsProduced));
+                controller -> controller.onFlush(aggregationInputBytesProcessed, aggregationInputRowsProcessed, aggregationUniqueRowsProduced));
+        aggregationInputBytesProcessed = 0;
         aggregationInputRowsProcessed = 0;
         aggregationUniqueRowsProduced = 0;
 

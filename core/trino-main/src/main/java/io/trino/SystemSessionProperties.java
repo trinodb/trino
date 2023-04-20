@@ -182,7 +182,6 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
     public static final String FAULT_TOLERANT_EXECUTION_PARTITION_COUNT = "fault_tolerant_execution_partition_count";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
-    public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
     public static final String REMOTE_TASK_MAX_REQUEST_SIZE = "remote_task_max_request_size";
@@ -921,11 +920,6 @@ public final class SystemSessionProperties
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
                         optimizerConfig.isAdaptivePartialAggregationEnabled(),
-                        false),
-                longProperty(
-                        ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS,
-                        "Minimum number of processed rows before partial aggregation might be adaptively turned off",
-                        optimizerConfig.getAdaptivePartialAggregationMinRows(),
                         false),
                 doubleProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
@@ -1707,11 +1701,6 @@ public final class SystemSessionProperties
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
-    }
-
-    public static long getAdaptivePartialAggregationMinRows(Session session)
-    {
-        return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS, Long.class);
     }
 
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)
