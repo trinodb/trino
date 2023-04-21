@@ -47,6 +47,7 @@ public class TestSplitPruning
             "float_nan",
             "float_inf",
             "no_stats",
+            "nested_fields",
             "timestamp",
             "test_partitioning",
             "parquet_struct_statistics",
@@ -356,6 +357,32 @@ public class TestSplitPruning
         testCountQuery("SELECT count(*) FROM parquet_struct_statistics WHERE arr = ARRAY[5]", 3, 9);
         testCountQuery("SELECT count(*) FROM parquet_struct_statistics WHERE m = MAP(ARRAY[1], ARRAY['a'])", 3, 9);
         testCountQuery("SELECT count(*) FROM parquet_struct_statistics WHERE row = ROW(2, 'b')", 3, 9);
+    }
+
+    @Test
+    public void testPrimitiveFieldsInsideRowColumnPruning()
+    {
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE id > 6",
+                Set.of(70.99, 80.99, 90.99, 100.99),
+                1);
+
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE id > 10",
+                Set.of(),
+                0);
+
+        // TODO pruning does not work on primitive fields inside a struct, expected splits should be 1 after file pruning (https://github.com/trinodb/trino/issues/17164)
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 600",
+                Set.of(70.99, 80.99, 90.99, 100.99),
+                2);
+
+        // TODO pruning does not work on primitive fields inside a struct, expected splits should be 0 after file pruning (https://github.com/trinodb/trino/issues/17164)
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 1000",
+                Set.of(),
+                2);
     }
 
     @Test
