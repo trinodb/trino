@@ -13,7 +13,7 @@ Hive connector
     Security <hive-security>
     Amazon S3 <hive-s3>
     Azure Storage <hive-azure>
-    GCS Tutorial <hive-gcs-tutorial>
+    Google Cloud Storage <hive-gcs-tutorial>
     IBM Cloud Object Storage <hive-cos>
     Storage Caching <hive-caching>
     Alluxio <hive-alluxio>
@@ -625,37 +625,10 @@ The Hive connector supports the following storage options:
 
 * :doc:`Amazon S3 <hive-s3>`
 * :doc:`Azure Storage <hive-azure>`
-* Google Cloud Storage
-
-  * :ref:`properties <hive-google-cloud-storage-configuration>`
-  * :doc:`tutorial <hive-gcs-tutorial>`
-
+* :doc:`Google Cloud Storage <hive-gcs-tutorial>`
 * :doc:`IBM Cloud Object Storage <hive-cos>`
 
 The Hive connector also supports :doc:`storage caching <hive-caching>`.
-
-.. _hive-google-cloud-storage-configuration:
-
-Google Cloud Storage configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The Hive connector can access data stored in GCS, using the ``gs://`` URI prefix.
-Please refer to the :doc:`hive-gcs-tutorial` for step-by-step instructions.
-
-GCS configuration properties
-""""""""""""""""""""""""""""
-
-.. list-table:: Google Cloud Storage configuration properties
-    :widths: 35, 65
-    :header-rows: 1
-
-    * - Property Name
-      - Description
-    * - ``hive.gcs.json-key-file-path``
-      - JSON key file used to authenticate with Google Cloud Storage.
-    * - ``hive.gcs.use-access-token``
-      - Use client-provided OAuth token to access Google Cloud Storage. This is
-        mutually exclusive with a global JSON key file.
 
 Security
 --------
