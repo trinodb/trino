@@ -23,8 +23,6 @@ import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Inject;
@@ -106,13 +104,16 @@ public class FlushMetadataCacheProcedure
         }
         else if (schemaName.isPresent() && tableName.isPresent()) {
             HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
-            Table table = metastore.getTable(schemaName.get(), tableName.get())
-                            .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schemaName.get(), tableName.get())));
-            verifyDeltaLakeTable(table);
-            cachingHiveMetastore.ifPresent(caching -> caching.invalidateTable(table.getDatabaseName(), table.getTableName()));
-            String tableLocation = getTableLocation(table);
-            transactionLogAccess.invalidateCaches(tableLocation);
-            extendedStatisticsAccess.invalidateCache(tableLocation);
+            // This may insert into a cache, but this will get invalidated below. TODO fix Delta so that flush_metadata_cache doesn't have to read from metastore
+            Optional<Table> tableBeforeFlush = metastore.getTable(schemaName.get(), tableName.get());
+            cachingHiveMetastore.ifPresent(caching -> caching.invalidateTable(schemaName.get(), tableName.get()));
+
+            Optional<String> tableLocation = tableBeforeFlush.map(table -> {
+                verifyDeltaLakeTable(table);
+                return getTableLocation(table);
+            });
+            tableLocation.ifPresent(transactionLogAccess::invalidateCaches);
+            tableLocation.ifPresent(extendedStatisticsAccess::invalidateCache);
         }
         else {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Illegal parameter set passed");
