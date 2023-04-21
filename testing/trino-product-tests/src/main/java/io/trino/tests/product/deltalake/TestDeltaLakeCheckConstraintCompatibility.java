@@ -100,6 +100,33 @@ public class TestDeltaLakeCheckConstraintCompatibility
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCheckConstraintUnknownCondition()
+    {
+        String tableName = "test_check_constraint_unknown_" + randomNameSuffix();
+
+        onDelta().executeQuery("CREATE TABLE default." + tableName +
+                "(a INT) " +
+                "USING DELTA " +
+                "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'");
+        onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD CONSTRAINT a_constraint CHECK (a > 1)");
+
+        try {
+            // Values which produces unknown conditions are treated as FALSE by DELTA specification and as TRUE by Trino according to SQL standard
+            // https://github.com/delta-io/delta/issues/1714
+            assertThatThrownBy(() -> onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (null)"))
+                    .hasMessageMatching("(?s).* CHECK constraint .* violated by row with values.*");
+
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (null)");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row((Object) null));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCheckConstraintAcrossColumns()
     {
         String tableName = "test_check_constraint_across_columns_" + randomNameSuffix();
