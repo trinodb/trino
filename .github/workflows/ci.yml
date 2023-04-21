@@ -551,7 +551,6 @@ jobs:
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
-            - { modules: plugin/trino-delta-lake, profile: gcs-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-hive }
@@ -630,7 +629,6 @@ jobs:
         if: >-
           matrix.modules != 'plugin/trino-singlestore'
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'gcs-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
@@ -646,24 +644,16 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
           AWS_REGION: us-east-2
+          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
           contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests') &&
-          (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
+          (env.ABFS_ACCOUNT != '' || env.ABFS_CONTAINER != '' || env.ABFS_ACCESSKEY != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '' || env.GCP_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} ${{ format('-P {0}', matrix.profile) }} -pl :trino-delta-lake \
             -Dhive.hadoop2.azure-abfs-container="${ABFS_CONTAINER}" \
             -Dhive.hadoop2.azure-abfs-account="${ABFS_ACCOUNT}" \
-            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}"
-      - name: GCS Delta Lake Tests
-      # Cloud tests are separate because they are time intensive, requiring cross-cloud network communication
-        env:
-          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
-        # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
-        if: >-
-          contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'gcs-tests') && env.GCP_CREDENTIALS_KEY != ''
-        run: |
-          $MAVEN test ${MAVEN_TEST} -P gcs-tests -pl :trino-delta-lake \
+            -Dhive.hadoop2.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
             -Dtesting.gcp-storage-bucket="trino-ci-test" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
       - name: Memsql Tests
