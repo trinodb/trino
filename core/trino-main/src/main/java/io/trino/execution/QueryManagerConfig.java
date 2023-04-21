@@ -705,7 +705,7 @@ public class QueryManagerConfig
     }
 
     @Config("fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-period")
-    @ConfigDescription("The number of tasks we create for given non-writer stage of arbitrary distribution before we increase task size")
+    @ConfigDescription("The number of tasks created for any given non-writer stage of arbitrary distribution before task size is increased")
     public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(int faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod)
     {
         this.faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod = faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod;
@@ -760,7 +760,7 @@ public class QueryManagerConfig
     }
 
     @Config("fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-period")
-    @ConfigDescription("The number of tasks we create for given writer stage of arbitrary distribution before we increase task size")
+    @ConfigDescription("The number of tasks created for any given writer stage of arbitrary distribution before task size is increased")
     public QueryManagerConfig setFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod(int faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod)
     {
         this.faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod = faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod;
