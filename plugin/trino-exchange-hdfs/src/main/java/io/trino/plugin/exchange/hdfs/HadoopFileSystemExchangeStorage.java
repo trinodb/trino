@@ -14,6 +14,7 @@
 package io.trino.plugin.exchange.hdfs;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
@@ -41,21 +42,26 @@ import java.net.URI;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class HadoopFileSystemExchangeStorage
         implements FileSystemExchangeStorage
 {
     private final int blockSize;
     private final FileSystem fileSystem;
+
+    private final ExecutorService hadoopFileWriteExecutor;
 
     @Inject
     public HadoopFileSystemExchangeStorage(ExchangeHdfsConfig config)
@@ -68,6 +74,7 @@ public class HadoopFileSystemExchangeStorage
         }
         fileSystem = FileSystem.get(hdfsConfig);
         blockSize = toIntExact(config.getHdfsStorageBlockSize().toBytes());
+        hadoopFileWriteExecutor = newCachedThreadPool(threadsNamed("hadoop-exchange-writer-%s"));
     }
 
     @Override
@@ -86,7 +93,7 @@ public class HadoopFileSystemExchangeStorage
     @Override
     public ExchangeStorageWriter createExchangeStorageWriter(URI file)
     {
-        return new HadoopExchangeStorageWriter(fileSystem, file);
+        return new HadoopExchangeStorageWriter(hadoopFileWriteExecutor, fileSystem, file);
     }
 
     @Override
@@ -235,8 +242,11 @@ public class HadoopFileSystemExchangeStorage
         private static final int INSTANCE_SIZE = instanceSize(HadoopExchangeStorageReader.class);
         private final OutputStream outputStream;
 
-        public HadoopExchangeStorageWriter(FileSystem fileSystem, URI file)
+        private final ExecutorService hadoopFileWriteExecutor;
+
+        public HadoopExchangeStorageWriter(ExecutorService hadoopFileWriteExecutor, FileSystem fileSystem, URI file)
         {
+            this.hadoopFileWriteExecutor = hadoopFileWriteExecutor;
             try {
                 this.outputStream = fileSystem.create(new Path(file), true);
             }
@@ -248,37 +258,28 @@ public class HadoopFileSystemExchangeStorage
         @Override
         public ListenableFuture<Void> write(Slice slice)
         {
-            try {
+            return Futures.submit(() -> {
                 outputStream.write(slice.getBytes());
-            }
-            catch (IOException | RuntimeException e) {
-                return immediateFailedFuture(e);
-            }
-            return immediateVoidFuture();
+                return null;
+            }, hadoopFileWriteExecutor);
         }
 
         @Override
         public ListenableFuture<Void> finish()
         {
-            try {
+            return Futures.submit(() -> {
                 outputStream.close();
-            }
-            catch (IOException | RuntimeException e) {
-                return immediateFailedFuture(e);
-            }
-            return immediateVoidFuture();
+                return null;
+            }, hadoopFileWriteExecutor);
         }
 
         @Override
         public ListenableFuture<Void> abort()
         {
-            try {
+            return Futures.submit(() -> {
                 outputStream.close();
-            }
-            catch (IOException | RuntimeException e) {
-                return immediateFailedFuture(e);
-            }
-            return immediateVoidFuture();
+                return null;
+            }, hadoopFileWriteExecutor);
         }
 
         @Override
