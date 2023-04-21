@@ -20,10 +20,10 @@
 
 ## Security
 
-* Disallow requesting [graceful shutdown](/admin/graceful-shutdown) with the
-  `default` [system access control](/security/built-in-system-access-control).
-  Shutdowns can be re-enabled by using the `allow-all` system access control, or
-  by configuring [system information rules](system-file-auth-system_information)
+* Disallow [graceful shutdown](/admin/graceful-shutdown) with the `default`
+  [system access control](/security/built-in-system-access-control). Shutdowns
+  can be re-enabled by using the `allow-all` system access control, or by
+  configuring [system information rules](system-file-auth-system_information)
   with the `file` system access control. ({issue}`17105`)
 
 ## Delta Lake connector

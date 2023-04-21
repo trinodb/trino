@@ -692,7 +692,7 @@ interface. System information access includes the following aspects:
 * Read access with the :doc:`/connector/system`.
 * Write access to trigger :doc:`/admin/graceful-shutdown`.
 
-The user is granted or denied access, based on the first matching
+The user is granted or denied access based on the first matching
 rule read from top to bottom. If no rules are specified, all access to system
 information is denied. If no rule matches, system access is denied. Each rule is
 composed of the following fields:
@@ -709,7 +709,7 @@ The following configuration provides and example:
 .. literalinclude:: system-information-access.json
     :language: json
 
-* All users with the role ``admin`` have read and write access to system
+* All users with the ``admin`` role have read and write access to system
   information. This includes the ability to trigger
   :doc:`/admin/graceful-shutdown`.
 * The user ``alice`` can read system information.
