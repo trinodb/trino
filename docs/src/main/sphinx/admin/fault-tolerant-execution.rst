@@ -227,27 +227,17 @@ properties only apply to a ``TASK`` retry policy.
    * - Property name
      - Description
      - Default value
-   * - ``fault-tolerant-execution-target-task-input-size``
-     - Target size in bytes of all task inputs for a single fault-tolerant task.
-       Applies to tasks that read input from spooled data written by other
-       tasks.
+   * - ``fault-tolerant-execution-standard-split-size``
+     - Standard :ref:`split <trino-concept-splits>` size processed by tasks that
+       read data from source tables. Value is interpreted with split weight
+       taken into account. If the weight of splits produced by a catalog denotes
+       that they are lighter or heavier than "standard" split, then the number
+       of splits processed by a single task is adjusted accordingly.
 
        May be overridden for the current session with the
-       ``fault_tolerant_execution_target_task_input_size``
+       ``fault_tolerant_execution_standard_split_size``
        :ref:`session property <session-properties-definition>`.
-     - ``4GB``
-   * - ``fault-tolerant-execution-target-task-split-count``
-     - Target number of standard :ref:`splits <trino-concept-splits>` processed
-       by a single task that reads data from source tables. Value is interpreted
-       with split weight taken into account. If the weight of splits produced by
-       a catalog denotes that they are lighter or heavier than "standard" split,
-       then the number of splits processed by single task is adjusted
-       accordingly.
-
-       May be overridden for the current session with the
-       ``fault_tolerant_execution_target_task_split_count``
-       :ref:`session property <session-properties-definition>`.
-     - ``64``
+     - ``64MB``
    * - ``fault-tolerant-execution-max-task-split-count``
      - Maximum number of :ref:`splits <trino-concept-splits>` processed by a
        single task. This value is not split weight-adjusted and serves as
@@ -258,6 +248,54 @@ properties only apply to a ``TASK`` retry policy.
        ``fault_tolerant_execution_max_task_split_count``
        :ref:`session property <session-properties-definition>`.
      - ``256``
+   * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-period``
+     - The number of tasks created for any given non-writer stage of arbitrary
+       distribution before task size is increased.
+     - ``64``
+   * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-growth-factor``
+     - Growth factor for adaptive sizing of non-writer tasks of arbitrary
+       distribution for fault-tolerant execution. Lower bound is 1.0. For every
+       task size increase, new task target size is old task target size
+       multiplied by this growth factor.
+     - ``1.2``
+   * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min``
+     - Initial/minimum target input size for non-writer tasks of arbitrary
+       distribution of fault-tolerant execution.
+     - ``512MB``
+   * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max``
+     - Maximum target input size for each non-writer task of arbitrary
+       distribution of fault-tolerant execution.
+     - ``50GB``
+   * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-period``
+     - The number of tasks created for any given writer stage of arbitrary
+       distribution before task size is increased.
+     - ``64``
+   * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-factor``
+     - Growth factor for adaptive sizing of writer tasks of arbitrary
+       distribution for fault-tolerant execution. Lower bound is 1.0. For every
+       task size increase, new task target size is old task target size
+       multiplied by this growth factor.
+     - ``1.2``
+   * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min``
+     - Initial/minimum target input size for writer tasks of arbitrary
+       distribution of fault-tolerant execution.
+     - ``4GB``
+   * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-max``
+     - Maximum target input size for writer tasks of arbitrary distribution
+       of fault-tolerant execution.
+     - ``50GB``
+   * - ``fault-tolerant-execution-hash-distribution-compute-task-target-size``
+     - Target input size for non-writer tasks of hash distribution of
+       fault-tolerant execution.
+     - ``512MB``
+   * - ``fault-tolerant-execution-hash-distribution-write-task-target-size``
+     - Target input size of writer tasks of hash distribution of fault-tolerant
+       execution.
+     - ``4GB``
+   * - ``fault-tolerant-execution-hash-distribution-write-task-target-max-count``
+     - Soft upper bound on number of writer tasks in a stage of hash
+       distribution of fault-tolerant execution.
+     - ``2000``
 
 Node allocation
 ^^^^^^^^^^^^^^^
