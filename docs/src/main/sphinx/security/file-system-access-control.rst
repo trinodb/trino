@@ -684,7 +684,15 @@ System information rules
 ------------------------
 
 These rules specify which users can access the system information management
-interface. The user is granted or denied access, based on the first matching
+interface. System information access includes the following aspects:
+
+* Read access to details such as Trino version, uptime of the node, and others
+  from the ``/v1/info`` and ``/v1/status`` REST endpoints.
+* Read access with the :doc:`system information functions </functions/system>`.
+* Read access with the :doc:`/connector/system`.
+* Write access to trigger :doc:`/admin/graceful-shutdown`.
+
+The user is granted or denied access, based on the first matching
 rule read from top to bottom. If no rules are specified, all access to system
 information is denied. If no rule matches, system access is denied. Each rule is
 composed of the following fields:
