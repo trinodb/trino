@@ -26,7 +26,6 @@ import io.trino.connector.TestingTableFunctions.EmptyOutputWithPassThroughFuncti
 import io.trino.connector.TestingTableFunctions.EmptyOutputWithPassThroughFunction.EmptyOutputWithPassThroughProcessorProvider;
 import io.trino.connector.TestingTableFunctions.EmptySourceFunction;
 import io.trino.connector.TestingTableFunctions.EmptySourceFunction.EmptySourceFunctionProcessorProvider;
-import io.trino.connector.TestingTableFunctions.EmptyTableFunctionHandle;
 import io.trino.connector.TestingTableFunctions.IdentityFunction;
 import io.trino.connector.TestingTableFunctions.IdentityFunction.IdentityFunctionProcessorProvider;
 import io.trino.connector.TestingTableFunctions.IdentityPassThroughFunction;
@@ -44,6 +43,7 @@ import io.trino.connector.TestingTableFunctions.TestInputsFunction;
 import io.trino.connector.TestingTableFunctions.TestInputsFunction.TestInputsFunctionProcessorProvider;
 import io.trino.connector.TestingTableFunctions.TestSingleInputRowSemanticsFunction;
 import io.trino.connector.TestingTableFunctions.TestSingleInputRowSemanticsFunction.TestSingleInputFunctionProcessorProvider;
+import io.trino.connector.TestingTableFunctions.TestingTableFunctionHandle;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableFunctionApplicationResult;
@@ -112,7 +112,7 @@ public class TestTableFunctionInvocation
                     @Override
                     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
                     {
-                        if (functionHandle instanceof EmptyTableFunctionHandle handle) {
+                        if (functionHandle instanceof TestingTableFunctionHandle handle) {
                             return switch (handle.name().getFunctionName()) {
                                 case "identity_function" -> new IdentityFunctionProcessorProvider();
                                 case "identity_pass_through_function" -> new IdentityPassThroughFunctionProcessorProvider();
@@ -140,7 +140,7 @@ public class TestTableFunctionInvocation
                     if (functionHandle instanceof ConstantFunctionHandle handle) {
                         return getConstantFunctionSplitSource(handle);
                     }
-                    if (functionHandle instanceof EmptyTableFunctionHandle handle && handle.name().equals(new SchemaFunctionName("system", "empty_source"))) {
+                    if (functionHandle instanceof TestingTableFunctionHandle handle && handle.name().equals(new SchemaFunctionName("system", "empty_source"))) {
                         return new FixedSplitSource(ImmutableList.of(MOCK_CONNECTOR_SPLIT));
                     }
 

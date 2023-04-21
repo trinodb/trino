@@ -21,7 +21,7 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.TestingTableFunctions.DescriptorArgumentFunction;
 import io.trino.connector.TestingTableFunctions.DifferentArgumentTypesFunction;
 import io.trino.connector.TestingTableFunctions.PassThroughFunction;
-import io.trino.connector.TestingTableFunctions.TestingTableFunctionHandle;
+import io.trino.connector.TestingTableFunctions.TestingTableFunctionPushdownHandle;
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
 import io.trino.connector.TestingTableFunctions.TwoTableArgumentsFunction;
 import io.trino.spi.connector.TableFunctionApplicationResult;
@@ -74,7 +74,7 @@ public class TestTableFunctionInvocation
                         new TwoTableArgumentsFunction(),
                         new PassThroughFunction()))
                 .withApplyTableFunction((session, handle) -> {
-                    if (handle instanceof TestingTableFunctionHandle functionHandle) {
+                    if (handle instanceof TestingTableFunctionPushdownHandle functionHandle) {
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow()));
                     }
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());
