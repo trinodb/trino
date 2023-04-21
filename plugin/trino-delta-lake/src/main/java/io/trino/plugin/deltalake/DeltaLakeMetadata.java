@@ -1074,22 +1074,13 @@ public class DeltaLakeMetadata
         try {
             long commitVersion = handle.getReadVersion() + 1;
 
-            List<String> partitionColumns = getPartitionedBy(tableMetadata.getProperties());
-            List<DeltaLakeColumnHandle> columns = tableMetadata.getColumns().stream()
-                    .filter(column -> !column.isHidden())
-                    .map(column -> toColumnHandle(column, column.getName(), column.getType(), partitionColumns))
-                    .collect(toImmutableList());
-
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, handle.getLocation());
             appendTableEntries(
                     commitVersion,
                     transactionLogWriter,
                     handle.getMetadataEntry().getId(),
-                    columns,
-                    partitionColumns,
-                    getColumnComments(handle.getMetadataEntry()),
-                    getColumnsNullability(handle.getMetadataEntry()),
-                    getColumnsMetadata(handle.getMetadataEntry()),
+                    handle.getMetadataEntry().getSchemaString(),
+                    getPartitionedBy(tableMetadata.getProperties()),
                     handle.getMetadataEntry().getConfiguration(),
                     SET_TBLPROPERTIES_OPERATION,
                     session,
@@ -1233,6 +1224,31 @@ public class DeltaLakeMetadata
             Optional<String> comment,
             ProtocolEntry protocolEntry)
     {
+        appendTableEntries(
+                commitVersion,
+                transactionLogWriter,
+                tableId,
+                serializeSchemaAsJson(columns, columnComments, columnNullability, columnMetadata),
+                partitionColumnNames,
+                configuration,
+                operation,
+                session,
+                comment,
+                protocolEntry);
+    }
+
+    private void appendTableEntries(
+            long commitVersion,
+            TransactionLogWriter transactionLogWriter,
+            String tableId,
+            String schemaString,
+            List<String> partitionColumnNames,
+            Map<String, String> configuration,
+            String operation,
+            ConnectorSession session,
+            Optional<String> comment,
+            ProtocolEntry protocolEntry)
+    {
         long createdTime = System.currentTimeMillis();
         transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, operation, 0));
 
@@ -1244,7 +1260,7 @@ public class DeltaLakeMetadata
                         null,
                         comment.orElse(null),
                         new Format("parquet", ImmutableMap.of()),
-                        serializeSchemaAsJson(columns, columnComments, columnNullability, columnMetadata),
+                        schemaString,
                         partitionColumnNames,
                         ImmutableMap.copyOf(configuration),
                         createdTime));
