@@ -29,11 +29,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.canonicalizeColumnName;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static java.lang.String.format;
 
 public class AddFileEntry
@@ -63,18 +62,7 @@ public class AddFileEntry
     {
         this.path = path;
         this.partitionValues = partitionValues;
-        this.canonicalPartitionValues = partitionValues.entrySet().stream()
-                .collect(toImmutableMap(
-                        // canonicalize partition keys to lowercase so they match column names used in DeltaLakeColumnHandle
-                        entry -> canonicalizeColumnName(entry.getKey()),
-                        entry -> {
-                            String value = entry.getValue();
-                            if (value == null || value.isEmpty()) {
-                                // For VARCHAR based partitions null and "" are treated the same
-                                return Optional.empty();
-                            }
-                            return Optional.of(value);
-                        }));
+        this.canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
         this.size = size;
         this.modificationTime = modificationTime;
         this.dataChange = dataChange;
