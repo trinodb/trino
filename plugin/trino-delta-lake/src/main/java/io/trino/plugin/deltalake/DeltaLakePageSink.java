@@ -13,12 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
@@ -61,15 +59,6 @@ public class DeltaLakePageSink
     {
         throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
     }
-
-    @Override
-    protected void addSpecialColumns(
-            List<DeltaLakeColumnHandle> inputColumns,
-            ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles,
-            ImmutableList.Builder<Integer> dataColumnsInputIndex,
-            ImmutableList.Builder<String> dataColumnNames,
-            ImmutableList.Builder<Type> dataColumnTypes)
-    {}
 
     @Override
     protected String getPathPrefix()

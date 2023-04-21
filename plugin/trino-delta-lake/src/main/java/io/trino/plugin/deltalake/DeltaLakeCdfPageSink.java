@@ -13,20 +13,15 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
-import java.util.OptionalInt;
 
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.CHANGE_DATA_FEED;
-import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class DeltaLakeCdfPageSink
         extends AbstractDeltaLakePageSink
@@ -65,26 +60,6 @@ public class DeltaLakeCdfPageSink
 
     @Override
     protected void processSynthesizedColumn(DeltaLakeColumnHandle column) {}
-
-    @Override
-    protected void addSpecialColumns(
-            List<DeltaLakeColumnHandle> inputColumns,
-            ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles,
-            ImmutableList.Builder<Integer> dataColumnsInputIndices,
-            ImmutableList.Builder<String> dataColumnNames,
-            ImmutableList.Builder<Type> dataColumnTypes)
-    {
-        dataColumnHandles.add(new DeltaLakeColumnHandle(
-                CHANGE_TYPE_COLUMN_NAME,
-                VARCHAR,
-                OptionalInt.empty(),
-                CHANGE_TYPE_COLUMN_NAME,
-                VARCHAR,
-                REGULAR));
-        dataColumnsInputIndices.add(inputColumns.size());
-        dataColumnNames.add(CHANGE_TYPE_COLUMN_NAME);
-        dataColumnTypes.add(VARCHAR);
-    }
 
     @Override
     protected String getPathPrefix()
