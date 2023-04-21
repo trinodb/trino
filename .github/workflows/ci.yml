@@ -550,25 +550,31 @@ jobs:
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
+            - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-delta-lake, profile: gcs-tests }
             - { modules: plugin/trino-druid }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-hive }
+            - { modules: plugin/trino-hive, profile: fte-tests }
             - { modules: plugin/trino-hive, profile: test-parquet }
             - { modules: plugin/trino-hudi }
             - { modules: plugin/trino-iceberg }
-            - { modules: plugin/trino-iceberg, profile: minio-and-avro }
             - { modules: plugin/trino-iceberg, profile: cloud-tests }
+            - { modules: plugin/trino-iceberg, profile: fte-tests }
+            - { modules: plugin/trino-iceberg, profile: minio-and-avro }
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
             - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
+            - { modules: plugin/trino-mongodb, profile: fte-tests }
             - { modules: plugin/trino-mysql }
+            - { modules: plugin/trino-mysql, profile: fte-tests }
             - { modules: plugin/trino-oracle }
             - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
+            - { modules: plugin/trino-postgresql, profile: fte-tests }
             - { modules: plugin/trino-raptor-legacy }
             - { modules: plugin/trino-redis }
             - { modules: plugin/trino-redshift }
@@ -576,17 +582,11 @@ jobs:
             - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-singlestore }
             - { modules: plugin/trino-sqlserver }
-            - { modules: testing/trino-faulttolerant-tests, profile: default }
-            - { modules: plugin/trino-delta-lake, profile: fte-tests }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
-            - { modules: plugin/trino-hive, profile: fte-tests }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
-            - { modules: plugin/trino-iceberg, profile: fte-tests }
-            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
-            - { modules: plugin/trino-postgresql, profile: fte-tests }
-            - { modules: plugin/trino-mongodb, profile: fte-tests }
-            - { modules: plugin/trino-mysql, profile: fte-tests }
             - { modules: plugin/trino-sqlserver, profile: fte-tests }
+            - { modules: testing/trino-faulttolerant-tests, profile: default }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
+            - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-iceberg }
             - { modules: testing/trino-tests }
           EOF
           ./.github/bin/build-matrix-from-impacted.py -v -i gib-impacted.log -m .github/test-matrix.yaml -o matrix.json
