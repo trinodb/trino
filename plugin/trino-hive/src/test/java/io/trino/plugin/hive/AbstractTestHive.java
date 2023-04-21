@@ -807,6 +807,7 @@ public abstract class AbstractTestHive
                 .cacheTtl(new Duration(1, MINUTES))
                 .refreshInterval(new Duration(15, SECONDS))
                 .maximumSize(10000)
+                .cacheMissing(new CachingHiveMetastoreConfig().isCacheMissing())
                 .partitionCacheEnabled(new CachingHiveMetastoreConfig().isPartitionCacheEnabled())
                 .build();
 
