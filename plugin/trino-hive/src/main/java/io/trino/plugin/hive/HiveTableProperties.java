@@ -21,6 +21,8 @@ import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -69,13 +71,15 @@ public class HiveTableProperties
     public static final String REGEX_CASE_INSENSITIVE = "regex_case_insensitive";
     public static final String TRANSACTIONAL = "transactional";
     public static final String AUTO_PURGE = "auto_purge";
+    public static final String EXTRA_PROPERTIES = "extra_properties";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
     public HiveTableProperties(
             HiveConfig config,
-            OrcWriterConfig orcWriterConfig)
+            OrcWriterConfig orcWriterConfig,
+            TypeManager typeManager)
     {
         tableProperties = ImmutableList.of(
                 stringProperty(
@@ -173,7 +177,25 @@ public class HiveTableProperties
                         PARTITION_PROJECTION_LOCATION_TEMPLATE,
                         "Partition projection location template",
                         null,
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        EXTRA_PROPERTIES,
+                        "Extra table properties",
+                        new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators()),
+                        Map.class,
+                        null,
+                        true, // currently not shown in SHOW CREATE TABLE
+                        value -> {
+                            Map<String, String> extraProperties = (Map<String, String>) value;
+                            if (extraProperties.containsValue(null)) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property value cannot be null '%s'", extraProperties));
+                            }
+                            if (extraProperties.containsKey(null)) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Extra table property key cannot be null '%s'", extraProperties));
+                            }
+                            return extraProperties;
+                        },
+                        value -> value));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -310,5 +332,10 @@ public class HiveTableProperties
     public static Optional<Boolean> isAutoPurge(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(AUTO_PURGE));
+    }
+
+    public static Optional<Map<String, String>> getExtraProperties(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Map<String, String>) tableProperties.get(EXTRA_PROPERTIES));
     }
 }

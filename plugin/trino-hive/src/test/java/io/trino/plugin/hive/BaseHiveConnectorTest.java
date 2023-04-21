@@ -54,6 +54,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -8485,6 +8486,110 @@ public abstract class BaseHiveConnectorTest
     {
         assertQueryFails("CREATE TABLE acid_unsupported (x int) WITH (transactional = true)", "FileHiveMetastore does not support ACID tables");
         assertQueryFails("CREATE TABLE acid_unsupported WITH (transactional = true) AS SELECT 123 x", "FileHiveMetastore does not support ACID tables");
+    }
+
+    @Test
+    public void testExtraProperties()
+    {
+        String tableName = "create_table_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))".formatted(tableName));
+
+        assertQuery(
+                "SELECT \"extra.property.one\", \"extra.property.two\" FROM \"%s$properties\"".formatted(tableName),
+                "SELECT 'one', 'two'");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE hive.tpch.%s (\n".formatted(tableName) +
+                        "   c1 integer\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
+        assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testExtraPropertiesWithCtas()
+    {
+        String tableName = "create_table_ctas_with_multiple_extra_properties_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))".formatted(tableName));
+
+        assertQuery(
+                "SELECT \"extra.property.one\", \"extra.property.two\" FROM \"%s$properties\"".formatted(tableName),
+                "SELECT 'one', 'two'");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE hive.tpch.%s (\n".formatted(tableName) +
+                        "   c1 integer\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testShowCreateWithExtraProperties()
+    {
+        String tableName = format("%s.%s.show_create_table_with_extra_properties_%s", getSession().getCatalog().get(), getSession().getSchema().get(), randomNameSuffix());
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))".formatted(tableName));
+
+        assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                .isEqualTo("CREATE TABLE %s (\n".formatted(tableName) +
+                        "   c1 integer\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testDuplicateExtraProperties()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
+                "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+        assertQueryFails(
+                "CREATE TABLE create_table_select_as_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
+                "Invalid value for catalog 'hive' table property 'extra_properties': Cannot convert.*");
+    }
+
+    @Test
+    public void testOverwriteExistingPropertyWithExtraProperties()
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE create_table_with_overwrite_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['transactional'], ARRAY['true']))"))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Illegal keys in extra_properties: [transactional]");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE create_table_as_select_with_extra_properties WITH (extra_properties = MAP(ARRAY['rawDataSize'], ARRAY['1'])) AS SELECT 1 as c1"))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Illegal keys in extra_properties: [rawDataSize]");
+    }
+
+    @Test
+    public void testNullExtraProperty()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null]))",
+                ".*Extra table property value cannot be null '\\{null.property=null}'.*");
+        assertQueryFails(
+                "CREATE TABLE create_table_as_select_with_extra_properties WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null])) AS SELECT 1 as c1",
+                ".*Extra table property value cannot be null '\\{null.property=null}'.*");
+    }
+
+    @Test
+    public void testCollidingMixedCaseProperty()
+    {
+        String tableName = "create_table_with_mixed_case_extra_properties" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one', 'ONE']))".formatted(tableName));
+        // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully
+        assertThatThrownBy(() -> query("SELECT * FROM \"%s$properties\"".formatted(tableName)))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessageContaining("Multiple entries with same key: one=one and one=one");
+
+        assertUpdate("DROP TABLE %s".formatted(tableName));
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
