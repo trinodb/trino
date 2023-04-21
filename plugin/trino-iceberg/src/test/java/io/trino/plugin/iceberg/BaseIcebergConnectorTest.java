@@ -240,6 +240,22 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test
+    public void testAddRowFieldCaseInsensitivity()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_add_row_field_case_insensitivity_",
+                "AS SELECT CAST(row(row(2)) AS row(\"CHILD\" row(grandchild_1 integer))) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(CHILD row(grandchild_1 integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.child.grandchild_2 integer");
+            assertEquals(getColumnType(table.getName(), "col"), "row(CHILD row(grandchild_1 integer, grandchild_2 integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.CHILD.grandchild_3 integer");
+            assertEquals(getColumnType(table.getName(), "col"), "row(CHILD row(grandchild_1 integer, grandchild_2 integer, grandchild_3 integer))");
+        }
+    }
+
     @Override
     public void testAddAndDropColumnName(String columnName)
     {

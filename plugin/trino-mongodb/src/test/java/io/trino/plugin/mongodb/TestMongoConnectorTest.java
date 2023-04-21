@@ -110,6 +110,7 @@ public class TestMongoConnectorTest
             case SUPPORTS_DROP_SCHEMA_CASCADE:
                 return false;
 
+            case SUPPORTS_ADD_FIELD:
             case SUPPORTS_DROP_FIELD:
                 return false;
 

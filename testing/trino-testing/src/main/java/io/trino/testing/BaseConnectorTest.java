@@ -111,6 +111,7 @@ import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_WITH_COMMENT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
@@ -2546,6 +2547,44 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testAddRowField()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        if (!hasBehavior(SUPPORTS_ADD_FIELD)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_field_", "AS SELECT CAST(row(1) AS row(x integer)) AS col")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ADD COLUMN col.y integer",
+                        "This connector does not support adding fields");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_add_field_",
+                "AS SELECT CAST(row(1, row(10)) AS row(a integer, b row(x integer))) AS col")) {
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, b row(x integer))");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.c integer");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, b row(x integer), c integer)");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10), NULL) AS row(a integer, b row(x integer), c integer))");
+
+            // Add a nested field
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.b.y integer");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, b row(x integer, y integer), c integer)");
+            assertThat(query("SELECT * FROM " + table.getName())).matches("SELECT CAST(row(1, row(10, NULL), NULL) AS row(a integer, b row(x integer, y integer), c integer))");
+
+            // Specify existing fields with IF NOT EXISTS option
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.a varchar");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN IF NOT EXISTS col.b.x varchar");
+            assertEquals(getColumnType(table.getName(), "col"), "row(a integer, b row(x integer, y integer), c integer)");
+
+            // Specify existing fields without IF NOT EXISTS option
+            assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col.a varchar", ".* Field 'a' already exists");
+        }
+    }
+
+    @Test
     public void testDropColumn()
     {
         if (!hasBehavior(SUPPORTS_DROP_COLUMN)) {
@@ -2939,7 +2978,7 @@ public abstract class BaseConnectorTest
         throw new AssertionError("Unexpected set column type failure", e);
     }
 
-    private String getColumnType(String tableName, String columnName)
+    protected String getColumnType(String tableName, String columnName)
     {
         return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
                 tableName,
