@@ -689,6 +689,8 @@ rule read from top to bottom. If no rules are specified, all access to system
 information is denied. If no rule matches, system access is denied. Each rule is
 composed of the following fields:
 
+* ``role`` (optional): regex to match against role. If matched, it
+  grants or denies the authorization based on the value of ``allow``.
 * ``user`` (optional): regex to match against user name. If matched, it
   grants or denies the authorization based on the value of ``allow``.
 * ``allow`` (required): set of access permissions granted to user. Values:
