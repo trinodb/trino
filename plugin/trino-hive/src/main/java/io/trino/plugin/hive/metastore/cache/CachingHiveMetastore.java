@@ -161,6 +161,7 @@ public class CachingHiveMetastore
                 .maximumSize(maximumSize)
                 .statsRecording(StatsRecording.DISABLED)
                 .cacheMissing(true)
+                .partitionCacheEnabled(true)
                 .build();
     }
 
@@ -177,7 +178,7 @@ public class CachingHiveMetastore
         private Long maximumSize;
         private StatsRecording statsRecording = StatsRecording.ENABLED;
         private Boolean cacheMissing;
-        private boolean partitionCacheEnabled = true;
+        private Boolean partitionCacheEnabled;
 
         public CachingHiveMetastoreBuilder() {}
 
@@ -192,7 +193,7 @@ public class CachingHiveMetastore
                 Long maximumSize,
                 StatsRecording statsRecording,
                 Boolean cacheMissing,
-                boolean partitionCacheEnabled)
+                Boolean partitionCacheEnabled)
         {
             this.delegate = delegate;
             this.executor = executor;
@@ -300,6 +301,7 @@ public class CachingHiveMetastore
             requireNonNull(delegate, "delegate not set");
             requireNonNull(maximumSize, "maximumSize not set");
             requireNonNull(cacheMissing, "cacheMissing not set");
+            requireNonNull(partitionCacheEnabled, "partitionCacheEnabled not set");
             return new CachingHiveMetastore(
                     delegate,
                     metadataCacheEnabled,
