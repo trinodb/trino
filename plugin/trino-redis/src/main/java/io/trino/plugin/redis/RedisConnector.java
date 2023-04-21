@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.redis;
 
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
@@ -33,6 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class RedisConnector
         implements Connector
 {
+    private final LifeCycleManager lifeCycleManager;
     private final RedisMetadata metadata;
 
     private final RedisSplitManager splitManager;
@@ -40,10 +42,12 @@ public class RedisConnector
 
     @Inject
     public RedisConnector(
+            LifeCycleManager lifeCycleManager,
             RedisMetadata metadata,
             RedisSplitManager splitManager,
             RedisRecordSetProvider recordSetProvider)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
@@ -72,5 +76,11 @@ public class RedisConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }
