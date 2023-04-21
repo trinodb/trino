@@ -44,7 +44,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "experimental.max-queued-big-queries",
         "query-manager.initialization-required-workers",
         "query-manager.initialization-timeout",
-        " fault-tolerant-execution-target-task-split-count",
+        "fault-tolerant-execution-target-task-split-count",
+        "fault-tolerant-execution-target-task-input-size",
         "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
