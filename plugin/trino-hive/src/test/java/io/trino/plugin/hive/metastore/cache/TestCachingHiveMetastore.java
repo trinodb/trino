@@ -124,6 +124,7 @@ public class TestCachingHiveMetastore
 
     private MockThriftMetastoreClient mockClient;
     private ListeningExecutorService executor;
+    private CachingHiveMetastoreBuilder metastoreBuilder;
     private CachingHiveMetastore metastore;
     private CachingHiveMetastore statsOnlyCacheMetastore;
     private ThriftMetastoreStats stats;
@@ -135,7 +136,7 @@ public class TestCachingHiveMetastore
         ThriftMetastore thriftHiveMetastore = createThriftHiveMetastore();
         executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s")));
 
-        CachingHiveMetastoreBuilder builder = CachingHiveMetastore.builder()
+        metastoreBuilder = CachingHiveMetastore.builder()
                 .delegate(new BridgingHiveMetastore(thriftHiveMetastore))
                 .executor(executor)
                 .metadataCacheEnabled(true)
@@ -143,10 +144,11 @@ public class TestCachingHiveMetastore
                 .cacheTtl(new Duration(5, TimeUnit.MINUTES))
                 .refreshInterval(new Duration(1, TimeUnit.MINUTES))
                 .maximumSize(1000)
+                .cacheMissing(new CachingHiveMetastoreConfig().isCacheMissing())
                 .partitionCacheEnabled(true);
 
-        metastore = builder.build();
-        statsOnlyCacheMetastore = CachingHiveMetastore.builder(builder)
+        metastore = metastoreBuilder.build();
+        statsOnlyCacheMetastore = CachingHiveMetastore.builder(metastoreBuilder)
                 .metadataCacheEnabled(false)
                 .statsCacheEnabled(true) // only cache stats
                 .build();
@@ -810,6 +812,7 @@ public class TestCachingHiveMetastore
                 .cacheTtl(new Duration(5, TimeUnit.MINUTES))
                 .refreshInterval(new Duration(1, TimeUnit.MINUTES))
                 .maximumSize(1000)
+                .cacheMissing(new CachingHiveMetastoreConfig().isCacheMissing())
                 .partitionCacheEnabled(true)
                 .build();
     }
@@ -857,6 +860,45 @@ public class TestCachingHiveMetastore
         catch (RuntimeException ignored) {
         }
         assertEquals(mockClient.getAccessCount(), 2);
+    }
+
+    @Test
+    public void testNoCacheMissing()
+    {
+        CachingHiveMetastore metastore = CachingHiveMetastore.builder(metastoreBuilder)
+                .cacheMissing(false)
+                .build();
+
+        mockClient.setReturnTable(false);
+        assertEquals(mockClient.getAccessCount(), 0);
+
+        // First access
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isEmpty();
+        assertEquals(mockClient.getAccessCount(), 1);
+
+        // Second access, second load
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isEmpty();
+        assertEquals(mockClient.getAccessCount(), 2);
+
+        // Table get be accessed once it exists
+        mockClient.setReturnTable(true);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isPresent();
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        // Table existence is cached
+        mockClient.setReturnTable(true);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isPresent();
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        // Table is returned even if no longer exists
+        mockClient.setReturnTable(false);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isPresent();
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        // After cache invalidation, table absence is apparent
+        metastore.invalidateTable(TEST_DATABASE, TEST_TABLE);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isEmpty();
+        assertEquals(mockClient.getAccessCount(), 4);
     }
 
     @Test
@@ -973,6 +1015,7 @@ public class TestCachingHiveMetastore
                 .cacheTtl(new Duration(5, TimeUnit.MINUTES))
                 .refreshInterval(new Duration(1, TimeUnit.MINUTES))
                 .maximumSize(1000)
+                .cacheMissing(new CachingHiveMetastoreConfig().isCacheMissing())
                 .partitionCacheEnabled(true)
                 .build();
 
@@ -1113,6 +1156,7 @@ public class TestCachingHiveMetastore
                     .cacheTtl(new Duration(5, TimeUnit.MINUTES))
                     .refreshInterval(new Duration(1, TimeUnit.MINUTES))
                     .maximumSize(1000)
+                    .cacheMissing(true)
                     .partitionCacheEnabled(false)
                     .build();
         }
@@ -1165,6 +1209,7 @@ public class TestCachingHiveMetastore
                 .cacheTtl(config.getMetastoreCacheTtl())
                 .refreshInterval(config.getMetastoreRefreshInterval())
                 .maximumSize(config.getMetastoreCacheMaximumSize())
+                .cacheMissing(config.isCacheMissing())
                 .partitionCacheEnabled(config.isPartitionCacheEnabled())
                 .build();
     }

@@ -97,6 +97,7 @@ public class SharedHiveMetastoreCache
                 .statsCacheTtl(statsCacheTtl)
                 .refreshInterval(config.getMetastoreRefreshInterval())
                 .maximumSize(config.getMetastoreCacheMaximumSize())
+                .cacheMissing(config.isCacheMissing())
                 .partitionCacheEnabled(config.isPartitionCacheEnabled());
     }
 

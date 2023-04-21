@@ -35,6 +35,7 @@ public class TestCachingHiveMetastoreConfig
                 .setMetastoreRefreshInterval(null)
                 .setMetastoreCacheMaximumSize(10000)
                 .setMaxMetastoreRefreshThreads(10)
+                .setCacheMissing(true)
                 .setPartitionCacheEnabled(true));
     }
 
@@ -48,6 +49,7 @@ public class TestCachingHiveMetastoreConfig
                 .put("hive.metastore-cache-maximum-size", "5000")
                 .put("hive.metastore-refresh-max-threads", "2500")
                 .put("hive.metastore-cache.cache-partitions", "false")
+                .put("hive.metastore-cache.cache-missing", "false")
                 .buildOrThrow();
 
         CachingHiveMetastoreConfig expected = new CachingHiveMetastoreConfig()
@@ -56,6 +58,7 @@ public class TestCachingHiveMetastoreConfig
                 .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
                 .setMetastoreCacheMaximumSize(5000)
                 .setMaxMetastoreRefreshThreads(2500)
+                .setCacheMissing(false)
                 .setPartitionCacheEnabled(false);
 
         assertFullMapping(properties, expected);
