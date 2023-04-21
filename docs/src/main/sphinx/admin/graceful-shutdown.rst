@@ -24,7 +24,7 @@ Keep the following aspects in mind:
   CA signed, or trusted by the server calling the shut down endpoint.
   Otherwise, you can make the call ``--insecure``, but that isn't recommended.
 * The ``default`` :doc:`/security/built-in-system-access-control` does not allow
-  graceful shutdowns. You can use  the ``allow-all`` system access control, or
+  graceful shutdowns. You can use the ``allow-all`` system access control, or
   configure :ref:`system information rules
   <system-file-auth-system_information>` with the ``file`` system access
   control. These configuration must be present on all workers.
