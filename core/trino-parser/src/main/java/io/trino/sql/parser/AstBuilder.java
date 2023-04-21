@@ -2554,9 +2554,10 @@ class AstBuilder
         }
 
         StringLiteral jsonPath = (StringLiteral) visit(context.path);
+        Optional<Identifier> pathName = visitIfPresent(context.pathName, Identifier.class);
         List<JsonPathParameter> pathParameters = visit(context.jsonArgument(), JsonPathParameter.class);
 
-        return new JsonPathInvocation(Optional.of(getLocation(context)), jsonInput, inputFormat, jsonPath, pathParameters);
+        return new JsonPathInvocation(Optional.of(getLocation(context)), jsonInput, inputFormat, jsonPath, pathName, pathParameters);
     }
 
     private JsonFormat getJsonFormat(SqlBaseParser.JsonRepresentationContext context)

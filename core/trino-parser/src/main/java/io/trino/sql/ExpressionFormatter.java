@@ -1308,6 +1308,10 @@ public final class ExpressionFormatter
                 .append(", ")
                 .append(formatExpression(pathInvocation.getJsonPath()));
 
+        pathInvocation.getPathName().ifPresent(pathName -> builder
+                .append(" AS ")
+                .append(formatExpression(pathName)));
+
         if (!pathInvocation.getPathParameters().isEmpty()) {
             builder.append(" PASSING ");
             builder.append(formatJsonPathParameters(pathInvocation.getPathParameters()));
