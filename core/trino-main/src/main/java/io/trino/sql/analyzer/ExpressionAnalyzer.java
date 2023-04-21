@@ -198,6 +198,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_NAVIGATION_NESTING;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
@@ -2687,6 +2688,10 @@ public class ExpressionAnalyzer
 
         private List<Type> analyzeJsonPathInvocation(String functionName, Expression node, JsonPathInvocation jsonPathInvocation, StackableAstVisitorContext<Context> context)
         {
+            jsonPathInvocation.getPathName().ifPresent(pathName -> {
+                throw semanticException(INVALID_PATH, pathName, "JSON path name is not allowed in %s function", functionName);
+            });
+
             // ANALYZE THE CONTEXT ITEM
             // analyze context item type
             Expression inputExpression = jsonPathInvocation.getInputExpression();

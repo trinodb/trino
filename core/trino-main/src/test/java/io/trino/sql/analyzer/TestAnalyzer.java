@@ -137,6 +137,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_NAVIGATION_NESTING;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
+import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
@@ -6174,6 +6175,22 @@ public class TestAnalyzer
         assertFails("SELECT JSON_ARRAY(b) FROM (VALUES ('x', 1), ('y', 2)) t(a, b) GROUP BY a")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
                 .hasMessage("line 1:8: 'JSON_ARRAY(b ABSENT ON NULL)' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
+    public void testJsonPathName()
+    {
+        assertFails("SELECT JSON_EXISTS('[1, 2, 3]', 'lax $[2]' AS path_name)")
+                .hasErrorCode(INVALID_PATH)
+                .hasMessage("line 1:47: JSON path name is not allowed in JSON_EXISTS function");
+
+        assertFails("SELECT JSON_QUERY('[1, 2, 3]', 'lax $[2]' AS path_name)")
+                .hasErrorCode(INVALID_PATH)
+                .hasMessage("line 1:46: JSON path name is not allowed in JSON_QUERY function");
+
+        assertFails("SELECT JSON_VALUE('[1, 2, 3]', 'lax $[2]' AS path_name)")
+                .hasErrorCode(INVALID_PATH)
+                .hasMessage("line 1:46: JSON path name is not allowed in JSON_VALUE function");
     }
 
     @Test
