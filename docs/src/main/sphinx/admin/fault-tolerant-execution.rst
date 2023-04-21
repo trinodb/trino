@@ -305,15 +305,34 @@ fault-tolerant execution:
        reschedule tasks in case of a failure.
      - (JVM heap size * 0.15)
      - Only ``TASK``
-   * - ``fault-tolerant-execution-partition-count``
-     - Number of partitions to use for distributed joins and aggregations,
-       similar in function to the ``query.hash-partition-count`` :doc:`query
-       management property </admin/properties-query-management>`. It is not
-       recommended to increase this property value above the default of ``50``,
-       which may result in instability and poor performance. May be overridden
-       for the current session with the
-       ``fault_tolerant_execution_partition_count`` :ref:`session property
-       <session-properties-definition>`.
+   * - ``fault-tolerant-execution-max-partition-count``
+     - Maximum number of partitions to use for distributed joins and
+       aggregations, similar in function to the
+       ``query.max-hash-partition-count`` :doc:`query management property
+       </admin/properties-query-management>`. It is not recommended to increase
+       this property value above the default of ``50``, which may result in
+       instability and poor performance. May be overridden for the current
+       session with the ``fault_tolerant_execution_max_partition_count``
+       :ref:`session property <session-properties-definition>`.
+     - ``50``
+     - Only ``TASK``
+   * - ``fault-tolerant-execution-min-partition-count``
+     - Minimum number of partitions to use for distributed joins and
+       aggregations, similar in function to the
+       ``query.min-hash-partition-count`` :doc:`query management property
+       </admin/properties-query-management>`. May be overridden for the current
+       session with the ``fault_tolerant_execution_min_partition_count``
+       :ref:`session property <session-properties-definition>`.
+     - ``4``
+     - Only ``TASK``
+   * - ``fault-tolerant-execution-min-partition-count-for-write``
+     - Minimum number of partitions to use for distributed joins and
+       aggregations in write queries, similar in function to the
+       ``query.min-hash-partition-count-for-write`` :doc:`query management
+       property </admin/properties-query-management>`. May be overridden for
+       the current session with the
+       ``fault_tolerant_execution_min_partition_count_for_write``
+       :ref:`session property <session-properties-definition>`.
      - ``50``
      - Only ``TASK``
    * - ``max-tasks-waiting-for-node-per-stage``

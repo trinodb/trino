@@ -29,6 +29,16 @@ stages of a query. You can use the following execution policies:
   dependencies typically prevent full processing and cause longer queue times
   which increases the query wall time overall.
 
+``query.determine-partition-count-for-write-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``false``
+* **Session property:** ``determine_partition_count_for_write_enabled``
+
+Enables determining the number of partitions based on amount of data read and processed by the
+query for write queries.
+
 ``query.max-hash-partition-count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -48,6 +58,16 @@ joins, aggregations, partitioned window functions and others.
 
 The minimum number of partitions to use for processing distributed operations, such as
 joins, aggregations, partitioned window functions and others.
+
+``query.min-hash-partition-count-for-write``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``50``
+* **Session property:** ``min_hash_partition_count_for_writre``
+
+The minimum number of partitions to use for processing distributed operations in write queries,
+such as joins, aggregations, partitioned window functions and others.
 
 ``query.max-writer-tasks-count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
