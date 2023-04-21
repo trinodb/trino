@@ -151,7 +151,7 @@ public final class ThriftMetastoreUtil
     private static final String NUM_FILES = "numFiles";
     private static final String RAW_DATA_SIZE = "rawDataSize";
     private static final String TOTAL_SIZE = "totalSize";
-    private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
+    public static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE);
 
     private ThriftMetastoreUtil() {}
 

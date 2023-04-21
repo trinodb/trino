@@ -1141,6 +1141,11 @@ to the connector using a :doc:`WITH </sql/create-table-as>` clause::
       ``s3a://test/name=${name}/``. Mapped from the AWS Athena table property
       `storage.location.template <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-setting-up.html#partition-projection-specifying-custom-s3-storage-locations>`_
     - ``${table_location}/${partition_name}``
+  * - ``extra_properties``
+    - Additional properties added to a Hive table. The properties are not used by Trino,
+      and are available in the ``$properties`` metadata table.
+      The properties are not included in the output of ``SHOW CREATE TABLE`` statements.
+    -
 
 .. _hive_special_tables:
 
