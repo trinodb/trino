@@ -1338,7 +1338,7 @@ public final class ExpressionTreeRewriter<C>
                     .collect(toImmutableList());
 
             if (pathInvocation.getInputExpression() != inputExpression || !sameElements(pathInvocation.getPathParameters(), pathParameters)) {
-                return new JsonPathInvocation(pathInvocation.getLocation(), inputExpression, pathInvocation.getInputFormat(), pathInvocation.getJsonPath(), pathParameters);
+                return new JsonPathInvocation(pathInvocation.getLocation(), inputExpression, pathInvocation.getInputFormat(), pathInvocation.getJsonPath(), pathInvocation.getPathName(), pathParameters);
             }
 
             return pathInvocation;

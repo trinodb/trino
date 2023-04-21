@@ -4739,6 +4739,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 13), "json_column", false),
                                 JSON,
                                 new StringLiteral(location(1, 26), "lax $[5]"),
+                                Optional.empty(),
                                 ImmutableList.of()),
                         JsonExists.ErrorBehavior.FALSE));
 
@@ -4756,6 +4757,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 44), "json_column", false),
                                 UTF8,
                                 new StringLiteral(location(1, 114), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                Optional.empty(),
                                 ImmutableList.of(
                                         new JsonPathParameter(
                                                 Optional.of(location(1, 252)),
@@ -4782,6 +4784,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 12), "json_column", false),
                                 JSON,
                                 new StringLiteral(location(1, 25), "lax $[5]"),
+                                Optional.empty(),
                                 ImmutableList.of()),
                         Optional.empty(),
                         JsonValue.EmptyOrErrorBehavior.NULL,
@@ -4805,6 +4808,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 43), "json_column", false),
                                 UTF8,
                                 new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                Optional.empty(),
                                 ImmutableList.of(
                                         new JsonPathParameter(
                                                 Optional.of(location(1, 251)),
@@ -4835,6 +4839,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 12), "json_column", false),
                                 JSON,
                                 new StringLiteral(location(1, 25), "lax $[5]"),
+                                Optional.empty(),
                                 ImmutableList.of()),
                         Optional.empty(),
                         Optional.empty(),
@@ -4861,6 +4866,7 @@ public class TestSqlParser
                                 new Identifier(location(1, 43), "json_column", false),
                                 UTF8,
                                 new StringLiteral(location(1, 113), "lax $[start_parameter TO end_parameter.ceiling()]"),
+                                Optional.empty(),
                                 ImmutableList.of(
                                         new JsonPathParameter(
                                                 Optional.of(location(1, 251)),
