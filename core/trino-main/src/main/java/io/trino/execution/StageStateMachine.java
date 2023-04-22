@@ -35,7 +35,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
-import io.trino.util.Optionals;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.joda.time.DateTime;
 
@@ -458,7 +457,7 @@ public class StageStateMachine
         long failedInputBlockedTime = 0;
 
         long bufferedDataSize = 0;
-        Optional<TDigestHistogram> outputBufferUtilization = Optional.empty();
+        ImmutableList.Builder<TDigestHistogram> bufferUtilizationHistograms = ImmutableList.builderWithExpectedSize(taskInfos.size());
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
@@ -535,7 +534,7 @@ public class StageStateMachine
             inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
 
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
-            outputBufferUtilization = Optionals.combine(outputBufferUtilization, taskInfo.getOutputBuffers().getUtilization(), TDigestHistogram::mergeWith);
+            taskInfo.getOutputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
@@ -640,7 +639,7 @@ public class StageStateMachine
                 succinctDuration(inputBlockedTime, NANOSECONDS),
                 succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
-                outputBufferUtilization,
+                TDigestHistogram.merge(bufferUtilizationHistograms.build()),
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
