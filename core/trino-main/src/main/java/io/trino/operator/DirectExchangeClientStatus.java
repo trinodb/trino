@@ -162,6 +162,47 @@ public class DirectExchangeClientStatus
                 requestDuration.mergeWith(other.requestDuration)); // this is correct as long as all clients have the same shape of histogram
     }
 
+    @Override
+    public DirectExchangeClientStatus mergeWith(List<DirectExchangeClientStatus> others)
+    {
+        if (others.isEmpty()) {
+            return this;
+        }
+
+        long bufferedBytes = this.bufferedBytes;
+        long maxBufferedBytes = this.maxBufferedBytes;
+        long averageBytesPerRequest = this.averageBytesPerRequest;
+        long successfulRequestsCount = this.successfulRequestsCount;
+        int bufferedPages = this.bufferedPages;
+        int spilledPages = this.spilledPages;
+        long spilledBytes = this.spilledBytes;
+        boolean noMoreLocations = this.noMoreLocations;
+        ImmutableList.Builder<TDigestHistogram> requestDurations = ImmutableList.builderWithExpectedSize(others.size());
+        for (DirectExchangeClientStatus other : others) {
+            bufferedBytes = (bufferedBytes + other.bufferedBytes) / 2; // this is correct as long as all clients have the same buffer size (capacity)
+            maxBufferedBytes = Math.max(maxBufferedBytes, other.maxBufferedBytes);
+            averageBytesPerRequest = mergeAvgs(averageBytesPerRequest, successfulRequestsCount, other.averageBytesPerRequest, other.successfulRequestsCount);
+            successfulRequestsCount = successfulRequestsCount + other.successfulRequestsCount;
+            bufferedPages = bufferedPages + other.bufferedPages;
+            spilledPages = spilledPages + other.spilledPages;
+            spilledBytes = spilledBytes + other.spilledBytes;
+            noMoreLocations = noMoreLocations && other.noMoreLocations; // if at least one has some locations, mergee has some too
+            requestDurations.add(other.requestDuration);
+        }
+
+        return new DirectExchangeClientStatus(
+                bufferedBytes,
+                maxBufferedBytes,
+                averageBytesPerRequest,
+                successfulRequestsCount,
+                bufferedPages,
+                spilledPages,
+                spilledBytes,
+                noMoreLocations,
+                ImmutableList.of(), // pageBufferClientStatuses may be long, so we don't want to combine the lists
+                TDigestHistogram.merge(requestDurations.build()).orElseThrow()); // this is correct as long as all clients have the same shape of histogram
+    }
+
     private static long mergeAvgs(long value1, long count1, long value2, long count2)
     {
         if (count1 == 0) {
