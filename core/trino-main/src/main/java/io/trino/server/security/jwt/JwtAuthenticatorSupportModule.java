@@ -54,19 +54,7 @@ public class JwtAuthenticatorSupportModule
         @Override
         public void configure(Binder binder)
         {
-            httpClientBinder(binder)
-                    .bindHttpClient("jwk", ForJwt.class)
-                    // Reset HttpClient default configuration to override InternalCommunicationModule changes.
-                    // Setting a keystore and/or a truststore for internal communication changes the default SSL configuration
-                    // for all clients in the same guice context. This, however, does not make sense for this client which will
-                    // very rarely use the same SSL setup as internal communication, so using the system default truststore
-                    // makes more sense.
-                    .withConfigDefaults(config -> config
-                            .setKeyStorePath(null)
-                            .setKeyStorePassword(null)
-                            .setTrustStorePath(null)
-                            .setTrustStorePassword(null)
-                            .setAutomaticHttpsSharedSecret(null));
+            httpClientBinder(binder).bindHttpClient("jwk", ForJwt.class);
         }
 
         @Provides
