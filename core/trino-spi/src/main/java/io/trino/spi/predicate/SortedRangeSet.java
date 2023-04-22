@@ -317,8 +317,7 @@ public final class SortedRangeSet
         if (getRangeCount() != 1) {
             return false;
         }
-        RangeView onlyRange = getRangeView(0);
-        return onlyRange.isLowUnbounded() && onlyRange.isHighUnbounded();
+        return isRangeLowUnbounded(0) && isRangeHighUnbounded(0);
     }
 
     @Override
@@ -444,6 +443,16 @@ public final class SortedRangeSet
                 inclusive[rangeRight],
                 sortedRanges,
                 rangeRight);
+    }
+
+    private boolean isRangeLowUnbounded(int rangeIndex)
+    {
+        return sortedRanges.isNull(2 * rangeIndex);
+    }
+
+    private boolean isRangeHighUnbounded(int rangeIndex)
+    {
+        return sortedRanges.isNull(2 * rangeIndex + 1);
     }
 
     @Override
