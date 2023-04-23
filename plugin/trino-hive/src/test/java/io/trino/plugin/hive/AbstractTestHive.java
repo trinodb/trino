@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsContext;
@@ -2666,7 +2667,7 @@ public abstract class AbstractTestHive
     {
         SchemaTableName temporaryCreateRollbackTable = temporaryTable("create_rollback");
         try {
-            Path stagingPathRoot;
+            Location stagingPathRoot;
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
                 ConnectorMetadata metadata = transaction.getMetadata();
@@ -2715,7 +2716,7 @@ public abstract class AbstractTestHive
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
         PrincipalPrivileges privileges = testingPrincipalPrivilege(session);
-        Path targetPath;
+        Location targetPath;
         try {
             try (Transaction transaction = newTransaction()) {
                 LocationService locationService = getLocationService();
@@ -2730,7 +2731,7 @@ public abstract class AbstractTestHive
 
             // try creating it again from another transaction with ignoreExisting=false
             try (Transaction transaction = newTransaction()) {
-                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_2"), "q2");
+                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.appendSuffix("_2"), "q2");
                 transaction.getMetastore()
                         .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, EMPTY_TABLE_STATISTICS, false);
                 transaction.commit();
@@ -2742,7 +2743,7 @@ public abstract class AbstractTestHive
 
             // try creating it again from another transaction with ignoreExisting=true
             try (Transaction transaction = newTransaction()) {
-                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_3"), "q3");
+                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.appendSuffix("_3"), "q3");
                 transaction.getMetastore()
                         .createTable(session, table, privileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
                 transaction.commit();
@@ -2751,7 +2752,7 @@ public abstract class AbstractTestHive
             // at this point the table should exist, now try creating the table again with a different table definition
             columns = ImmutableList.of(new Column("new_column", HiveType.valueOf("string"), Optional.empty()));
             try (Transaction transaction = newTransaction()) {
-                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.suffix("_4"), "q4");
+                Table table = createSimpleTable(schemaTableName, columns, session, targetPath.appendSuffix("_4"), "q4");
                 transaction.getMetastore()
                         .createTable(session, table, privileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
                 transaction.commit();
@@ -2767,7 +2768,7 @@ public abstract class AbstractTestHive
         }
     }
 
-    private static Table createSimpleTable(SchemaTableName schemaTableName, List<Column> columns, ConnectorSession session, Path targetPath, String queryId)
+    private static Table createSimpleTable(SchemaTableName schemaTableName, List<Column> columns, ConnectorSession session, Location targetPath, String queryId)
     {
         String tableOwner = session.getUser();
         String schemaName = schemaTableName.getSchemaName();
@@ -2854,9 +2855,9 @@ public abstract class AbstractTestHive
 
             HdfsContext context = new HdfsContext(session);
             // verify we have enough temporary files per bucket to require multiple passes
-            Path stagingPathRoot;
+            Location stagingPathRoot;
             if (isTemporaryStagingDirectoryEnabled(session)) {
-                stagingPathRoot = new Path(getTemporaryStagingDirectoryPath(session)
+                stagingPathRoot = Location.of(getTemporaryStagingDirectoryPath(session)
                         .replace("${USER}", context.getIdentity().getUser()));
             }
             else {
@@ -3077,7 +3078,7 @@ public abstract class AbstractTestHive
                     String schemaName = temporaryCreateEmptyTable.getSchemaName();
                     String tableName = temporaryCreateEmptyTable.getTableName();
                     LocationService locationService = getLocationService();
-                    Path targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+                    Location targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
                     Table.Builder tableBuilder = Table.builder()
                             .setDatabaseName(schemaName)
                             .setTableName(tableName)
@@ -3102,7 +3103,7 @@ public abstract class AbstractTestHive
                     transaction.commit();
 
                     HdfsContext context = new HdfsContext(session);
-                    Path temporaryRoot = new Path(targetPath, temporaryStagingPrefix);
+                    Path temporaryRoot = new Path(targetPath.toString(), temporaryStagingPrefix);
                     FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, temporaryRoot);
                     assertFalse(fileSystem.exists(temporaryRoot), format("Temporary staging directory %s is created.", temporaryRoot));
                 }
@@ -3464,7 +3465,7 @@ public abstract class AbstractTestHive
             String tableOwner = session.getUser();
             String schemaName = schemaTableName.getSchemaName();
             String tableName = schemaTableName.getTableName();
-            Path targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+            Location targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
             //create table whose storage format is null
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
@@ -3695,7 +3696,7 @@ public abstract class AbstractTestHive
             LocationService locationService = getLocationService();
             Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName()).get();
             LocationHandle handle = locationService.forExistingTable(metastore, session, table);
-            return locationService.getPartitionWriteInfo(handle, Optional.empty(), partitionName).getTargetPath().toString();
+            return locationService.getPartitionWriteInfo(handle, Optional.empty(), partitionName).targetPath().toString();
         }
     }
 
@@ -4262,7 +4263,7 @@ public abstract class AbstractTestHive
             assertFalse(existingFiles.isEmpty());
         }
 
-        Path stagingPathRoot;
+        Location stagingPathRoot;
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
@@ -4383,7 +4384,7 @@ public abstract class AbstractTestHive
             assertFalse(existingFiles.isEmpty());
         }
 
-        Path stagingPathRoot;
+        Location stagingPathRoot;
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession(overwriteProperties);
             ConnectorMetadata metadata = transaction.getMetadata();
@@ -4452,32 +4453,31 @@ public abstract class AbstractTestHive
         }
     }
 
-    // These are protected so extensions to the hive connector can replace the handle classes
-    protected Path getStagingPathRoot(ConnectorInsertTableHandle insertTableHandle)
+    private Location getStagingPathRoot(ConnectorInsertTableHandle insertTableHandle)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) insertTableHandle;
         WriteInfo writeInfo = getLocationService().getQueryWriteInfo(handle.getLocationHandle());
-        if (writeInfo.getWriteMode() != STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
+        if (writeInfo.writeMode() != STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
             throw new AssertionError("writeMode is not STAGE_AND_MOVE_TO_TARGET_DIRECTORY");
         }
-        return writeInfo.getWritePath();
+        return writeInfo.writePath();
     }
 
-    protected Path getStagingPathRoot(ConnectorOutputTableHandle outputTableHandle)
+    private Location getStagingPathRoot(ConnectorOutputTableHandle outputTableHandle)
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) outputTableHandle;
         return getLocationService()
                 .getQueryWriteInfo(handle.getLocationHandle())
-                .getWritePath();
+                .writePath();
     }
 
-    protected Path getTargetPathRoot(ConnectorInsertTableHandle insertTableHandle)
+    private Location getTargetPathRoot(ConnectorInsertTableHandle insertTableHandle)
     {
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle;
 
         return getLocationService()
                 .getQueryWriteInfo(hiveInsertTableHandle.getLocationHandle())
-                .getTargetPath();
+                .targetPath();
     }
 
     protected Set<String> listAllDataFiles(Transaction transaction, String schemaName, String tableName)
@@ -4486,7 +4486,7 @@ public abstract class AbstractTestHive
         HdfsContext hdfsContext = new HdfsContext(newSession());
         Set<String> existingFiles = new HashSet<>();
         for (String location : listAllDataPaths(transaction.getMetastore(), schemaName, tableName)) {
-            existingFiles.addAll(listAllDataFiles(hdfsContext, new Path(location)));
+            existingFiles.addAll(listAllDataFiles(hdfsContext, Location.of(location)));
         }
         return existingFiles;
     }
@@ -4514,9 +4514,10 @@ public abstract class AbstractTestHive
         return locations.build();
     }
 
-    protected Set<String> listAllDataFiles(HdfsContext context, Path path)
+    protected Set<String> listAllDataFiles(HdfsContext context, Location location)
             throws IOException
     {
+        Path path = new Path(location.toString());
         Set<String> result = new HashSet<>();
         FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
         if (fileSystem.exists(path)) {
@@ -4528,7 +4529,7 @@ public abstract class AbstractTestHive
                     result.add(fileStatus.getPath().toString());
                 }
                 else if (fileStatus.isDirectory()) {
-                    result.addAll(listAllDataFiles(context, fileStatus.getPath()));
+                    result.addAll(listAllDataFiles(context, Location.of(fileStatus.getPath().toString())));
                 }
             }
         }
@@ -4589,7 +4590,7 @@ public abstract class AbstractTestHive
             }
         }
 
-        Path stagingPathRoot;
+        Location stagingPathRoot;
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
@@ -4701,7 +4702,7 @@ public abstract class AbstractTestHive
 
         // test rollback
         Set<String> existingFiles;
-        Path stagingPathRoot;
+        Location stagingPathRoot;
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
@@ -4848,8 +4849,8 @@ public abstract class AbstractTestHive
     private String insertData(SchemaTableName tableName, MaterializedResult data, Map<String, Object> sessionProperties)
             throws Exception
     {
-        Path writePath;
-        Path targetPath;
+        Location writePath;
+        Location targetPath;
         String queryId;
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
@@ -4874,8 +4875,8 @@ public abstract class AbstractTestHive
         // check that temporary files are removed
         if (!writePath.equals(targetPath)) {
             HdfsContext context = new HdfsContext(newSession());
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, writePath);
-            assertFalse(fileSystem.exists(writePath));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, new Path(writePath.toString()));
+            assertFalse(fileSystem.exists(new Path(writePath.toString())));
         }
 
         return queryId;
@@ -5557,7 +5558,7 @@ public abstract class AbstractTestHive
             String tableName = schemaTableName.getTableName();
 
             LocationService locationService = getLocationService();
-            targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
+            targetPath = new Path(locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName).toString());
 
             ImmutableMap.Builder<String, String> tableParamBuilder = ImmutableMap.<String, String>builder()
                     .put(PRESTO_VERSION_NAME, TEST_SERVER_VERSION)
@@ -6010,8 +6011,8 @@ public abstract class AbstractTestHive
             Optional<ConflictTrigger> conflictTrigger)
             throws Exception
     {
-        Path writePath = null;
-        Path targetPath = null;
+        Location writePath = null;
+        Location targetPath = null;
 
         try (Transaction transaction = newTransaction()) {
             try {
@@ -6075,8 +6076,8 @@ public abstract class AbstractTestHive
         // check that temporary files are removed
         if (writePath != null && !writePath.equals(targetPath)) {
             HdfsContext context = new HdfsContext(newSession());
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, writePath);
-            assertFalse(fileSystem.exists(writePath));
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, new Path(writePath.toString()));
+            assertFalse(fileSystem.exists(new Path(writePath.toString())));
         }
 
         try (Transaction transaction = newTransaction()) {
@@ -6254,15 +6255,15 @@ public abstract class AbstractTestHive
         @Override
         public void triggerConflict(ConnectorSession session, SchemaTableName tableName, ConnectorInsertTableHandle insertTableHandle, List<PartitionUpdate> partitionUpdates)
         {
-            Path writePath = getStagingPathRoot(insertTableHandle);
-            Path targetPath = getTargetPathRoot(insertTableHandle);
+            Location writePath = getStagingPathRoot(insertTableHandle);
+            Location targetPath = getTargetPathRoot(insertTableHandle);
             if (writePath.equals(targetPath)) {
                 // This conflict does not apply. Trigger a rollback right away so that this test case passes.
                 throw new TestingRollbackException();
             }
-            path = new Path(targetPath + "/pk1=b/pk2=add2");
+            path = new Path(targetPath.appendPath("pk1=b").appendPath("pk2=add2").toString());
             context = new HdfsContext(session);
-            createDirectory(context, hdfsEnvironment, path);
+            createDirectory(context, hdfsEnvironment, new Path(path.toString()));
         }
 
         @Override

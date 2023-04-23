@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -43,7 +44,6 @@ import io.trino.tpch.LineItemGenerator;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchColumnTypes;
 import io.trino.type.BlockTypeOperators;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -166,7 +166,7 @@ public class TestHivePageSink
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         HiveWriterStats stats = new HiveWriterStats();
-        ConnectorPageSink pageSink = createPageSink(transaction, config, sortingFileWriterConfig, metastore, new Path("file:///" + outputPath), stats);
+        ConnectorPageSink pageSink = createPageSink(transaction, config, sortingFileWriterConfig, metastore, Location.of("file:///" + outputPath), stats);
         List<LineItemColumn> columns = getTestColumns();
         List<Type> columnTypes = columns.stream()
                 .map(LineItemColumn::getType)
@@ -282,7 +282,7 @@ public class TestHivePageSink
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), DynamicFilter.EMPTY);
     }
 
-    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, SortingFileWriterConfig sortingFileWriterConfig, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)
+    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, SortingFileWriterConfig sortingFileWriterConfig, HiveMetastore metastore, Location outputPath, HiveWriterStats stats)
     {
         LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
