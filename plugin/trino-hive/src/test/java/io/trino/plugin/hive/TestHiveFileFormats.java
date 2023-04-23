@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hive.formats.compression.CompressionKind;
@@ -1005,7 +1006,7 @@ public class TestHiveFileFormats
                 columnHandles,
                 ImmutableList.of(),
                 TableToPartitionMapping.empty(),
-                split.getPath(),
+                split.getPath().toString(),
                 OptionalInt.empty(),
                 fileSize,
                 Instant.now().toEpochMilli());
@@ -1015,7 +1016,7 @@ public class TestHiveFileFormats
                 ImmutableSet.of(cursorProvider),
                 configuration,
                 session,
-                split.getPath(),
+                Location.of(split.getPath().toString()),
                 OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),
@@ -1083,7 +1084,7 @@ public class TestHiveFileFormats
                 columnHandles,
                 ImmutableList.of(),
                 TableToPartitionMapping.empty(),
-                split.getPath(),
+                split.getPath().toString(),
                 OptionalInt.empty(),
                 fileSize,
                 Instant.now().toEpochMilli());
@@ -1093,7 +1094,7 @@ public class TestHiveFileFormats
                 ImmutableSet.of(),
                 newEmptyConfiguration(),
                 session,
-                split.getPath(),
+                Location.of(split.getPath().toString()),
                 OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),

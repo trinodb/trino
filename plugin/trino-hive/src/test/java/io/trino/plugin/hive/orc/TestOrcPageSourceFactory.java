@@ -31,7 +31,6 @@ import io.trino.spi.type.Type;
 import io.trino.tpch.Nation;
 import io.trino.tpch.NationColumn;
 import io.trino.tpch.NationGenerator;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
@@ -234,7 +233,7 @@ public class TestOrcPageSourceFactory
         Optional<ReaderPageSource> pageSourceWithProjections = PAGE_SOURCE_FACTORY.createPageSource(
                 new JobConf(newEmptyConfiguration()),
                 SESSION,
-                new Path(filePath),
+                Location.of(filePath),
                 0,
                 fileSize,
                 fileSize,

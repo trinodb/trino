@@ -47,7 +47,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -106,7 +105,7 @@ public class RcFilePageSourceFactory
     public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location path,
             long start,
             long length,
             long estimatedFileSize,
@@ -141,9 +140,8 @@ public class RcFilePageSourceFactory
                     .collect(toImmutableList());
         }
 
-        Location location = Location.of(path.toString());
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
-        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(location));
+        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(path));
         try {
             length = min(inputFile.length() - start, length);
             if (!inputFile.exists()) {
@@ -152,7 +150,7 @@ public class RcFilePageSourceFactory
             if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
                 try (InputStream inputStream = inputFile.newStream()) {
                     byte[] data = inputStream.readAllBytes();
-                    inputFile = new MemoryInputFile(location, Slices.wrappedBuffer(data));
+                    inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
                 }
             }
         }
@@ -197,7 +195,7 @@ public class RcFilePageSourceFactory
         }
     }
 
-    private static String splitError(Throwable t, Path path, long start, long length)
+    private static String splitError(Throwable t, Location path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }

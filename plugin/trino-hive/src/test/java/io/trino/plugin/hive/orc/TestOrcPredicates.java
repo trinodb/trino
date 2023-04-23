@@ -16,6 +16,7 @@ package io.trino.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.plugin.hive.AbstractTestHiveFileFormats;
@@ -211,7 +212,7 @@ public class TestOrcPredicates
                 columnHandles,
                 ImmutableList.of(),
                 TableToPartitionMapping.empty(),
-                split.getPath(),
+                split.getPath().toString(),
                 OptionalInt.empty(),
                 split.getLength(),
                 Instant.now().toEpochMilli());
@@ -221,7 +222,7 @@ public class TestOrcPredicates
                 ImmutableSet.of(),
                 newEmptyConfiguration(),
                 session,
-                split.getPath(),
+                Location.of(split.getPath().toString()),
                 OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),

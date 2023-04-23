@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.trino.plugin.hive.coercions.CharCoercer;
@@ -55,7 +56,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 
@@ -604,7 +604,7 @@ public class HivePageSource
         // validate every ~100 rows but using a prime number
         public static final int VALIDATION_STRIDE = 97;
 
-        private final Path path;
+        private final Location path;
         private final int[] bucketColumnIndices;
         private final List<TypeInfo> bucketColumnTypes;
         private final BucketingVersion bucketingVersion;
@@ -612,7 +612,7 @@ public class HivePageSource
         private final int expectedBucket;
 
         public BucketValidator(
-                Path path,
+                Location path,
                 int[] bucketColumnIndices,
                 List<TypeInfo> bucketColumnTypes,
                 BucketingVersion bucketingVersion,

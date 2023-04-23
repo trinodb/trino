@@ -53,7 +53,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -177,7 +176,7 @@ public class OrcPageSourceFactory
     public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location path,
             long start,
             long length,
             long estimatedFileSize,
@@ -234,7 +233,7 @@ public class OrcPageSourceFactory
 
     private ConnectorPageSource createOrcPageSource(
             ConnectorSession session,
-            Path path,
+            Location path,
             long start,
             long length,
             long estimatedFileSize,
@@ -261,7 +260,7 @@ public class OrcPageSourceFactory
         boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
-            TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path.toString()));
+            TrinoInputFile inputFile = fileSystem.newInputFile(path);
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     estimatedFileSize,
@@ -407,7 +406,7 @@ public class OrcPageSourceFactory
 
             Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
-                            path.getName(),
+                            path.fileName(),
                             new OrcDeleteDeltaPageSourceFactory(options, stats),
                             session.getIdentity(),
                             fileSystemFactory,
@@ -463,7 +462,7 @@ public class OrcPageSourceFactory
         }
     }
 
-    private static void validateOrcAcidVersion(Path path, OrcReader reader)
+    private static void validateOrcAcidVersion(Location path, OrcReader reader)
     {
         // Trino cannot read ORC ACID tables with version < 2 (written by Hive older than 3.0)
         // See https://github.com/trinodb/trino/issues/2790#issuecomment-591901728 for more context
@@ -542,12 +541,12 @@ public class OrcPageSourceFactory
         return !acidInfo.getOriginalFiles().isEmpty();
     }
 
-    private static String splitError(Throwable t, Path path, long start, long length)
+    private static String splitError(Throwable t, Location path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
-    private static void verifyFileHasColumnNames(List<OrcColumn> columns, Path path)
+    private static void verifyFileHasColumnNames(List<OrcColumn> columns, Location path)
     {
         if (!columns.isEmpty() && columns.stream().map(OrcColumn::getColumnName).allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
             throw new TrinoException(
@@ -556,7 +555,7 @@ public class OrcPageSourceFactory
         }
     }
 
-    static void verifyAcidSchema(OrcReader orcReader, Path path)
+    static void verifyAcidSchema(OrcReader orcReader, Location path)
     {
         OrcColumn rootColumn = orcReader.getRootColumn();
         List<OrcColumn> nestedColumns = rootColumn.getNestedColumns();
@@ -579,7 +578,7 @@ public class OrcPageSourceFactory
         verifyAcidColumn(orcReader, 5, AcidSchema.ACID_COLUMN_ROW_STRUCT, STRUCT, path);
     }
 
-    private static void verifyAcidColumn(OrcReader orcReader, int columnIndex, String columnName, OrcTypeKind columnType, Path path)
+    private static void verifyAcidColumn(OrcReader orcReader, int columnIndex, String columnName, OrcTypeKind columnType, Location path)
     {
         OrcColumn column = orcReader.getRootColumn().getNestedColumns().get(columnIndex);
         if (!column.getColumnName().toLowerCase(ENGLISH).equals(columnName.toLowerCase(ENGLISH))) {

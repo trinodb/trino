@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.line;
 
+import io.trino.filesystem.Location;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineReader;
@@ -38,12 +39,12 @@ public class LinePageSource
     private final LineReader lineReader;
     private final LineDeserializer deserializer;
     private final LineBuffer lineBuffer;
-    private final String filePath;
+    private final Location filePath;
 
     private PageBuilder pageBuilder;
     private long completedPositions;
 
-    public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, String filePath)
+    public LinePageSource(LineReader lineReader, LineDeserializer deserializer, LineBuffer lineBuffer, Location filePath)
     {
         this.lineReader = requireNonNull(lineReader, "lineReader is null");
         this.deserializer = requireNonNull(deserializer, "deserializer is null");
