@@ -326,7 +326,7 @@ public final class HiveUtil
         jobConf.set("io.compression.codecs", String.join(",", codecs));
     }
 
-    public static Optional<CompressionCodec> getCompressionCodec(TextInputFormat inputFormat, Path file)
+    public static Optional<CompressionCodec> getCompressionCodec(TextInputFormat inputFormat, String file)
     {
         CompressionCodecFactory compressionCodecFactory;
 
@@ -341,7 +341,7 @@ public final class HiveUtil
             return Optional.empty();
         }
 
-        return Optional.ofNullable(compressionCodecFactory.getCodec(file));
+        return Optional.ofNullable(compressionCodecFactory.getCodec(new Path(file)));
     }
 
     public static InputFormat<?, ?> getInputFormat(Configuration configuration, Properties schema, boolean symlinkTarget)
