@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -577,7 +578,7 @@ public abstract class AbstractTestHiveFileFormats
                         .collect(Collectors.joining(",")));
 
         Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
-                new Path(filePath),
+                Location.of(filePath),
                 testColumns.stream()
                         .map(TestColumn::getName)
                         .collect(toList()),

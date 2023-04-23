@@ -34,7 +34,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
@@ -91,7 +90,7 @@ public class ParquetFileWriterFactory
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
@@ -129,7 +128,6 @@ public class ParquetFileWriterFactory
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
 
-        Location location = Location.of(path.toString());
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
 

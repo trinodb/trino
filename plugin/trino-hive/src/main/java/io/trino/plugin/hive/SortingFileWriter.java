@@ -68,7 +68,7 @@ public class SortingFileWriter
     private static final int INSTANCE_SIZE = instanceSize(SortingFileWriter.class);
 
     private final TrinoFileSystem fileSystem;
-    private final String tempFilePrefix;
+    private final Location tempFilePrefix;
     private final int maxOpenTempFiles;
     private final List<Type> types;
     private final List<Integer> sortFields;
@@ -82,7 +82,7 @@ public class SortingFileWriter
 
     public SortingFileWriter(
             TrinoFileSystem fileSystem,
-            String tempFilePrefix,
+            Location tempFilePrefix,
             FileWriter outputWriter,
             DataSize maxMemory,
             int maxOpenTempFiles,
