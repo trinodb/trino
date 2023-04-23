@@ -37,7 +37,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
@@ -90,7 +89,7 @@ public abstract class LineFileWriterFactory
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
@@ -128,7 +127,6 @@ public abstract class LineFileWriterFactory
         LineSerializer lineSerializer = lineSerializerFactory.create(columns, fromProperties(schema));
 
         try {
-            Location location = Location.of(path.toString());
             TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
             OutputStream outputStream = fileSystem.newOutputFile(location).create(outputStreamMemoryContext);

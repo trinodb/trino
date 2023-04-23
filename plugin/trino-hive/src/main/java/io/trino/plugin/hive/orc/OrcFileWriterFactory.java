@@ -38,7 +38,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -127,7 +126,7 @@ public class OrcFileWriterFactory
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
@@ -156,7 +155,6 @@ public class OrcFileWriterFactory
                 .toArray();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            Location location = Location.of(path.toString());
             OrcDataSink orcDataSink = createOrcDataSink(fileSystem, location);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();

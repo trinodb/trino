@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveWriterFactory.RowIdSortingFileWriterMaker;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -27,7 +28,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -79,8 +79,8 @@ public abstract class AbstractHiveAcidWriters
     private final AcidOperation updateKind;
     private final Properties hiveAcidSchema;
     protected final Block hiveRowTypeNullsBlock;
-    protected Path deltaDirectory;
-    protected final Path deleteDeltaDirectory;
+    protected final Location deltaDirectory;
+    protected final Location deleteDeltaDirectory;
     private final String bucketFilename;
 
     protected Optional<FileWriter> deleteFileWriter = Optional.empty();
@@ -91,7 +91,7 @@ public abstract class AbstractHiveAcidWriters
             int statementId,
             OptionalInt bucketNumber,
             Optional<RowIdSortingFileWriterMaker> sortingFileWriterMaker,
-            Path bucketPath,
+            String bucketPath,
             boolean originalFile,
             OrcFileWriterFactory orcFileWriterFactory,
             Configuration configuration,
@@ -116,24 +116,24 @@ public abstract class AbstractHiveAcidWriters
         checkArgument(updateKind != AcidOperation.MERGE || sortingFileWriterMaker.isPresent(), "updateKind is MERGE but sortingFileWriterMaker is not present");
         Matcher matcher;
         if (originalFile) {
-            matcher = ORIGINAL_FILE_PATH_MATCHER.matcher(bucketPath.toString());
+            matcher = ORIGINAL_FILE_PATH_MATCHER.matcher(bucketPath);
             checkArgument(matcher.matches(), "Original file bucketPath doesn't have the required format: %s", bucketPath);
             this.bucketFilename = format("bucket_%05d", bucketNumber.isEmpty() ? 0 : bucketNumber.getAsInt());
         }
         else {
-            matcher = BASE_PATH_MATCHER.matcher(bucketPath.toString());
+            matcher = BASE_PATH_MATCHER.matcher(bucketPath);
             if (matcher.matches()) {
                 this.bucketFilename = matcher.group("filenameBase");
             }
             else {
-                matcher = BUCKET_PATH_MATCHER.matcher(bucketPath.toString());
+                matcher = BUCKET_PATH_MATCHER.matcher(bucketPath);
                 checkArgument(matcher.matches(), "bucketPath doesn't have the required format: %s", bucketPath);
                 this.bucketFilename = matcher.group("filenameBase");
             }
         }
         long writeId = transaction.getWriteId();
-        this.deltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deltaSubdir(writeId, statementId)));
-        this.deleteDeltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deleteDeltaSubdir(writeId, statementId)));
+        this.deltaDirectory = Location.of(matcher.group("rootDir")).appendPath(deltaSubdir(writeId, statementId));
+        this.deleteDeltaDirectory = Location.of(matcher.group("rootDir")).appendPath(deleteDeltaSubdir(writeId, statementId));
     }
 
     protected Page buildDeletePage(Block rowIds, long writeId)
@@ -175,7 +175,7 @@ public abstract class AbstractHiveAcidWriters
         if (deleteFileWriter.isEmpty()) {
             Properties schemaCopy = new Properties();
             schemaCopy.putAll(hiveAcidSchema);
-            Path deletePath = new Path(format("%s/%s", deleteDeltaDirectory, bucketFilename));
+            Location deletePath = deleteDeltaDirectory.appendPath(bucketFilename);
             deleteFileWriter = orcFileWriterFactory.createFileWriter(
                     deletePath,
                     ACID_COLUMN_NAMES,
@@ -206,7 +206,7 @@ public abstract class AbstractHiveAcidWriters
             Properties schemaCopy = new Properties();
             schemaCopy.putAll(hiveAcidSchema);
             insertFileWriter = orcFileWriterFactory.createFileWriter(
-                    new Path(format("%s/%s", deltaDirectory, bucketFilename)),
+                    deltaDirectory.appendPath(bucketFilename),
                     ACID_COLUMN_NAMES,
                     fromHiveStorageFormat(ORC),
                     schemaCopy,
