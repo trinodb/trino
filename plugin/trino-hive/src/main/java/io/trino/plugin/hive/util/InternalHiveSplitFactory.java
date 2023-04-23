@@ -125,7 +125,7 @@ public class InternalHiveSplitFactory
     {
         splittable = splittable &&
                 status.getLength() > minimumTargetSplitSizeInBytes &&
-                isSplittable(inputFormat, fileSystem, status.getPath());
+                isSplittable(inputFormat, fileSystem, new Path(status.getPath()));
         return createInternalHiveSplit(
                 status.getPath(),
                 status.getBlockLocations(),
@@ -144,7 +144,7 @@ public class InternalHiveSplitFactory
     {
         FileStatus file = fileSystem.getFileStatus(split.getPath());
         return createInternalHiveSplit(
-                split.getPath(),
+                split.getPath().toString(),
                 BlockLocation.fromHiveBlockLocations(fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength())),
                 split.getStart(),
                 split.getLength(),
@@ -157,7 +157,7 @@ public class InternalHiveSplitFactory
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
-            Path path,
+            String path,
             List<BlockLocation> blockLocations,
             long start,
             long length,
@@ -169,8 +169,7 @@ public class InternalHiveSplitFactory
             boolean splittable,
             Optional<AcidInfo> acidInfo)
     {
-        String pathString = path.toString();
-        if (!pathMatchesPredicate(pathDomain, pathString)) {
+        if (!pathMatchesPredicate(pathDomain, path)) {
             return Optional.empty();
         }
 
@@ -215,7 +214,7 @@ public class InternalHiveSplitFactory
         int bucketNumberIndex = readBucketNumber.orElse(0);
         return Optional.of(new InternalHiveSplit(
                 partitionName,
-                pathString,
+                path,
                 start,
                 start + length,
                 estimatedFileSize,
@@ -236,7 +235,7 @@ public class InternalHiveSplitFactory
                 partitionMatchSupplier));
     }
 
-    private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)
+    private static void checkBlocks(String path, List<InternalHiveBlock> blocks, long start, long length)
     {
         checkArgument(start >= 0, "Split (%s) has negative start (%s)", path, start);
         checkArgument(length >= 0, "Split (%s) has negative length (%s)", path, length);

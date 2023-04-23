@@ -82,11 +82,11 @@ public class HiveFileIterator
             // Ignore hidden files and directories
             if (nestedDirectoryPolicy == RECURSE) {
                 // Search the full sub-path under the listed prefix for hidden directories
-                if (isHiddenOrWithinHiddenParentDirectory(status.getPath(), pathPrefix)) {
+                if (isHiddenOrWithinHiddenParentDirectory(new Path(status.getPath()), pathPrefix)) {
                     continue;
                 }
             }
-            else if (isHiddenFileOrDirectory(status.getPath())) {
+            else if (isHiddenFileOrDirectory(new Path(status.getPath()))) {
                 continue;
             }
 
@@ -230,15 +230,15 @@ public class HiveFileIterator
     public static class NestedDirectoryNotAllowedException
             extends RuntimeException
     {
-        private final Path nestedDirectoryPath;
+        private final String nestedDirectoryPath;
 
-        public NestedDirectoryNotAllowedException(Path nestedDirectoryPath)
+        public NestedDirectoryNotAllowedException(String nestedDirectoryPath)
         {
             super("Nested sub-directories are not allowed: " + nestedDirectoryPath);
             this.nestedDirectoryPath = requireNonNull(nestedDirectoryPath, "nestedDirectoryPath is null");
         }
 
-        public Path getNestedDirectoryPath()
+        public String getNestedDirectoryPath()
         {
             return nestedDirectoryPath;
         }

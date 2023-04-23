@@ -84,12 +84,12 @@ public class TestTransactionScopeCachingDirectoryLister
     public void testConcurrentDirectoryListing()
             throws IOException
     {
-        TrinoFileStatus firstFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("x"), false, 1, 1);
-        TrinoFileStatus secondFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("y"), false, 1, 1);
-        TrinoFileStatus thirdFile = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("z"), false, 1, 1);
+        TrinoFileStatus firstFile = new TrinoFileStatus(ImmutableList.of(), "x", false, 1, 1);
+        TrinoFileStatus secondFile = new TrinoFileStatus(ImmutableList.of(), "y", false, 1, 1);
+        TrinoFileStatus thirdFile = new TrinoFileStatus(ImmutableList.of(), "z", false, 1, 1);
 
-        org.apache.hadoop.fs.Path path1 = new org.apache.hadoop.fs.Path("x");
-        org.apache.hadoop.fs.Path path2 = new org.apache.hadoop.fs.Path("y");
+        Path path1 = new Path("x");
+        Path path2 = new Path("y");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(
                 ImmutableMap.of(
@@ -130,8 +130,8 @@ public class TestTransactionScopeCachingDirectoryLister
     public void testConcurrentDirectoryListingException()
             throws IOException
     {
-        TrinoFileStatus file = new TrinoFileStatus(ImmutableList.of(), new org.apache.hadoop.fs.Path("x"), false, 1, 1);
-        org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path("x");
+        TrinoFileStatus file = new TrinoFileStatus(ImmutableList.of(), "x", false, 1, 1);
+        Path path = new Path("x");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(ImmutableMap.of(path, ImmutableList.of(file)));
         DirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, 1);
@@ -167,17 +167,17 @@ public class TestTransactionScopeCachingDirectoryLister
     private static class CountingDirectoryLister
             implements DirectoryLister
     {
-        private final Map<org.apache.hadoop.fs.Path, List<TrinoFileStatus>> fileStatuses;
+        private final Map<Path, List<TrinoFileStatus>> fileStatuses;
         private int listCount;
         private boolean throwException;
 
-        public CountingDirectoryLister(Map<org.apache.hadoop.fs.Path, List<TrinoFileStatus>> fileStatuses)
+        public CountingDirectoryLister(Map<Path, List<TrinoFileStatus>> fileStatuses)
         {
             this.fileStatuses = requireNonNull(fileStatuses, "fileStatuses is null");
         }
 
         @Override
-        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, org.apache.hadoop.fs.Path path)
+        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             listCount++;
