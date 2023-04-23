@@ -27,7 +27,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -68,9 +67,9 @@ public final class AcidTables
         return isTransactionalTable(parameters) && !isInsertOnlyTable(parameters);
     }
 
-    public static Path bucketFileName(Path subdir, int bucket)
+    public static Location bucketFileName(Location subdir, int bucket)
     {
-        return new Path(subdir, "bucket_%05d".formatted(bucket));
+        return subdir.appendPath("bucket_%05d".formatted(bucket));
     }
 
     public static String deltaSubdir(long writeId, int statementId)

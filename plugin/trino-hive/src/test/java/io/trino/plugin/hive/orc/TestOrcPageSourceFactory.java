@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -115,10 +116,10 @@ public class TestOrcPageSourceFactory
     @Test
     public void testDeletedRows()
     {
-        Path partitionLocation = new Path(getClass().getClassLoader().getResource("nation_delete_deltas") + "/");
+        Location partitionLocation = Location.of(getResource("nation_delete_deltas").toString());
         Optional<AcidInfo> acidInfo = AcidInfo.builder(partitionLocation)
-                .addDeleteDelta(new Path(partitionLocation, deleteDeltaSubdir(3L, 3L, 0)))
-                .addDeleteDelta(new Path(partitionLocation, deleteDeltaSubdir(4L, 4L, 0)))
+                .addDeleteDelta(partitionLocation.appendPath(deleteDeltaSubdir(3L, 3L, 0)))
+                .addDeleteDelta(partitionLocation.appendPath(deleteDeltaSubdir(4L, 4L, 0)))
                 .build();
 
         assertRead(ALL_COLUMNS, OptionalLong.empty(), acidInfo, nationKey -> nationKey == 5 || nationKey == 19);
@@ -129,9 +130,9 @@ public class TestOrcPageSourceFactory
             throws Exception
     {
         File tableFile = new File(getResource("acid_version_validation/acid_version_hive_3/00000_0").toURI());
-        String tablePath = tableFile.getParent();
+        Location tablePath = Location.of(tableFile.getParentFile().toURI().toString());
 
-        Optional<AcidInfo> acidInfo = AcidInfo.builder(new Path(tablePath))
+        Optional<AcidInfo> acidInfo = AcidInfo.builder(tablePath)
                 .setOrcAcidVersionValidated(false)
                 .build();
 
@@ -144,9 +145,9 @@ public class TestOrcPageSourceFactory
             throws Exception
     {
         File tableFile = new File(getResource("acid_version_validation/no_orc_acid_version_in_metadata/00000_0").toURI());
-        String tablePath = tableFile.getParent();
+        Location tablePath = Location.of(tableFile.getParentFile().toURI().toString());
 
-        Optional<AcidInfo> acidInfo = AcidInfo.builder(new Path(tablePath))
+        Optional<AcidInfo> acidInfo = AcidInfo.builder(tablePath)
                 .setOrcAcidVersionValidated(false)
                 .build();
 
@@ -161,11 +162,11 @@ public class TestOrcPageSourceFactory
             throws Exception
     {
         File tableFile = new File(getResource("fullacidNationTableWithOriginalFiles/000000_0").toURI());
-        String tablePath = tableFile.getParent();
+        Location tablePath = Location.of(tableFile.toURI().toString()).parentDirectory();
 
-        AcidInfo acidInfo = AcidInfo.builder(new Path(tablePath))
-                .addDeleteDelta(new Path(tablePath, deleteDeltaSubdir(10000001, 10000001, 0)))
-                .addOriginalFile(new Path(tablePath, "000000_0"), 1780, 0)
+        AcidInfo acidInfo = AcidInfo.builder(tablePath)
+                .addDeleteDelta(tablePath.appendPath(deleteDeltaSubdir(10000001, 10000001, 0)))
+                .addOriginalFile(tablePath.appendPath("000000_0"), 1780, 0)
                 .setOrcAcidVersionValidated(true)
                 .buildWithRequiredOriginalFiles(0);
 
