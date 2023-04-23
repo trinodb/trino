@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileEntry.Block;
 import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,7 +29,7 @@ public class TrinoFileStatus
         implements Comparable<TrinoFileStatus>
 {
     private final List<BlockLocation> blockLocations;
-    private final Path path;
+    private final String path;
     private final boolean isDirectory;
     private final long length;
     private final long modificationTime;
@@ -42,7 +41,7 @@ public class TrinoFileStatus
                         .stream()
                         .map(BlockLocation::new)
                         .collect(toImmutableList()),
-                new Path(entry.location().toString()),
+                entry.location().toString(),
                 false,
                 entry.length(),
                 entry.lastModified().toEpochMilli());
@@ -51,13 +50,13 @@ public class TrinoFileStatus
     public TrinoFileStatus(LocatedFileStatus fileStatus)
     {
         this(BlockLocation.fromHiveBlockLocations(fileStatus.getBlockLocations()),
-                fileStatus.getPath(),
+                fileStatus.getPath().toString(),
                 fileStatus.isDirectory(),
                 fileStatus.getLen(),
                 fileStatus.getModificationTime());
     }
 
-    public TrinoFileStatus(List<BlockLocation> blockLocations, Path path, boolean isDirectory, long length, long modificationTime)
+    public TrinoFileStatus(List<BlockLocation> blockLocations, String path, boolean isDirectory, long length, long modificationTime)
     {
         this.blockLocations = ImmutableList.copyOf(requireNonNull(blockLocations, "blockLocations is null"));
         this.path = requireNonNull(path, "path is null");
@@ -71,7 +70,7 @@ public class TrinoFileStatus
         return blockLocations;
     }
 
-    public Path getPath()
+    public String getPath()
     {
         return path;
     }

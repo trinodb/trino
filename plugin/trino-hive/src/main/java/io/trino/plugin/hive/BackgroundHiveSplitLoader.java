@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.Locations;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
@@ -433,7 +434,7 @@ public class BackgroundHiveSplitLoader
         boolean s3SelectPushdownEnabled = S3SelectPushdown.shouldEnablePushdownForTable(session, table, path.toString(), partition.getPartition());
         // S3 Select pushdown works at the granularity of individual S3 objects for compressed files
         // and finer granularity for uncompressed files using scan range feature.
-        boolean shouldEnableSplits = S3SelectPushdown.isSplittable(s3SelectPushdownEnabled, schema, inputFormat, path);
+        boolean shouldEnableSplits = S3SelectPushdown.isSplittable(s3SelectPushdownEnabled, schema, inputFormat, path.toString());
         // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
         boolean splittable = shouldEnableSplits && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
 
@@ -641,7 +642,7 @@ public class BackgroundHiveSplitLoader
 
         Map<Path, TrinoFileStatus> fileStatuses = new HashMap<>();
         HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, namenodeStats, IGNORED, false);
-        fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(status.getPath()), status));
+        fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(new Path(status.getPath())), status));
 
         List<TrinoFileStatus> locatedFileStatuses = new ArrayList<>();
         for (Path path : paths) {
@@ -836,7 +837,7 @@ public class BackgroundHiveSplitLoader
         // build mapping of file name to bucket
         ListMultimap<Integer, TrinoFileStatus> bucketFiles = ArrayListMultimap.create();
         for (TrinoFileStatus file : files) {
-            String fileName = file.getPath().getName();
+            String fileName = Locations.getFileName(file.getPath());
             OptionalInt bucket = getBucketNumber(fileName);
             if (bucket.isPresent()) {
                 bucketFiles.put(bucket.getAsInt(), file);
