@@ -138,8 +138,8 @@ public class CreateEmptyPartitionProcedure
                         new PartitionUpdate(
                                 partitionName,
                                 UpdateMode.NEW,
-                                writeInfo.getWritePath(),
-                                writeInfo.getTargetPath(),
+                                writeInfo.writePath().toString(),
+                                writeInfo.targetPath().toString(),
                                 ImmutableList.of(),
                                 0,
                                 0,
