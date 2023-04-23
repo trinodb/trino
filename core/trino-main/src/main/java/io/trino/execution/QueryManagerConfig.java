@@ -711,6 +711,7 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Min(1)
     public double getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor()
     {
         return faultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor;
@@ -765,6 +766,7 @@ public class QueryManagerConfig
         return this;
     }
 
+    @Min(1)
     public double getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor()
     {
         return faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor;
