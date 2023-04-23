@@ -1521,3 +1521,9 @@ with Parquet files performed by the Iceberg connector.
         for structural data types. The equivalent catalog session property is
         ``parquet_optimized_nested_reader_enabled``.
       - ``true``
+    * - ``parquet.use-bloom-filter``
+      - Whether bloom filters are used for predicate pushdown when reading
+        Parquet files. Set this property to ``false`` to disable the usage of
+        bloom filters by default. The equivalent catalog session property is
+        ``parquet_use_bloom_filter``.
+      - ``true``
