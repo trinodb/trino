@@ -541,7 +541,7 @@ public class BackgroundHiveSplitLoader
         }
 
         if (isTransactionalTable(table.getParameters())) {
-            return getTransactionalSplits(path, splittable, bucketConversion, splitFactory);
+            return getTransactionalSplits(Location.of(path.toString()), splittable, bucketConversion, splitFactory);
         }
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
@@ -674,12 +674,12 @@ public class BackgroundHiveSplitLoader
         return Optional.of(createInternalHiveSplitIterator(splitFactory, splittable, Optional.empty(), locatedFileStatuses.stream()));
     }
 
-    private ListenableFuture<Void> getTransactionalSplits(Path path, boolean splittable, Optional<BucketConversion> bucketConversion, InternalHiveSplitFactory splitFactory)
+    private ListenableFuture<Void> getTransactionalSplits(Location path, boolean splittable, Optional<BucketConversion> bucketConversion, InternalHiveSplitFactory splitFactory)
             throws IOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         ValidWriteIdList writeIds = validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present"));
-        AcidState acidState = getAcidState(fileSystem, Location.of(path.toString()), writeIds);
+        AcidState acidState = getAcidState(fileSystem, path, writeIds);
 
         boolean fullAcid = isFullAcidTable(table.getParameters());
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
@@ -713,7 +713,7 @@ public class BackgroundHiveSplitLoader
                     throw new TrinoException(HIVE_BAD_DATA, "Unexpected delete delta for a non full ACID table '%s'. Would be ignored by the reader: %s"
                             .formatted(table.getSchemaTableName(), delta.path()));
                 }
-                acidInfoBuilder.addDeleteDelta(new Path(delta.path()));
+                acidInfoBuilder.addDeleteDelta(Location.of(delta.path()));
             }
             else {
                 for (FileEntry file : delta.files()) {
@@ -724,7 +724,7 @@ public class BackgroundHiveSplitLoader
 
         for (FileEntry entry : acidState.originalFiles()) {
             // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern, to match them with delete deltas.
-            acidInfoBuilder.addOriginalFile(new Path(entry.location().toString()), entry.length(), getRequiredBucketNumber(entry.location()));
+            acidInfoBuilder.addOriginalFile(entry.location(), entry.length(), getRequiredBucketNumber(entry.location()));
         }
 
         if (tableBucketInfo.isPresent()) {
