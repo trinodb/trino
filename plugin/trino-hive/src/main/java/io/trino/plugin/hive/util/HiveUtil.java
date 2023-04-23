@@ -931,7 +931,7 @@ public final class HiveUtil
     public static NullableValue getPrefilledColumnValue(
             HiveColumnHandle columnHandle,
             HivePartitionKey partitionKey,
-            Path path,
+            String path,
             OptionalInt bucketNumber,
             long fileSize,
             long fileModifiedTime,
@@ -942,7 +942,7 @@ public final class HiveUtil
             columnValue = partitionKey.getValue();
         }
         else if (isPathColumnHandle(columnHandle)) {
-            columnValue = path.toString();
+            columnValue = path;
         }
         else if (isBucketColumnHandle(columnHandle)) {
             columnValue = String.valueOf(bucketNumber.getAsInt());

@@ -47,7 +47,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
@@ -164,7 +163,7 @@ public class ParquetPageSourceFactory
     public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location path,
             long start,
             long length,
             long estimatedFileSize,
@@ -182,9 +181,8 @@ public class ParquetPageSourceFactory
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
-        Location location = Location.of(path.toString());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = fileSystem.newInputFile(location, estimatedFileSize);
+        TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize);
 
         return Optional.of(createPageSource(
                 inputFile,

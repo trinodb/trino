@@ -23,7 +23,6 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
 
@@ -46,7 +45,7 @@ public final class OriginalFilesUtils
      */
     public static long getPrecedingRowCount(
             Collection<OriginalFileInfo> originalFileInfos,
-            Path splitPath,
+            Location splitPath,
             TrinoFileSystemFactory fileSystemFactory,
             ConnectorIdentity identity,
             OrcReaderOptions options,
@@ -54,10 +53,10 @@ public final class OriginalFilesUtils
     {
         long rowCount = 0;
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
-            Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
-            if (path.compareTo(splitPath) < 0) {
+            if (originalFileInfo.getName().compareTo(splitPath.fileName()) < 0) {
+                Location path = splitPath.parentDirectory().appendPath(originalFileInfo.getName());
                 TrinoInputFile inputFile = fileSystemFactory.create(identity)
-                        .newInputFile(Location.of(path.toString()), originalFileInfo.getFileSize());
+                        .newInputFile(path, originalFileInfo.getFileSize());
                 rowCount += getRowsInFile(inputFile, options, stats);
             }
         }

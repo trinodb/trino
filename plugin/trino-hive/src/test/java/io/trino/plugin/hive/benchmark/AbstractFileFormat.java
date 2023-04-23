@@ -16,6 +16,7 @@ package io.trino.plugin.hive.benchmark;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.GenericHiveRecordCursorProvider;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -40,7 +41,6 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.File;
@@ -186,7 +186,7 @@ public abstract class AbstractFileFormat
         Optional<ReaderRecordCursorWithProjections> recordCursorWithProjections = cursorProvider.createRecordCursor(
                 conf,
                 session,
-                new Path(targetFile.getAbsolutePath()),
+                Location.of(targetFile.getAbsolutePath()),
                 0,
                 targetFile.length(),
                 targetFile.length(),
@@ -218,7 +218,7 @@ public abstract class AbstractFileFormat
                 .createPageSource(
                         conf,
                         session,
-                        new Path(targetFile.getAbsolutePath()),
+                        Location.of(targetFile.getAbsolutePath()),
                         0,
                         targetFile.length(),
                         targetFile.length(),
