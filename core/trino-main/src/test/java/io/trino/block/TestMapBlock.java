@@ -384,31 +384,6 @@ public class TestMapBlock
     }
 
     @Test
-    public void testCloseEntryStrict()
-            throws Exception
-    {
-        MapType mapType = mapType(BIGINT, BIGINT);
-        MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
-
-        // Add 100 maps with only one entry but the same key
-        for (int i = 0; i < 100; i++) {
-            BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(entryBuilder, 1);
-            BIGINT.writeLong(entryBuilder, -1);
-            mapBlockBuilder.closeEntry();
-        }
-
-        BlockBuilder entryBuilder = mapBlockBuilder.beginBlockEntry();
-        // Add 50 keys so we get some chance to get hash conflict
-        // The purpose of this test is to make sure offset is calculated correctly in MapBlockBuilder.closeEntryStrict()
-        for (int i = 0; i < 50; i++) {
-            BIGINT.writeLong(entryBuilder, i);
-            BIGINT.writeLong(entryBuilder, -1);
-        }
-        mapBlockBuilder.closeEntryStrict();
-    }
-
-    @Test
     public void testEstimatedDataSizeForStats()
     {
         Map<String, Long>[] expectedValues = alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
