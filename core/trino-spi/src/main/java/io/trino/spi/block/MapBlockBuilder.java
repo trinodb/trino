@@ -206,33 +206,6 @@ public class MapBlockBuilder
         return this;
     }
 
-    /**
-     * This method will check duplicate keys and close entry.
-     * <p>
-     * When duplicate keys are discovered, the block is guaranteed to be in
-     * a consistent state before {@link DuplicateMapKeyException} is thrown.
-     * In other words, one can continue to use this BlockBuilder.
-     *
-     * @deprecated use strict method instead
-     */
-    @Deprecated
-    public void closeEntryStrict()
-            throws DuplicateMapKeyException
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
-        entryAdded(false);
-        currentEntryOpened = false;
-
-        ensureHashTableSize();
-        int previousAggregatedEntryCount = offsets[positionCount - 1];
-        int aggregatedEntryCount = offsets[positionCount];
-        int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
-    }
-
     @Override
     public BlockBuilder appendNull()
     {
