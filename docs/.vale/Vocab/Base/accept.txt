@@ -23,7 +23,9 @@ JKS
 JVM
 Kerberos
 keystore
+KeyStore
 Metastore
+open-source
 ORC
 Parquet
 PEM
