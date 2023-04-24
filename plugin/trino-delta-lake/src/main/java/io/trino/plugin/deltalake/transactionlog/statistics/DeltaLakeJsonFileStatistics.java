@@ -17,10 +17,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeColumnProjectionInfo;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -112,28 +114,19 @@ public class DeltaLakeJsonFileStatistics
     @Override
     public Optional<Object> getMaxColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        if (!columnHandle.isBaseColumn()) {
-            return Optional.empty();
-        }
-        Optional<Object> value = getStat(columnHandle.getBasePhysicalColumnName(), maxValues);
+        Optional<Object> value = getStat(columnHandle, maxValues);
         return value.flatMap(o -> deserializeStatisticsValue(columnHandle, String.valueOf(o)));
     }
 
     @Override
     public Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        if (!columnHandle.isBaseColumn()) {
-            return Optional.empty();
-        }
-        Optional<Object> value = getStat(columnHandle.getBasePhysicalColumnName(), minValues);
+        Optional<Object> value = getStat(columnHandle, minValues);
         return value.flatMap(o -> deserializeStatisticsValue(columnHandle, String.valueOf(o)));
     }
 
     private Optional<Object> deserializeStatisticsValue(DeltaLakeColumnHandle columnHandle, String statValue)
     {
-        if (!columnHandle.isBaseColumn()) {
-            return Optional.empty();
-        }
         Object columnValue = deserializeColumnValue(columnHandle, statValue, DeltaLakeJsonFileStatistics::readStatisticsTimestamp);
 
         Type columnType = columnHandle.getBaseType();
@@ -161,23 +154,30 @@ public class DeltaLakeJsonFileStatistics
     }
 
     @Override
-    public Optional<Long> getNullCount(String columnName)
+    public Optional<Long> getNullCount(DeltaLakeColumnHandle columnHandle)
     {
-        return getStat(columnName, nullCount).map(o -> Long.valueOf(o.toString()));
+        return getStat(columnHandle, nullCount).map(o -> Long.valueOf(o.toString()));
     }
 
-    private Optional<Object> getStat(String columnName, Optional<Map<CanonicalColumnName, Object>> stats)
+    private Optional<Object> getStat(DeltaLakeColumnHandle columnHandle, Optional<Map<CanonicalColumnName, Object>> stats)
     {
         if (stats.isEmpty()) {
             return Optional.empty();
         }
-        CanonicalColumnName canonicalColumnName = new CanonicalColumnName(columnName);
+        CanonicalColumnName canonicalColumnName = new CanonicalColumnName(columnHandle.getBasePhysicalColumnName());
+        List<String> dereferenceNames = columnHandle.getProjectionInfo().map(DeltaLakeColumnProjectionInfo::getDereferencePhysicalNames)
+                .orElse(ImmutableList.of());
         Object contents = stats.get().get(canonicalColumnName);
+        for (String dereferenceName : dereferenceNames) {
+            if (contents instanceof Map map) {
+                contents = map.get(dereferenceName);
+            }
+        }
         if (contents == null) {
             return Optional.empty();
         }
         if (contents instanceof List || contents instanceof Map) {
-            log.debug("Skipping statistics value for column with complex value type: %s", columnName);
+            log.debug("Skipping statistics value for column with complex value type: %s", columnHandle);
             return Optional.empty();
         }
         return Optional.of(contents);

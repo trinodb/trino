@@ -14,11 +14,13 @@
 package io.trino.plugin.deltalake.transactionlog.statistics;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeColumnProjectionInfo;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -163,6 +165,9 @@ public class TestDeltaLakeFileStatistics
         assertEquals(
                 fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("row", rowType, OptionalInt.empty(), "row", rowType, REGULAR, Optional.empty())),
                 Optional.empty());
+        assertEquals(
+                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("row", rowType, OptionalInt.empty(), "row", rowType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(INTEGER, ImmutableList.of(0), ImmutableList.of("s1"))))),
+                Optional.of(1L));
         assertEquals(
                 fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("arr", new ArrayType(INTEGER), OptionalInt.empty(), "arr", new ArrayType(INTEGER), REGULAR, Optional.empty())),
                 Optional.empty());

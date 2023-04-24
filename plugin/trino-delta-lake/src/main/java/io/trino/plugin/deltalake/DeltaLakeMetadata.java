@@ -2949,22 +2949,20 @@ public class DeltaLakeMetadata
 
     public static TupleDomain<DeltaLakeColumnHandle> createStatisticsPredicate(
             AddFileEntry addFileEntry,
-            List<DeltaLakeColumnMetadata> schema,
-            List<String> canonicalPartitionColumns)
+            List<DeltaLakeColumnHandle> schema)
     {
         return addFileEntry.getStats()
                 .map(deltaLakeFileStatistics -> withColumnDomains(
                         schema.stream()
-                                .filter(column -> canUseInPredicate(column.getColumnMetadata()))
+                                .filter(column -> canUseInPredicate(column.getProjectionInfo().map(DeltaLakeColumnProjectionInfo::getType).orElse(column.getBaseType())))
                                 .collect(toImmutableMap(
-                                        column -> DeltaLakeMetadata.toColumnHandle(column.getColumnMetadata(), column.getFieldId(), column.getPhysicalName(), column.getPhysicalColumnType(), canonicalPartitionColumns),
-                                        column -> buildColumnDomain(column, deltaLakeFileStatistics, canonicalPartitionColumns)))))
+                                        Function.identity(),
+                                        column -> buildColumnDomain(column, deltaLakeFileStatistics)))))
                 .orElseGet(TupleDomain::all);
     }
 
-    private static boolean canUseInPredicate(ColumnMetadata column)
+    private static boolean canUseInPredicate(Type type)
     {
-        Type type = column.getType();
         return type.equals(TINYINT)
                 || type.equals(SMALLINT)
                 || type.equals(INTEGER)
@@ -2978,49 +2976,49 @@ public class DeltaLakeMetadata
                 || type.equals(VARCHAR);
     }
 
-    private static Domain buildColumnDomain(DeltaLakeColumnMetadata column, DeltaLakeFileStatistics stats, List<String> canonicalPartitionColumns)
+    private static Domain buildColumnDomain(DeltaLakeColumnHandle column, DeltaLakeFileStatistics stats)
     {
-        Optional<Long> nullCount = stats.getNullCount(column.getPhysicalName());
+        Type type = column.getProjectionInfo().map(DeltaLakeColumnProjectionInfo::getType).orElse(column.getBaseType());
+        Optional<Long> nullCount = stats.getNullCount(column);
         if (nullCount.isEmpty()) {
             // No stats were collected for this column; this can happen in 2 scenarios:
             // 1. The column didn't exist in the schema when the data file was created
             // 2. The column does exist in the file, but Spark property 'delta.dataSkippingNumIndexedCols'
             //    was used to limit the number of columns for which stats are collected
             // Since we don't know which scenario we're dealing with, we can't make a decision to prune.
-            return Domain.all(column.getType());
+            return Domain.all(type);
         }
         if (stats.getNumRecords().equals(nullCount)) {
-            return Domain.onlyNull(column.getType());
+            return Domain.onlyNull(type);
         }
 
         boolean hasNulls = nullCount.get() > 0;
-        DeltaLakeColumnHandle deltaLakeColumnHandle = toColumnHandle(column.getColumnMetadata(), column.getFieldId(), column.getPhysicalName(), column.getPhysicalColumnType(), canonicalPartitionColumns);
-        Optional<Object> minValue = stats.getMinColumnValue(deltaLakeColumnHandle);
-        if (minValue.isPresent() && isFloatingPointNaN(column.getType(), minValue.get())) {
-            return allValues(column.getType(), hasNulls);
+        Optional<Object> minValue = stats.getMinColumnValue(column);
+        if (minValue.isPresent() && isFloatingPointNaN(type, minValue.get())) {
+            return allValues(type, hasNulls);
         }
-        if (isNotFinite(minValue, column.getType())) {
+        if (isNotFinite(minValue, type)) {
             minValue = Optional.empty();
         }
-        Optional<Object> maxValue = stats.getMaxColumnValue(deltaLakeColumnHandle);
-        if (maxValue.isPresent() && isFloatingPointNaN(column.getType(), maxValue.get())) {
-            return allValues(column.getType(), hasNulls);
+        Optional<Object> maxValue = stats.getMaxColumnValue(column);
+        if (maxValue.isPresent() && isFloatingPointNaN(type, maxValue.get())) {
+            return allValues(type, hasNulls);
         }
-        if (isNotFinite(maxValue, column.getType())) {
+        if (isNotFinite(maxValue, type)) {
             maxValue = Optional.empty();
         }
         if (minValue.isPresent() && maxValue.isPresent()) {
             return Domain.create(
-                    ofRanges(range(column.getType(), minValue.get(), true, maxValue.get(), true)),
+                    ofRanges(range(type, minValue.get(), true, maxValue.get(), true)),
                     hasNulls);
         }
         if (minValue.isPresent()) {
-            return Domain.create(ofRanges(greaterThanOrEqual(column.getType(), minValue.get())), hasNulls);
+            return Domain.create(ofRanges(greaterThanOrEqual(type, minValue.get())), hasNulls);
         }
 
         return maxValue
-                .map(value -> Domain.create(ofRanges(lessThanOrEqual(column.getType(), value)), hasNulls))
-                .orElseGet(() -> Domain.all(column.getType()));
+                .map(value -> Domain.create(ofRanges(lessThanOrEqual(type, value)), hasNulls))
+                .orElseGet(() -> Domain.all(type));
     }
 
     private static boolean isNotFinite(Optional<Object> value, Type type)
@@ -3055,7 +3053,7 @@ public class DeltaLakeMetadata
         return toColumnHandle(column, OptionalInt.empty(), physicalName, physicalType, partitionColumns);
     }
 
-    private static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, OptionalInt fieldId, String physicalName, Type physicalType, Collection<String> partitionColumns)
+    public static DeltaLakeColumnHandle toColumnHandle(ColumnMetadata column, OptionalInt fieldId, String physicalName, Type physicalType, Collection<String> partitionColumns)
     {
         boolean isPartitionKey = partitionColumns.stream().anyMatch(partition -> partition.equalsIgnoreCase(column.getName()));
         return new DeltaLakeColumnHandle(

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
@@ -37,6 +38,8 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -51,11 +54,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
@@ -167,15 +170,20 @@ public class DeltaLakeSplitManager
         Optional<Instant> filesModifiedAfter = tableHandle.getAnalyzeHandle().flatMap(AnalyzeHandle::getFilesModifiedAfter);
         Optional<Long> maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
 
-        Set<String> predicatedColumnNames = Stream.concat(
+        Map<String, DeltaLakeColumnHandle> predicatedColumnHandles = Stream.concat(
                 nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
                 columnsCoveredByDynamicFilter.stream()
                         .map(DeltaLakeColumnHandle.class::cast))
-                .map(column -> column.getBaseColumnName().toLowerCase(ENGLISH)) // TODO is DeltaLakeColumnHandle.name normalized?
-                .collect(toImmutableSet());
-        List<DeltaLakeColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
-        List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName())) // DeltaLakeColumnMetadata.name is lowercase
+                .distinct()
+                // DeltaLakeColumnMetadata.name is lowercase
+                .collect(toImmutableMap(column -> column.getQualifiedPhysicalName().toLowerCase(ENGLISH), Function.identity())); // TODO is DeltaLakeColumnHandle.name normalized?
+
+        Set<String> predicatedColumnNames = predicatedColumnHandles.keySet();
+        Set<String> projectedColumnNames = projectColumnNames(extractSchema(tableHandle.getMetadataEntry(), typeManager));
+
+        List<DeltaLakeColumnHandle> predicatedColumns = projectedColumnNames.stream()
+                .filter(column -> predicatedColumnNames.contains(column))
+                .map(column -> predicatedColumnHandles.get(column))
                 .collect(toImmutableList());
 
         return validDataFiles.stream()
@@ -205,8 +213,7 @@ public class DeltaLakeSplitManager
 
                     TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
                             addAction,
-                            predicatedColumns,
-                            tableHandle.getMetadataEntry().getCanonicalPartitionColumns());
+                            predicatedColumns);
                     if (!nonPartitionConstraint.overlaps(statisticsPredicate)) {
                         return Stream.empty();
                     }
@@ -234,6 +241,27 @@ public class DeltaLakeSplitManager
                             remainingInitialSplits)
                             .stream();
                 });
+    }
+
+    private Set<String> projectColumnNames(List<DeltaLakeColumnMetadata> schema)
+    {
+        ImmutableSet.Builder<String> projectedColumnNames = ImmutableSet.builder();
+        for (DeltaLakeColumnMetadata column : schema) {
+            projectColumns(column.getPhysicalName(), column.getPhysicalColumnType(), projectedColumnNames);
+        }
+        return projectedColumnNames.build();
+    }
+
+    private void projectColumns(String name, Type type, ImmutableSet.Builder<String> projectedColumnNames)
+    {
+        if (type instanceof RowType rowType) {
+            for (RowType.Field field : rowType.getFields()) {
+                projectColumns(name + "#" + field.getName().orElseThrow(), field.getType(), projectedColumnNames);
+            }
+        }
+        else {
+            projectedColumnNames.add(name);
+        }
     }
 
     private static boolean mayAnyDataColumnProjected(DeltaLakeTableHandle tableHandle)
