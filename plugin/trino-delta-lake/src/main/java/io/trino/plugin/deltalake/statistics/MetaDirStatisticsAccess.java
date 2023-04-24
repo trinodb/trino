@@ -21,6 +21,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -58,6 +59,7 @@ public class MetaDirStatisticsAccess
     @Override
     public Optional<ExtendedStatistics> readExtendedStatistics(
             ConnectorSession session,
+            SchemaTableName schemaTableName,
             String tableLocation)
     {
         Location location = Location.of(tableLocation);
@@ -85,6 +87,7 @@ public class MetaDirStatisticsAccess
     @Override
     public void updateExtendedStatistics(
             ConnectorSession session,
+            SchemaTableName schemaTableName,
             String tableLocation,
             ExtendedStatistics statistics)
     {
@@ -108,7 +111,7 @@ public class MetaDirStatisticsAccess
     }
 
     @Override
-    public void deleteExtendedStatistics(ConnectorSession session, String tableLocation)
+    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation)
     {
         Location statisticsPath = Location.of(tableLocation).appendPath(STATISTICS_META_DIR).appendPath(STATISTICS_FILE);
         try {
