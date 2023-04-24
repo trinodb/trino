@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.hudi.version>0.12.2</dep.hudi.version>
+        <dep.hudi.version>0.12.3</dep.hudi.version>
     </properties>
 
     <dependencies>
