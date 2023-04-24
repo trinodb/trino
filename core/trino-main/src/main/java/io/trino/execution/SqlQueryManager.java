@@ -227,6 +227,12 @@ public class SqlQueryManager
     }
 
     @Override
+    public boolean hasQuery(QueryId queryId)
+    {
+        return queryTracker.hasQuery(queryId);
+    }
+
+    @Override
     public void recordHeartbeat(QueryId queryId)
     {
         queryTracker.tryGetQuery(queryId)

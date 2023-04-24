@@ -120,11 +120,7 @@ public class ExecutingStatementResource
                     try {
                         for (QueryId queryId : queries.keySet()) {
                             // forget about this query if the query manager is no longer tracking it
-                            try {
-                                queryManager.getQueryState(queryId);
-                            }
-                            catch (NoSuchElementException e) {
-                                // query is no longer registered
+                            if (!queryManager.hasQuery(queryId)) {
                                 Query query = queries.remove(queryId);
                                 if (query != null) {
                                     query.dispose();
