@@ -72,7 +72,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
+            return Optional.of(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
         }
 
         @Override
@@ -103,7 +103,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
+            return Optional.of(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
         }
 
         @Override
