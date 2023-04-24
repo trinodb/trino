@@ -29,6 +29,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -102,7 +103,7 @@ public class UnregisterTableProcedure
         }
         metadata.getMetastore().dropTable(session, schemaTableName, tableHandle.location(), false);
         // As a precaution, clear the caches
-        statisticsAccess.invalidateCache(tableHandle.location());
-        transactionLogAccess.invalidateCaches(tableHandle.location());
+        statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
+        transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
     }
 }
