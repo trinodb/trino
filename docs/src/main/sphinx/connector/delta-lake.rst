@@ -716,6 +716,14 @@ directly or used in conditional statements.
 * ``$file_size``
     Size of the file for this row.
 
+.. _delta-lake-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Performance
 -----------
 
