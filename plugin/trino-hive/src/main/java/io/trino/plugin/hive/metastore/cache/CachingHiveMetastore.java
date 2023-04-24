@@ -988,7 +988,7 @@ public class CachingHiveMetastore
     {
         tableStatisticsCache.asMap().keySet().stream()
                 .filter(table -> table.getDatabaseName().equals(databaseName) && table.getTableName().equals(tableName))
-                .forEach(tableCache::invalidate);
+                .forEach(tableStatisticsCache::invalidate);
     }
 
     private void invalidateTablesWithParameterCache(String databaseName, String tableName)
