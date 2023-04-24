@@ -575,6 +575,22 @@ public class TestCachingHiveMetastore
         assertThat(metastore.getTableStatistics(tableCol23).getColumnStatistics())
                 .containsEntry("col2", intColumnStats(2))
                 .containsEntry("col3", intColumnStats(3));
+
+        metastore.getTableStatistics(table); // ensure cached
+        assertEquals(mockClient.getAccessCount(), 5);
+        ColumnStatisticsData newStats = new ColumnStatisticsData();
+        newStats.setLongStats(new LongColumnStatsData(327843, 4324));
+        mockClient.mockColumnStats(TEST_DATABASE, TEST_TABLE, ImmutableMap.of(TEST_COLUMN, newStats));
+        metastore.invalidateTable(TEST_DATABASE, TEST_TABLE);
+        assertEquals(metastore.getTableStatistics(table), PartitionStatistics.builder()
+                .setBasicStatistics(TEST_STATS.getBasicStatistics())
+                .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(
+                        OptionalLong.empty(),
+                        OptionalLong.empty(),
+                        OptionalLong.of(newStats.getLongStats().getNumNulls()),
+                        OptionalLong.of(newStats.getLongStats().getNumDVs() - 1))))
+                .build());
+        assertEquals(mockClient.getAccessCount(), 6);
     }
 
     @Test
