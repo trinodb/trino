@@ -13,7 +13,7 @@ Requirements
 
 To use the Hudi connector, you need:
 
-* Hudi version 0.12.2 or higher.
+* Hudi version 0.12.3 or higher.
 * Network access from the Trino coordinator and workers to the Hudi storage.
 * Access to the Hive metastore service (HMS).
 * Network access from the Trino coordinator to the HMS.
