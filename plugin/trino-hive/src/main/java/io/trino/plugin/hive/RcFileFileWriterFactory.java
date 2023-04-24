@@ -16,9 +16,8 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
@@ -63,28 +62,28 @@ import static java.util.stream.Collectors.toList;
 public class RcFileFileWriterFactory
         implements HiveFileWriterFactory
 {
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final DateTimeZone timeZone;
-    private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
 
     @Inject
     public RcFileFileWriterFactory(
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             NodeVersion nodeVersion,
             HiveConfig hiveConfig)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, hiveConfig.getRcfileDateTimeZone());
+        this(fileSystemFactory, typeManager, nodeVersion, hiveConfig.getRcfileDateTimeZone());
     }
 
     public RcFileFileWriterFactory(
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             NodeVersion nodeVersion,
             DateTimeZone timeZone)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
@@ -133,7 +132,7 @@ public class RcFileFileWriterFactory
                 .toArray();
 
         try {
-            TrinoFileSystem fileSystem = new HdfsFileSystemFactory(hdfsEnvironment).create(session.getIdentity());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
             OutputStream outputStream = fileSystem.newOutputFile(path.toString()).create(outputStreamMemoryContext);
 
