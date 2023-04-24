@@ -2,7 +2,7 @@
 Connectors
 **********
 
-This chapter describes the connectors available in Trino to access data
+This section describes the connectors available in Trino to access data
 from different data sources.
 
 .. toctree::

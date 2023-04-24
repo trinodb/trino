@@ -2,7 +2,7 @@
 SQL statement syntax
 ********************
 
-This chapter describes the SQL syntax used in Trino.
+This section describes the SQL syntax used in Trino.
 
 A :doc:`reference to the supported SQL data types</language>` is available.
 

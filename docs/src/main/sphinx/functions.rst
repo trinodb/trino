@@ -2,9 +2,9 @@
 Functions and operators
 ***********************
 
-This chapter describes the built-in SQL functions and operators supported by
-Trino. They allow you to implement complex functionality and behavior of the SQL
-executed by Trino operating on the underlying data sources.
+This section describes the built-in SQL functions and operators supported by
+Trino. They allow you to implement complex capabilities and behavior of the
+queries executed by Trino operating on the underlying data sources.
 
 If you are looking for a specific function or operator, see the :doc:`full
 alphabetical list</functions/list>` or the :doc:`full list by
