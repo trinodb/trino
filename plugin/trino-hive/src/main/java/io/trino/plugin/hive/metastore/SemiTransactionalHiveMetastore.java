@@ -723,7 +723,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Table table = getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
-        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
+        if (!table.getTableType().equals(MANAGED_TABLE.name())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
         }
         if (!table.getPartitionColumns().isEmpty()) {
