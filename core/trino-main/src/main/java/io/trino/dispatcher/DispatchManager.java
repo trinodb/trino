@@ -146,7 +146,7 @@ public class DispatchManager
         requireNonNull(sessionContext, "sessionContext is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
-        checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
+        checkArgument(!queryTracker.hasQuery(queryId), "query %s already exists", queryId);
 
         // It is important to return a future implementation which ignores cancellation request.
         // Using NonCancellationPropagatingFuture is not enough; it does not propagate cancel to wrapped future
@@ -295,7 +295,7 @@ public class DispatchManager
 
     public boolean isQueryRegistered(QueryId queryId)
     {
-        return queryTracker.tryGetQuery(queryId).isPresent();
+        return queryTracker.hasQuery(queryId);
     }
 
     public DispatchQuery getQuery(QueryId queryId)
