@@ -7,11 +7,13 @@ remote exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["partkey"])
                             partial aggregation over (partkey)
                                 join (INNER, REPLICATED):
-                                    scan partsupp
+                                    dynamic filter (["suppkey"])
+                                        scan partsupp
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             join (INNER, REPLICATED):
-                                                scan supplier
+                                                dynamic filter (["nationkey"])
+                                                    scan supplier
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan nation
@@ -22,11 +24,13 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (GATHER, SINGLE, [])
                                     partial aggregation over ()
                                         join (INNER, REPLICATED):
-                                            scan partsupp
+                                            dynamic filter (["suppkey_12"])
+                                                scan partsupp
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
-                                                        scan supplier
+                                                        dynamic filter (["nationkey_22"])
+                                                            scan supplier
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan nation

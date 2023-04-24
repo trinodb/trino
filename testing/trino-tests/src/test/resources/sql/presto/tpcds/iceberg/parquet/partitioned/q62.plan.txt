@@ -8,7 +8,8 @@ local exchange (GATHER, SINGLE, [])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan web_sales
+                                        dynamic filter (["ws_ship_date_sk", "ws_ship_mode_sk", "ws_warehouse_sk", "ws_web_site_sk"])
+                                            scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim

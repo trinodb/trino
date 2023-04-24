@@ -9,7 +9,8 @@ remote exchange (GATHER, SINGLE, [])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["cr_returning_customer_sk"])
                                         join (INNER, REPLICATED):
-                                            scan catalog_returns
+                                            dynamic filter (["cr_call_center_sk", "cr_returned_date_sk", "cr_returning_customer_sk"])
+                                                scan catalog_returns
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan date_dim
@@ -20,7 +21,8 @@ remote exchange (GATHER, SINGLE, [])
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, ["c_current_cdemo_sk"])
                                                             join (INNER, REPLICATED):
-                                                                scan customer
+                                                                dynamic filter (["c_current_addr_sk", "c_current_cdemo_sk", "c_current_hdemo_sk"])
+                                                                    scan customer
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan household_demographics
