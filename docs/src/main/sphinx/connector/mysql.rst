@@ -318,6 +318,14 @@ the following statements:
 
 .. include:: sql-delete-limitation.fragment
 
+.. _mysql-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
