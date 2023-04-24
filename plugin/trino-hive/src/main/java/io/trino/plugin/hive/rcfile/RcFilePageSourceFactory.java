@@ -20,10 +20,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryInputFile;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
@@ -80,15 +79,15 @@ public class RcFilePageSourceFactory
     private static final DataSize BUFFER_SIZE = DataSize.of(8, Unit.MEGABYTE);
 
     private final TypeManager typeManager;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
     private final DateTimeZone timeZone;
 
     @Inject
-    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
+    public RcFilePageSourceFactory(TypeManager typeManager, TrinoFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.timeZone = hiveConfig.getRcfileDateTimeZone();
     }
@@ -143,7 +142,7 @@ public class RcFilePageSourceFactory
         }
 
         Location location = Location.of(path.toString());
-        TrinoFileSystem trinoFileSystem = new HdfsFileSystemFactory(hdfsEnvironment).create(session.getIdentity());
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
         TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(location));
         try {
             length = min(inputFile.length() - start, length);
