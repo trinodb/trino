@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import io.airlift.stats.TimeStat;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -21,6 +22,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -44,42 +46,51 @@ class HdfsFileSystem
 {
     private final HdfsEnvironment environment;
     private final HdfsContext context;
+    private final TrinoHdfsFileSystemStats stats;
 
-    public HdfsFileSystem(HdfsEnvironment environment, HdfsContext context)
+    public HdfsFileSystem(HdfsEnvironment environment, HdfsContext context, TrinoHdfsFileSystemStats stats)
     {
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location)
     {
-        return new HdfsInputFile(location, null, environment, context);
+        return new HdfsInputFile(location, null, environment, context, stats.getOpenFileCalls());
     }
 
     @Override
     public TrinoInputFile newInputFile(Location location, long length)
     {
-        return new HdfsInputFile(location, length, environment, context);
+        return new HdfsInputFile(location, length, environment, context, stats.getOpenFileCalls());
     }
 
     @Override
     public TrinoOutputFile newOutputFile(Location location)
     {
-        return new HdfsOutputFile(location, environment, context);
+        return new HdfsOutputFile(location, environment, context, stats.getCreateFileCalls());
     }
 
     @Override
     public void deleteFile(Location location)
             throws IOException
     {
+        stats.getDeleteFileCalls().newCall();
         Path file = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, file);
         environment.doAs(context.getIdentity(), () -> {
-            if (!fileSystem.delete(file, false)) {
-                throw new IOException("Failed to delete file: " + file);
+            try (TimeStat.BlockTimer ignored = stats.getDeleteFileCalls().time()) {
+                if (!fileSystem.delete(file, false)) {
+                    throw new IOException("Failed to delete file: " + file);
+                }
+                return null;
             }
-            return null;
+            catch (IOException e) {
+                stats.getDeleteFileCalls().recordException(e);
+                throw e;
+            }
         });
     }
 
@@ -99,7 +110,14 @@ class HdfsFileSystem
                 }
                 else {
                     for (Path path : directoryWithPaths.getValue()) {
-                        rawFileSystem.delete(path, false);
+                        stats.getDeleteFileCalls().newCall();
+                        try (TimeStat.BlockTimer ignored = stats.getDeleteFileCalls().time()) {
+                            rawFileSystem.delete(path, false);
+                        }
+                        catch (IOException e) {
+                            stats.getDeleteFileCalls().recordException(e);
+                            throw e;
+                        }
                     }
                 }
                 return null;
@@ -111,13 +129,20 @@ class HdfsFileSystem
     public void deleteDirectory(Location location)
             throws IOException
     {
+        stats.getDeleteDirectoryCalls().newCall();
         Path directory = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, directory);
         environment.doAs(context.getIdentity(), () -> {
-            if (!fileSystem.delete(directory, true) && fileSystem.exists(directory)) {
-                throw new IOException("Failed to delete directory: " + directory);
+            try (TimeStat.BlockTimer ignored = stats.getDeleteDirectoryCalls().time()) {
+                if (!fileSystem.delete(directory, true) && fileSystem.exists(directory)) {
+                    throw new IOException("Failed to delete directory: " + directory);
+                }
+                return null;
             }
-            return null;
+            catch (IOException e) {
+                stats.getDeleteDirectoryCalls().recordException(e);
+                throw e;
+            }
         });
     }
 
@@ -125,14 +150,21 @@ class HdfsFileSystem
     public void renameFile(Location source, Location target)
             throws IOException
     {
+        stats.getRenameFileCalls().newCall();
         Path sourcePath = hadoopPath(source);
         Path targetPath = hadoopPath(target);
         FileSystem fileSystem = environment.getFileSystem(context, sourcePath);
         environment.doAs(context.getIdentity(), () -> {
-            if (!fileSystem.rename(sourcePath, targetPath)) {
-                throw new IOException(format("Failed to rename [%s] to [%s]", source, target));
+            try (TimeStat.BlockTimer ignored = stats.getRenameFileCalls().time()) {
+                if (!fileSystem.rename(sourcePath, targetPath)) {
+                    throw new IOException(format("Failed to rename [%s] to [%s]", source, target));
+                }
+                return null;
             }
-            return null;
+            catch (IOException e) {
+                stats.getRenameFileCalls().recordException(e);
+                throw e;
+            }
         });
     }
 
@@ -140,14 +172,19 @@ class HdfsFileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
+        stats.getListFilesCalls().newCall();
         Path directory = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, directory);
         return environment.doAs(context.getIdentity(), () -> {
-            try {
+            try (TimeStat.BlockTimer ignored = stats.getListFilesCalls().time()) {
                 return new HdfsFileIterator(location, directory, fileSystem.listFiles(directory, true));
             }
-            catch (FileNotFoundException e) {
-                return FileIterator.empty();
+            catch (IOException e) {
+                stats.getListFilesCalls().recordException(e);
+                if (e instanceof FileNotFoundException) {
+                    return FileIterator.empty();
+                }
+                throw e;
             }
         });
     }

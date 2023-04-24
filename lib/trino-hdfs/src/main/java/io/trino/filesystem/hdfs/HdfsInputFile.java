@@ -13,12 +13,14 @@
  */
 package io.trino.filesystem.hdfs;
 
+import io.airlift.stats.TimeStat;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -40,14 +42,16 @@ class HdfsInputFile
     private final Path file;
     private Long length;
     private FileStatus status;
+    private TrinoHdfsFileSystemStats.CallStats openFileCallStat;
 
-    public HdfsInputFile(Location location, Long length, HdfsEnvironment environment, HdfsContext context)
+    public HdfsInputFile(Location location, Long length, HdfsEnvironment environment, HdfsContext context, TrinoHdfsFileSystemStats.CallStats openFileCallStat)
     {
         this.location = requireNonNull(location, "location is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
         this.file = hadoopPath(location);
         this.length = length;
+        this.openFileCallStat = requireNonNull(openFileCallStat, "openFileCallStat is null");
         checkArgument(length == null || length >= 0, "length is negative");
     }
 
@@ -105,8 +109,17 @@ class HdfsInputFile
     private FSDataInputStream openFile()
             throws IOException
     {
+        openFileCallStat.newCall();
         FileSystem fileSystem = environment.getFileSystem(context, file);
-        return environment.doAs(context.getIdentity(), () -> fileSystem.open(file));
+        return environment.doAs(context.getIdentity(), () -> {
+            try (TimeStat.BlockTimer ignored = openFileCallStat.time()) {
+                return fileSystem.open(file);
+            }
+            catch (IOException e) {
+                openFileCallStat.recordException(e);
+                throw e;
+            }
+        });
     }
 
     private FileStatus lazyStatus()

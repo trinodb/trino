@@ -20,6 +20,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
+import io.trino.hdfs.NamenodeStats;
 import io.trino.hdfs.TrinoFileSystemCache;
 import io.trino.hdfs.TrinoFileSystemCacheStats;
 import io.trino.plugin.base.CatalogName;

@@ -62,6 +62,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
@@ -188,7 +189,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
         IcebergPageSourceProvider provider = new IcebergPageSourceProvider(
-                new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
                 stats,
                 ORC_READER_CONFIG,
                 PARQUET_READER_CONFIG,
