@@ -1363,7 +1363,7 @@ public class TestBackgroundHiveSplitLoader
                 .setDatabaseName("test_dbname")
                 .setOwner(Optional.of("testOwner"))
                 .setTableName("test_table")
-                .setTableType(TableType.MANAGED_TABLE.toString())
+                .setTableType(TableType.MANAGED_TABLE.name())
                 .setDataColumns(ImmutableList.of(new Column("col1", HIVE_STRING, Optional.empty())))
                 .setParameters(tableParameters)
                 .setPartitionColumns(partitionColumns)

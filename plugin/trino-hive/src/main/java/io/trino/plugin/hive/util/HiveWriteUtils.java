@@ -377,11 +377,11 @@ public final class HiveWriteUtils
 
     public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
     {
-        if (table.getTableType().equals(MATERIALIZED_VIEW.toString())) {
+        if (table.getTableType().equals(MATERIALIZED_VIEW.name())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot write to Hive materialized view");
         }
 
-        if (!writesToNonManagedTablesEnabled && !table.getTableType().equals(MANAGED_TABLE.toString())) {
+        if (!writesToNonManagedTablesEnabled && !table.getTableType().equals(MANAGED_TABLE.name())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
         }
 
