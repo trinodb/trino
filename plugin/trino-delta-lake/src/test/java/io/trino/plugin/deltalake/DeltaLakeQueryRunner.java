@@ -263,20 +263,18 @@ public final class DeltaLakeQueryRunner
         }
     }
 
-    public static class DeltaLakeGlueQueryRunnerMain
+    public static class DeltaLakeExternalQueryRunnerMain
     {
         public static void main(String[] args)
                 throws Exception
         {
-            // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
-            // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
-            DistributedQueryRunner queryRunner = builder(createSession())
+            // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
+            DistributedQueryRunner queryRunner = builder()
                     .setCatalogName(DELTA_CATALOG)
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
-                    .setDeltaProperties(ImmutableMap.of("hive.metastore", "glue"))
                     .build();
 
-            Logger log = Logger.get(DeltaLakeGlueQueryRunnerMain.class);
+            Logger log = Logger.get(DeltaLakeExternalQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
