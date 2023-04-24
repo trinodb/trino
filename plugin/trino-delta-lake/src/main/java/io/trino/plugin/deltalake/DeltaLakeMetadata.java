@@ -435,7 +435,7 @@ public class DeltaLakeMetadata
         if (table.isEmpty()) {
             return null;
         }
-        boolean managed = table.get().getTableType().equals(MANAGED_TABLE.toString());
+        boolean managed = table.get().getTableType().equals(MANAGED_TABLE.name());
 
         String tableLocation = metastore.getTableLocation(dataTableName);
         TableSnapshot tableSnapshot = metastore.getSnapshot(dataTableName, tableLocation, session);
