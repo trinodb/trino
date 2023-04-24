@@ -27,6 +27,7 @@ import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
@@ -111,7 +112,7 @@ public class TestIcebergGcsConnectorSmokeTest
         ConfigurationInitializer configurationInitializer = new GoogleGcsConfigurationInitializer(gcsConfig);
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(configurationInitializer));
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
-        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()));
+        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()), new TrinoHdfsFileSystemStats());
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()

@@ -40,6 +40,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.procedure.RegisterTableProcedure.getLatestMetadataLocation;
@@ -62,7 +63,7 @@ public class TestIcebergRegisterTableProcedure
         metastoreDir = Files.createTempDirectory("test_iceberg_register_table").toFile();
         metastoreDir.deleteOnExit();
         metastore = createTestingFileHiveMetastore(metastoreDir);
-        fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(TestingConnectorSession.SESSION);
+        fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(TestingConnectorSession.SESSION);
         return IcebergQueryRunner.builder()
                 .setMetastoreDirectory(metastoreDir)
                 .setIcebergProperties(ImmutableMap.of("iceberg.register-table-procedure.enabled", "true"))

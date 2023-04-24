@@ -16,7 +16,7 @@ package io.trino.plugin.hive.fs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
-import io.trino.plugin.hive.NamenodeStats;
+import io.trino.hdfs.NamenodeStats;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FileSystem;

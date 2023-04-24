@@ -55,6 +55,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
@@ -78,7 +79,7 @@ public class TestOrcPageSourceFactory
     private static final Map<NationColumn, Integer> ALL_COLUMNS = ImmutableMap.of(NATION_KEY, 0, NAME, 1, REGION_KEY, 2, COMMENT, 3);
     private static final HivePageSourceFactory PAGE_SOURCE_FACTORY = new OrcPageSourceFactory(
             new OrcReaderConfig(),
-            new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
+            new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
             new FileFormatDataSourceStats(),
             new HiveConfig());
 

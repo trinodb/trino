@@ -21,6 +21,7 @@ import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
@@ -93,7 +94,8 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                                         .setS3PathStyleAccess(true)))),
                         ImmutableSet.of()),
                 new HdfsConfig(),
-                new NoHdfsAuthentication()));
+                new NoHdfsAuthentication()),
+                new TrinoHdfsFileSystemStats());
         ThriftMetastore thriftMetastore = testingThriftHiveMetastoreBuilder()
                 .thriftMetastoreConfig(new ThriftMetastoreConfig()
                         // Read timed out sometimes happens with the default timeout
