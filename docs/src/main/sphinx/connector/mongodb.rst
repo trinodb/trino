@@ -488,6 +488,14 @@ The connector supports ``ALTER TABLE RENAME TO``, ``ALTER TABLE ADD COLUMN``
 and ``ALTER TABLE DROP COLUMN`` operations.
 Other uses of ``ALTER TABLE`` are not supported.
 
+.. _mongodb-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 

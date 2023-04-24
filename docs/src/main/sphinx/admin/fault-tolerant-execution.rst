@@ -36,28 +36,23 @@ depending on the desired :ref:`retry policy <fte-retry-policy>`.
 
 .. warning::
 
-  Setting ``retry-policy`` disables :ref:`write operations
-  <sql-write-operations>` with connectors that do not support fault-tolerant
-  execution of write operations, resulting in a "This connector does not support
-  query retries" error message.
+  Setting ``retry-policy`` may cause queries to fail with connectors that do not
+  explicitly support fault-tolerant execution, resulting in a "This connector
+  does not support query retries" error message.
 
   Support for fault-tolerant execution of SQL statements varies on a
-  per-connector basis:
+  per-connector basis, with more details in the documentation for each
+  connector. The following connectors support fault-tolerant execution:
 
-  * Fault-tolerant execution of :ref:`read operations <sql-read-operations>` is
-    supported by all connectors.
-  * Fault-tolerant execution of :ref:`write operations <sql-write-operations>`
-    is supported by the following connectors:
-
-    * :doc:`/connector/bigquery`
-    * :doc:`/connector/delta-lake`
-    * :doc:`/connector/hive`
-    * :doc:`/connector/iceberg`
-    * :doc:`/connector/mongodb`
-    * :doc:`/connector/mysql`
-    * :doc:`/connector/postgresql`
-    * :doc:`/connector/redshift`
-    * :doc:`/connector/sqlserver`
+  * :ref:`BigQuery connector <bigquery-fte-support>`
+  * :ref:`Delta Lake connector <delta-lake-fte-support>`
+  * :ref:`Hive connector <hive-fte-support>`
+  * :ref:`Iceberg connector <iceberg-fte-support>`
+  * :ref:`MongoDB connector <mongodb-fte-support>`
+  * :ref:`MySQL connector <mysql-fte-support>`
+  * :ref:`PostgreSQL connector <postgresql-fte-support>`
+  * :ref:`Redshift connector <redshift-fte-support>`
+  * :ref:`SQL Server connector <sqlserver-fte-support>`
 
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:

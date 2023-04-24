@@ -1418,6 +1418,14 @@ has no information whether the underlying non-Iceberg tables have changed.
 Dropping a materialized view with :doc:`/sql/drop-materialized-view` removes
 the definition and the storage table.
 
+.. _iceberg-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Performance
 -----------
 
