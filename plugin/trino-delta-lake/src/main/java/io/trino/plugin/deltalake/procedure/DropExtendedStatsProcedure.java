@@ -84,6 +84,6 @@ public class DropExtendedStatsProcedure
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
         }
         accessControl.checkCanInsertIntoTable(null, name);
-        statsAccess.deleteExtendedStatistics(session, tableHandle.location());
+        statsAccess.deleteExtendedStatistics(session, name, tableHandle.location());
     }
 }
