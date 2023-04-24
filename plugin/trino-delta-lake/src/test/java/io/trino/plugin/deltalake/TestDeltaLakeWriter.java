@@ -64,7 +64,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(intColumn), Optional.of(-200L));
         assertEquals(fileStats.getMaxColumnValue(intColumn), Optional.of(250L));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(13L));
+        assertEquals(fileStats.getNullCount(intColumn), Optional.of(13L));
     }
 
     @Test
@@ -83,7 +83,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(floatColumn), Optional.of((long) floatToRawIntBits(-2.001f)));
         assertEquals(fileStats.getMaxColumnValue(floatColumn), Optional.of((long) floatToRawIntBits(1.0f)));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(13L));
+        assertEquals(fileStats.getNullCount(floatColumn), Optional.of(13L));
     }
 
     @Test
@@ -104,7 +104,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(floatColumn), Optional.empty());
         assertEquals(fileStats.getMaxColumnValue(floatColumn), Optional.empty());
-        assertEquals(fileStats.getNullCount(columnName), Optional.empty());
+        assertEquals(fileStats.getNullCount(floatColumn), Optional.empty());
     }
 
     @Test
@@ -125,7 +125,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(doubleColumn), Optional.empty());
         assertEquals(fileStats.getMaxColumnValue(doubleColumn), Optional.empty());
-        assertEquals(fileStats.getNullCount(columnName), Optional.empty());
+        assertEquals(fileStats.getNullCount(doubleColumn), Optional.empty());
     }
 
     @Test
@@ -144,7 +144,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(varcharColumn), Optional.of(utf8Slice("aba")));
         assertEquals(fileStats.getMaxColumnValue(varcharColumn), Optional.of(utf8Slice("ab⌘")));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(12L));
+        assertEquals(fileStats.getNullCount(varcharColumn), Optional.of(12L));
     }
 
     @Test
@@ -163,7 +163,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(varcharColumn), Optional.of(utf8Slice("aba")));
         assertEquals(fileStats.getMaxColumnValue(varcharColumn), Optional.of(utf8Slice("ab\uD83D\uDD74")));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(12L));
+        assertEquals(fileStats.getNullCount(varcharColumn), Optional.of(12L));
     }
 
     private ColumnChunkMetaData createMetaData(String columnName, PrimitiveType columnType, long valueCount, Statistics<?> statistics)

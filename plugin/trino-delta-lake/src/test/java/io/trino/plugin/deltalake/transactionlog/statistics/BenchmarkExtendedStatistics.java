@@ -127,7 +127,7 @@ public class BenchmarkExtendedStatistics
                 DeltaLakeColumnHandle column = benchmarkData.columns.get(benchmarkData.random.nextInt(benchmarkData.columnsCount));
                 result += (long) statistics.getMaxColumnValue(column).get();
                 result += (long) statistics.getMinColumnValue(column).get();
-                result += statistics.getNullCount(column.getBaseColumnName()).get();
+                result += statistics.getNullCount(column).get();
             }
         }
         return result;

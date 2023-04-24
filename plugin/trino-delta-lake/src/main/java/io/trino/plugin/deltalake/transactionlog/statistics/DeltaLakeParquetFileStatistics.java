@@ -16,9 +16,12 @@ package io.trino.plugin.deltalake.transactionlog.statistics;
 import io.airlift.log.Logger;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.plugin.deltalake.DeltaLakeColumnProjectionInfo;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.type.TypeUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +32,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.toCanonicalNameKeyedMap;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 
 public class DeltaLakeParquetFileStatistics
         implements DeltaLakeFileStatistics
@@ -82,39 +86,54 @@ public class DeltaLakeParquetFileStatistics
     @Override
     public Optional<Object> getMaxColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        if (!columnHandle.isBaseColumn()) {
-            return Optional.empty();
-        }
-        return getStat(columnHandle.getBasePhysicalColumnName(), maxValues);
+        return getStat(columnHandle, maxValues);
     }
 
     @Override
     public Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        if (!columnHandle.isBaseColumn()) {
-            return Optional.empty();
-        }
-        return getStat(columnHandle.getBasePhysicalColumnName(), minValues);
+        return getStat(columnHandle, minValues);
     }
 
     @Override
-    public Optional<Long> getNullCount(String columnName)
+    public Optional<Long> getNullCount(DeltaLakeColumnHandle columnHandle)
     {
-        return getStat(columnName, nullCount).map(o -> Long.valueOf(o.toString()));
+        return getStat(columnHandle, nullCount).map(o -> Long.valueOf(o.toString()));
     }
 
-    private Optional<Object> getStat(String columnName, Optional<Map<CanonicalColumnName, Object>> stats)
+    private Optional<Object> getStat(DeltaLakeColumnHandle columnHandle, Optional<Map<CanonicalColumnName, Object>> stats)
     {
         if (stats.isEmpty()) {
             return Optional.empty();
         }
-        CanonicalColumnName canonicalColumnName = new CanonicalColumnName(columnName);
+        CanonicalColumnName canonicalColumnName = new CanonicalColumnName(columnHandle.getBasePhysicalColumnName());
+
         Object contents = stats.get().get(canonicalColumnName);
+        if (!columnHandle.isBaseColumn()) {
+            DeltaLakeColumnProjectionInfo projectionInfo = columnHandle.getProjectionInfo().get();
+            if (contents instanceof Block block) {
+                List<Integer> dereferenceIndices = projectionInfo.getDereferenceIndices();
+                for (int index : dereferenceIndices) {
+                    ColumnarRow columnarRow = toColumnarRow(block);
+                    block = columnarRow.getField(index);
+                }
+                contents = TypeUtils.readNativeValue(projectionInfo.getType(), block, 0);
+            }
+            else {
+                List<String> dereferenceNames = projectionInfo.getDereferencePhysicalNames();
+                for (String dereferenceName : dereferenceNames) {
+                    if (contents instanceof Map map) {
+                        contents = map.get(dereferenceName);
+                    }
+                }
+            }
+        }
+
         if (contents == null) {
             return Optional.empty();
         }
         if (contents instanceof List || contents instanceof Map || contents instanceof Block) {
-            log.debug("Skipping statistics value for column with complex value type: %s", columnName);
+            log.debug("Skipping statistics value for column with complex value type: %s", columnHandle);
             return Optional.empty();
         }
         return Optional.of(contents);

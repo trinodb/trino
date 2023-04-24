@@ -372,17 +372,40 @@ public class TestSplitPruning
                 Set.of(),
                 0);
 
-        // TODO pruning does not work on primitive fields inside a struct, expected splits should be 1 after file pruning (https://github.com/trinodb/trino/issues/17164)
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 400",
+                Set.of(50.99, 60.99, 70.99, 80.99, 90.99, 100.99),
+                2);
+
         assertResultAndSplitCount(
                 "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 600",
                 Set.of(70.99, 80.99, 90.99, 100.99),
-                2);
+                1);
 
-        // TODO pruning does not work on primitive fields inside a struct, expected splits should be 0 after file pruning (https://github.com/trinodb/trino/issues/17164)
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 600 AND parent.child1 < 1000",
+                Set.of(70.99, 80.99, 90.99),
+                1);
+
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 600 AND grandparent.parent1.child1 < 100",
+                Set.of(70.99, 80.99, 90.99),
+                1);
+
         assertResultAndSplitCount(
                 "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 1000",
                 Set.of(),
-                2);
+                0);
+
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 1000 AND parent.child2 = 'INDIA'",
+                Set.of(),
+                0);
+
+        assertResultAndSplitCount(
+                "SELECT grandparent.parent1.child1 FROM nested_fields WHERE parent.child1 > 1000 AND grandparent.parent1.child1 < 20",
+                Set.of(),
+                0);
     }
 
     @Test
