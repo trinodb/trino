@@ -25,6 +25,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -104,14 +105,7 @@ public final class DeltaLakeQueryRunner
                 queryRunner.createCatalog("tpcds", "tpcds");
 
                 queryRunner.installPlugin(new TestingDeltaLakePlugin());
-                Map<String, String> deltaProperties = new HashMap<>(this.deltaProperties.buildOrThrow());
-                if (!deltaProperties.containsKey("hive.metastore") && !deltaProperties.containsKey("hive.metastore.uri")) {
-                    Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG);
-                    deltaProperties.put("hive.metastore", "file");
-                    deltaProperties.put("hive.metastore.catalog.dir", dataDir.toUri().toString());
-                }
-
-                queryRunner.createCatalog(catalogName, CONNECTOR_NAME, deltaProperties);
+                queryRunner.createCatalog(catalogName, CONNECTOR_NAME, deltaProperties.buildOrThrow());
 
                 return queryRunner;
             }
@@ -125,10 +119,18 @@ public final class DeltaLakeQueryRunner
     public static DistributedQueryRunner createDeltaLakeQueryRunner(String catalogName, Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
+        Map<String, String> deltaProperties = new HashMap<>(connectorProperties);
+        if (!deltaProperties.containsKey("hive.metastore") && !deltaProperties.containsKey("hive.metastore.uri")) {
+            Path metastoreDirectory = Files.createTempDirectory(catalogName);
+            metastoreDirectory.toFile().deleteOnExit();
+            deltaProperties.put("hive.metastore", "file");
+            deltaProperties.put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString());
+        }
+
         DistributedQueryRunner queryRunner = builder(createSession())
                 .setCatalogName(catalogName)
                 .setExtraProperties(extraProperties)
-                .setDeltaProperties(connectorProperties)
+                .setDeltaProperties(deltaProperties)
                 .build();
 
         queryRunner.execute("CREATE SCHEMA IF NOT EXISTS tpch");
@@ -241,14 +243,18 @@ public final class DeltaLakeQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
+            Path metastoreDirectory = Files.createTempDirectory(DELTA_CATALOG);
+            metastoreDirectory.toFile().deleteOnExit();
             DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(
                     DELTA_CATALOG,
                     ImmutableMap.of("http-server.http.port", "8080"),
-                    ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
+                    ImmutableMap.of(
+                            "delta.enable-non-concurrent-writes", "true",
+                            "hive.metastore", "file",
+                            "hive.metastore.catalog.dir", metastoreDirectory.toUri().toString()));
 
-            Path baseDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve(DELTA_CATALOG);
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
-            log.info("Data directory is: %s", baseDirectory);
+            log.info("Data directory is: %s", metastoreDirectory);
 
             Thread.sleep(10);
             Logger log = Logger.get(DeltaLakeQueryRunner.class);
@@ -264,10 +270,11 @@ public final class DeltaLakeQueryRunner
         {
             // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
             // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
-            DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(
-                    DELTA_CATALOG,
-                    ImmutableMap.of("http-server.http.port", "8080"),
-                    ImmutableMap.of("hive.metastore", "glue"));
+            DistributedQueryRunner queryRunner = builder(createSession())
+                    .setCatalogName(DELTA_CATALOG)
+                    .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                    .setDeltaProperties(ImmutableMap.of("hive.metastore", "glue"))
+                    .build();
 
             Logger log = Logger.get(DeltaLakeGlueQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
