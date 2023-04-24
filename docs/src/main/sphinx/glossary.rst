@@ -54,8 +54,8 @@ Container
 .. _glossDataSource:
 
 Data source
-    A system from which data is retrieved, for example, PostgreSQL or Iceberg on
-    S3 data. In Trino, users query data sources with :ref:`catalogs
+    A system from which data is retrieved - for example, PostgreSQL or Iceberg
+    on S3 data. In Trino, users query data sources with :ref:`catalogs
     <glossCatalog>` that connect to each source. See
     :ref:`trino-concept-data-sources` for more information.
 
