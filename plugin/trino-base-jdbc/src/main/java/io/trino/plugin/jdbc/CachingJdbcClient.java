@@ -579,7 +579,7 @@ public class CachingJdbcClient
     @Deprecated
     public void onDataChanged(JdbcTableHandle handle)
     {
-        invalidateCache(statisticsCache, key -> key.equals(handle));
+        statisticsCache.invalidate(handle);
     }
 
     @Override
