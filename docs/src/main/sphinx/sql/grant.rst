@@ -48,6 +48,19 @@ Grant ``SELECT`` privilege on the table ``orders`` to everyone::
 
     GRANT SELECT ON orders TO ROLE PUBLIC;
 
+Grant ``SELECT`` privilege on all tables in a schema to user ``bob`` with a wildcard::
+
+    USE "catalog"."finance";
+    GRANT SELECT ON "*" TO ROLE bob;
+
+Grant ``SELECT`` privilege on all tables in a schema to user ``bob`` with a wildcard (alternate syntax)::
+
+    GRANT SELECT ON "catalog"."finance"."*" TO ROLE bob;
+
+GRANT ``SELECT`` privilege on all schemas in a cluster to user ``alice`` with a wildcard::
+
+    GRANT SELECT ON "catalog"."*"."*" TO ROLE alice;
+
 Limitations
 -----------
 
