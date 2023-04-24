@@ -115,7 +115,14 @@ public class AccumuloClient
 
         // The default namespace is created in ZooKeeperMetadataManager's constructor
         if (!tableManager.namespaceExists(DEFAULT_SCHEMA)) {
-            tableManager.createNamespace(DEFAULT_SCHEMA);
+            try {
+                tableManager.createNamespace(DEFAULT_SCHEMA);
+            }
+            catch (TrinoException e) {
+                if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode())) {
+                    throw e;
+                }
+            }
         }
     }
 
