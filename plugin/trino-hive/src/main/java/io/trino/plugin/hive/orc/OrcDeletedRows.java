@@ -27,8 +27,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
-import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
@@ -87,7 +87,7 @@ public class OrcDeletedRows
     public OrcDeletedRows(
             String sourceFileName,
             OrcDeleteDeltaPageSourceFactory pageSourceFactory,
-            ConnectorIdentity identity,
+            ConnectorSession session,
             TrinoFileSystemFactory fileSystemFactory,
             AcidInfo acidInfo,
             OptionalInt bucketNumber,
@@ -95,7 +95,7 @@ public class OrcDeletedRows
     {
         this.sourceFileName = requireNonNull(sourceFileName, "sourceFileName is null");
         this.pageSourceFactory = requireNonNull(pageSourceFactory, "pageSourceFactory is null");
-        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(identity);
+        this.fileSystem = requireNonNull(fileSystemFactory, "fileSystemFactory is null").create(session);
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.memoryUsage = memoryContext.newLocalMemoryContext(OrcDeletedRows.class.getSimpleName());

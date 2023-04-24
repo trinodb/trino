@@ -49,7 +49,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -200,7 +199,7 @@ public class OrcPageSourceFactory
         }
 
         ConnectorPageSource orcPageSource = createOrcPageSource(
-                session.getIdentity(),
+                session,
                 path,
                 start,
                 length,
@@ -230,7 +229,7 @@ public class OrcPageSourceFactory
     }
 
     private ConnectorPageSource createOrcPageSource(
-            ConnectorIdentity identity,
+            ConnectorSession session,
             Path path,
             long start,
             long length,
@@ -257,7 +256,7 @@ public class OrcPageSourceFactory
 
         boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             TrinoInputFile inputFile = fileSystem.newInputFile(path.toString());
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
@@ -399,7 +398,7 @@ public class OrcPageSourceFactory
                     new OrcDeletedRows(
                             path.getName(),
                             new OrcDeleteDeltaPageSourceFactory(options, stats),
-                            identity,
+                            session,
                             fileSystemFactory,
                             info,
                             bucketNumber,
@@ -412,7 +411,7 @@ public class OrcPageSourceFactory
                             acidInfo.get().getOriginalFiles(),
                             path,
                             fileSystemFactory,
-                            identity,
+                            session,
                             options,
                             stats));
 

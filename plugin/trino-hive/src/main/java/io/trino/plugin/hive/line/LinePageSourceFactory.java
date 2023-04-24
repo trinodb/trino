@@ -141,7 +141,7 @@ public abstract class LinePageSourceFactory
         }
 
         // buffer file if small
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = new MonitoredTrinoInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
         try {
             length = min(inputFile.length() - start, length);

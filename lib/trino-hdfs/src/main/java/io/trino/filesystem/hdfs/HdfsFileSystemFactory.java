@@ -17,6 +17,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 
 import javax.inject.Inject;
@@ -34,9 +35,20 @@ public class HdfsFileSystemFactory
         this.environment = requireNonNull(environment, "environment is null");
     }
 
-    @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new HdfsFileSystem(environment, new HdfsContext(identity));
+    }
+
+    @Override
+    public TrinoFileSystem create(ConnectorSession session)
+    {
+        return new HdfsFileSystem(environment, new HdfsContext(session.getIdentity()));
+    }
+
+    @Override
+    public TrinoFileSystem createWithoutSession()
+    {
+        return new HdfsFileSystem(environment, new HdfsContext(ConnectorIdentity.ofUser("fake")));
     }
 }

@@ -24,7 +24,7 @@ import io.trino.plugin.iceberg.IcebergSecurityConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -72,9 +72,9 @@ public class TrinoHiveCatalogFactory
     }
 
     @Override
-    public TrinoCatalog create(ConnectorIdentity identity)
+    public TrinoCatalog create(ConnectorSession session)
     {
-        CachingHiveMetastore metastore = memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), 1000);
+        CachingHiveMetastore metastore = memoizeMetastore(metastoreFactory.createMetastore(Optional.of(session.getIdentity())), 1000);
         return new TrinoHiveCatalog(
                 catalogName,
                 metastore,

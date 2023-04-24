@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.iceberg.catalog;
 
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 
 public interface TrinoCatalogFactory
 {
-    TrinoCatalog create(ConnectorIdentity identity);
+    TrinoCatalog create(ConnectorSession session);
 }

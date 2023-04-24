@@ -70,7 +70,7 @@ public class IcebergSplitManager
             return emptySplitSource();
         }
 
-        Table icebergTable = transactionManager.get(transaction, session.getIdentity()).getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = transactionManager.get(transaction, session).getIcebergTable(session, table.getSchemaTableName());
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
         TableScan tableScan = icebergTable.newScan()

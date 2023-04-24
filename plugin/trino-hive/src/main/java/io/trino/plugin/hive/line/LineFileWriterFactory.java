@@ -127,7 +127,7 @@ public abstract class LineFileWriterFactory
         LineSerializer lineSerializer = lineSerializerFactory.create(columns, fromProperties(schema));
 
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
             OutputStream outputStream = fileSystem.newOutputFile(path.toString()).create(outputStreamMemoryContext);
 

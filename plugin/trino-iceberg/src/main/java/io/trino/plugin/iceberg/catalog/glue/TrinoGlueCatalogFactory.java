@@ -23,7 +23,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -78,7 +78,7 @@ public class TrinoGlueCatalogFactory
     }
 
     @Override
-    public TrinoCatalog create(ConnectorIdentity identity)
+    public TrinoCatalog create(ConnectorSession session)
     {
         return new TrinoGlueCatalog(
                 catalogName,

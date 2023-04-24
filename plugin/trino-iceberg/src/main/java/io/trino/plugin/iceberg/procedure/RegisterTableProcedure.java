@@ -136,7 +136,7 @@ public class RegisterTableProcedure
         metadataFileName.ifPresent(RegisterTableProcedure::validateMetadataFileName);
 
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-        TrinoCatalog catalog = catalogFactory.create(clientSession.getIdentity());
+        TrinoCatalog catalog = catalogFactory.create(clientSession);
         if (!catalog.namespaceExists(clientSession, schemaTableName.getSchemaName())) {
             throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaTableName.getSchemaName()));
         }

@@ -23,7 +23,7 @@ import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -48,7 +48,7 @@ public class TestHdfsFileSystem
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
 
         TrinoFileSystemFactory factory = new HdfsFileSystemFactory(hdfsEnvironment);
-        TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"));
+        TrinoFileSystem fileSystem = factory.create(TestingConnectorSession.SESSION);
 
         Path tempDir = createTempDirectory("testListing");
         String root = tempDir.toString();

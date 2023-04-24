@@ -106,7 +106,6 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -1863,7 +1862,7 @@ public class HiveMetadata
 
         // for simple line-oriented formats, just create an empty file directly
         if (format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS)) {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             for (String fileName : fileNames) {
                 TrinoOutputFile trinoOutputFile = fileSystem.newOutputFile(new Path(path, fileName).toString());
                 try {
@@ -1949,8 +1948,8 @@ public class HiveMetadata
         Table table = finishChangingTable(AcidOperation.MERGE, "merge", session, insertHandle, partitionUpdates, computedStatistics);
 
         for (PartitionUpdateAndMergeResults results : partitionMergeResults) {
-            results.getDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session.getIdentity(), directory));
-            results.getDeleteDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session.getIdentity(), directory));
+            results.getDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session, directory));
+            results.getDeleteDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session, directory));
         }
 
         List<Partition> partitions = partitionUpdates.stream()
@@ -2061,7 +2060,7 @@ public class HiveMetadata
             for (PartitionUpdate update : partitionUpdates) {
                 String deltaSubdir = deltaSubdir(handle.getTransaction().getWriteId(), 0);
                 String directory = "%s/%s/%s".formatted(table.getStorage().getLocation(), update.getName(), deltaSubdir);
-                createOrcAcidVersionFile(session.getIdentity(), directory);
+                createOrcAcidVersionFile(session, directory);
             }
         }
 
@@ -2239,10 +2238,10 @@ public class HiveMetadata
         }
     }
 
-    private void createOrcAcidVersionFile(ConnectorIdentity identity, String deltaDirectory)
+    private void createOrcAcidVersionFile(ConnectorSession session, String deltaDirectory)
     {
         try {
-            writeAcidVersionFile(fileSystemFactory.create(identity), deltaDirectory);
+            writeAcidVersionFile(fileSystemFactory.create(session), deltaDirectory);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Exception writing _orc_acid_version file for delta directory: " + deltaDirectory, e);

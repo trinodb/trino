@@ -21,7 +21,7 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.jdbc.JdbcClientPool;
@@ -86,10 +86,10 @@ public class TrinoJdbcCatalogFactory
     }
 
     @Override
-    public TrinoCatalog create(ConnectorIdentity identity)
+    public TrinoCatalog create(ConnectorSession session)
     {
         JdbcCatalog jdbcCatalog = new JdbcCatalog(
-                config -> new ForwardingFileIo(fileSystemFactory.create(identity)),
+                config -> new ForwardingFileIo(fileSystemFactory.create(session)),
                 config -> clientPool,
                 false);
 

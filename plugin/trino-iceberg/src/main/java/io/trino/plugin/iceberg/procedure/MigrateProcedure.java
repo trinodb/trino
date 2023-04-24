@@ -182,7 +182,7 @@ public class MigrateProcedure
     public void doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         SchemaTableName sourceTableName = new SchemaTableName(schemaName, tableName);
-        TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
+        TrinoCatalog catalog = catalogFactory.create(session);
         HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
         RecursiveDirectory recursive = Enums.getIfPresent(RecursiveDirectory.class, recursiveDirectory.toUpperCase(ENGLISH)).toJavaUtil()
                 .orElseThrow(() -> new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Invalid recursive_directory: " + recursiveDirectory));

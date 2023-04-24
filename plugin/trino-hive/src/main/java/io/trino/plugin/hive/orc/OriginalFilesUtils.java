@@ -22,7 +22,7 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
@@ -48,7 +48,7 @@ public final class OriginalFilesUtils
             Collection<OriginalFileInfo> originalFileInfos,
             Path splitPath,
             TrinoFileSystemFactory fileSystemFactory,
-            ConnectorIdentity identity,
+            ConnectorSession session,
             OrcReaderOptions options,
             FileFormatDataSourceStats stats)
     {
@@ -56,7 +56,7 @@ public final class OriginalFilesUtils
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
             Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
             if (path.compareTo(splitPath) < 0) {
-                rowCount += getRowsInFile(path.toString(), fileSystemFactory, identity, options, stats, originalFileInfo.getFileSize());
+                rowCount += getRowsInFile(path.toString(), fileSystemFactory, session, options, stats, originalFileInfo.getFileSize());
             }
         }
 
@@ -69,13 +69,13 @@ public final class OriginalFilesUtils
     private static Long getRowsInFile(
             String splitPath,
             TrinoFileSystemFactory fileSystemFactory,
-            ConnectorIdentity identity,
+            ConnectorSession session,
             OrcReaderOptions options,
             FileFormatDataSourceStats stats,
             long fileSize)
     {
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             TrinoInputFile inputFile = fileSystem.newInputFile(splitPath);
             try (OrcDataSource orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(splitPath),

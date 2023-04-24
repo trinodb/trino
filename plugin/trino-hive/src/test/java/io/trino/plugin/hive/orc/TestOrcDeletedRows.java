@@ -21,7 +21,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.TestingConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.testng.annotations.BeforeClass;
@@ -158,7 +158,7 @@ public class TestOrcDeletedRows
         OrcDeletedRows deletedRows = new OrcDeletedRows(
                 sourceFileName,
                 pageSourceFactory,
-                ConnectorIdentity.ofUser("test"),
+                TestingConnectorSession.SESSION,
                 HDFS_FILE_SYSTEM_FACTORY,
                 acidInfo,
                 OptionalInt.of(0),

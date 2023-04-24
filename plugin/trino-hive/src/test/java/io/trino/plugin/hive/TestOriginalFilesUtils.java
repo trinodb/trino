@@ -50,7 +50,7 @@ public class TestOriginalFilesUtils
                 originalFileInfoList,
                 new Path(tablePath + "/000001_0"),
                 HDFS_FILE_SYSTEM_FACTORY,
-                SESSION.getIdentity(),
+                SESSION,
                 new OrcReaderOptions(),
                 new FileFormatDataSourceStats());
         assertEquals(rowCountResult, 0, "Original file should have 0 as the starting row count");
@@ -69,7 +69,7 @@ public class TestOriginalFilesUtils
                 originalFileInfos,
                 new Path(tablePath + "/000002_0_copy_2"),
                 HDFS_FILE_SYSTEM_FACTORY,
-                SESSION.getIdentity(),
+                SESSION,
                 new OrcReaderOptions(),
                 new FileFormatDataSourceStats());
         // Bucket-2 has original files: 000002_0, 000002_0_copy_1. Each file original file has 4 rows.

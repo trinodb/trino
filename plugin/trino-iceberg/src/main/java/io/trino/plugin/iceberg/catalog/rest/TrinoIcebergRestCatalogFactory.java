@@ -22,7 +22,7 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
@@ -72,7 +72,7 @@ public class TrinoIcebergRestCatalogFactory
     }
 
     @Override
-    public synchronized TrinoCatalog create(ConnectorIdentity identity)
+    public synchronized TrinoCatalog create(ConnectorSession session)
     {
         // Creation of the RESTSessionCatalog is lazy due to required network calls
         // for authorization and config route
@@ -84,12 +84,9 @@ public class TrinoIcebergRestCatalogFactory
             properties.putAll(securityProperties.get());
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
                     config -> HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
-                    (context, config) -> {
-                        ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
-                                ? ((ConnectorIdentity) context.wrappedIdentity())
-                                : ConnectorIdentity.ofUser("fake");
-                        return new ForwardingFileIo(fileSystemFactory.create(currentIdentity));
-                    });
+                    (context, config) -> new ForwardingFileIo((context.wrappedIdentity() != null)
+                            ? fileSystemFactory.create((ConnectorSession) context.wrappedIdentity())
+                            : fileSystemFactory.createWithoutSession()));
             icebergCatalogInstance.initialize(catalogName.toString(), properties.buildOrThrow());
 
             icebergCatalog = icebergCatalogInstance;

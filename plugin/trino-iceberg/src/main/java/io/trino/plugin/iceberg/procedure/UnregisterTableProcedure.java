@@ -89,7 +89,7 @@ public class UnregisterTableProcedure
 
         accessControl.checkCanDropTable(null, schemaTableName);
 
-        TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
+        TrinoCatalog catalog = catalogFactory.create(session);
         if (!catalog.namespaceExists(session, schemaTableName.getSchemaName())) {
             throw new SchemaNotFoundException(schemaName);
         }

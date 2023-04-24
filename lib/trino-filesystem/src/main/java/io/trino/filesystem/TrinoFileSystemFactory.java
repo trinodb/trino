@@ -14,14 +14,10 @@
 package io.trino.filesystem;
 
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.security.ConnectorIdentity;
 
 public interface TrinoFileSystemFactory
 {
-    TrinoFileSystem create(ConnectorIdentity identity);
+    TrinoFileSystem create(ConnectorSession session);
 
-    default TrinoFileSystem create(ConnectorSession session)
-    {
-        return create(session.getIdentity());
-    }
+    TrinoFileSystem createWithoutSession();
 }

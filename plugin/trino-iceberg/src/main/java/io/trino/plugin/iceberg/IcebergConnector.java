@@ -109,7 +109,7 @@ public class IcebergConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        ConnectorMetadata metadata = transactionManager.get(transaction, session.getIdentity());
+        ConnectorMetadata metadata = transactionManager.get(transaction, session);
         return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 

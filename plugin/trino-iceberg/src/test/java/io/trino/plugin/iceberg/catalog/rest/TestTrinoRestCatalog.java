@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.CommitTaskData;
@@ -30,6 +31,7 @@ import org.assertj.core.util.Files;
 
 import java.io.File;
 
+import static com.google.common.reflect.Reflection.newProxy;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType.NONE;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
@@ -91,9 +93,9 @@ public class TestTrinoRestCatalog
                     PLANNER_CONTEXT.getTypeManager(),
                     jsonCodec(CommitTaskData.class),
                     catalog,
-                    connectorIdentity -> {
+                    newProxy(TrinoFileSystemFactory.class, (proxy, method, args) -> {
                         throw new UnsupportedOperationException();
-                    },
+                    }),
                     new TableStatisticsWriter(new NodeVersion("test-version")));
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isTrue();

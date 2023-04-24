@@ -15,7 +15,7 @@ package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -79,9 +79,15 @@ public class TrackingFileSystemFactory
     }
 
     @Override
-    public TrinoFileSystem create(ConnectorIdentity identity)
+    public TrinoFileSystem create(ConnectorSession session)
     {
-        return new TrackingFileSystem(delegate.create(identity), this::increment);
+        return new TrackingFileSystem(delegate.create(session), this::increment);
+    }
+
+    @Override
+    public TrinoFileSystem createWithoutSession()
+    {
+        return new TrackingFileSystem(delegate.createWithoutSession(), this::increment);
     }
 
     private interface Tracker
