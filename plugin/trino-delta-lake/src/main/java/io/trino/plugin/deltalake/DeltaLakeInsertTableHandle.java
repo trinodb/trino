@@ -14,10 +14,12 @@
 package io.trino.plugin.deltalake;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 
@@ -63,6 +65,12 @@ public class DeltaLakeInsertTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonIgnore
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(schemaName, tableName);
     }
 
     @JsonProperty
