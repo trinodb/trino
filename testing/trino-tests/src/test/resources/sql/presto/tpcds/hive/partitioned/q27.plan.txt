@@ -6,13 +6,15 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (groupid, i_item_id$gid, s_state$gid)
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["i_item_sk"])
-                                scan item
+                                dynamic filter (["i_item_sk"])
+                                    scan item
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["ss_item_sk"])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                dynamic filter (["ss_cdemo_sk", "ss_sold_date_sk", "ss_store_sk"])
+                                                    scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim

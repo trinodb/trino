@@ -7,7 +7,8 @@ final aggregation over ()
                         remote exchange (REPARTITION, HASH, ["ws_item_sk"])
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
-                                    scan web_sales
+                                    dynamic filter (["ws_item_sk", "ws_sold_date_sk"])
+                                        scan web_sales
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])
                                             scan item
@@ -19,7 +20,8 @@ final aggregation over ()
                                 remote exchange (REPARTITION, HASH, ["ws_item_sk_7"])
                                     partial aggregation over (ws_item_sk_7)
                                         join (INNER, REPLICATED):
-                                            scan web_sales
+                                            dynamic filter (["ws_sold_date_sk_4"])
+                                                scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan date_dim

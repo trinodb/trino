@@ -10,13 +10,15 @@ local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["s_state"])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan store_sales
+                                                dynamic filter (["ss_sold_date_sk", "ss_store_sk"])
+                                                    scan store_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan store
+                                                    dynamic filter (["s_state"])
+                                                        scan store
                                     single aggregation over (s_state_53)
                                         final aggregation over (s_state_53)
                                             local exchange (GATHER, SINGLE, [])
@@ -24,7 +26,8 @@ local exchange (GATHER, SINGLE, [])
                                                     partial aggregation over (s_state_53)
                                                         join (INNER, REPLICATED):
                                                             join (INNER, REPLICATED):
-                                                                scan store_sales
+                                                                dynamic filter (["ss_sold_date_sk_4", "ss_store_sk_11"])
+                                                                    scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan store

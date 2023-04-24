@@ -11,11 +11,13 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["wr_item_sk"])
                                             partial aggregation over (wr_item_sk)
                                                 join (INNER, REPLICATED):
-                                                    scan web_returns
+                                                    dynamic filter (["wr_item_sk", "wr_order_number"])
+                                                        scan web_returns
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                scan web_sales
+                                                                dynamic filter (["ws_sold_date_sk"])
+                                                                    scan web_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan date_dim
@@ -28,11 +30,13 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["cr_item_sk"])
                                             partial aggregation over (cr_item_sk)
                                                 join (INNER, REPLICATED):
-                                                    scan catalog_returns
+                                                    dynamic filter (["cr_item_sk", "cr_order_number"])
+                                                        scan catalog_returns
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                scan catalog_sales
+                                                                dynamic filter (["cs_sold_date_sk"])
+                                                                    scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan date_dim
@@ -45,11 +49,13 @@ local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["sr_item_sk"])
                                             partial aggregation over (sr_item_sk)
                                                 join (INNER, REPLICATED):
-                                                    scan store_returns
+                                                    dynamic filter (["sr_item_sk", "sr_ticket_number"])
+                                                        scan store_returns
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             join (INNER, REPLICATED):
-                                                                scan store_sales
+                                                                dynamic filter (["ss_sold_date_sk"])
+                                                                    scan store_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan date_dim
