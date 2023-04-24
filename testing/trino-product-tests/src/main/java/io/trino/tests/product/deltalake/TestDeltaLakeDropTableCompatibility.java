@@ -110,7 +110,11 @@ public class TestDeltaLakeDropTableCompatibility
             ObjectListing tableFiles = s3.listObjects(bucketName, "databricks-compatibility-test-" + schemaName + "/" + tableName);
             assertThat(tableFiles.getObjectSummaries()).isNotEmpty();
 
-            dropper.queryExecutor().executeQuery("DROP TABLE " + schemaName + "." + tableName);
+            switch (dropper) {
+                case DELTA -> dropDeltaTableWithRetry(schemaName + "." + tableName);
+                case TRINO -> onTrino().executeQuery("DROP TABLE " + schemaName + "." + tableName);
+                default -> throw new UnsupportedOperationException("Unsupported engine: " + dropper);
+            }
             tableFiles = s3.listObjects(bucketName, "databricks-compatibility-test-" + schemaName + "/" + tableName);
             if (explicitLocation) {
                 assertThat(tableFiles.getObjectSummaries()).isNotEmpty();
