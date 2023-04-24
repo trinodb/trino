@@ -15,8 +15,12 @@ package io.trino.collect.cache;
 
 import com.google.common.cache.Cache;
 
+import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class CacheUtils
 {
@@ -31,5 +35,13 @@ public final class CacheUtils
             // this can not happen because a supplier can not throw a checked exception
             throw new RuntimeException("Unexpected checked exception from cache load", e);
         }
+    }
+
+    public static <K> void invalidateAllIf(Cache<K, ?> cache, Predicate<? super K> filterFunction)
+    {
+        List<K> cacheKeys = cache.asMap().keySet().stream()
+                .filter(filterFunction)
+                .collect(toImmutableList());
+        cache.invalidateAll(cacheKeys);
     }
 }
