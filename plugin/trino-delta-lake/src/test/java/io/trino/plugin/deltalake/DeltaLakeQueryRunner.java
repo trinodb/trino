@@ -122,12 +122,6 @@ public final class DeltaLakeQueryRunner
         }
     }
 
-    public static DistributedQueryRunner createDeltaLakeQueryRunner(String catalogName)
-            throws Exception
-    {
-        return createDeltaLakeQueryRunner(catalogName, ImmutableMap.of(), ImmutableMap.of());
-    }
-
     public static DistributedQueryRunner createDeltaLakeQueryRunner(String catalogName, Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
