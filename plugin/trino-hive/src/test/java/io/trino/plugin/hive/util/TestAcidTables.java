@@ -20,6 +20,7 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.util.AcidTables.AcidState;
 import io.trino.plugin.hive.util.AcidTables.ParsedBase;
@@ -459,6 +460,6 @@ public class TestAcidTables
         };
 
         ConnectorIdentity identity = ConnectorIdentity.forUser("test").build();
-        return new HdfsFileSystemFactory(environment).create(identity);
+        return new HdfsFileSystemFactory(environment, new TrinoHdfsFileSystemStats()).create(identity);
     }
 }

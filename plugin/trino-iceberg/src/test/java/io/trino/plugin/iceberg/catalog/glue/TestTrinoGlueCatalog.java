@@ -45,6 +45,7 @@ import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -60,7 +61,7 @@ public class TestTrinoGlueCatalog
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
@@ -133,7 +134,7 @@ public class TestTrinoGlueCatalog
         Path tmpDirectory = Files.createTempDirectory("test_glue_catalog_default_location_");
         tmpDirectory.toFile().deleteOnExit();
 
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
         AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),

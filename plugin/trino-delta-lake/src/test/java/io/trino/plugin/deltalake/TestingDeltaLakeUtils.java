@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 
 public final class TestingDeltaLakeUtils
@@ -43,7 +44,7 @@ public final class TestingDeltaLakeUtils
                 new CheckpointSchemaManager(context.getTypeManager()),
                 new DeltaLakeConfig(),
                 new FileFormatDataSourceStats(),
-                new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
                 new ParquetReaderConfig());
 
         return transactionLogAccess.getActiveFiles(transactionLogAccess.loadSnapshot(dummyTable, tableLocation, SESSION), SESSION);

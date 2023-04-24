@@ -20,8 +20,10 @@ import com.google.inject.Singleton;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HdfsFileSystemModule
         implements Module
@@ -30,6 +32,8 @@ public class HdfsFileSystemModule
     public void configure(Binder binder)
     {
         binder.bind(HdfsFileSystemFactory.class).in(SINGLETON);
+        binder.bind(TrinoHdfsFileSystemStats.class).in(SINGLETON);
+        newExporter(binder).export(TrinoHdfsFileSystemStats.class).withGeneratedName();
     }
 
     @Provides

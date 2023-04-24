@@ -23,6 +23,7 @@ import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.spi.security.ConnectorIdentity;
 import org.testng.annotations.Test;
@@ -48,8 +49,9 @@ public class TestHdfsFileSystem
         HdfsConfig hdfsConfig = new HdfsConfig();
         DynamicHdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        TrinoHdfsFileSystemStats fileSystemStats = new TrinoHdfsFileSystemStats();
 
-        TrinoFileSystemFactory factory = new HdfsFileSystemFactory(hdfsEnvironment);
+        TrinoFileSystemFactory factory = new HdfsFileSystemFactory(hdfsEnvironment, fileSystemStats);
         TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"));
 
         Path tempDir = createTempDirectory("testListing");
