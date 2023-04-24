@@ -76,11 +76,12 @@ execution on a Trino cluster:
        more information.
      - ``NONE``
    * - ``exchange.deduplication-buffer-size``
-     - Size of the coordinator's in-memory buffer used by fault-tolerant
-       execution to store output of query :ref:`stages <trino-concept-stage>`.
-       If this buffer is filled during query execution, the query fails with a
-       "Task descriptor storage capacity has been exceeded" error message unless
-       an :ref:`exchange manager <fte-exchange-manager>` is configured.
+     - :ref:`Data size <prop-type-data-size>` of the coordinator's in-memory
+       buffer used by fault-tolerant execution to store output of query
+       :ref:`stages <trino-concept-stage>`. If this buffer is filled during
+       query execution, the query fails with a "Task descriptor storage capacity
+       has been exceeded" error message unless an :ref:`exchange manager
+       <fte-exchange-manager>` is configured.
      - ``32MB``
    * - ``exchange.compression-enabled``
      - Enable compression of spooling data. Setting to ``true`` is recommended
@@ -186,22 +187,23 @@ queries/tasks are no longer retried in the event of repeated failures:
      - ``4``
      - Only ``TASK``
    * - ``retry-initial-delay``
-     - Minimum time that a failed query or task must wait before it is retried. May be
-       overridden with the ``retry_initial_delay`` :ref:`session property
+     - Minimum :ref:`time <prop-type-duration>` that a failed query or task must
+       wait before it is retried. May be overridden with the
+       ``retry_initial_delay`` :ref:`session property
        <session-properties-definition>`.
      - ``10s``
      - ``QUERY`` and ``TASK``
    * - ``retry-max-delay``
-     - Maximum time that a failed query or task must wait before it is retried.
-       Wait time is increased on each subsequent  failure. May be
-       overridden with the ``retry_max_delay`` :ref:`session property
-       <session-properties-definition>`.
+     - Maximum :ref:`time <prop-type-duration>` that a failed query or task must
+       wait before it is retried. Wait time is increased on each subsequent
+       failure. May be overridden with the ``retry_max_delay`` :ref:`session
+       property <session-properties-definition>`.
      - ``1m``
      - ``QUERY`` and ``TASK``
    * - ``retry-delay-scale-factor``
-     - Factor by which retry delay is increased on each query or task failure. May be
-       overridden with the ``retry_delay_scale_factor`` :ref:`session property
-       <session-properties-definition>`.
+     - Factor by which retry delay is increased on each query or task failure.
+       May be overridden with the ``retry_delay_scale_factor`` :ref:`session
+       property <session-properties-definition>`.
      - ``2.0``
      - ``QUERY`` and ``TASK``
 
@@ -228,11 +230,12 @@ properties only apply to a ``TASK`` retry policy.
      - Description
      - Default value
    * - ``fault-tolerant-execution-standard-split-size``
-     - Standard :ref:`split <trino-concept-splits>` size processed by tasks that
-       read data from source tables. Value is interpreted with split weight
-       taken into account. If the weight of splits produced by a catalog denotes
-       that they are lighter or heavier than "standard" split, then the number
-       of splits processed by a single task is adjusted accordingly.
+     - Standard :ref:`split <trino-concept-splits>` :ref:`data size
+       <prop-type-data-size>` processed by tasks that read data from source
+       tables. Value is interpreted with split weight taken into account. If the
+       weight of splits produced by a catalog denotes that they are lighter or
+       heavier than "standard" split, then the number of splits processed by a
+       single task is adjusted accordingly.
 
        May be overridden for the current session with the
        ``fault_tolerant_execution_standard_split_size``
@@ -259,12 +262,12 @@ properties only apply to a ``TASK`` retry policy.
        multiplied by this growth factor.
      - ``1.2``
    * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min``
-     - Initial/minimum target input size for non-writer tasks of arbitrary
-       distribution of fault-tolerant execution.
+     - Initial/minimum target input :ref:`data size <prop-type-data-size>` for
+       non-writer tasks of arbitrary distribution of fault-tolerant execution.
      - ``512MB``
    * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-max``
-     - Maximum target input size for each non-writer task of arbitrary
-       distribution of fault-tolerant execution.
+     - Maximum target input :ref:`data size <prop-type-data-size>` for each
+       non-writer task of arbitrary distribution of fault-tolerant execution.
      - ``50GB``
    * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-growth-period``
      - The number of tasks created for any given writer stage of arbitrary
@@ -277,20 +280,20 @@ properties only apply to a ``TASK`` retry policy.
        multiplied by this growth factor.
      - ``1.2``
    * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min``
-     - Initial/minimum target input size for writer tasks of arbitrary
-       distribution of fault-tolerant execution.
+     - Initial/minimum target input :ref:`data size <prop-type-data-size>` for
+       writer tasks of arbitrary distribution of fault-tolerant execution.
      - ``4GB``
    * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-max``
-     - Maximum target input size for writer tasks of arbitrary distribution
-       of fault-tolerant execution.
+     - Maximum target input :ref:`data size <prop-type-data-size>` for writer
+       tasks of arbitrary distribution of fault-tolerant execution.
      - ``50GB``
    * - ``fault-tolerant-execution-hash-distribution-compute-task-target-size``
-     - Target input size for non-writer tasks of hash distribution of
-       fault-tolerant execution.
+     - Target input :ref:`data size <prop-type-data-size>` for non-writer tasks
+       of hash distribution of fault-tolerant execution.
      - ``512MB``
    * - ``fault-tolerant-execution-hash-distribution-write-task-target-size``
-     - Target input size of writer tasks of hash distribution of fault-tolerant
-       execution.
+     - Target input :ref:`data size <prop-type-data-size>` of writer tasks of
+       hash distribution of fault-tolerant execution.
      - ``4GB``
    * - ``fault-tolerant-execution-hash-distribution-write-task-target-max-count``
      - Soft upper bound on number of writer tasks in a stage of hash
@@ -317,8 +320,9 @@ applies to a ``TASK`` retry policy.
      - Description
      - Default value
    * - ``fault-tolerant-execution-task-memory``
-     - Initial task memory estimation used for bin-packing when allocating nodes
-       for tasks. May be overridden for the current session with the
+     - Initial task memory :ref:`data size <prop-type-data-size>` estimation
+       used for bin-packing when allocating nodes for tasks. May be overridden
+       for the current session with the
        ``fault_tolerant_execution_task_memory``
        :ref:`session property <session-properties-definition>`.
      - ``5GB``
@@ -338,9 +342,9 @@ fault-tolerant execution:
      - Default value
      - Retry policy
    * - ``fault-tolerant-execution-task-descriptor-storage-max-memory``
-     - Maximum amount of memory to be used to store task descriptors for fault
-       tolerant queries on coordinator. Extra memory is needed to be able to
-       reschedule tasks in case of a failure.
+     - Maximum :ref:`data size <prop-type-data-size>` of memory to be used to
+       store task descriptors for fault tolerant queries on coordinator. Extra
+       memory is needed to be able to reschedule tasks in case of a failure.
      - (JVM heap size * 0.15)
      - Only ``TASK``
    * - ``fault-tolerant-execution-max-partition-count``
@@ -428,7 +432,8 @@ the property may be configured for:
      - ``2``
      - Any
    * - ``exchange.sink-max-file-size``
-     - Max size of files written by exchange sinks.
+     - Max :ref:`data size <prop-type-data-size>` of files written by exchange
+       sinks.
      - ``1GB``
      - Any
    * - ``exchange.source-concurrent-reader``
@@ -476,7 +481,7 @@ the property may be configured for:
      - ``false``
      - Any S3-compatible storage
    * - ``exchange.s3.upload.part-size``
-     - Part size for S3 multi-part upload.
+     - Part :ref:`data size <prop-type-data-size>` for S3 multi-part upload.
      - ``5MB``
      - Any S3-compatible storage
    * - ``exchange.gcs.json-key-file-path``
@@ -495,7 +500,8 @@ the property may be configured for:
      -
      - Azure Blob Storage
    * - ``exchange.azure.block-size``
-     - Block size for Azure block blob parallel upload.
+     - Block :ref:`data size <prop-type-data-size>` for Azure block blob
+       parallel upload.
      - ``4MB``
      - Azure Blob Storage
    * - ``exchange.azure.max-error-retries``
@@ -504,7 +510,7 @@ the property may be configured for:
      - ``10``
      - Azure Blob Storage
    * - ``exchange.hdfs.block-size``
-     - Block size for HDFS storage.
+     - Block :ref:`data size <prop-type-data-size>` for HDFS storage.
      - ``4MB``
      - HDFS
    * - ``hdfs.config.resources``
