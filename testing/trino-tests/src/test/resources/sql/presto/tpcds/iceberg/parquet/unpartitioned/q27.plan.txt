@@ -9,7 +9,8 @@ local exchange (GATHER, SINGLE, [])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan store_sales
+                                            dynamic filter (["ss_cdemo_sk", "ss_item_sk", "ss_sold_date_sk", "ss_store_sk"])
+                                                scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan customer_demographics

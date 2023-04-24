@@ -13,13 +13,16 @@ remote exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["suppkey_5"])
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, ["partkey_4"])
-                                                            scan lineitem
+                                                            dynamic filter (["orderkey", "partkey_4", "partkey_4", "suppkey_5", "suppkey_5"])
+                                                                scan lineitem
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["partkey"])
-                                                                scan part
+                                                                dynamic filter (["partkey"])
+                                                                    scan part
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["suppkey"])
-                                                        scan supplier
+                                                        dynamic filter (["nationkey", "suppkey"])
+                                                            scan supplier
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["suppkey_10"])
                                                     scan partsupp
