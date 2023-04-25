@@ -2028,99 +2028,616 @@ public class TestSqlParser
     @Test
     public void testCreateTableAsSelect()
     {
-        Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
-        Query querySelectColumn = simpleQuery(selectList(new Identifier("a")), table(QualifiedName.of("t")));
-        Query querySelectColumns = simpleQuery(selectList(new Identifier("a"), new Identifier("b")), table(QualifiedName.of("t")));
-        QualifiedName table = QualifiedName.of("foo");
+        assertThat(statement("CREATE TABLE foo AS SELECT * FROM t"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
+                                location(1, 21),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 21),
+                                        new Select(location(1, 21), false, ImmutableList.of(new AllColumns(location(1, 28), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(location(1, 35), qualifiedName(location(1, 35), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(),
+                        true,
+                        Optional.empty(),
+                        Optional.empty()));
 
-        assertStatement("CREATE TABLE foo AS SELECT * FROM t",
-                new CreateTableAsSelect(table, query, false, ImmutableList.of(), true, Optional.empty(), Optional.empty()));
-        assertStatement("CREATE TABLE foo(x) AS SELECT a FROM t",
-                new CreateTableAsSelect(table, querySelectColumn, false, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
-        assertStatement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t",
-                new CreateTableAsSelect(table, querySelectColumns, false, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+        assertThat(statement("CREATE TABLE foo(x) AS SELECT a FROM t"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
+                        location(1, 24),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 24),
+                                new Select(location(1, 24), false, ImmutableList.of(new SingleColumn(location(1, 31), new Identifier(location(1, 31), "a", false), Optional.empty()))),
+                                Optional.of(new Table(location(1, 38), qualifiedName(location(1, 38), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        false,
+                        ImmutableList.of(),
+                        true,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
+                        Optional.empty()));
 
-        assertStatement("CREATE TABLE IF NOT EXISTS foo AS SELECT * FROM t",
-                new CreateTableAsSelect(table, query, true, ImmutableList.of(), true, Optional.empty(), Optional.empty()));
-        assertStatement("CREATE TABLE IF NOT EXISTS foo(x) AS SELECT a FROM t",
-                new CreateTableAsSelect(table, querySelectColumn, true, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
-        assertStatement("CREATE TABLE IF NOT EXISTS foo(x,y) AS SELECT a,b FROM t",
-                new CreateTableAsSelect(table, querySelectColumns, true, ImmutableList.of(), true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+        assertThat(statement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
+                        location(1, 26),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 26),
+                                new Select(location(1, 26), false, ImmutableList.of(
+                                        new SingleColumn(location(1, 33), new Identifier(location(1, 33), "a", false), Optional.empty()),
+                                        new SingleColumn(location(1, 35), new Identifier(location(1, 35), "b", false), Optional.empty()))),
+                                Optional.of(new Table(location(1, 42), qualifiedName(location(1, 42), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        false,
+                        ImmutableList.of(),
+                        true,
+                        Optional.of(ImmutableList.of(
+                                new Identifier(location(1, 18), "x", false),
+                                new Identifier(location(1, 20), "y", false))),
+                        Optional.empty()));
 
-        assertStatement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA",
-                new CreateTableAsSelect(table, query, false, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
-        assertStatement("CREATE TABLE foo(x) AS SELECT a FROM t WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumn, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
-        assertStatement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumns, false, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+        assertThat(statement("CREATE TABLE IF NOT EXISTS foo AS SELECT * FROM t"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 28), "foo"), new Query(
+                        location(1, 35),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 35),
+                                new Select(location(1, 35), false, ImmutableList.of(new AllColumns(location(1, 42), Optional.empty(), ImmutableList.of()))),
+                                Optional.of(new Table(location(1, 49), qualifiedName(location(1, 49), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        true,
+                        ImmutableList.of(),
+                        true,
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("CREATE TABLE IF NOT EXISTS foo(x) AS SELECT a FROM t"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 28), "foo"), new Query(
+                        location(1, 38),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 38),
+                                new Select(location(1, 38), false, ImmutableList.of(new SingleColumn(location(1, 45), new Identifier(location(1, 45), "a", false), Optional.empty()))),
+                                Optional.of(new Table(location(1, 52), qualifiedName(location(1, 52), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        true,
+                        ImmutableList.of(),
+                        true,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 32), "x", false))),
+                        Optional.empty()));
+        assertThat(statement("CREATE TABLE IF NOT EXISTS foo(x,y) AS SELECT a,b FROM t"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 28), "foo"), new Query(
+                        location(1, 40),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 40),
+                                new Select(location(1, 40), false, ImmutableList.of(
+                                        new SingleColumn(location(1, 47), new Identifier(location(1, 47), "a", false), Optional.empty()),
+                                        new SingleColumn(location(1, 49), new Identifier(location(1, 49), "b", false), Optional.empty()))),
+                                Optional.of(new Table(location(1, 56), qualifiedName(location(1, 56), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        true,
+                        ImmutableList.of(),
+                        true,
+                        Optional.of(ImmutableList.of(
+                                new Identifier(location(1, 32), "x", false),
+                                new Identifier(location(1, 34), "y", false))),
+                        Optional.empty()));
 
-        List<Property> properties = ImmutableList.of(
-                new Property(new Identifier("string"), new StringLiteral("bar")),
-                new Property(new Identifier("long"), new LongLiteral("42")),
-                new Property(
-                        new Identifier("computed"),
-                        new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("ban"), new StringLiteral("ana")))),
-                new Property(new Identifier("a"), new Array(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))));
+        assertThat(statement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
+                        location(1, 21),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 21),
+                                new Select(location(1, 21), false, ImmutableList.of(new AllColumns(location(1, 28), Optional.empty(), ImmutableList.of()))),
+                                Optional.of(new Table(location(1, 35), qualifiedName(location(1, 35), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        false,
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+        assertThat(statement("CREATE TABLE foo(x) AS SELECT a FROM t WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
+                        location(1, 24),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 24),
+                                new Select(location(1, 24), false, ImmutableList.of(new SingleColumn(location(1, 31), new Identifier(location(1, 31), "a", false), Optional.empty()))),
+                                Optional.of(new Table(location(1, 38), qualifiedName(location(1, 38), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        false,
+                        ImmutableList.of(),
+                        false,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
+                        Optional.empty()));
 
-        assertStatement("CREATE TABLE foo " +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT * FROM t",
-                new CreateTableAsSelect(table, query, false, properties, true, Optional.empty(), Optional.empty()));
-        assertStatement("CREATE TABLE foo(x) " +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT a FROM t",
-                new CreateTableAsSelect(table, querySelectColumn, false, properties, true, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
-        assertStatement("CREATE TABLE foo(x,y) " +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT a,b FROM t",
-                new CreateTableAsSelect(table, querySelectColumns, false, properties, true, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+        assertThat(statement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
+                        location(1, 26),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 26),
+                                new Select(location(1, 26), false, ImmutableList.of(
+                                        new SingleColumn(location(1, 33), new Identifier(location(1, 33), "a", false), Optional.empty()),
+                                        new SingleColumn(location(1, 35), new Identifier(location(1, 35), "b", false), Optional.empty()))),
+                                Optional.of(new Table(location(1, 42), qualifiedName(location(1, 42), "t"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        false,
+                        ImmutableList.of(),
+                        false,
+                        Optional.of(ImmutableList.of(
+                                new Identifier(location(1, 18), "x", false),
+                                new Identifier(location(1, 20), "y", false))),
+                        Optional.empty()));
 
-        assertStatement("CREATE TABLE foo " +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT * FROM t " +
-                        "WITH NO DATA",
-                new CreateTableAsSelect(table, query, false, properties, false, Optional.empty(), Optional.empty()));
-        assertStatement("CREATE TABLE foo(x) " +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT a FROM t " +
-                        "WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumn, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.empty()));
-        assertStatement("CREATE TABLE foo(x,y) " +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT a,b FROM t " +
-                        "WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumns, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.empty()));
+        assertThat(statement("CREATE TABLE foo " +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT * FROM t"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 109),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 109),
+                                        new Select(
+                                                location(1, 109),
+                                                false,
+                                                ImmutableList.of(new AllColumns(location(1, 116), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(location(1, 123), qualifiedName(location(1, 123), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 25), new Identifier(location(1, 25), "string", false), new StringLiteral(location(1, 34), "bar")),
+                                new Property(location(1, 41), new Identifier(location(1, 41), "long", false), new LongLiteral(location(1, 48), "42")),
+                                new Property(
+                                        location(1, 52),
+                                        new Identifier(location(1, 52), "computed", false),
+                                        new FunctionCall(location(1, 69), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 63), "ban"), new StringLiteral(location(1, 72), "ana")))),
+                                new Property(location(1, 79), new Identifier(location(1, 79), "a", false), new Array(location(1, 84), ImmutableList.of(new StringLiteral(location(1, 91), "v1"), new StringLiteral(location(1, 97), "v2"))))),
+                        true,
+                        Optional.empty(),
+                        Optional.empty()));
 
-        assertStatement("CREATE TABLE foo COMMENT 'test'" +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT * FROM t " +
-                        "WITH NO DATA",
-                new CreateTableAsSelect(table, query, false, properties, false, Optional.empty(), Optional.of("test")));
-        assertStatement("CREATE TABLE foo(x) COMMENT 'test'" +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT a FROM t " +
-                        "WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumn, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"))), Optional.of("test")));
-        assertStatement("CREATE TABLE foo(x,y) COMMENT 'test'" +
-                        "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT a,b FROM t " +
-                        "WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumns, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.of("test")));
-        assertStatement("CREATE TABLE foo(x,y) COMMENT 'test'" +
-                        "WITH ( \"string\" = 'bar', \"long\" = 42, computed = 'ban' || 'ana', a = ARRAY[ 'v1', 'v2' ] ) " +
-                        "AS " +
-                        "SELECT a,b FROM t " +
-                        "WITH NO DATA",
-                new CreateTableAsSelect(table, querySelectColumns, false, properties, false, Optional.of(ImmutableList.of(new Identifier("x"), new Identifier("y"))), Optional.of("test")));
+        assertThat(statement("CREATE TABLE foo(x) " +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT a FROM t"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 112),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 112),
+                                        new Select(location(1, 112), false, ImmutableList.of(new SingleColumn(location(1, 119), new Identifier(location(1, 119), "a", false), Optional.empty()))),
+                                        Optional.of(new Table(location(1, 126), qualifiedName(location(1, 126), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 28), new Identifier(location(1, 28), "string", false), new StringLiteral(location(1, 37), "bar")),
+                                new Property(location(1, 44), new Identifier(location(1, 44), "long", false), new LongLiteral(location(1, 51), "42")),
+                                new Property(
+                                        location(1, 55),
+                                        new Identifier(location(1, 55), "computed", false),
+                                        new FunctionCall(location(1, 72), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 66), "ban"), new StringLiteral(location(1, 75), "ana")))),
+                                new Property(location(1, 82), new Identifier(location(1, 82), "a", false), new Array(location(1, 87), ImmutableList.of(new StringLiteral(location(1, 94), "v1"), new StringLiteral(location(1, 100), "v2"))))),
+                        true,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
+                        Optional.empty()));
+
+        assertThat(statement("CREATE TABLE foo(x,y) " +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT a,b FROM t"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 114),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 114),
+                                        new Select(location(1, 114), false, ImmutableList.of(new SingleColumn(location(1, 121), new Identifier(location(1, 121), "a", false), Optional.empty()), new SingleColumn(location(1, 123), new Identifier(location(1, 123), "b", false), Optional.empty()))),
+                                        Optional.of(new Table(location(1, 130), qualifiedName(location(1, 130), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 30), new Identifier(location(1, 30), "string", false), new StringLiteral(location(1, 39), "bar")),
+                                new Property(location(1, 46), new Identifier(location(1, 46), "long", false), new LongLiteral(location(1, 53), "42")),
+                                new Property(
+                                        location(1, 57),
+                                        new Identifier(location(1, 57), "computed", false),
+                                        new FunctionCall(location(1, 74), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 68), "ban"), new StringLiteral(location(1, 77), "ana")))),
+                                new Property(location(1, 84), new Identifier(location(1, 84), "a", false), new Array(location(1, 89), ImmutableList.of(new StringLiteral(location(1, 96), "v1"), new StringLiteral(location(1, 102), "v2"))))),
+                        true,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))),
+                        Optional.empty()));
+
+        assertThat(statement("CREATE TABLE foo " +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT * FROM t " +
+                "WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 109),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 109),
+                                        new Select(
+                                                location(1, 109),
+                                                false,
+                                                ImmutableList.of(new AllColumns(location(1, 116), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(location(1, 123), qualifiedName(location(1, 123), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 25), new Identifier(location(1, 25), "string", false), new StringLiteral(location(1, 34), "bar")),
+                                new Property(location(1, 41), new Identifier(location(1, 41), "long", false), new LongLiteral(location(1, 48), "42")),
+                                new Property(
+                                        location(1, 52),
+                                        new Identifier(location(1, 52), "computed", false),
+                                        new FunctionCall(location(1, 69), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 63), "ban"), new StringLiteral(location(1, 72), "ana")))),
+                                new Property(location(1, 79), new Identifier(location(1, 79), "a", false), new Array(location(1, 84), ImmutableList.of(new StringLiteral(location(1, 91), "v1"), new StringLiteral(location(1, 97), "v2"))))),
+                        false,
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement("CREATE TABLE foo(x) " +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT a FROM t " +
+                "WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 112),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 112),
+                                        new Select(location(1, 112), false, ImmutableList.of(new SingleColumn(location(1, 119), new Identifier(location(1, 119), "a", false), Optional.empty()))),
+                                        Optional.of(new Table(location(1, 126), qualifiedName(location(1, 126), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 28), new Identifier(location(1, 28), "string", false), new StringLiteral(location(1, 37), "bar")),
+                                new Property(location(1, 44), new Identifier(location(1, 44), "long", false), new LongLiteral(location(1, 51), "42")),
+                                new Property(
+                                        location(1, 55),
+                                        new Identifier(location(1, 55), "computed", false),
+                                        new FunctionCall(location(1, 72), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 66), "ban"), new StringLiteral(location(1, 75), "ana")))),
+                                new Property(location(1, 82), new Identifier(location(1, 82), "a", false), new Array(location(1, 87), ImmutableList.of(new StringLiteral(location(1, 94), "v1"), new StringLiteral(location(1, 100), "v2"))))),
+                        false,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
+                        Optional.empty()));
+
+        assertThat(statement("CREATE TABLE foo(x,y) " +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT a,b FROM t " +
+                "WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 114),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 114),
+                                        new Select(location(1, 114), false, ImmutableList.of(new SingleColumn(location(1, 121), new Identifier(location(1, 121), "a", false), Optional.empty()), new SingleColumn(location(1, 123), new Identifier(location(1, 123), "b", false), Optional.empty()))),
+                                        Optional.of(new Table(location(1, 130), qualifiedName(location(1, 130), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 30), new Identifier(location(1, 30), "string", false), new StringLiteral(location(1, 39), "bar")),
+                                new Property(location(1, 46), new Identifier(location(1, 46), "long", false), new LongLiteral(location(1, 53), "42")),
+                                new Property(
+                                        location(1, 57),
+                                        new Identifier(location(1, 57), "computed", false),
+                                        new FunctionCall(location(1, 74), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 68), "ban"), new StringLiteral(location(1, 77), "ana")))),
+                                new Property(location(1, 84), new Identifier(location(1, 84), "a", false), new Array(location(1, 89), ImmutableList.of(new StringLiteral(location(1, 96), "v1"), new StringLiteral(location(1, 102), "v2"))))),
+                        false,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))),
+                        Optional.empty()));
+
+        assertThat(statement("CREATE TABLE foo COMMENT 'test'" +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT * FROM t " +
+                "WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 123),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 123),
+                                        new Select(
+                                                location(1, 123),
+                                                false,
+                                                ImmutableList.of(new AllColumns(location(1, 130), Optional.empty(), ImmutableList.of()))),
+                                        Optional.of(new Table(location(1, 137), qualifiedName(location(1, 137), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 39), new Identifier(location(1, 39), "string", false), new StringLiteral(location(1, 48), "bar")),
+                                new Property(location(1, 55), new Identifier(location(1, 55), "long", false), new LongLiteral(location(1, 62), "42")),
+                                new Property(
+                                        location(1, 66),
+                                        new Identifier(location(1, 66), "computed", false),
+                                        new FunctionCall(location(1, 83), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 77), "ban"), new StringLiteral(location(1, 86), "ana")))),
+                                new Property(location(1, 93), new Identifier(location(1, 93), "a", false), new Array(location(1, 98), ImmutableList.of(new StringLiteral(location(1, 105), "v1"), new StringLiteral(location(1, 111), "v2"))))),
+                        false,
+                        Optional.empty(),
+                        Optional.of("test")));
+
+        assertThat(statement("CREATE TABLE foo(x) COMMENT 'test'" +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT a FROM t " +
+                "WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 126),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 126),
+                                        new Select(location(1, 126), false, ImmutableList.of(new SingleColumn(location(1, 133), new Identifier(location(1, 133), "a", false), Optional.empty()))),
+                                        Optional.of(new Table(location(1, 140), qualifiedName(location(1, 140), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 42), new Identifier(location(1, 42), "string", false), new StringLiteral(location(1, 51), "bar")),
+                                new Property(location(1, 58), new Identifier(location(1, 58), "long", false), new LongLiteral(location(1, 65), "42")),
+                                new Property(
+                                        location(1, 69),
+                                        new Identifier(location(1, 69), "computed", false),
+                                        new FunctionCall(location(1, 86), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 80), "ban"), new StringLiteral(location(1, 89), "ana")))),
+                                new Property(location(1, 96), new Identifier(location(1, 96), "a", false), new Array(location(1, 101), ImmutableList.of(new StringLiteral(location(1, 108), "v1"), new StringLiteral(location(1, 114), "v2"))))),
+                        false,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false))),
+                        Optional.of("test")));
+
+        assertThat(statement("CREATE TABLE foo(x,y) COMMENT 'test'" +
+                "WITH ( string = 'bar', long = 42, computed = 'ban' || 'ana', a  = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT a,b FROM t " +
+                "WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 128),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 128),
+                                        new Select(location(1, 128), false, ImmutableList.of(new SingleColumn(location(1, 135), new Identifier(location(1, 135), "a", false), Optional.empty()), new SingleColumn(location(1, 137), new Identifier(location(1, 137), "b", false), Optional.empty()))),
+                                        Optional.of(new Table(location(1, 144), qualifiedName(location(1, 144), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 44), new Identifier(location(1, 44), "string", false), new StringLiteral(location(1, 53), "bar")),
+                                new Property(location(1, 60), new Identifier(location(1, 60), "long", false), new LongLiteral(location(1, 67), "42")),
+                                new Property(
+                                        location(1, 71),
+                                        new Identifier(location(1, 71), "computed", false),
+                                        new FunctionCall(location(1, 88), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 82), "ban"), new StringLiteral(location(1, 91), "ana")))),
+                                new Property(location(1, 98), new Identifier(location(1, 98), "a", false), new Array(location(1, 103), ImmutableList.of(new StringLiteral(location(1, 110), "v1"), new StringLiteral(location(1, 116), "v2"))))),
+                        false,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))),
+                        Optional.of("test")));
+
+        assertThat(statement("CREATE TABLE foo(x,y) COMMENT 'test'" +
+                "WITH ( \"string\" = 'bar', \"long\" = 42, computed = 'ban' || 'ana', a = ARRAY[ 'v1', 'v2' ] ) " +
+                "AS " +
+                "SELECT a,b FROM t " +
+                "WITH NO DATA"))
+                .isEqualTo(new CreateTableAsSelect(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        new Query(
+                                location(1, 131),
+                                Optional.empty(),
+                                new QuerySpecification(
+                                        location(1, 131),
+                                        new Select(location(1, 131), false, ImmutableList.of(new SingleColumn(location(1, 138), new Identifier(location(1, 138), "a", false), Optional.empty()), new SingleColumn(location(1, 140), new Identifier(location(1, 140), "b", false), Optional.empty()))),
+                                        Optional.of(new Table(location(1, 147), qualifiedName(location(1, 147), "t"))),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty()),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        false,
+                        ImmutableList.of(
+                                new Property(location(1, 44), new Identifier(location(1, 44), "string", true), new StringLiteral(location(1, 55), "bar")),
+                                new Property(location(1, 62), new Identifier(location(1, 62), "long", true), new LongLiteral(location(1, 71), "42")),
+                                new Property(
+                                        location(1, 75),
+                                        new Identifier(location(1, 75), "computed", false),
+                                        new FunctionCall(location(1, 92), QualifiedName.of("concat"), ImmutableList.of(new StringLiteral(location(1, 86), "ban"), new StringLiteral(location(1, 95), "ana")))),
+                                new Property(location(1, 102), new Identifier(location(1, 102), "a", false), new Array(location(1, 106), ImmutableList.of(new StringLiteral(location(1, 113), "v1"), new StringLiteral(location(1, 119), "v2"))))),
+                        false,
+                        Optional.of(ImmutableList.of(new Identifier(location(1, 18), "x", false), new Identifier(location(1, 20), "y", false))),
+                        Optional.of("test")));
     }
 
     @Test
