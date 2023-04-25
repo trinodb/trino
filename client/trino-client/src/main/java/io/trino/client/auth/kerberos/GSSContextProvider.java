@@ -13,15 +13,28 @@
  */
 package io.trino.client.auth.kerberos;
 
+import io.airlift.units.Duration;
+import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSException;
+import org.ietf.jgss.Oid;
 
-import javax.security.auth.Subject;
 import javax.security.auth.login.LoginException;
 
-public interface SubjectProvider
+public interface GSSContextProvider
 {
-    Subject getSubject();
+    Oid SPNEGO_OID = createOid("1.3.6.1.5.5.2");
+    Oid KERBEROS_OID = createOid("1.2.840.113554.1.2.2");
 
-    void refresh()
-            throws LoginException, GSSException;
+    GSSContext getContext(String servicePrincipal, Duration minCredentialLifetime)
+            throws GSSException, LoginException;
+
+    static Oid createOid(String value)
+    {
+        try {
+            return new Oid(value);
+        }
+        catch (GSSException e) {
+            throw new AssertionError(e);
+        }
+    }
 }

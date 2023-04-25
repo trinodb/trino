@@ -16,15 +16,17 @@ package io.trino.client;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.net.HostAndPort;
-import io.trino.client.auth.kerberos.ContextBasedSubjectProvider;
-import io.trino.client.auth.kerberos.LoginBasedSubjectProvider;
+import io.trino.client.auth.kerberos.DelegatedConstrainedContextProvider;
+import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
+import io.trino.client.auth.kerberos.GSSContextProvider;
+import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
-import io.trino.client.auth.kerberos.SubjectProvider;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
+import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -315,17 +317,27 @@ public final class OkHttpUtil
             Optional<File> kerberosConfig,
             Optional<File> keytab,
             Optional<File> credentialCache,
-            boolean delegatedKerberos)
+            boolean delegatedKerberos,
+            Optional<GSSCredential> gssCredential)
     {
-        SubjectProvider subjectProvider;
+        GSSContextProvider subjectProvider;
         if (delegatedKerberos) {
-            subjectProvider = new ContextBasedSubjectProvider();
+            subjectProvider = getDelegatedGSSContextProvider(gssCredential);
         }
         else {
-            subjectProvider = new LoginBasedSubjectProvider(principal, kerberosConfig, keytab, credentialCache);
+            subjectProvider = new LoginBasedUnconstrainedContextProvider(principal, kerberosConfig, keytab, credentialCache);
         }
         SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, subjectProvider);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
+    }
+
+    private static GSSContextProvider getDelegatedGSSContextProvider(Optional<GSSCredential> gssCredential)
+    {
+        if (gssCredential.isPresent()) {
+            return new DelegatedConstrainedContextProvider(gssCredential.get());
+        }
+
+        return new DelegatedUnconstrainedContextProvider();
     }
 }

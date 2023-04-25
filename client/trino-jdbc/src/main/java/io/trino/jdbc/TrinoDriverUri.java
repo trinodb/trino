@@ -16,7 +16,6 @@ package io.trino.jdbc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import io.trino.client.ClientException;
 import io.trino.client.ClientSelectedRole;
@@ -42,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
@@ -67,6 +67,7 @@ import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_C
 import static io.trino.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
+import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONSTRAINED_DELEGATION;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_DELEGATION;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_KEYTAB_PATH;
@@ -314,7 +315,8 @@ public final class TrinoDriverUri
                         KERBEROS_KEYTAB_PATH.getValue(properties),
                         Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
                                 .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))),
-                        KERBEROS_DELEGATION.getRequiredValue(properties));
+                        KERBEROS_DELEGATION.getRequiredValue(properties),
+                        KERBEROS_CONSTRAINED_DELEGATION.getValue(properties));
             }
 
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {
@@ -372,10 +374,10 @@ public final class TrinoDriverUri
         }
     }
 
-    private static Map<String, String> parseParameters(String query)
+    private static Map<String, Object> parseParameters(String query)
             throws SQLException
     {
-        Map<String, String> result = new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
 
         if (query != null) {
             Iterable<String> queryArgs = QUERY_SPLITTER.split(query);
@@ -477,9 +479,9 @@ public final class TrinoDriverUri
     private static Properties mergeConnectionProperties(URI uri, Properties driverProperties)
             throws SQLException
     {
-        Map<String, String> defaults = ConnectionProperties.getDefaults();
-        Map<String, String> urlProperties = parseParameters(uri.getQuery());
-        Map<String, String> suppliedProperties = Maps.fromProperties(driverProperties);
+        Map<String, Object> defaults = ConnectionProperties.getDefaults();
+        Map<String, Object> urlProperties = parseParameters(uri.getQuery());
+        Map<String, Object> suppliedProperties = driverProperties.entrySet().stream().collect(toImmutableMap(entry -> (String) entry.getKey(), Entry::getValue));
 
         for (String key : urlProperties.keySet()) {
             if (suppliedProperties.containsKey(key)) {
@@ -494,11 +496,9 @@ public final class TrinoDriverUri
         return result;
     }
 
-    private static void setProperties(Properties properties, Map<String, String> values)
+    private static void setProperties(Properties properties, Map<String, Object> values)
     {
-        for (Entry<String, String> entry : values.entrySet()) {
-            properties.setProperty(entry.getKey(), entry.getValue());
-        }
+        properties.putAll(values);
     }
 
     private static void validateConnectionProperties(Properties connectionProperties)
@@ -510,7 +510,7 @@ public final class TrinoDriverUri
             }
         }
 
-        for (ConnectionProperty<?> property : ConnectionProperties.allProperties()) {
+        for (ConnectionProperty<?, ?> property : ConnectionProperties.allProperties()) {
             property.validate(connectionProperties);
         }
     }

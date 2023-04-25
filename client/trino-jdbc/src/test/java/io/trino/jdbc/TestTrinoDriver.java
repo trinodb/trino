@@ -214,8 +214,8 @@ public class TestTrinoDriver
 
                     assertEquals(rs.getObject(5), true);
                     assertEquals(rs.getObject("_boolean"), true);
-                    assertEquals(rs.getBoolean(5), true);
-                    assertEquals(rs.getBoolean("_boolean"), true);
+                    assertTrue(rs.getBoolean(5));
+                    assertTrue(rs.getBoolean("_boolean"));
                     assertEquals(rs.getByte("_boolean"), 1);
                     assertEquals(rs.getShort("_boolean"), 1);
                     assertEquals(rs.getInt("_boolean"), 1);

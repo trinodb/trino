@@ -21,20 +21,28 @@ import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 import javax.security.auth.login.LoginException;
 
+import java.security.AccessControlContext;
+import java.security.AccessController;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.security.AccessController.getContext;
+import static java.util.Objects.requireNonNull;
 
-public class ContextBasedSubjectProvider
-        implements SubjectProvider
+public class DelegatedUnconstrainedContextProvider
+        extends AbstractSubjectBasedContextProvider
 {
-    private final Subject subject = Subject.getSubject(getContext());
+    private final Subject subject;
+
+    public DelegatedUnconstrainedContextProvider()
+    {
+        AccessControlContext accessControlContext = requireNonNull(AccessController.getContext(), "getContext() returned null");
+        this.subject = requireNonNull(Subject.getSubject(AccessController.getContext()), "Subject.getSubject() returned null");
+    }
 
     @Override
-    public Subject getSubject()
+    protected Subject getSubject()
     {
-        return subject;
+        return this.subject;
     }
 
     @Override

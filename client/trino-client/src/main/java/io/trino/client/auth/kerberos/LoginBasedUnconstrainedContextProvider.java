@@ -33,8 +33,8 @@ import static java.lang.Boolean.getBoolean;
 import static java.util.Objects.requireNonNull;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 
-public class LoginBasedSubjectProvider
-        implements SubjectProvider
+public class LoginBasedUnconstrainedContextProvider
+        extends AbstractSubjectBasedContextProvider
 {
     private final Optional<String> principal;
     private final Optional<File> keytab;
@@ -43,7 +43,7 @@ public class LoginBasedSubjectProvider
     @GuardedBy("this")
     private LoginContext loginContext;
 
-    public LoginBasedSubjectProvider(
+    public LoginBasedUnconstrainedContextProvider(
             Optional<String> principal,
             Optional<File> kerberosConfig,
             Optional<File> keytab,
