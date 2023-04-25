@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.file;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
@@ -24,13 +23,8 @@ import com.google.common.collect.Sets;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.trino.collect.cache.EvictableCacheBuilder;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
@@ -45,7 +39,6 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
@@ -72,7 +65,6 @@ import org.apache.hadoop.fs.Path;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
@@ -167,21 +159,6 @@ public class FileHiveMetastore
 
     // TODO Remove this speed-up workaround once that https://github.com/trinodb/trino/issues/13115 gets implemented
     private final LoadingCache<String, List<String>> listTablesCache;
-
-    @VisibleForTesting
-    public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
-    {
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(
-                new NodeVersion("testversion"),
-                hdfsEnvironment,
-                new HiveMetastoreConfig().isHideDeltaLakeTables(),
-                new FileHiveMetastoreConfig()
-                        .setCatalogDirectory(catalogDirectory.toURI().toString())
-                        .setMetastoreUser("test"));
-    }
 
     public FileHiveMetastore(NodeVersion nodeVersion, HdfsEnvironment hdfsEnvironment, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {

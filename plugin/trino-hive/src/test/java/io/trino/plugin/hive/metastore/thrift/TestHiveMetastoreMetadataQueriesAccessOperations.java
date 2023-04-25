@@ -45,7 +45,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 

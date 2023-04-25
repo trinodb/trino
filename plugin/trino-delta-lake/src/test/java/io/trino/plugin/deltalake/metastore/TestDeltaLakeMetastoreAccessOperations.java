@@ -38,7 +38,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 

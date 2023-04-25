@@ -17,7 +17,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 
 import java.nio.file.Path;
 
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 
 public class TestDeltaLakeRegisterTableProcedureWithFileMetastore
         extends BaseDeltaLakeRegisterTableProcedureTest
