@@ -72,6 +72,7 @@
         <dep.wire.version>4.5.0</dep.wire.version>
         <dep.netty.version>4.1.91.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
+        <dep.okio.version>3.3.0</dep.okio.version>
 
         <dep.docker.images.version>79</dep.docker.images.version>
 
@@ -1249,14 +1250,20 @@
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>okhttp-bom</artifactId>
                 <type>pom</type>
-                <version>4.10.0</version>
+                <version>4.11.0</version>
                 <scope>import</scope>
             </dependency>
 
             <dependency>
                 <groupId>com.squareup.okio</groupId>
+                <artifactId>okio</artifactId>
+                <version>${dep.okio.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okio</groupId>
                 <artifactId>okio-jvm</artifactId>
-                <version>3.3.0</version>
+                <version>${dep.okio.version}</version>
             </dependency>
 
             <dependency>
