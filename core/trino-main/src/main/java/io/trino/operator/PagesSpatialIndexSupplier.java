@@ -47,7 +47,6 @@ import static io.trino.operator.SyntheticAddress.decodePosition;
 import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 
 public class PagesSpatialIndexSupplier
         implements Supplier<PagesSpatialIndex>
@@ -133,7 +132,7 @@ public class PagesSpatialIndexSupplier
             int partition = -1;
             if (partitionChannel.isPresent()) {
                 Block partitionBlock = channels.get(partitionChannel.get()).get(blockIndex);
-                partition = toIntExact(INTEGER.getLong(partitionBlock, blockPosition));
+                partition = INTEGER.getInt(partitionBlock, blockPosition);
             }
 
             rtree.insert(getEnvelope(ogcGeometry, radius), new GeometryWithPosition(ogcGeometry, partition, position));

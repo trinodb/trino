@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>413-SNAPSHOT</version>
+        <version>415-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -22,7 +22,7 @@
         <dependency>
             <groupId>org.apache.phoenix</groupId>
             <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
-            <version>5.1.2</version>
+            <version>5.1.3</version>
         </dependency>
 
         <dependency>

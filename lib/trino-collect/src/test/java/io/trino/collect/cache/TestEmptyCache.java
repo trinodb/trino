@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertTrue;
 
 public class TestEmptyCache
 {
@@ -80,7 +81,7 @@ public class TestEmptyCache
         }
         finally {
             executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
+            assertTrue(executor.awaitTermination(10, SECONDS));
         }
     }
 }

@@ -13,7 +13,8 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, ["ws_item_sk", "ws_order_number"])
-                                                            scan web_sales
+                                                            dynamic filter (["ws_item_sk", "ws_order_number", "ws_sold_date_sk"])
+                                                                scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["wr_item_sk", "wr_order_number"])
                                                                 scan web_returns
@@ -31,7 +32,8 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, ["cs_item_sk", "cs_order_number"])
-                                                            scan catalog_sales
+                                                            dynamic filter (["cs_item_sk", "cs_order_number", "cs_sold_date_sk"])
+                                                                scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["cr_item_sk", "cr_order_number"])
                                                                 scan catalog_returns
@@ -49,7 +51,8 @@ local exchange (GATHER, SINGLE, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
-                                                            scan store_sales
+                                                            dynamic filter (["ss_item_sk", "ss_sold_date_sk", "ss_ticket_number"])
+                                                                scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
                                                                 scan store_returns

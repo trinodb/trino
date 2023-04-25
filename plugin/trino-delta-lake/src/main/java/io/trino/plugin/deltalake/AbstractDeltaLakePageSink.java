@@ -162,8 +162,8 @@ public abstract class AbstractDeltaLakePageSink
                 case REGULAR:
                     dataColumnHandles.add(column);
                     dataColumnsInputIndex.add(inputIndex);
-                    dataColumnNames.add(column.getName());
-                    dataColumnTypes.add(column.getType());
+                    dataColumnNames.add(column.getPhysicalName());
+                    dataColumnTypes.add(column.getPhysicalType());
                     break;
                 case SYNTHESIZED:
                     processSynthesizedColumn(column);
@@ -173,7 +173,6 @@ public abstract class AbstractDeltaLakePageSink
             }
         }
 
-        addSpecialColumns(inputColumns, dataColumnHandles, dataColumnsInputIndex, dataColumnNames, dataColumnTypes);
         this.partitionColumnsInputIndex = partitionColumnInputIndex;
         this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
         this.originalPartitionColumnNames = ImmutableList.copyOf(originalPartitionColumnNames);
@@ -194,13 +193,6 @@ public abstract class AbstractDeltaLakePageSink
     }
 
     protected abstract void processSynthesizedColumn(DeltaLakeColumnHandle column);
-
-    protected abstract void addSpecialColumns(
-            List<DeltaLakeColumnHandle> inputColumns,
-            ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles,
-            ImmutableList.Builder<Integer> dataColumnsInputIndex,
-            ImmutableList.Builder<String> dataColumnNames,
-            ImmutableList.Builder<Type> dataColumnTypes);
 
     protected abstract String getPathPrefix();
 

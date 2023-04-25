@@ -19,18 +19,29 @@ import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class IrSizeMethod
-        extends IrMethod
+        extends IrPathNode
 {
+    private final IrPathNode base;
+
     @JsonCreator
     public IrSizeMethod(@JsonProperty("base") IrPathNode base, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "size() method base is null");
     }
 
     @Override
     protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrSizeMethod(this, context);
+    }
+
+    @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
     }
 }

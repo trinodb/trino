@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.spi.session.PropertyMetadata;
@@ -5332,6 +5333,7 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         Session session = new Session(
                 getSession().getQueryId(),
+                Span.getInvalid(),
                 Optional.empty(),
                 getSession().isClientTransactionSupport(),
                 getSession().getIdentity(),

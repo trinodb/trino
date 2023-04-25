@@ -181,7 +181,7 @@ public class TestIcebergGlueCatalogAccessOperations
                             .add(GET_DATABASE)
                             .add(GET_DATABASE)
                             .add(CREATE_TABLE)
-                            .addCopies(GET_TABLE, 6)
+                            .addCopies(GET_TABLE, 5)
                             .add(UPDATE_TABLE)
                             .build());
         }

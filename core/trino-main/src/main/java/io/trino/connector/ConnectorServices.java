@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.CatalogTableFunctions;
@@ -62,6 +63,7 @@ public class ConnectorServices
 {
     private static final Logger log = Logger.get(ConnectorServices.class);
 
+    private final Tracer tracer;
     private final CatalogHandle catalogHandle;
     private final Connector connector;
     private final Runnable afterShutdown;
@@ -87,8 +89,9 @@ public class ConnectorServices
 
     private final AtomicBoolean shutdown = new AtomicBoolean();
 
-    public ConnectorServices(CatalogHandle catalogHandle, Connector connector, Runnable afterShutdown)
+    public ConnectorServices(Tracer tracer, CatalogHandle catalogHandle, Connector connector, Runnable afterShutdown)
     {
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.afterShutdown = requireNonNull(afterShutdown, "afterShutdown is null");
@@ -205,6 +208,11 @@ public class ConnectorServices
         Set<ConnectorCapabilities> capabilities = connector.getCapabilities();
         requireNonNull(capabilities, format("Connector '%s' returned a null capabilities set", catalogHandle));
         this.capabilities = capabilities;
+    }
+
+    public Tracer getTracer()
+    {
+        return tracer;
     }
 
     public CatalogHandle getCatalogHandle()

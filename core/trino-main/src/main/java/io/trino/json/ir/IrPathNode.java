@@ -36,6 +36,7 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = IrConstantJsonSequence.class, name = "jsonsequence"),
         @JsonSubTypes.Type(value = IrContextVariable.class, name = "contextvariable"),
         @JsonSubTypes.Type(value = IrDatetimeMethod.class, name = "datetime"),
+        @JsonSubTypes.Type(value = IrDescendantMemberAccessor.class, name = "descendantmemberaccessor"),
         @JsonSubTypes.Type(value = IrDisjunctionPredicate.class, name = "disjunction"),
         @JsonSubTypes.Type(value = IrDoubleMethod.class, name = "double"),
         @JsonSubTypes.Type(value = IrExistsPredicate.class, name = "exists"),
@@ -57,10 +58,6 @@ import static java.util.Objects.requireNonNull;
 })
 public abstract class IrPathNode
 {
-    // `type` is intentionally skipped in equals() and hashCode() methods of all IrPathNodes, so that
-    // those methods consider te node's structure only. `type` is a function of the other properties,
-    // and it might be optionally set or not, depending on when and how the node is created - e.g. either
-    // initially or by some optimization that will be added in the future (like constant folding, tree flattening).
     private final Optional<Type> type;
 
     protected IrPathNode(Optional<Type> type)
@@ -87,10 +84,4 @@ public abstract class IrPathNode
     {
         return type;
     }
-
-    @Override
-    public abstract boolean equals(Object obj);
-
-    @Override
-    public abstract int hashCode();
 }

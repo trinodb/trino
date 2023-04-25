@@ -83,6 +83,7 @@ public class MockThriftMetastoreClient
     private final Map<SchemaTableName, Map<String, Map<String, ColumnStatisticsObj>>> databaseTablePartitionColumnStatistics = new HashMap<>();
 
     private boolean throwException;
+    private boolean returnTable = true;
 
     public MockThriftMetastoreClient()
     {
@@ -143,6 +144,11 @@ public class MockThriftMetastoreClient
     public void setThrowException(boolean throwException)
     {
         this.throwException = throwException;
+    }
+
+    public void setReturnTable(boolean returnTable)
+    {
+        this.returnTable = returnTable;
     }
 
     public int getAccessCount()
@@ -207,7 +213,7 @@ public class MockThriftMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
+        if (!returnTable || !dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
         return new Table(

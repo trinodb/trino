@@ -25,6 +25,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -485,6 +486,7 @@ public class OperatorStats
         Optional<BlockedReason> blockedReason = this.blockedReason;
 
         Mergeable<OperatorInfo> base = getMergeableInfoOrNull(info);
+        ImmutableList.Builder<OperatorInfo> operatorInfos = ImmutableList.builder();
         for (OperatorStats operator : operators) {
             checkArgument(operator.getOperatorId() == operatorId, "Expected operatorId to be %s but was %s", operatorId, operator.getOperatorId());
             checkArgument(operator.getOperatorType().equals(operatorType), "Expected operatorType to be %s but was %s", operatorType, operator.getOperatorType());
@@ -538,7 +540,7 @@ public class OperatorStats
             OperatorInfo info = operator.getInfo();
             if (base != null && info != null) {
                 verify(base.getClass() == info.getClass(), "Cannot merge operator infos: %s and %s", base, info);
-                base = mergeInfo(base, info);
+                operatorInfos.add(info);
             }
         }
 
@@ -592,7 +594,7 @@ public class OperatorStats
 
                 blockedReason,
 
-                (OperatorInfo) base);
+                (OperatorInfo) mergeInfos(base, operatorInfos.build()));
     }
 
     @SuppressWarnings("unchecked")
@@ -606,9 +608,12 @@ public class OperatorStats
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> Mergeable<T> mergeInfo(Mergeable<T> base, T other)
+    private static <T> Mergeable<T> mergeInfos(Mergeable<T> base, List<T> others)
     {
-        return (Mergeable<T>) base.mergeWith(other);
+        if (base == null) {
+            return null;
+        }
+        return (Mergeable<T>) base.mergeWith(others);
     }
 
     public OperatorStats summarize()

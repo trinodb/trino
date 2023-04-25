@@ -470,6 +470,7 @@ public class TestQueryStateMachine
         assertNotNull(queryStats.getDispatchingTime());
         assertNotNull(queryStats.getExecutionTime());
         assertNotNull(queryStats.getPlanningTime());
+        assertNotNull(queryStats.getPlanningCpuTime());
         assertNotNull(queryStats.getFinishingTime());
 
         assertNotNull(queryStats.getCreateTime());

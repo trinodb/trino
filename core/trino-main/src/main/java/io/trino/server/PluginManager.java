@@ -72,6 +72,8 @@ public class PluginManager
             .add("com.fasterxml.jackson.annotation.")
             .add("io.airlift.slice.")
             .add("org.openjdk.jol.")
+            .add("io.opentelemetry.api.")
+            .add("io.opentelemetry.context.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);

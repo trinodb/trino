@@ -245,7 +245,7 @@ public class TestRcFileReaderManual
         while (reader.advance() >= 0) {
             Block block = reader.readBlock(0);
             for (int position = 0; position < block.getPositionCount(); position++) {
-                values.add((int) SMALLINT.getLong(block, position));
+                values.add((int) SMALLINT.getShort(block, position));
             }
         }
 

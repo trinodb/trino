@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -82,7 +83,6 @@ import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageR
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
-import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
@@ -209,7 +209,7 @@ public abstract class AbstractOperatorBenchmark
 
     private Split getLocalQuerySplit(Session session, TableHandle handle)
     {
-        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, EMPTY, alwaysTrue());
+        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, Span.getInvalid(), handle, DynamicFilter.EMPTY, alwaysTrue());
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(getNextBatch(splitSource));

@@ -305,15 +305,15 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target)
     {
-        delegate.renameColumn(session, tableHandle, source, target);
+        delegate.renameColumn(session, tableHandle, table, source, target);
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
     {
-        delegate.addColumn(session, tableHandle, column);
+        delegate.addColumn(session, tableHandle, table, column);
     }
 
     @Override
@@ -323,9 +323,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
+    public void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle column)
     {
-        delegate.dropColumn(session, tableHandle, column);
+        delegate.dropColumn(session, tableHandle, table, column);
     }
 
     @Override

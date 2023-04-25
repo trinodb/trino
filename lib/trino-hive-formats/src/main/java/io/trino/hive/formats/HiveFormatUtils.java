@@ -301,13 +301,13 @@ public final class HiveFormatUtils
 
     public static String formatHiveDate(Block block, int position)
     {
-        LocalDate localDate = LocalDate.ofEpochDay(DATE.getLong(block, position));
+        LocalDate localDate = LocalDate.ofEpochDay(DATE.getInt(block, position));
         return localDate.format(DATE_FORMATTER);
     }
 
     public static void formatHiveDate(Block block, int position, StringBuilder builder)
     {
-        LocalDate localDate = LocalDate.ofEpochDay(DATE.getLong(block, position));
+        LocalDate localDate = LocalDate.ofEpochDay(DATE.getInt(block, position));
         DATE_FORMATTER.formatTo(localDate, builder);
     }
 

@@ -105,14 +105,26 @@ to the following table:
   * - ``TINYINT``
     - ``TINYINT``
     -
+  * - ``TINYINT UNSIGNED``
+    - ``SMALLINT``
+    -
   * - ``SMALLINT``
     - ``SMALLINT``
+    -
+  * - ``SMALLINT UNSIGNED``
+    - ``INTEGER``
     -
   * - ``INT``
     - ``INTEGER``
     -
+  * - ``INT UNSIGNED``
+    - ``BIGINT``
+    -
   * - ``BIGINT``
     - ``BIGINT``
+    -
+  * - ``BIGINT UNSIGNED``
+    - ``DECIMAL(20, 0)``
     -
   * - ``FLOAT``
     - ``REAL``
@@ -287,6 +299,8 @@ requires syntax native to MariaDB, because the full query is pushed down and
 processed in MariaDB. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
+
+.. include:: query-passthrough-warning.fragment
 
 .. include:: polymorphic-table-function-ordering.fragment
 

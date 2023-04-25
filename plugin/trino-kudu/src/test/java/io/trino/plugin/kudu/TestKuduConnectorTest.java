@@ -31,12 +31,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -79,6 +75,9 @@ public class TestKuduConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -96,13 +95,12 @@ public class TestKuduConnectorTest
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
-            case SUPPORTS_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-                return true;
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
@@ -327,6 +325,15 @@ public class TestKuduConnectorTest
         finally {
             assertUpdate("DROP TABLE " + tableName);
         }
+    }
+
+    @Override
+    public void testAddNotNullColumnToEmptyTable()
+    {
+        // TODO: Enable this test
+        assertThatThrownBy(super::testAddNotNullColumnToEmptyTable)
+                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+        throw new SkipException("TODO");
     }
 
     @Test
@@ -826,9 +833,6 @@ public class TestKuduConnectorTest
     @Override
     public void testDeleteWithComplexPredicate()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
-
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_complex", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, ORDER_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
@@ -847,9 +851,6 @@ public class TestKuduConnectorTest
     public void testDeleteWithSubquery()
     {
         // TODO (https://github.com/trinodb/trino/issues/13210) Migrate these tests to AbstractTestEngineOnlyQueries
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
-
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_subquery", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, NATION_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
@@ -859,7 +860,6 @@ public class TestKuduConnectorTest
                     "SELECT * FROM nation WHERE regionkey IN (SELECT regionkey FROM region WHERE name NOT LIKE 'A%')");
         });
 
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_subquery", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, ORDER_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
@@ -897,9 +897,6 @@ public class TestKuduConnectorTest
     @Override
     public void testDeleteWithSemiJoin()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
-
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_semijoin", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, NATION_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
@@ -916,7 +913,6 @@ public class TestKuduConnectorTest
                             "  OR regionkey IN (SELECT regionkey FROM region WHERE length(comment) >= 50)");
         });
 
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_delete_semijoin", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, ORDER_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
@@ -938,8 +934,6 @@ public class TestKuduConnectorTest
     @Override
     public void testDeleteWithVarcharPredicate()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
-
         withTableName("test_delete_varchar", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, ORDER_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
@@ -950,27 +944,8 @@ public class TestKuduConnectorTest
 
     @Test
     @Override
-    public void verifySupportsDeleteDeclaration()
-    {
-        if (hasBehavior(SUPPORTS_DELETE)) {
-            // Covered by testDeleteAllDataFromTable
-            return;
-        }
-
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
-        withTableName("test_supports_delete", tableName -> {
-            assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, REGION_COLUMNS)));
-            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM region", 5);
-            assertQueryFails("DELETE FROM " + tableName, MODIFYING_ROWS_MESSAGE);
-        });
-    }
-
-    @Test
-    @Override
     public void testDeleteAllDataFromTable()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_DELETE));
-
         withTableName("test_delete_all_data", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, REGION_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM region", 5);
@@ -985,8 +960,6 @@ public class TestKuduConnectorTest
     @Override
     public void testRowLevelDelete()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
-        // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         withTableName("test_row_delete", tableName -> {
             assertUpdate(createTableForWrites("CREATE TABLE %s %s".formatted(tableName, REGION_COLUMNS)));
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM region", 5);

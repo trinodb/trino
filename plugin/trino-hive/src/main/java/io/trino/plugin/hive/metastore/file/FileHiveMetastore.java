@@ -216,10 +216,6 @@ public class FileHiveMetastore
                 database.getComment(),
                 database.getParameters());
 
-        if (database.getLocation().isPresent()) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, "Database cannot be created with a location set");
-        }
-
         verifyDatabaseNameLength(database.getDatabaseName());
         verifyDatabaseNotExists(database.getDatabaseName());
 

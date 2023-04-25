@@ -14,7 +14,6 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.Experimental;
-import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 
 public interface ConnectorSplitManager
@@ -29,11 +28,10 @@ public interface ConnectorSplitManager
         throw new UnsupportedOperationException();
     }
 
-    @Experimental(eta = "2023-03-31")
+    @Experimental(eta = "2023-07-31")
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
-            SchemaFunctionName name,
             ConnectorTableFunctionHandle function)
     {
         throw new UnsupportedOperationException();

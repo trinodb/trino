@@ -160,6 +160,11 @@ public final class TinyintType
     @Override
     public long getLong(Block block, int position)
     {
+        return getByte(block, position);
+    }
+
+    public byte getByte(Block block, int position)
+    {
         return block.getByte(position, 0);
     }
 

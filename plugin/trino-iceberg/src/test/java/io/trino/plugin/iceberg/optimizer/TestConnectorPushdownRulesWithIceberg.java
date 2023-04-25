@@ -65,7 +65,6 @@ import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestin
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.TableType.DATA;
-import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
@@ -168,7 +167,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
-                NO_RETRIES,
                 false,
                 Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
@@ -250,7 +248,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
-                NO_RETRIES,
                 false,
                 Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
@@ -299,7 +296,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
-                NO_RETRIES,
                 false,
                 Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
@@ -359,7 +355,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty(),
                 "",
                 ImmutableMap.of(),
-                NO_RETRIES,
                 false,
                 Optional.empty());
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));

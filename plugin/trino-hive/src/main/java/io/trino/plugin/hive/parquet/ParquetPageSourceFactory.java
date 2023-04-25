@@ -33,6 +33,7 @@ import io.trino.parquet.reader.TrinoColumnIndexStore;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveType;
@@ -56,6 +57,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -71,8 +73,10 @@ import java.util.Properties;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.BloomFilterStore.getBloomFilterStore;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
@@ -216,9 +220,6 @@ public class ParquetPageSourceFactory
             Optional<ParquetWriteValidation> parquetWriteValidation,
             int domainCompactionThreshold)
     {
-        // Ignore predicates on partial columns for now.
-        effectivePredicate = effectivePredicate.filter((column, domain) -> column.isBaseColumn());
-
         MessageType fileSchema;
         MessageType requestedSchema;
         MessageColumnIO messageColumn;
@@ -331,24 +332,19 @@ public class ParquetPageSourceFactory
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
     {
-        Optional<org.apache.parquet.schema.Type> columnType = getBaseColumnParquetType(column, messageType, useParquetColumnNames);
-        if (columnType.isEmpty() || column.getHiveColumnProjectionInfo().isEmpty()) {
-            return columnType;
+        Optional<org.apache.parquet.schema.Type> baseColumnType = getBaseColumnParquetType(column, messageType, useParquetColumnNames);
+        if (baseColumnType.isEmpty() || column.getHiveColumnProjectionInfo().isEmpty()) {
+            return baseColumnType;
         }
-        GroupType baseType = columnType.get().asGroupType();
-        ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
-        org.apache.parquet.schema.Type parentType = baseType;
+        GroupType baseType = baseColumnType.get().asGroupType();
+        Optional<List<org.apache.parquet.schema.Type>> subFieldTypesOptional = dereferenceSubFieldTypes(baseType, column.getHiveColumnProjectionInfo().get());
 
-        for (String name : column.getHiveColumnProjectionInfo().get().getDereferenceNames()) {
-            org.apache.parquet.schema.Type childType = getParquetTypeByName(name, parentType.asGroupType());
-            if (childType == null) {
-                return Optional.empty();
-            }
-            typeBuilder.add(childType);
-            parentType = childType;
+        // if there is a mismatch between parquet schema and the hive schema and the column cannot be dereferenced
+        if (subFieldTypesOptional.isEmpty()) {
+            return Optional.empty();
         }
 
-        List<org.apache.parquet.schema.Type> subfieldTypes = typeBuilder.build();
+        List<org.apache.parquet.schema.Type> subfieldTypes = subFieldTypesOptional.get();
         org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
         for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
             GroupType groupType = subfieldTypes.get(i).asGroupType();
@@ -394,30 +390,6 @@ public class ParquetPageSourceFactory
         return Optional.of(new TrinoColumnIndexStore(dataSource, blockMetadata, columnsReadPaths, columnsFilteredPaths));
     }
 
-    public static Optional<BloomFilterStore> getBloomFilterStore(
-            ParquetDataSource dataSource,
-            BlockMetaData blockMetadata,
-            TupleDomain<ColumnDescriptor> parquetTupleDomain,
-            ParquetReaderOptions options)
-    {
-        if (!options.useBloomFilter() || parquetTupleDomain.isAll() || parquetTupleDomain.isNone()) {
-            return Optional.empty();
-        }
-
-        boolean hasBloomFilter = blockMetadata.getColumns().stream().anyMatch(BloomFilterStore::hasBloomFilter);
-        if (!hasBloomFilter) {
-            return Optional.empty();
-        }
-
-        Map<ColumnDescriptor, Domain> parquetDomains = parquetTupleDomain.getDomains()
-                .orElseThrow(() -> new IllegalStateException("Predicate other than none should have domains"));
-        Set<ColumnPath> columnsFilteredPaths = parquetDomains.keySet().stream()
-                .map(column -> ColumnPath.get(column.getPath()))
-                .collect(toImmutableSet());
-
-        return Optional.of(new BloomFilterStore(dataSource, blockMetadata, columnsFilteredPaths));
-    }
-
     public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
             TupleDomain<HiveColumnHandle> effectivePredicate,
@@ -437,18 +409,32 @@ public class ParquetPageSourceFactory
             }
 
             ColumnDescriptor descriptor;
-            if (useColumnNames) {
-                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+
+            Optional<org.apache.parquet.schema.Type> baseColumnType = getBaseColumnParquetType(columnHandle, fileSchema, useColumnNames);
+            // Parquet file has fewer column than partition
+            if (baseColumnType.isEmpty()) {
+                continue;
+            }
+
+            if (baseColumnType.get().isPrimitive()) {
+                descriptor = descriptorsByPath.get(ImmutableList.of(baseColumnType.get().getName()));
             }
             else {
-                Optional<org.apache.parquet.schema.Type> parquetField = getBaseColumnParquetType(columnHandle, fileSchema, false);
-                if (parquetField.isEmpty() || !parquetField.get().isPrimitive()) {
-                    // Parquet file has fewer column than partition
-                    // Or the field is a complex type
+                if (columnHandle.getHiveColumnProjectionInfo().isEmpty()) {
                     continue;
                 }
-                descriptor = descriptorsByPath.get(ImmutableList.of(parquetField.get().getName()));
+                Optional<List<Type>> subfieldTypes = dereferenceSubFieldTypes(baseColumnType.get().asGroupType(), columnHandle.getHiveColumnProjectionInfo().get());
+                // failed to look up subfields from the file schema
+                if (subfieldTypes.isEmpty()) {
+                    continue;
+                }
+
+                descriptor = descriptorsByPath.get(ImmutableList.<String>builder()
+                        .add(baseColumnType.get().getName())
+                        .addAll(subfieldTypes.get().stream().map(Type::getName).collect(toImmutableList()))
+                        .build());
             }
+
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());
             }
@@ -508,5 +494,33 @@ public class ParquetPageSourceFactory
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Dereferencing base parquet type based on projection info's dereference names.
+     * For example, when dereferencing baseType(level1Field0, level1Field1, Level1Field2(Level2Field0, Level2Field1))
+     * with a projection info's dereferenceNames list as (basetype, Level1Field2, Level2Field1).
+     * It would return a list of parquet types in the order of (level1Field2, Level2Field1)
+     *
+     * @return child fields on each level of dereferencing. Return Optional.empty when failed to do the lookup.
+     */
+    private static Optional<List<org.apache.parquet.schema.Type>> dereferenceSubFieldTypes(GroupType baseType, HiveColumnProjectionInfo projectionInfo)
+    {
+        checkArgument(baseType != null, "base type cannot be null when dereferencing");
+        checkArgument(projectionInfo != null, "hive column projection info cannot be null when doing dereferencing");
+
+        ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
+        org.apache.parquet.schema.Type parentType = baseType;
+
+        for (String name : projectionInfo.getDereferenceNames()) {
+            org.apache.parquet.schema.Type childType = getParquetTypeByName(name, parentType.asGroupType());
+            if (childType == null) {
+                return Optional.empty();
+            }
+            typeBuilder.add(childType);
+            parentType = childType;
+        }
+
+        return Optional.of(typeBuilder.build());
     }
 }

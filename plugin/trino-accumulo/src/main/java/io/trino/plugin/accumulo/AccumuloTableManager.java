@@ -36,6 +36,7 @@ import java.util.Set;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_DNE;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -58,7 +59,10 @@ public class AccumuloTableManager
         try {
             connector.namespaceOperations().create(schema);
         }
-        catch (AccumuloException | AccumuloSecurityException | NamespaceExistsException e) {
+        catch (NamespaceExistsException e) {
+            throw new TrinoException(ALREADY_EXISTS, "Namespace already exists: " + schema, e);
+        }
+        catch (AccumuloException | AccumuloSecurityException e) {
             throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to create Accumulo namespace: " + schema, e);
         }
     }

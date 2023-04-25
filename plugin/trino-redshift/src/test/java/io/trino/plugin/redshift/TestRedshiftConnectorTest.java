@@ -633,13 +633,6 @@ public class TestRedshiftConnectorTest
                 .hasStackTraceContaining("TrinoException: This connector does not support modifying table rows");
     }
 
-    @Test
-    @Override
-    public void testAddNotNullColumnToNonEmptyTable()
-    {
-        throw new SkipException("Redshift ALTER TABLE ADD COLUMN defined as NOT NULL must have a non-null default expression");
-    }
-
     private static class TestView
             implements AutoCloseable
     {

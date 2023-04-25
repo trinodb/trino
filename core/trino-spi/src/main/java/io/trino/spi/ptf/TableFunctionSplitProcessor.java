@@ -13,16 +13,23 @@
  */
 package io.trino.spi.ptf;
 
-import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.Experimental;
 
+/**
+ * Processes table functions splits, as returned from {@link io.trino.spi.connector.ConnectorSplitManager}
+ * for a {@link ConnectorTableFunctionHandle}.
+ * <p>
+ * Thread-safety: implementations do not have to be thread-safe. The {@link #process} method may be called from
+ * multiple threads, but will never be called from two threads at the same time.
+ */
+@Experimental(eta = "2023-07-31")
 public interface TableFunctionSplitProcessor
 {
     /**
      * This method processes a split. It is called multiple times until the whole output for the split is produced.
      *
-     * @param split a {@link ConnectorSplit} representing a subtask.
      * @return {@link TableFunctionProcessorState} including the processor's state and optionally a portion of result.
      * After the returned state is {@code FINISHED}, the method will not be called again.
      */
-    TableFunctionProcessorState process(ConnectorSplit split);
+    TableFunctionProcessorState process();
 }

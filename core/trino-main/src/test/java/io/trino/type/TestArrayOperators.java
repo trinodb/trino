@@ -4302,6 +4302,35 @@ public class TestArrayOperators
                 .hasType(new ArrayType(BIGINT))
                 .isEqualTo(ImmutableList.of(10L, 8L, 6L, 4L, 2L));
 
+        assertThat(assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(9223372036854775807L, 0L, -9223372036854775807L));
+
+        assertThat(assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-9223372036854775808"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(9223372036854775807L, -1L));
+
+        assertThat(assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-9223372036854775808L, -1L, 9223372036854775806L));
+
+        assertThat(assertions.function("sequence", "-9223372036854775808", "-2", "9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-9223372036854775808L));
+
+        // test small range with big steps
+        assertThat(assertions.function("sequence", "-5", "5", "1000"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-5L));
+
+        assertThat(assertions.function("sequence", "-5", "5", "7"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-5L, 2L));
+
+        assertThat(assertions.function("sequence", "-100", "5", "100"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-100L, 0L));
+
         // failure modes
         assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "2", "-1", "1").evaluate())
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
@@ -4313,6 +4342,40 @@ public class TestArrayOperators
                 .hasMessage("result of sequence function must not have more than 10000 entries");
 
         assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2000-04-14'", "DATE '2030-04-12'").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        // long overflow
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-100").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "100").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-9223372036854775808", "0", "100").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-9223372036854775808", "0", "1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "9223372036854775807", "0", "-1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "0", "9223372036854775807", "1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "0", "-9223372036854775808", "-1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-5000", "5000").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "5000", "-5000", "-1").evaluate())
                 .hasMessage("result of sequence function must not have more than 10000 entries");
     }
 

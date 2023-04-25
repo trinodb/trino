@@ -36,6 +36,7 @@ import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
+import io.airlift.tracing.TracingModule;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
@@ -63,6 +64,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -130,6 +132,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TestingTrinoServer
         implements Closeable
 {
+    private static final String VERSION = "testversion";
+
     public static TestingTrinoServer create()
     {
         return builder().build();
@@ -148,6 +152,7 @@ public class TestingTrinoServer
     private final Optional<CatalogManager> catalogManager;
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
+    private final TablePropertyManager tablePropertyManager;
     private final Metadata metadata;
     private final TypeManager typeManager;
     private final QueryExplainer queryExplainer;
@@ -260,10 +265,11 @@ public class TestingTrinoServer
                 .add(new JmxOpenMetricsModule())
                 .add(new EventModule())
                 .add(new TraceTokenModule())
+                .add(new TracingModule("trino", VERSION))
                 .add(new ServerSecurityModule())
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
-                .add(new ServerMainModule("testversion"))
+                .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
@@ -324,6 +330,7 @@ public class TestingTrinoServer
 
         server = injector.getInstance(TestingHttpServer.class);
         transactionManager = injector.getInstance(TransactionManager.class);
+        tablePropertyManager = injector.getInstance(TablePropertyManager.class);
         globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
         metadata = injector.getInstance(Metadata.class);
         typeManager = injector.getInstance(TypeManager.class);
@@ -494,6 +501,11 @@ public class TestingTrinoServer
     public TransactionManager getTransactionManager()
     {
         return transactionManager;
+    }
+
+    public TablePropertyManager getTablePropertyManager()
+    {
+        return tablePropertyManager;
     }
 
     public Metadata getMetadata()

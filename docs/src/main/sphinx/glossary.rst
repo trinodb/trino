@@ -163,7 +163,7 @@ Presto and PrestoSQL
     `the history
     <https://wikipedia.org/wiki/Trino_(SQL_query_engine)#History>`_.
 
-Query Federation
+Query federation
   A type of :ref:`data virtualization <glossDataVirtualization>` that provides a
   common access point and data model across two or more heterogeneous data
   sources. A popular data model used by many query federation engines is

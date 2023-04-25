@@ -17,21 +17,23 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class IrMemberAccessor
-        extends IrAccessor
+        extends IrPathNode
 {
+    private final IrPathNode base;
+
     // object member key or Optional.empty for wildcard member accessor
     private final Optional<String> key;
 
     @JsonCreator
     public IrMemberAccessor(@JsonProperty("base") IrPathNode base, @JsonProperty("key") Optional<String> key, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "member accessor base is null");
         this.key = requireNonNull(key, "key is null");
     }
 
@@ -42,27 +44,14 @@ public class IrMemberAccessor
     }
 
     @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
+    }
+
+    @JsonProperty
     public Optional<String> getKey()
     {
         return key;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrMemberAccessor other = (IrMemberAccessor) obj;
-        return Objects.equals(this.base, other.base) && Objects.equals(this.key, other.key);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base, key);
     }
 }

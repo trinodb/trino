@@ -11,7 +11,8 @@ final aggregation over ()
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan catalog_sales
+                                                    dynamic filter (["cs_call_center_sk", "cs_order_number", "cs_ship_addr_sk", "cs_ship_date_sk"])
+                                                        scan catalog_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim

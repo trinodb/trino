@@ -61,9 +61,13 @@ public abstract class BaseSqlServerConnectorTest
                 return false;
 
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
                 return true;
+
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
+                return false;
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;

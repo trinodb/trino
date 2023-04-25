@@ -418,6 +418,26 @@ public class TestUnwrapCastInComparison
         }
     }
 
+    @Test
+    public void testMap()
+    {
+        String from = "MAP(ARRAY['foo', 'bar'], ARRAY[1, 2])";
+        String to = "MAP(ARRAY['foo', 'bar'], ARRAY[bigint '1', bigint '3'])";
+        for (String operator : asList("=", "!=", "<>", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
+            validate(operator, "MAP(VARCHAR(3),INTEGER)", from, "MAP(VARCHAR(3),BIGINT)", to);
+        }
+    }
+
+    @Test
+    public void testRow()
+    {
+        String from = "ROW(MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]))";
+        String to = "ROW(MAP(ARRAY['foo', 'bar'], ARRAY[bigint '1', bigint '3']))";
+        for (String operator : asList("=", "!=", "<>", "IS DISTINCT FROM", "IS NOT DISTINCT FROM")) {
+            validate(operator, "ROW(MAP(VARCHAR(3),INTEGER))", from, "ROW(MAP(VARCHAR(3),BIGINT))", to);
+        }
+    }
+
     private void validate(String operator, String fromType, Object fromValue, String toType, Object toValue)
     {
         validate(assertions.getDefaultSession(), operator, fromType, fromValue, toType, toValue);
@@ -429,7 +449,7 @@ public class TestUnwrapCastInComparison
                 "SELECT (CAST(v AS %s) %s CAST(%s AS %s)) " +
                         "IS NOT DISTINCT FROM " +
                         "(CAST(%s AS %s) %s CAST(%s AS %s)) " +
-                        "FROM (VALUES CAST(%s AS %s)) t(v)",
+                        "FROM (VALUES CAST(ROW(%s) AS ROW(%s))) t(v)",
                 toType, operator, toValue, toType,
                 fromValue, toType, operator, toValue, toType,
                 fromValue, fromType);

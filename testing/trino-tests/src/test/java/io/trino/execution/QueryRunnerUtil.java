@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.server.BasicQueryInfo;
@@ -35,7 +36,7 @@ public final class QueryRunnerUtil
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        getFutureValue(dispatchManager.createQuery(session.getQueryId(), Slug.createNew(), TestingSessionContext.fromSession(session), sql));
+        getFutureValue(dispatchManager.createQuery(session.getQueryId(), Span.getInvalid(), Slug.createNew(), TestingSessionContext.fromSession(session), sql));
         return session.getQueryId();
     }
 

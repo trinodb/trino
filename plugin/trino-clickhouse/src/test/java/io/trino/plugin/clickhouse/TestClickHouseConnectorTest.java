@@ -24,6 +24,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -45,7 +46,10 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PRO
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
@@ -70,17 +74,33 @@ public class TestClickHouseConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+                return false;
+            case SUPPORTS_TRUNCATE:
+                return true;
+
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_DELETE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
                 return false;
+
+            case SUPPORTS_SET_COLUMN_TYPE:
+                return true;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
             case SUPPORTS_NEGATIVE_DATE:
+                return false;
+
+            case SUPPORTS_NATIVE_QUERY:
                 return false;
 
             default:
@@ -205,24 +225,24 @@ public class TestClickHouseConnectorTest
         return "(x VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'])";
     }
 
-    @Override
-    public void testAddNotNullColumnToNonEmptyTable()
-    {
-        // Override because the default storage type doesn't support adding columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
-            String tableName = table.getName();
-
-            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
-            assertFalse(columnIsNullable(tableName, "b_varchar"));
-
-            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
-
-            // ClickHouse set an empty character as the default value
-            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
-            assertFalse(columnIsNullable(tableName, "c_varchar"));
-            assertQuery("SELECT c_varchar FROM " + tableName, "VALUES ''");
-        }
-    }
+//    @Override
+//    public void testAddNotNullColumnToNonEmptyTable()
+//    {
+//        // Override because the default storage type doesn't support adding columns
+//        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+//            String tableName = table.getName();
+//
+//            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+//            assertFalse(columnIsNullable(tableName, "b_varchar"));
+//
+//            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+//
+//            // ClickHouse set an empty character as the default value
+//            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
+//            assertFalse(columnIsNullable(tableName, "c_varchar"));
+//            assertQuery("SELECT c_varchar FROM " + tableName, "VALUES ''");
+//        }
+//    }
 
     @Test
     @Override
@@ -994,6 +1014,41 @@ public class TestClickHouseConnectorTest
         assertFalse(columnIsNullable(tableName, "col"));
     }
 
+    @DataProvider
+    public Object[][] setColumnTypesDataProvider()
+    {
+        return setColumnTypeSetupData().stream()
+                .map(this::filterSetColumnTypesDataProvider)
+                .flatMap(Optional::stream)
+                .collect(toDataProvider());
+    }
+
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
+    {
+        return Optional.of(setup);
+    }
+
+    private List<SetColumnTypeSetup> setColumnTypeSetupData()
+    {
+        return ImmutableList.<SetColumnTypeSetup>builder()
+                .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"))
+                .add(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"))
+                .add(new SetColumnTypeSetup("integer", "2147483647", "bigint"))
+                .add(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"))
+                .add(new SetColumnTypeSetup("real", "REAL '10.3'", "double"))
+                .add(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"))
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)")) // short decimal -> short decimal
+                .add(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)")) // long decimal -> long decimal
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(38,3)")) // short decimal -> long decimal
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)"))
+                .add(new SetColumnTypeSetup("decimal(5,3)", "12.35", "decimal(5,2)"))
+                .add(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar"))
+                .add(new SetColumnTypeSetup("char(25)", "'shorten-char'", "varchar"))
+                .add(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"))
+                .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "varchar"))
+                .build();
+    }
+
     @Test(dataProvider = "setColumnTypesDataProvider")
     @Override
     public void testSetColumnTypes(SetColumnTypeSetup setup)
@@ -1015,5 +1070,53 @@ public class TestClickHouseConnectorTest
         assertThat(query("SELECT col FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("SELECT " + setup.newValueLiteral());
+    }
+
+    @Test
+    @Override
+    public void testAddNotNullColumnToEmptyTable()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_to_empty", "(a_varchar varchar, b varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['b'])"))  {
+            String tableName = table.getName();
+            String addNonNullColumn = "ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL";
+
+            if (!hasBehavior(SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT)) {
+                assertQueryFails(
+                        addNonNullColumn,
+                        hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT)
+                                ? "This connector does not support adding not null columns"
+                                : ".* Catalog '.*' does not support NOT NULL for column '.*'");
+                return;
+            }
+
+            assertUpdate(addNonNullColumn);
+            assertFalse(columnIsNullable(tableName, "b_varchar"));
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b', 'c')", 1);
+            assertThat(query("TABLE " + tableName))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'b', 'c')");
+        }
+    }
+
+    @Test
+    @Override
+    public void testAddNotNullColumn()
+    {
+        // Override because the default storage type doesn't support adding columns
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+            String tableName = table.getName();
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "b_varchar"));
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+
+            // ClickHouse set an empty character as the default value
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "c_varchar"));
+            assertQuery("SELECT c_varchar FROM " + tableName, "VALUES ''");
+        }
     }
 }

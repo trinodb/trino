@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.Lists;
+import com.google.common.math.IntMath;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DataProviders;
@@ -20,6 +22,9 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
@@ -28,6 +33,8 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UP;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -329,6 +336,89 @@ public class TestIcebergStatistics
     public Object[][] testCollectStatisticsOnWriteDataProvider()
     {
         return cartesianProduct(trueFalse(), trueFalse());
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testAnalyzeAfterStatsDrift(boolean withOptimize)
+    {
+        String tableName = "test_analyze_stats_drift_" + withOptimize;
+        Session session = withStatsOnWrite(getSession(), true);
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " AS SELECT nationkey, regionkey FROM tpch.sf1.nation", 25);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('nationkey', null, 25, 0, null, '0', '24'),
+                          ('regionkey', null, 5, 0, null, '0', '4'),
+                          (null, null, null, null, 25, null, null)""");
+
+        // remove two regions in multiple queries
+        List<String> idsToRemove = computeActual("SELECT nationkey FROM tpch.sf1.nation WHERE regionkey IN (2, 4)").getOnlyColumn()
+                .map(value -> Long.toString((Long) value))
+                .collect(toImmutableList());
+        for (List<String> ids : Lists.partition(idsToRemove, IntMath.divide(idsToRemove.size(), 2, UP))) {
+            String idsLiteral = ids.stream().collect(joining(", ", "(", ")"));
+            assertUpdate("DELETE FROM " + tableName + " WHERE nationkey IN " + idsLiteral, ids.size());
+        }
+
+        // Stats not updated during deletes
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                          ('nationkey', null, 25, 0, null, '0', '24'),
+                          ('regionkey', null, 5, 0, null, '0', '4'),
+                          (null, null, null, null, 25, null, null)""");
+
+        if (withOptimize) {
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+            assertQuery(
+                    "SHOW STATS FOR " + tableName,
+                    """
+                            VALUES
+                              ('nationkey', null, 15, 0, null, '0', '24'),
+                              ('regionkey', null, 4, 0, null, '0', '3'),
+                              (null, null, null, null, 15, null, null)""");
+        }
+
+        // ANALYZE can be used to update stats and prevent them from drifting over time
+        assertUpdate("ANALYZE " + tableName + " WITH(columns=ARRAY['nationkey'])");
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                withOptimize
+                        ? """
+                        VALUES
+                          ('nationkey', null, 15, 0, null, '0', '24'),
+                          ('regionkey', null, 4, 0, null, '0', '3'), -- not updated yet
+                          (null, null, null, null, 15, null, null)"""
+                        :
+                        // TODO row count and min/max values are incorrect as they are taken from manifest file list
+                        """
+                                VALUES
+                                  ('nationkey', null, 15, 0, null, '0', '24'),
+                                  ('regionkey', null, 5, 0, null, '0', '4'), -- not updated yet
+                                  (null, null, null, null, 25, null, null)""");
+
+        // ANALYZE all columns
+        assertUpdate("ANALYZE " + tableName);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                withOptimize
+                        ? """
+                        VALUES
+                          ('nationkey', null, 15, 0, null, '0', '24'),
+                          ('regionkey', null, 3, 0, null, '0', '3'),
+                          (null, null, null, null, 15, null, null)"""
+                        :
+                        // TODO row count and min/max values are incorrect as they are taken from manifest file list
+                        """
+                                VALUES
+                                  ('nationkey', null, 15, 0, null, '0', '24'),
+                                  ('regionkey', null, 3, 0, null, '0', '4'),
+                                  (null, null, null, null, 25, null, null)""");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

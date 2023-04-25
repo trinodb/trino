@@ -90,10 +90,10 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
@@ -212,31 +212,40 @@ public final class JsonUtil
 
         static ObjectKeyProvider createObjectKeyProvider(Type type)
         {
-            if (type instanceof UnknownType) {
+            if (type.equals(UNKNOWN)) {
                 return (block, position) -> null;
             }
-            if (type instanceof BooleanType) {
-                return (block, position) -> type.getBoolean(block, position) ? "true" : "false";
+            if (type.equals(BOOLEAN)) {
+                return (block, position) -> BOOLEAN.getBoolean(block, position) ? "true" : "false";
             }
-            if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
-                return (block, position) -> String.valueOf(type.getLong(block, position));
+            if (type.equals(TINYINT)) {
+                return (block, position) -> String.valueOf(TINYINT.getByte(block, position));
             }
-            if (type instanceof RealType) {
-                return (block, position) -> String.valueOf(intBitsToFloat(toIntExact(type.getLong(block, position))));
+            if (type.equals(SMALLINT)) {
+                return (block, position) -> String.valueOf(SMALLINT.getShort(block, position));
             }
-            if (type instanceof DoubleType) {
-                return (block, position) -> String.valueOf(type.getDouble(block, position));
+            if (type.equals(INTEGER)) {
+                return (block, position) -> String.valueOf(INTEGER.getInt(block, position));
+            }
+            if (type.equals(BIGINT)) {
+                return (block, position) -> String.valueOf(BIGINT.getLong(block, position));
+            }
+            if (type.equals(REAL)) {
+                return (block, position) -> String.valueOf(REAL.getFloat(block, position));
+            }
+            if (type.equals(DOUBLE)) {
+                return (block, position) -> String.valueOf(DOUBLE.getDouble(block, position));
             }
             if (type instanceof DecimalType decimalType) {
                 if (decimalType.isShort()) {
                     return (block, position) -> Decimals.toString(decimalType.getLong(block, position), decimalType.getScale());
                 }
                 return (block, position) -> Decimals.toString(
-                        ((Int128) type.getObject(block, position)).toBigInteger(),
+                        ((Int128) decimalType.getObject(block, position)).toBigInteger(),
                         decimalType.getScale());
             }
-            if (type instanceof VarcharType) {
-                return (block, position) -> type.getSlice(block, position).toStringUtf8();
+            if (type instanceof VarcharType varcharType) {
+                return (block, position) -> varcharType.getSlice(block, position).toStringUtf8();
             }
 
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
@@ -372,7 +381,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                float value = intBitsToFloat(toIntExact(REAL.getLong(block, position)));
+                float value = REAL.getFloat(block, position);
                 jsonGenerator.writeNumber(value);
             }
         }
@@ -533,7 +542,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                int value = toIntExact(DATE.getLong(block, position));
+                int value = DATE.getInt(block, position);
                 jsonGenerator.writeString(printDate(value));
             }
         }

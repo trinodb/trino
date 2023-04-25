@@ -10,13 +10,15 @@ final aggregation over ()
                                     remote exchange (REPARTITION, HASH, ["ca_state", "cc_county", "cs_call_center_sk", "cs_ext_ship_cost", "cs_net_profit", "cs_order_number_25", "cs_ship_addr_sk", "cs_ship_date_sk", "cs_warehouse_sk", "d_date", "unique"])
                                         partial aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_25, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                scan catalog_sales
+                                                dynamic filter (["cs_order_number_25"])
+                                                    scan catalog_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         join (INNER, REPLICATED):
                                                             join (INNER, REPLICATED):
                                                                 join (INNER, REPLICATED):
-                                                                    scan catalog_sales
+                                                                    dynamic filter (["cs_call_center_sk", "cs_ship_addr_sk", "cs_ship_date_sk"])
+                                                                        scan catalog_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim

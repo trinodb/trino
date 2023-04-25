@@ -23,6 +23,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
@@ -118,6 +119,7 @@ public class TestDeltaLakeGlueMetastore
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                     binder.bind(NodeVersion.class).toInstance(new NodeVersion("test_version"));
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
                 new DeltaLakeMetastoreModule(),

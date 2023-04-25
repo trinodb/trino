@@ -46,6 +46,13 @@ public class CountingAccessHiveMetastore
         GET_TABLE,
         GET_TABLE_WITH_PARAMETER,
         GET_TABLE_STATISTICS,
+        UPDATE_TABLE_STATISTICS,
+        ADD_PARTITIONS,
+        GET_PARTITION_NAMES_BY_FILTER,
+        GET_PARTITIONS_BY_NAMES,
+        GET_PARTITION,
+        GET_PARTITION_STATISTICS,
+        UPDATE_PARTITION_STATISTICS,
         REPLACE_TABLE,
         DROP_TABLE,
     }
@@ -78,7 +85,8 @@ public class CountingAccessHiveMetastore
     @Override
     public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        throw new UnsupportedOperationException();
+        // No need to count that, since it's a pure local operation.
+        return delegate.getSupportedColumnStatistics(type);
     }
 
     @Override
@@ -199,7 +207,8 @@ public class CountingAccessHiveMetastore
     @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.GET_PARTITION);
+        return delegate.getPartition(table, partitionValues);
     }
 
     @Override
@@ -208,19 +217,22 @@ public class CountingAccessHiveMetastore
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.GET_PARTITION_NAMES_BY_FILTER);
+        return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.GET_PARTITIONS_BY_NAMES);
+        return delegate.getPartitionsByNames(table, partitionNames);
     }
 
     @Override
     public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.ADD_PARTITIONS);
+        delegate.addPartitions(databaseName, tableName, partitions);
     }
 
     @Override
@@ -305,7 +317,8 @@ public class CountingAccessHiveMetastore
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.GET_PARTITION_STATISTICS);
+        return delegate.getPartitionStatistics(table, partitions);
     }
 
     @Override
@@ -314,13 +327,15 @@ public class CountingAccessHiveMetastore
             AcidTransaction transaction,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.UPDATE_TABLE_STATISTICS);
+        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
     }
 
     @Override
     public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Methods.UPDATE_PARTITION_STATISTICS);
+        delegate.updatePartitionStatistics(table, updates);
     }
 
     @Override

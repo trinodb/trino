@@ -8,6 +8,7 @@ The `docs` module contains the reference documentation for Trino.
 - [Default build](#default-build)
 - [Viewing documentation](#viewing-documentation)
 - [Versioning](#versioning)
+- [Style check](#style-check)
 - [Contribution requirements](#contribution-requirements)
 - [Workflow](#workflow)
 - [Videos](#videos)
@@ -41,6 +42,7 @@ it, default to using "a SQL."
 
 Other useful resources:
 
+- [Style check](#style-check)
 - [Google Technical Writing Courses](https://developers.google.com/tech-writing)
 - [RST cheatsheet](https://github.com/ralsina/rst-cheatsheet/blob/master/rst-cheatsheet.rst)
 
@@ -163,6 +165,38 @@ docs/build
 
 This is especially useful when deploying doc patches for a release where the
 Maven pom has already moved to the next SNAPSHOT version.
+
+## Style check
+
+The project contains a configured setup for [Vale](https://vale.sh) and the
+Google developer documentation style. Vale is a command-line tool to check for
+editorial style issues of a document or a set of documents.
+
+Install vale with brew on macOS or follow the instructions on the website.
+
+```
+brew install vale
+```
+
+The `docs` folder contains the necessary configuration to use vale for any
+document in the repository:
+
+* `.vale` directory with Google style setup
+* `.vale/Vocab/Base/accept.txt` file for additional approved words and spelling
+* `.vale.ini` configuration file configured for rst and md files
+
+With this setup you can validate an individual file from the root by specifying
+the path:
+
+```
+vale src/main/sphinx/overview/sep-ui.rst
+```
+
+You can also use directory paths and all files within.
+
+Treat all output from vale as another help towards better docs. Fixing any
+issues is not required, but can help with learning more about the [Google style
+guide](https://developers.google.com/style) that we try to follow.
 
 ## Contribution requirements
 

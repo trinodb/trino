@@ -28,6 +28,8 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeFlushMetadataCacheProcedure
         extends AbstractTestQueryFramework
@@ -105,10 +107,34 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
     }
 
     @Test
-    public void testFlushMetadataCacheTableNotFound()
+    public void testFlushMetadataCacheAfterTableCreated()
     {
-        assertQueryFails(
-                "CALL system.flush_metadata_cache(schema_name => 'test_not_existing_schema', table_name => 'test_not_existing_table')",
-                "Table 'test_not_existing_schema.test_not_existing_table' not found");
+        String schema = getSession().getSchema().orElseThrow();
+        String tableName = "flush_metadata_after_table_created";
+        String intermediateTableName = "test_flush_intermediate_" + randomNameSuffix();
+
+        String location = "s3://%s/%s".formatted(BUCKET_NAME, intermediateTableName);
+        assertUpdate("CREATE TABLE " + intermediateTableName + " WITH (location = '" + location + "') AS TABLE tpch.tiny.region", 5);
+
+        // This may cause the connector to cache the fact that the table does not exist
+        assertQueryFails("TABLE " + tableName, "\\Qline 1:1: Table 'delta_lake.default.flush_metadata_after_table_created' does not exist");
+
+        metastore.renameTable(schema, intermediateTableName, schema, tableName);
+
+        // Verify cached state (we currently cache missing objects in CachingMetastore)
+        assertQueryFails("TABLE " + tableName, "\\Qline 1:1: Table 'delta_lake.default.flush_metadata_after_table_created' does not exist");
+
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
+        assertThat(query("TABLE " + tableName))
+                .skippingTypesCheck() // Delta has no parametric varchar
+                .matches("TABLE tpch.tiny.region");
+
+        assertUpdate("DROP TABLE flush_metadata_after_table_created");
+    }
+
+    @Test
+    public void testFlushMetadataCacheNonExistentTable()
+    {
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => 'test_not_existing_schema', table_name => 'test_not_existing_table')");
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>413-SNAPSHOT</version>
+        <version>415-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -133,6 +133,16 @@
             </exclusions>
         </dependency>
 
+        <!-- TODO: This explicit dependency can be removed once we update to Phoenix 5.1.4 which includes
+        https://github.com/apache/phoenix/commit/cd35c5239bd7e3f263d3f2a99ce1b996205bde4b -->
+        <!-- Phoenix depends on log4j api and since it's banned, let's use hardened API-compatible fork -->
+        <dependency>
+            <groupId>ch.qos.reload4j</groupId>
+            <artifactId>reload4j</artifactId>
+            <version>1.2.25</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -155,6 +165,18 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -403,7 +425,7 @@
                 <dependency>
                     <groupId>org.apache.phoenix</groupId>
                     <artifactId>phoenix-client-embedded-hbase-2.2</artifactId>
-                    <version>5.1.2</version>
+                    <version>5.1.3</version>
                     <scope>provided</scope>
                     <optional>true</optional>
                 </dependency>

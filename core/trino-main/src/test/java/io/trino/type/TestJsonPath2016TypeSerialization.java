@@ -26,6 +26,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrConstantJsonSequence;
 import io.trino.json.ir.IrContextVariable;
 import io.trino.json.ir.IrDatetimeMethod;
+import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDoubleMethod;
 import io.trino.json.ir.IrFloorMethod;
 import io.trino.json.ir.IrJsonNull;
@@ -42,6 +43,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
+import org.assertj.core.api.AssertProvider;
+import org.assertj.core.api.RecursiveComparisonAssert;
+import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -63,11 +67,12 @@ import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonPath2016TypeSerialization
 {
     private static final Type JSON_PATH_2016 = new JsonPath2016Type(new TypeDeserializer(TESTING_TYPE_MANAGER), new TestingBlockEncodingSerde());
+    private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
     @Test
     public void testJsonPathMode()
@@ -151,6 +156,12 @@ public class TestJsonPath2016TypeSerialization
     }
 
     @Test
+    public void testDescendantMemberAccessor()
+    {
+        assertJsonRoundTrip(new IrJsonPath(true, new IrDescendantMemberAccessor(new IrJsonNull(), "some_key", Optional.empty())));
+    }
+
+    @Test
     public void testArithmeticBinary()
     {
         assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticBinary(ADD, new IrJsonNull(), new IrJsonNull(), Optional.empty())));
@@ -206,6 +217,7 @@ public class TestJsonPath2016TypeSerialization
         JSON_PATH_2016.writeObject(blockBuilder, object);
         Block serialized = blockBuilder.build();
         Object deserialized = JSON_PATH_2016.getObject(serialized, 0);
-        assertEquals(deserialized, object);
+        assertThat((AssertProvider<? extends RecursiveComparisonAssert<?>>) () -> new RecursiveComparisonAssert<>(deserialized, COMPARISON_CONFIGURATION))
+                .isEqualTo(object);
     }
 }

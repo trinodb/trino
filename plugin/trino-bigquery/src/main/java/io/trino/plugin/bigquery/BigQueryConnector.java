@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.Connector;
@@ -37,6 +38,7 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryConnector
         implements Connector
 {
+    private final LifeCycleManager lifeCycleManager;
     private final BigQueryTransactionManager transactionManager;
     private final BigQuerySplitManager splitManager;
     private final BigQueryPageSourceProvider pageSourceProvider;
@@ -46,6 +48,7 @@ public class BigQueryConnector
 
     @Inject
     public BigQueryConnector(
+            LifeCycleManager lifeCycleManager,
             BigQueryTransactionManager transactionManager,
             BigQuerySplitManager splitManager,
             BigQueryPageSourceProvider pageSourceProvider,
@@ -53,6 +56,7 @@ public class BigQueryConnector
             Set<ConnectorTableFunction> connectorTableFunctions,
             Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -115,5 +119,11 @@ public class BigQueryConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public void shutdown()
+    {
+        lifeCycleManager.stop();
     }
 }

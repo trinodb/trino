@@ -919,7 +919,10 @@ public class PostgreSqlClient
                 return TableStatistics.empty();
             }
             long rowCount = optionalRowCount.get();
-
+            if (rowCount == -1) {
+                // Table has never yet been vacuumed or analyzed
+                return TableStatistics.empty();
+            }
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));
 

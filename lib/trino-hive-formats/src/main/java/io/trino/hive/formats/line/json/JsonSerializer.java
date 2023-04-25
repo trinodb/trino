@@ -51,7 +51,6 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 
 /**
  * Deserializer that is bug for bug compatible with Hive JsonSerDe.
@@ -115,20 +114,20 @@ public class JsonSerializer
             generator.writeNumber(BIGINT.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            generator.writeNumber(INTEGER.getLong(block, position));
+            generator.writeNumber(INTEGER.getInt(block, position));
         }
         else if (SMALLINT.equals(type)) {
-            generator.writeNumber(SMALLINT.getLong(block, position));
+            generator.writeNumber(SMALLINT.getShort(block, position));
         }
         else if (TINYINT.equals(type)) {
-            generator.writeNumber(TINYINT.getLong(block, position));
+            generator.writeNumber(TINYINT.getByte(block, position));
         }
         else if (type instanceof DecimalType) {
             SqlDecimal value = (SqlDecimal) type.getObjectValue(null, block, position);
             generator.writeNumber(value.toBigDecimal().toString());
         }
         else if (REAL.equals(type)) {
-            generator.writeNumber(intBitsToFloat((int) REAL.getLong(block, position)));
+            generator.writeNumber(REAL.getFloat(block, position));
         }
         else if (DOUBLE.equals(type)) {
             generator.writeNumber(DOUBLE.getDouble(block, position));
@@ -200,19 +199,19 @@ public class JsonSerializer
             return String.valueOf(BIGINT.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            return String.valueOf(INTEGER.getLong(block, position));
+            return String.valueOf(INTEGER.getInt(block, position));
         }
         else if (SMALLINT.equals(type)) {
-            return String.valueOf(SMALLINT.getLong(block, position));
+            return String.valueOf(SMALLINT.getShort(block, position));
         }
         else if (TINYINT.equals(type)) {
-            return String.valueOf(TINYINT.getLong(block, position));
+            return String.valueOf(TINYINT.getByte(block, position));
         }
         else if (type instanceof DecimalType) {
             return type.getObjectValue(null, block, position).toString();
         }
         else if (REAL.equals(type)) {
-            return String.valueOf(intBitsToFloat((int) REAL.getLong(block, position)));
+            return String.valueOf(REAL.getFloat(block, position));
         }
         else if (DOUBLE.equals(type)) {
             return String.valueOf(DOUBLE.getDouble(block, position));

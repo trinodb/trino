@@ -50,12 +50,9 @@ public abstract class BaseOracleConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
-            case SUPPORTS_AGGREGATION_PUSHDOWN:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-                return true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+                return false;
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
@@ -386,13 +383,6 @@ public abstract class BaseOracleConnectorTest
     {
         // override because Oracle requires the FROM clause, and it needs explicit type
         assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))", ("VALUES 1"));
-    }
-
-    @Override
-    public void testNativeQueryColumnAlias()
-    {
-        assertThat(query(format("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM %s.region WHERE regionkey = 0'))", getSession().getSchema().orElseThrow())))
-                .matches("VALUES CAST('AFRICA' AS VARCHAR(25))");
     }
 
     @Override

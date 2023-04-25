@@ -44,7 +44,6 @@ import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfosFromTypeString
 import static io.trino.plugin.hive.util.HiveTypeTranslator.UNION_FIELD_FIELD_PREFIX;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.UNION_FIELD_TAG_NAME;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.UNION_FIELD_TAG_TYPE;
-import static io.trino.plugin.hive.util.HiveTypeTranslator.fromPrimitiveType;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeInfo;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toTypeSignature;
 import static io.trino.plugin.hive.util.SerdeConstants.BIGINT_TYPE_NAME;
@@ -162,35 +161,50 @@ public final class HiveType
         return isSupportedType(getTypeInfo(), storageFormat);
     }
 
-    public static boolean isSupportedType(TypeInfo typeInfo, StorageFormat storageFormat)
+    private static boolean isSupportedType(TypeInfo typeInfo, StorageFormat storageFormat)
     {
-        switch (typeInfo.getCategory()) {
-            case PRIMITIVE:
-                return fromPrimitiveType((PrimitiveTypeInfo) typeInfo) != null;
-            case MAP:
-                MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
-                return isSupportedType(mapTypeInfo.getMapKeyTypeInfo(), storageFormat) && isSupportedType(mapTypeInfo.getMapValueTypeInfo(), storageFormat);
-            case LIST:
-                ListTypeInfo listTypeInfo = (ListTypeInfo) typeInfo;
-                return isSupportedType(listTypeInfo.getListElementTypeInfo(), storageFormat);
-            case STRUCT:
-                StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
-                return structTypeInfo.getAllStructFieldTypeInfos().stream()
-                        .allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));
-            case UNION:
-                // This feature (reading uniontypes as structs) has only been verified against Avro and ORC tables. Here's a discussion:
-                //   1. Avro tables are supported and verified.
-                //   2. ORC tables are supported and verified.
-                //   3. The Parquet format doesn't support uniontypes itself so there's no need to add support for it in Trino.
-                //   4. TODO: RCFile tables are not supported yet.
-                //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
-                if (storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) || storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde())) {
-                    UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
-                    return unionTypeInfo.getAllUnionObjectTypeInfos().stream()
-                            .allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));
-                }
-        }
-        return false;
+        return switch (typeInfo.getCategory()) {
+            case PRIMITIVE -> isSupported((PrimitiveTypeInfo) typeInfo);
+            case MAP -> isSupportedType(((MapTypeInfo) typeInfo).getMapKeyTypeInfo(), storageFormat) &&
+                    isSupportedType(((MapTypeInfo) typeInfo).getMapValueTypeInfo(), storageFormat);
+            case LIST -> isSupportedType(((ListTypeInfo) typeInfo).getListElementTypeInfo(), storageFormat);
+            case STRUCT -> ((StructTypeInfo) typeInfo).getAllStructFieldTypeInfos().stream().allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));
+            case UNION ->
+                    // This feature (reading union types as structs) has only been verified against Avro and ORC tables. Here's a discussion:
+                    //   1. Avro tables are supported and verified.
+                    //   2. ORC tables are supported and verified.
+                    //   3. The Parquet format doesn't support union types itself so there's no need to add support for it in Trino.
+                    //   4. TODO: RCFile tables are not supported yet.
+                    //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
+                    storageFormat.getSerde().equalsIgnoreCase(AVRO.getSerde()) ||
+                            storageFormat.getSerde().equalsIgnoreCase(ORC.getSerde()) ||
+                            ((UnionTypeInfo) typeInfo).getAllUnionObjectTypeInfos().stream().allMatch(fieldTypeInfo -> isSupportedType(fieldTypeInfo, storageFormat));
+        };
+    }
+
+    private static boolean isSupported(PrimitiveTypeInfo typeInfo)
+    {
+        return switch (typeInfo.getPrimitiveCategory()) {
+            case BOOLEAN,
+                    BYTE,
+                    SHORT,
+                    INT,
+                    LONG,
+                    FLOAT,
+                    DOUBLE,
+                    STRING,
+                    VARCHAR,
+                    CHAR,
+                    DATE,
+                    TIMESTAMP,
+                    BINARY,
+                    DECIMAL -> true;
+            case TIMESTAMPLOCALTZ,
+                    INTERVAL_YEAR_MONTH,
+                    INTERVAL_DAY_TIME,
+                    VOID,
+                    UNKNOWN -> false;
+        };
     }
 
     @JsonCreator
@@ -236,7 +250,7 @@ public final class HiveType
                 try {
                     if (fieldIndex == 0) {
                         //  union's tag field, defined in {@link io.trino.plugin.hive.util.HiveTypeTranslator#toTypeSignature}
-                        return Optional.of(HiveType.toHiveType(UNION_FIELD_TAG_TYPE));
+                        return Optional.of(toHiveType(UNION_FIELD_TAG_TYPE));
                     }
                     else {
                         typeInfo = unionTypeInfo.getAllUnionObjectTypeInfos().get(fieldIndex - 1);

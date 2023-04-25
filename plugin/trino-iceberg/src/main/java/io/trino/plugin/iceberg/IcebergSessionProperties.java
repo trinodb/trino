@@ -67,6 +67,7 @@ public final class IcebergSessionProperties
     private static final String ORC_WRITER_MAX_STRIPE_ROWS = "orc_writer_max_stripe_rows";
     private static final String ORC_WRITER_MAX_DICTIONARY_MEMORY = "orc_writer_max_dictionary_memory";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
+    private static final String PARQUET_USE_BLOOM_FILTER = "parquet_use_bloom_filter";
     private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
@@ -196,6 +197,11 @@ public final class IcebergSessionProperties
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
                         parquetReaderConfig.getMaxReadBlockSize(),
+                        false))
+                .add(booleanProperty(
+                        PARQUET_USE_BLOOM_FILTER,
+                        "Parquet: Enable using Parquet bloom filter",
+                        parquetReaderConfig.isUseBloomFilter(),
                         false))
                 .add(integerProperty(
                         PARQUET_MAX_READ_BLOCK_ROW_COUNT,
@@ -430,6 +436,11 @@ public final class IcebergSessionProperties
     public static int getParquetWriterBatchSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_WRITER_BATCH_SIZE, Integer.class);
+    }
+
+    public static boolean useParquetBloomFilter(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_BLOOM_FILTER, Boolean.class);
     }
 
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)

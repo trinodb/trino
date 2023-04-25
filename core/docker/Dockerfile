@@ -13,12 +13,8 @@
 #
 FROM eclipse-temurin:17-jdk AS builder
 
-COPY default/apt/sources.list.d /etc/apt/sources.list.d
-
 RUN \
     set -xeu && \
-    . /etc/os-release && \
-    sed -i "s/\${UBUNTU_CODENAME}/${UBUNTU_CODENAME}/g" /etc/apt/sources.list.d/* && \
     echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
     echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
     apt-get update -q && \
@@ -28,12 +24,8 @@ RUN \
 
 FROM eclipse-temurin:17-jdk
 
-COPY default/apt/sources.list.d /etc/apt/sources.list.d
-
 RUN \
     set -xeu && \
-    . /etc/os-release && \
-    sed -i "s/\${UBUNTU_CODENAME}/${UBUNTU_CODENAME}/g" /etc/apt/sources.list.d/* && \
     echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
     echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
     apt-get update -q && \

@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.Multimap;
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -45,6 +46,7 @@ public class MemoryTrackingRemoteTaskFactory
     @Override
     public RemoteTask createRemoteTask(
             Session session,
+            Span stageSpan,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,
@@ -55,7 +57,9 @@ public class MemoryTrackingRemoteTaskFactory
             Optional<DataSize> estimatedMemory,
             boolean summarizeTaskInfo)
     {
-        RemoteTask task = remoteTaskFactory.createRemoteTask(session,
+        RemoteTask task = remoteTaskFactory.createRemoteTask(
+                session,
+                stageSpan,
                 taskId,
                 node,
                 fragment,

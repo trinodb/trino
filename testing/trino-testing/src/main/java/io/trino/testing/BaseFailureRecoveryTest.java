@@ -117,7 +117,7 @@ public abstract class BaseFailureRecoveryTest
                         .put("failure-injection.request-timeout", new Duration(REQUEST_TIMEOUT.toMillis() * 2, MILLISECONDS).toString())
                         // making http timeouts shorter so tests which simulate communication timeouts finish in reasonable amount of time
                         .put("exchange.http-client.idle-timeout", REQUEST_TIMEOUT.toString())
-                        .put("fault-tolerant-execution-partition-count", "5")
+                        .put("fault-tolerant-execution-max-partition-count", "5")
                         // to trigger spilling
                         .put("exchange.deduplication-buffer-size", "1kB")
                         .put("fault-tolerant-execution-task-memory", "1GB")
@@ -443,7 +443,7 @@ public abstract class BaseFailureRecoveryTest
                 String temporaryTableName = (String) temporaryTableRow.getField(0);
                 try {
                     assertThatThrownBy(() -> getQueryRunner().execute("SELECT 1 FROM %s WHERE 1 = 0".formatted(temporaryTableName)))
-                            .hasMessageContaining("Table '%s' does not exist", temporaryTableName);
+                            .hasMessageContaining(".%s' does not exist", temporaryTableName);
                 }
                 catch (AssertionError e) {
                     remainingTemporaryTables.computeIfAbsent(queryId, ignored -> new HashSet<>()).add(temporaryTableName);

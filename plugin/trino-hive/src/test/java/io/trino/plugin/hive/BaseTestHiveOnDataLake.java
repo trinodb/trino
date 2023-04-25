@@ -96,7 +96,6 @@ public abstract class BaseTestHiveOnDataLake
         return S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setHiveProperties(
                         ImmutableMap.<String, String>builder()
-                                // This is required when using MinIO which requires path style access
                                 .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                                 .put("hive.non-managed-table-writes-enabled", "true")
                                 // Below are required to enable caching on metastore

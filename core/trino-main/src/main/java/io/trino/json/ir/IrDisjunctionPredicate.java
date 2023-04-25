@@ -16,8 +16,6 @@ package io.trino.json.ir;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
 public class IrDisjunctionPredicate
@@ -50,25 +48,5 @@ public class IrDisjunctionPredicate
     public IrPathNode getRight()
     {
         return right;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrDisjunctionPredicate other = (IrDisjunctionPredicate) obj;
-        return Objects.equals(this.left, other.left) &&
-                Objects.equals(this.right, other.right);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(left, right);
     }
 }

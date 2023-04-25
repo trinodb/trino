@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -686,11 +687,11 @@ public interface ConnectorMetadata
      * Finish a merge query
      *
      * @param session The session
-     * @param tableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
+     * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
      * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
      */
-    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
     }
@@ -765,18 +766,40 @@ public interface ConnectorMetadata
 
     /**
      * Gets the schema properties for the specified schema.
+     *
+     * @deprecated use {@link #getSchemaProperties(ConnectorSession, String)}
      */
+    @Deprecated(forRemoval = true)
     default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
         return Map.of();
     }
 
     /**
-     * Get the schema properties for the specified schema.
+     * Gets the schema properties for the specified schema.
      */
+    default Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
+    {
+        return getSchemaProperties(session, new CatalogSchemaName("invalid", schemaName));
+    }
+
+    /**
+     * Get the schema properties for the specified schema.
+     *
+     * @deprecated use {@link #getSchemaOwner(ConnectorSession, String)}
+     */
+    @Deprecated(forRemoval = true)
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Get the schema properties for the specified schema.
+     */
+    default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
+    {
+        return getSchemaOwner(session, new CatalogSchemaName("invalid", schemaName));
     }
 
     /**
@@ -1029,8 +1052,14 @@ public interface ConnectorMetadata
      */
     default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
-        if (constraint.getSummary().getDomains().isEmpty()) {
+        // applyFilter is expected not to be invoked with a "false" constraint
+        if (constraint.getSummary().isNone()) {
             throw new IllegalArgumentException("constraint summary is NONE");
+        }
+        if (FALSE.equals(constraint.getExpression())) {
+            // DomainTranslator translates FALSE expressions into TupleDomain.none() (via Visitor#visitBooleanLiteral)
+            // so the remaining expression shouldn't be FALSE and therefore the translated connectorExpression shouldn't be FALSE either.
+            throw new IllegalArgumentException("constraint expression is FALSE");
         }
         return Optional.empty();
     }

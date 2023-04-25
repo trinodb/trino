@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>134</version>
+        <version>136</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>413-SNAPSHOT</version>
+    <version>415-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -49,30 +49,31 @@
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.11.1</dep.antlr.version>
-        <dep.airlift.version>228</dep.airlift.version>
+        <dep.airlift.version>229</dep.airlift.version>
         <dep.arrow.version>9.0.0</dep.arrow.version>
+        <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.aws-sdk.version>1.12.261</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.445</dep.aws-sdk.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>191</dep.tempto.version>
+        <dep.tempto.version>194</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
         <dep.errorprone.version>2.18.0</dep.errorprone.version>
-        <dep.testcontainers.version>1.17.6</dep.testcontainers.version>
+        <dep.testcontainers.version>1.18.0</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
-        <dep.coral.version>2.0.77</dep.coral.version>
+        <dep.coral.version>2.0.153</dep.coral.version>
         <dep.confluent.version>7.3.1</dep.confluent.version>
         <dep.kafka-clients.version>3.3.2</dep.kafka-clients.version>
         <dep.casandra.version>4.14.0</dep.casandra.version>
         <dep.minio.version>8.4.5</dep.minio.version>
-        <dep.iceberg.version>1.1.0</dep.iceberg.version>
+        <dep.iceberg.version>1.2.1</dep.iceberg.version>
         <dep.protobuf.version>3.22.2</dep.protobuf.version>
         <dep.wire.version>4.5.0</dep.wire.version>
-        <dep.kotlin.version>1.8.0</dep.kotlin.version>
-        <dep.netty.version>4.1.79.Final</dep.netty.version>
+        <dep.netty.version>4.1.91.Final</dep.netty.version>
+        <dep.jna.version>5.13.0</dep.jna.version>
 
-        <dep.docker.images.version>77</dep.docker.images.version>
+        <dep.docker.images.version>79</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -740,7 +741,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.23</version>
+                <version>0.24</version>
             </dependency>
 
             <dependency>
@@ -752,7 +753,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-20</version>
+                <version>3.1.2-21</version>
             </dependency>
 
             <dependency>
@@ -818,7 +819,7 @@
             <dependency>
                 <groupId>io.trino.tpch</groupId>
                 <artifactId>tpch</artifactId>
-                <version>1.1</version>
+                <version>1.2</version>
             </dependency>
 
             <!-- Airlift -->
@@ -830,8 +831,10 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>bootstrap</artifactId>
+                <artifactId>bom</artifactId>
+                <type>pom</type>
                 <version>${dep.airlift.version}</version>
+                <scope>import</scope>
             </dependency>
 
             <dependency>
@@ -842,140 +845,14 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>concurrent</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>configuration</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>dbpool</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>discovery</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>event</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>http-client</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>http-server</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>jaxrs</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>jaxrs-testing</artifactId>
-                <version>${dep.airlift.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.hamcrest</groupId>
-                        <artifactId>hamcrest</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>jmx</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>jmx-http</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.3</version>
             </dependency>
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>json</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>log</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>log-manager</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>node</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>openmetrics</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>parameternames</artifactId>
                 <version>1.4</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>security</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>stats</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>testing</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>trace-token</artifactId>
-                <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
@@ -987,7 +864,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.32</version>
+                <version>1.33</version>
                 <exclusions>
                     <exclusion>
                         <groupId>io.airlift</groupId>
@@ -1233,7 +1110,7 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.2.13</version>
+                <version>3.3.0</version>
             </dependency>
 
             <dependency>
@@ -1245,7 +1122,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>5.8.5</version>
+                <version>6.4.1</version>
             </dependency>
 
             <dependency>
@@ -1288,7 +1165,7 @@
             <dependency>
                 <groupId>com.linkedin.calcite</groupId>
                 <artifactId>calcite-core</artifactId>
-                <version>1.21.0.152</version>
+                <version>1.21.0.160</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -1353,13 +1230,13 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.14</version>
+                <version>9.31</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>9.18</version>
+                <version>10.7.2</version>
             </dependency>
 
             <dependency>
@@ -1662,7 +1539,19 @@
                 <!-- org.testcontainers:testcontainer's dependencies pull two different versions of this artifact and this is to negotiate the version -->
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
-                <version>5.12.1</version>
+                <version>${dep.jna.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna-platform</artifactId>
+                <version>${dep.jna.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>net.minidev</groupId>
+                <artifactId>json-smart</artifactId>
+                <version>2.4.10</version>
             </dependency>
 
             <dependency>
@@ -1722,7 +1611,13 @@
             <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
-                <version>1.11.0</version>
+                <version>${dep.avro.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro-mapred</artifactId>
+                <version>${dep.avro.version}</version>
             </dependency>
 
             <dependency>
@@ -1869,7 +1764,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.25.0</version>
+                <version>3.31.0</version>
             </dependency>
 
             <dependency>
@@ -1901,7 +1796,7 @@
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
                 <type>pom</type>
-                <version>3.32.0</version>
+                <version>3.37.1</version>
                 <scope>import</scope>
             </dependency>
 
@@ -1909,24 +1804,6 @@
                 <groupId>org.jetbrains</groupId>
                 <artifactId>annotations</artifactId>
                 <version>19.0.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-stdlib</artifactId>
-                <version>${dep.kotlin.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-stdlib-common</artifactId>
-                <version>${dep.kotlin.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains.kotlin</groupId>
-                <artifactId>kotlin-stdlib-jdk8</artifactId>
-                <version>${dep.kotlin.version}</version>
             </dependency>
 
             <dependency>
@@ -1976,7 +1853,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.5.0</version>
+                <version>42.6.0</version>
             </dependency>
 
             <dependency>
@@ -2027,7 +1904,7 @@
             <dependency>
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
-                <version>1.33</version>
+                <version>2.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -2159,6 +2036,7 @@
                                     <include>org.yaml:snakeyaml:*:jar:test</include>
                                 </includes>
                             </bannedDependencies>
+                            <requireProfileIdsExist/>
                         </rules>
                     </configuration>
                     <dependencies>
@@ -2331,6 +2209,13 @@
                                 <type>jar</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
+                            <DynamicDependency>
+                                <groupId>org.junit.platform</groupId>
+                                <artifactId>junit-platform-launcher</artifactId>
+                                <version>1.9.2</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <type>jar</type>
+                                <repositoryType>MAIN</repositoryType>
+                            </DynamicDependency>
                         </dynamicDependencies>
                     </configuration>
                 </plugin>
@@ -2349,14 +2234,6 @@
                 <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                 <artifactId>provisio-maven-plugin</artifactId>
                 <extensions>true</extensions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration combine.children="append">
-                    <fork>false</fork>
-                </configuration>
             </plugin>
 
             <plugin>

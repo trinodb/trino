@@ -80,7 +80,7 @@ public class TestMergingPageIterator
                 .collect(toList());
         Iterator<Page> iterator = new MergingPageIterator(pages, types, sortIndexes, sortOrders, new TypeOperators());
 
-        List<Long> values = new ArrayList<>();
+        List<Integer> values = new ArrayList<>();
         while (iterator.hasNext()) {
             Page page = iterator.next();
             for (int i = 0; i < page.getPositionCount(); i++) {
@@ -89,8 +89,8 @@ public class TestMergingPageIterator
                     values.add(null);
                 }
                 else {
-                    long x = INTEGER.getLong(page.getBlock(0), i);
-                    long y = INTEGER.getLong(page.getBlock(1), i);
+                    int x = INTEGER.getInt(page.getBlock(0), i);
+                    int y = INTEGER.getInt(page.getBlock(1), i);
                     assertEquals(y, x * 22);
                     values.add(x);
                 }

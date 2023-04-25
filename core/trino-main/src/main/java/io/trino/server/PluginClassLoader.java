@@ -32,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class PluginClassLoader
         extends URLClassLoader
 {
+    private final String id;
     private final String pluginName;
     private final Optional<CatalogHandle> catalogHandle;
     private final ClassLoader spiClassLoader;
@@ -69,6 +70,7 @@ public class PluginClassLoader
         this.spiClassLoader = requireNonNull(spiClassLoader, "spiClassLoader is null");
         this.spiPackages = ImmutableList.copyOf(spiPackages);
         this.spiResources = ImmutableList.copyOf(spiResources);
+        this.id = pluginName + catalogHandle.map(name -> ":%s:%s".formatted(name.getCatalogName(), name.getVersion())).orElse("");
     }
 
     public PluginClassLoader duplicate(CatalogHandle catalogHandle)
@@ -91,7 +93,7 @@ public class PluginClassLoader
 
     public String getId()
     {
-        return pluginName + catalogHandle.map(name -> ":" + name).orElse("");
+        return id;
     }
 
     @Override

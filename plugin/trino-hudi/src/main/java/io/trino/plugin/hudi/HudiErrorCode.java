@@ -22,7 +22,7 @@ import static io.trino.spi.ErrorType.EXTERNAL;
 public enum HudiErrorCode
         implements ErrorCodeSupplier
 {
-    HUDI_UNKNOWN_TABLE_TYPE(0, EXTERNAL),
+    // HUDI_UNKNOWN_TABLE_TYPE(0, EXTERNAL),
     HUDI_INVALID_PARTITION_VALUE(1, EXTERNAL),
     HUDI_BAD_DATA(2, EXTERNAL),
     // HUDI_MISSING_DATA(3, EXTERNAL) is deprecated

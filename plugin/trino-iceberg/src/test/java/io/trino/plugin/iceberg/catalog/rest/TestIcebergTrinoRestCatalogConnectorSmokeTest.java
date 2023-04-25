@@ -20,9 +20,13 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.catalog.Catalog;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.assertj.core.util.Files;
+import org.testng.annotations.AfterClass;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -39,6 +43,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private File warehouseLocation;
+    private Catalog backend;
 
     public TestIcebergTrinoRestCatalogConnectorSmokeTest()
     {
@@ -64,7 +69,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         warehouseLocation = Files.newTemporaryFolder();
         closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
 
-        Catalog backend = backendCatalog(warehouseLocation);
+        backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
         DelegatingRestSessionCatalog delegatingCatalog = DelegatingRestSessionCatalog.builder()
                 .delegate(backend)
@@ -86,6 +91,12 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+    {
+        backend = null; // closed by closeAfterClass
     }
 
     @Override
@@ -118,8 +129,8 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        // used when registering a table, which is not supported by the REST catalog
-        throw new UnsupportedOperationException("metadata location for register_table is not supported");
+        BaseTable table = (BaseTable) backend.loadTable(toIdentifier(tableName));
+        return table.operations().current().metadataFileLocation();
     }
 
     @Override
@@ -173,7 +184,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void testRegisterTableWithMetadataFile()
     {
         assertThatThrownBy(super::testRegisterTableWithMetadataFile)
-                .hasMessageContaining("metadata location for register_table is not supported");
+                .hasMessageContaining("registerTable is not supported for Iceberg REST catalog");
     }
 
     @Override
@@ -212,6 +223,41 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     }
 
     @Override
+    public void testDropTableWithMissingMetadataFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
+                .hasMessageMatching("Failed to load table: (.*)");
+    }
+
+    @Override
+    public void testDropTableWithMissingSnapshotFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
+                .hasMessageMatching("Server error: NotFoundException: Failed to open input stream for file: (.*)");
+    }
+
+    @Override
+    public void testDropTableWithMissingManifestListFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
+                .hasMessageContaining("Table location should not exist expected [false] but found [true]");
+    }
+
+    @Override
+    public void testDropTableWithMissingDataFile()
+    {
+        assertThatThrownBy(super::testDropTableWithMissingDataFile)
+                .hasMessageContaining("Table location should not exist expected [false] but found [true]");
+    }
+
+    @Override
+    public void testDropTableWithNonExistentTableLocation()
+    {
+        assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
+                .hasMessageMatching("Failed to load table: (.*)");
+    }
+
+    @Override
     protected boolean isFileSorted(String path, String sortColumnName)
     {
         return checkOrcFileSorting(path, sortColumnName);
@@ -221,5 +267,10 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     protected void deleteDirectory(String location)
     {
         // used when unregistering a table, which is not supported by the REST catalog
+    }
+
+    private TableIdentifier toIdentifier(String tableName)
+    {
+        return TableIdentifier.of(getSession().getSchema().orElseThrow(), tableName);
     }
 }

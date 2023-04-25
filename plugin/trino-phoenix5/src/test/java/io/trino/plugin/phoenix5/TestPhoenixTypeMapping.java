@@ -386,8 +386,8 @@ public class TestPhoenixTypeMapping
     {
         // Not testing max length (2147483647) because it leads to 'Requested array size exceeds VM limit'
         SqlDataTypeTest.create()
-                .addRoundTrip("binary(1)", "NULL", VARBINARY, "X'00'") // NULL stored as zeros
-                .addRoundTrip("binary(10)", "DECODE('', 'HEX')", VARBINARY, "X'00000000000000000000'") // empty stored as zeros
+                .addRoundTrip("binary(1)", "NULL", VARBINARY, "CAST(NULL AS VARBINARY)")
+                .addRoundTrip("binary(10)", "DECODE('', 'HEX')", VARBINARY, "CAST(NULL AS VARBINARY)")
                 .addRoundTrip("binary(5)", "DECODE('68656C6C6F', 'HEX')", VARBINARY, "to_utf8('hello')")
                 .addRoundTrip("binary(26)", "DECODE('5069C4996B6E6120C582C4856B61207720E69DB1E4BAACE983BD', 'HEX')", VARBINARY, "to_utf8('Piękna łąka w 東京都')")
                 .addRoundTrip("binary(16)", "DECODE('4261672066756C6C206F6620F09F92B0', 'HEX')", VARBINARY, "to_utf8('Bag full of 💰')")
@@ -395,12 +395,6 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("binary(6)", "DECODE('000000000000', 'HEX')", VARBINARY, "X'000000000000'")
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_binary"));
-
-        // Verify 'IS NULL' doesn't get rows where the value is X'00...' padded in Phoenix
-        try (TestTable table = new TestTable(new PhoenixSqlExecutor(phoenixServer.getJdbcUrl()), "tpch.test_binary", "(null_binary binary(1), empty_binary binary(10), pk integer primary key)", ImmutableList.of("NULL, DECODE('', 'HEX'), 1"))) {
-            assertQueryReturnsEmptyResult(format("SELECT * FROM %s WHERE null_binary IS NULL", table.getName()));
-            assertQueryReturnsEmptyResult(format("SELECT * FROM %s WHERE empty_binary IS NULL", table.getName()));
-        }
     }
 
     @Test

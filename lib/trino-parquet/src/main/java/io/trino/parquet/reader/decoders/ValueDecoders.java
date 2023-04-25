@@ -45,7 +45,7 @@ import static io.trino.parquet.reader.decoders.PlainByteArrayDecoders.BoundedVar
 import static io.trino.parquet.reader.decoders.PlainByteArrayDecoders.CharPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.BooleanPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.FixedLengthPlainValueDecoder;
-import static io.trino.parquet.reader.decoders.PlainValueDecoders.Int96PlainValueDecoder;
+import static io.trino.parquet.reader.decoders.PlainValueDecoders.Int96TimestampPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntToBytePlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.IntToShortPlainValueDecoder;
@@ -62,7 +62,6 @@ import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt3
 import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt64ToByteDecoder;
 import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt64ToIntDecoder;
 import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt64ToShortDecoder;
-import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 /**
@@ -175,12 +174,12 @@ public final class ValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt96Decoder(ParquetEncoding encoding, PrimitiveField field)
+    public static ValueDecoder<int[]> getInt96TimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         if (PLAIN.equals(encoding)) {
             // INT96 type has been deprecated as per https://github.com/apache/parquet-format/blob/master/Encodings.md#plain-plain--0
             // However, this encoding is still commonly encountered in parquet files.
-            return new Int96PlainValueDecoder();
+            return new Int96TimestampPlainValueDecoder();
         }
         throw wrongEncoding(encoding, field);
     }

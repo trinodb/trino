@@ -141,6 +141,8 @@ import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
+import io.trino.tracing.ForTracing;
+import io.trino.tracing.TracingMetadata;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 import io.trino.type.JsonPath2016Type;
@@ -368,7 +370,8 @@ public class ServerMainModule
 
         // metadata
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
-        binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(Metadata.class).annotatedWith(ForTracing.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+        binder.bind(Metadata.class).to(TracingMetadata.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, SystemSecurityMetadata.class)
                 .setDefault()
                 .to(DisabledSystemSecurityMetadata.class)

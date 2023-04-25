@@ -291,7 +291,6 @@ public class TestLimitMaxWriterNodesCount
                         node(TableWriterNode.class,
                                 project(
                                         exchange(LOCAL,
-                                                // partitionCount for writing stage is empty because it is FTE mode
                                                 exchange(REMOTE, SCALED_WRITER_HASH_DISTRIBUTION, Optional.empty(),
                                                         project(
                                                                 values("column_a", "column_b"))))))));

@@ -61,6 +61,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
@@ -93,7 +94,6 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
-import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -298,16 +298,7 @@ public class TrinoHiveCatalog
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        io.trino.plugin.hive.metastore.Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
-        if (!isIcebergTable(table)) {
-            throw new UnknownTableTypeException(schemaTableName);
-        }
-
-        metastore.dropTable(
-                schemaTableName.getSchemaName(),
-                schemaTableName.getTableName(),
-                false /* do not delete data */);
+        dropTableFromMetastore(schemaTableName);
     }
 
     @Override
@@ -333,10 +324,39 @@ public class TrinoHiveCatalog
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 false /* do not delete data */);
-        // Use the Iceberg routine for dropping the table data because the data files
-        // of the Iceberg table may be located in different locations
-        dropTableData(table.io(), metadata);
+        try {
+            // Use the Iceberg routine for dropping the table data because the data files
+            // of the Iceberg table may be located in different locations
+            dropTableData(table.io(), metadata);
+        }
+        catch (RuntimeException e) {
+            // If the snapshot file is not found, an exception will be thrown by the dropTableData function.
+            // So log the exception and continue with deleting the table location
+            log.warn(e, "Failed to delete table data referenced by metadata");
+        }
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, metastoreTable.getStorage().getLocation());
+    }
+
+    @Override
+    public void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        io.trino.plugin.hive.metastore.Table table = dropTableFromMetastore(schemaTableName);
+        deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.getStorage().getLocation());
+    }
+
+    private io.trino.plugin.hive.metastore.Table dropTableFromMetastore(SchemaTableName schemaTableName)
+    {
+        io.trino.plugin.hive.metastore.Table table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+        if (!isIcebergTable(table)) {
+            throw new UnknownTableTypeException(schemaTableName);
+        }
+
+        metastore.dropTable(
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                false /* do not delete data */);
+        return table;
     }
 
     @Override
@@ -415,7 +435,7 @@ public class TrinoHiveCatalog
         String tableNameForLocation = createNewTableName(schemaTableName.getTableName());
         String location = database.getLocation().orElseThrow(() ->
                 new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaTableName.getSchemaName())));
-        return join("/", location, tableNameForLocation);
+        return appendPath(location, tableNameForLocation);
     }
 
     @Override

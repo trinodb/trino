@@ -31,7 +31,6 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Cube;
 import io.trino.sql.tree.CurrentCatalog;
 import io.trino.sql.tree.CurrentPath;
 import io.trino.sql.tree.CurrentSchema;
@@ -84,7 +83,6 @@ import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
-import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowDataType;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -1230,15 +1228,24 @@ public final class ExpressionFormatter
                 }
             }
             else if (groupingElement instanceof GroupingSets) {
+                String type;
+                switch (((GroupingSets) groupingElement).getType()) {
+                    case EXPLICIT:
+                        type = "GROUPING SETS";
+                        break;
+                    case CUBE:
+                        type = "CUBE";
+                        break;
+                    case ROLLUP:
+                        type = "ROLLUP";
+                        break;
+                    default:
+                        throw new UnsupportedOperationException();
+                }
+
                 result = ((GroupingSets) groupingElement).getSets().stream()
                         .map(ExpressionFormatter::formatGroupingSet)
-                        .collect(joining(", ", "GROUPING SETS (", ")"));
-            }
-            else if (groupingElement instanceof Cube) {
-                result = "CUBE " + formatGroupingSet(groupingElement.getExpressions());
-            }
-            else if (groupingElement instanceof Rollup) {
-                result = "ROLLUP " + formatGroupingSet(groupingElement.getExpressions());
+                        .collect(joining(", ", type + " (", ")"));
             }
             return result;
         })

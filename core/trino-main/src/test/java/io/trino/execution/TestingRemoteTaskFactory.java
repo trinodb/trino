@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -71,6 +72,7 @@ public class TestingRemoteTaskFactory
     @Override
     public synchronized RemoteTask createRemoteTask(
             Session session,
+            Span stageSpan,
             TaskId taskId,
             InternalNode node,
             PlanFragment fragment,

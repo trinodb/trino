@@ -20,6 +20,9 @@ import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -228,6 +231,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
@@ -345,6 +349,7 @@ public class LocalQueryRunner
         requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
         checkArgument(defaultSession.getTransactionId().isEmpty() || !withInitialTransaction, "Already in transaction");
 
+        Tracer tracer = noopTracer();
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
         requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
         this.maxSpillPerNode = nodeSpillConfig.getMaxSpillPerNode();
@@ -405,10 +410,11 @@ public class LocalQueryRunner
                 pageIndexerFactory,
                 nodeInfo,
                 testingVersionEmbedder(),
+                OpenTelemetry.noop(),
                 transactionManager,
                 typeManager,
                 nodeSchedulerConfig));
-        this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), new QueryManagerConfig());
+        this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
@@ -432,7 +438,7 @@ public class LocalQueryRunner
                 new JsonValueFunction(functionManager, metadata, typeManager),
                 new JsonQueryFunction(functionManager, metadata, typeManager)));
 
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, tracer);
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(functionManager);
@@ -497,6 +503,7 @@ public class LocalQueryRunner
         Optional<TransactionId> transactionId = withInitialTransaction ? Optional.of(transactionManager.beginTransaction(true)) : defaultSession.getTransactionId();
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
+                Span.getInvalid(),
                 transactionId,
                 defaultSession.isClientTransactionSupport(),
                 defaultSession.getIdentity(),
@@ -1018,6 +1025,7 @@ public class LocalQueryRunner
 
             SplitSource splitSource = splitManager.getSplits(
                     session,
+                    Span.getInvalid(),
                     table,
                     EMPTY,
                     alwaysTrue());
@@ -1171,7 +1179,8 @@ public class LocalQueryRunner
                                 tablePropertyManager,
                                 materializedViewPropertyManager),
                         new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
-                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))));
+                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))),
+                plannerContext.getTracer());
     }
 
     private static List<Split> getNextBatch(SplitSource splitSource)

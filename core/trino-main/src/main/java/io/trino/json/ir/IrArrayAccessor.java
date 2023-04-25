@@ -18,21 +18,23 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class IrArrayAccessor
-        extends IrAccessor
+        extends IrPathNode
 {
+    private final IrPathNode base;
+
     // list of subscripts or empty list for wildcard array accessor
     private final List<Subscript> subscripts;
 
     @JsonCreator
     public IrArrayAccessor(@JsonProperty("base") IrPathNode base, @JsonProperty("subscripts") List<Subscript> subscripts, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "array accessor base is null");
         this.subscripts = requireNonNull(subscripts, "subscripts is null");
     }
 
@@ -43,28 +45,15 @@ public class IrArrayAccessor
     }
 
     @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
+    }
+
+    @JsonProperty
     public List<Subscript> getSubscripts()
     {
         return subscripts;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrArrayAccessor other = (IrArrayAccessor) obj;
-        return Objects.equals(this.base, other.base) && Objects.equals(this.subscripts, other.subscripts);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base, subscripts);
     }
 
     public static class Subscript
@@ -89,25 +78,6 @@ public class IrArrayAccessor
         public Optional<IrPathNode> getTo()
         {
             return to;
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            Subscript other = (Subscript) obj;
-            return Objects.equals(this.from, other.from) && Objects.equals(this.to, other.to);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(from, to);
         }
     }
 }

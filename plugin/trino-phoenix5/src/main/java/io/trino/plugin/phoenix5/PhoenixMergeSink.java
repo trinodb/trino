@@ -176,7 +176,7 @@ public class PhoenixMergeSink
         int rowIdUpdatePositionCount = 0;
 
         for (int position = 0; position < positionCount; position++) {
-            int operation = (int) TINYINT.getLong(operationBlock, position);
+            int operation = TINYINT.getByte(operationBlock, position);
             switch (operation) {
                 case INSERT_OPERATION_NUMBER -> {
                     insertPositions[insertPositionCount] = position;

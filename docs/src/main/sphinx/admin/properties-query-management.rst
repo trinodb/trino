@@ -29,6 +29,16 @@ stages of a query. You can use the following execution policies:
   dependencies typically prevent full processing and cause longer queue times
   which increases the query wall time overall.
 
+``query.determine-partition-count-for-write-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``false``
+* **Session property:** ``determine_partition_count_for_write_enabled``
+
+Enables determining the number of partitions based on amount of data read and processed by the
+query for write queries.
+
 ``query.max-hash-partition-count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -48,6 +58,16 @@ joins, aggregations, partitioned window functions and others.
 
 The minimum number of partitions to use for processing distributed operations, such as
 joins, aggregations, partitioned window functions and others.
+
+``query.min-hash-partition-count-for-write``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``50``
+* **Session property:** ``min_hash_partition_count_for_writre``
+
+The minimum number of partitions to use for processing distributed operations in write queries,
+such as joins, aggregations, partitioned window functions and others.
 
 ``query.max-writer-tasks-count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -154,6 +174,16 @@ The maximum allowed time for a query to be processed on the cluster, before
 it is terminated. The time includes time for analysis and planning, but also
 time spend in a queue waiting, so essentially this is the time allowed for a
 query to exist since creation.
+
+``query.max-scan-physical-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-data-size`
+* **Session property:** ``query_max_scan_physical_bytes``
+
+The maximum number of bytes that can be scanned by a query during its execution.
+When this limit is reached, query processing is terminated to prevent excessive
+resource usage.
 
 ``query.max-stage-count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^

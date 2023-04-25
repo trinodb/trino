@@ -136,7 +136,6 @@ import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
-import io.trino.sql.tree.Cube;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
@@ -203,7 +202,6 @@ import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.Revoke;
 import io.trino.sql.tree.Rollback;
-import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
@@ -1692,7 +1690,6 @@ class StatementAnalyzer
 
             analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(
                     catalogHandle,
-                    function.getSchema(),
                     function.getName(),
                     argumentsAnalysis.getPassedArguments(),
                     orderedTableArguments.build(),
@@ -3975,18 +3972,18 @@ class StatementAnalyzer
                     if (element instanceof SimpleGroupBy) {
                         product = 1;
                     }
-                    else if (element instanceof Cube) {
-                        int exponent = element.getExpressions().size();
-                        if (exponent > 30) {
-                            throw new ArithmeticException();
-                        }
-                        product = 1 << exponent;
-                    }
-                    else if (element instanceof Rollup) {
-                        product = element.getExpressions().size() + 1;
-                    }
-                    else if (element instanceof GroupingSets) {
-                        product = ((GroupingSets) element).getSets().size();
+                    else if (element instanceof GroupingSets groupingSets) {
+                        product = switch (groupingSets.getType()) {
+                            case CUBE -> {
+                                int exponent = ((GroupingSets) element).getSets().size();
+                                if (exponent > 30) {
+                                    throw new ArithmeticException();
+                                }
+                                yield 1 << exponent;
+                            }
+                            case ROLLUP -> groupingSets.getSets().size() + 1;
+                            case EXPLICIT -> groupingSets.getSets().size();
+                        };
                     }
                     else {
                         throw new UnsupportedOperationException("Unsupported grouping element type: " + element.getClass().getName());
@@ -4007,8 +4004,8 @@ class StatementAnalyzer
         private GroupingSetAnalysis analyzeGroupBy(QuerySpecification node, Scope scope, List<Expression> outputExpressions)
         {
             if (node.getGroupBy().isPresent()) {
-                ImmutableList.Builder<Set<FieldId>> cubes = ImmutableList.builder();
-                ImmutableList.Builder<List<FieldId>> rollups = ImmutableList.builder();
+                ImmutableList.Builder<List<Set<FieldId>>> cubes = ImmutableList.builder();
+                ImmutableList.Builder<List<Set<FieldId>>> rollups = ImmutableList.builder();
                 ImmutableList.Builder<List<Set<FieldId>>> sets = ImmutableList.builder();
                 ImmutableList.Builder<Expression> complexExpressions = ImmutableList.builder();
                 ImmutableList.Builder<Expression> groupingExpressions = ImmutableList.builder();
@@ -4044,7 +4041,7 @@ class StatementAnalyzer
                             groupingExpressions.add(column);
                         }
                     }
-                    else {
+                    else if (groupingElement instanceof GroupingSets element) {
                         for (Expression column : groupingElement.getExpressions()) {
                             analyzeExpression(column, scope);
                             if (!analysis.getColumnReferences().contains(NodeRef.of(column))) {
@@ -4054,34 +4051,18 @@ class StatementAnalyzer
                             groupingExpressions.add(column);
                         }
 
-                        if (groupingElement instanceof Cube) {
-                            Set<FieldId> cube = groupingElement.getExpressions().stream()
-                                    .map(NodeRef::of)
-                                    .map(analysis.getColumnReferenceFields()::get)
-                                    .map(ResolvedField::getFieldId)
-                                    .collect(toImmutableSet());
+                        List<Set<FieldId>> groupingSets = element.getSets().stream()
+                                .map(set -> set.stream()
+                                        .map(NodeRef::of)
+                                        .map(analysis.getColumnReferenceFields()::get)
+                                        .map(ResolvedField::getFieldId)
+                                        .collect(toImmutableSet()))
+                                .collect(toImmutableList());
 
-                            cubes.add(cube);
-                        }
-                        else if (groupingElement instanceof Rollup) {
-                            List<FieldId> rollup = groupingElement.getExpressions().stream()
-                                    .map(NodeRef::of)
-                                    .map(analysis.getColumnReferenceFields()::get)
-                                    .map(ResolvedField::getFieldId)
-                                    .collect(toImmutableList());
-
-                            rollups.add(rollup);
-                        }
-                        else if (groupingElement instanceof GroupingSets) {
-                            List<Set<FieldId>> groupingSets = ((GroupingSets) groupingElement).getSets().stream()
-                                    .map(set -> set.stream()
-                                            .map(NodeRef::of)
-                                            .map(analysis.getColumnReferenceFields()::get)
-                                            .map(ResolvedField::getFieldId)
-                                            .collect(toImmutableSet()))
-                                    .collect(toImmutableList());
-
-                            sets.add(groupingSets);
+                        switch (element.getType()) {
+                            case CUBE -> cubes.add(groupingSets);
+                            case ROLLUP -> rollups.add(groupingSets);
+                            case EXPLICIT -> sets.add(groupingSets);
                         }
                     }
                 }

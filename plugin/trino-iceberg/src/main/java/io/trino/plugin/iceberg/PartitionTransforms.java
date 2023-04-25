@@ -372,7 +372,7 @@ public final class PartitionTransforms
 
     private static int hashInteger(Block block, int position)
     {
-        return bucketHash(INTEGER.getLong(block, position));
+        return bucketHash(INTEGER.getInt(block, position));
     }
 
     private static int hashBigint(Block block, int position)
@@ -400,7 +400,7 @@ public final class PartitionTransforms
 
     private static int hashDate(Block block, int position)
     {
-        return bucketHash(DATE.getLong(block, position));
+        return bucketHash(DATE.getInt(block, position));
     }
 
     private static int hashTime(Block block, int position)
@@ -490,7 +490,7 @@ public final class PartitionTransforms
 
     private static long truncateInteger(Block block, int position, int width)
     {
-        long value = INTEGER.getLong(block, position);
+        long value = INTEGER.getInt(block, position);
         return value - ((value % width) + width) % width;
     }
 

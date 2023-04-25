@@ -507,9 +507,9 @@ public final class QueryAssertions
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
 
-        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue())
-                .as("Table is not loaded properly: %s", table)
-                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue());
+        assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue())
+                .as("Table is not loaded properly: %s", table.getObjectName())
+                .isEqualTo(queryRunner.execute(session, "SELECT count(*) FROM " + table).getOnlyValue());
     }
 
     public static RuntimeException getTrinoExceptionCause(Throwable e)

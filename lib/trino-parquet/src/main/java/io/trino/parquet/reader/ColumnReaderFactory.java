@@ -52,8 +52,8 @@ import static io.trino.parquet.reader.decoders.TransformingValueDecoders.getInt9
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
+import static io.trino.parquet.reader.flat.Fixed12ColumnAdapter.FIXED12_ADAPTER;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
-import static io.trino.parquet.reader.flat.Int96ColumnAdapter.INT96_ADAPTER;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.parquet.reader.flat.LongColumnAdapter.LONG_ADAPTER;
 import static io.trino.parquet.reader.flat.ShortColumnAdapter.SHORT_ADAPTER;
@@ -83,8 +83,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
-    private static final int MAX_INT_DIGITS = 10;
-
     private ColumnReaderFactory() {}
 
     public static ColumnReader create(PrimitiveField field, DateTimeZone timeZone, AggregatedMemoryContext aggregatedMemoryContext, ParquetReaderOptions options)
@@ -176,7 +174,7 @@ public final class ColumnReaderFactory
                 return createColumnReader(
                         field,
                         (encoding, primitiveField) -> getInt96ToLongTimestampDecoder(encoding, primitiveField, timeZone),
-                        INT96_ADAPTER,
+                        FIXED12_ADAPTER,
                         memoryContext);
             }
             if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT96) {
@@ -197,9 +195,9 @@ public final class ColumnReaderFactory
                     };
                 }
                 return switch (timestampAnnotation.getUnit()) {
-                    case MILLIS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMillisToLongTimestampDecoder, INT96_ADAPTER, memoryContext);
-                    case MICROS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampDecoder, INT96_ADAPTER, memoryContext);
-                    case NANOS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampNanosToLongTimestampDecoder, INT96_ADAPTER, memoryContext);
+                    case MILLIS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMillisToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
+                    case MICROS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
+                    case NANOS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampNanosToLongTimestampDecoder, FIXED12_ADAPTER, memoryContext);
                 };
             }
             if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && primitiveType == INT64) {
@@ -215,15 +213,13 @@ public final class ColumnReaderFactory
                 }
                 return switch (timestampAnnotation.getUnit()) {
                     case MILLIS, NANOS -> throw unsupportedException(type, field);
-                    case MICROS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder, INT96_ADAPTER, memoryContext);
+                    case MICROS -> createColumnReader(field, TransformingValueDecoders::getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder, FIXED12_ADAPTER, memoryContext);
                 };
             }
             if (type instanceof DecimalType decimalType && decimalType.isShort()
                     && isIntegerOrDecimalPrimitive(primitiveType)) {
-                if (decimalType.getScale() == 0 && decimalType.getPrecision() >= MAX_INT_DIGITS
-                        && primitiveType == INT32
-                        && isIntegerAnnotation(annotation)) {
-                    return createColumnReader(field, TransformingValueDecoders::getInt32ToLongDecoder, LONG_ADAPTER, memoryContext);
+                if (primitiveType == INT32 && isIntegerAnnotation(annotation)) {
+                    return createColumnReader(field, TransformingValueDecoders::getInt32ToShortDecimalDecoder, LONG_ADAPTER, memoryContext);
                 }
                 if (!(annotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation)) {
                     throw unsupportedException(type, field);
@@ -270,7 +266,12 @@ public final class ColumnReaderFactory
 
         return switch (primitiveType) {
             case BOOLEAN -> new BooleanColumnReader(field);
-            case INT32 -> createDecimalColumnReader(field).orElse(new IntColumnReader(field));
+            case INT32 -> createDecimalColumnReader(field).orElseGet(() -> {
+                if (type instanceof DecimalType decimalType && decimalType.isShort()) {
+                    return new Int32ShortDecimalColumnReader(field);
+                }
+                return new IntColumnReader(field);
+            });
             case INT64 -> {
                 if (annotation instanceof TimeLogicalTypeAnnotation timeAnnotation) {
                     if (field.getType() instanceof TimeType && timeAnnotation.getUnit() == MICROS) {

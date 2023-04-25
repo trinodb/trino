@@ -233,12 +233,12 @@ public interface Metadata
     /**
      * Rename the specified column.
      */
-    void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
+    void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target);
 
     /**
      * Add the specified column to the table.
      */
-    void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
+    void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column);
 
     /**
      * Set the specified type to the column.
@@ -253,7 +253,7 @@ public interface Metadata
     /**
      * Drop the specified column.
      */
-    void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+    void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle column);
 
     /**
      * Drop the specified field from the column.

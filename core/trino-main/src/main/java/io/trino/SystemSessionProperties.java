@@ -60,8 +60,10 @@ public final class SystemSessionProperties
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
+    public static final String DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED = "determine_partition_count_for_write_enabled";
     public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
+    public static final String MIN_HASH_PARTITION_COUNT_FOR_WRITE = "min_hash_partition_count_for_write";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
@@ -180,9 +182,10 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
-    public static final String FAULT_TOLERANT_EXECUTION_PARTITION_COUNT = "fault_tolerant_execution_partition_count";
+    public static final String FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT = "fault_tolerant_execution_max_partition_count";
+    public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT = "fault_tolerant_execution_min_partition_count";
+    public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE = "fault_tolerant_execution_min_partition_count_for_write";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
-    public static final String ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS = "adaptive_partial_aggregation_min_rows";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
     public static final String REMOTE_TASK_MAX_REQUEST_SIZE = "remote_task_max_request_size";
@@ -254,6 +257,11 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
+                booleanProperty(
+                        DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED,
+                        "Determine the number of partitions based on amount of data read and processed by the query for write queries",
+                        false,
+                        false),
                 integerProperty(
                         MAX_HASH_PARTITION_COUNT,
                         "Maximum number of partitions for distributed joins and aggregations",
@@ -265,6 +273,12 @@ public final class SystemSessionProperties
                         "Minimum number of partitions for distributed joins and aggregations",
                         queryManagerConfig.getMinHashPartitionCount(),
                         value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT, 1, false),
+                        false),
+                integerProperty(
+                        MIN_HASH_PARTITION_COUNT_FOR_WRITE,
+                        "Minimum number of partitions for distributed joins and aggregations in write queries",
+                        queryManagerConfig.getMinHashPartitionCountForWrite(),
+                        value -> validateIntegerValue(value, MIN_HASH_PARTITION_COUNT_FOR_WRITE, 1, false),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -913,19 +927,27 @@ public final class SystemSessionProperties
                         value -> validateDoubleRange(value, FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, 0.0, 1.0),
                         false),
                 integerProperty(
-                        FAULT_TOLERANT_EXECUTION_PARTITION_COUNT,
-                        "Number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
-                        queryManagerConfig.getFaultTolerantExecutionPartitionCount(),
+                        FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT,
+                        "Maximum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionMaxPartitionCount(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, 1, false),
+                        false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT,
+                        "Minimum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionMinPartitionCount(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, 1, false),
+                        false),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE,
+                        "Minimum number of partitions for distributed joins and aggregations in write queries executed with fault tolerant execution enabled",
+                        queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, false),
                         false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
                         optimizerConfig.isAdaptivePartialAggregationEnabled(),
-                        false),
-                longProperty(
-                        ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS,
-                        "Minimum number of processed rows before partial aggregation might be adaptively turned off",
-                        optimizerConfig.getAdaptivePartialAggregationMinRows(),
                         false),
                 doubleProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD,
@@ -1026,6 +1048,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
     }
 
+    public static boolean isDeterminePartitionCountForWriteEnabled(Session session)
+    {
+        return session.getSystemProperty(DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED, Boolean.class);
+    }
+
     public static int getMaxHashPartitionCount(Session session)
     {
         return session.getSystemProperty(MAX_HASH_PARTITION_COUNT, Integer.class);
@@ -1034,6 +1061,11 @@ public final class SystemSessionProperties
     public static int getMinHashPartitionCount(Session session)
     {
         return session.getSystemProperty(MIN_HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static int getMinHashPartitionCountForWrite(Session session)
+    {
+        return session.getSystemProperty(MIN_HASH_PARTITION_COUNT_FOR_WRITE, Integer.class);
     }
 
     public static boolean preferStreamingOperators(Session session)
@@ -1699,19 +1731,24 @@ public final class SystemSessionProperties
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE, Double.class);
     }
 
-    public static int getFaultTolerantExecutionPartitionCount(Session session)
+    public static int getFaultTolerantExecutionMaxPartitionCount(Session session)
     {
-        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_PARTITION_COUNT, Integer.class);
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, Integer.class);
+    }
+
+    public static int getFaultTolerantExecutionMinPartitionCount(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, Integer.class);
+    }
+
+    public static int getFaultTolerantExecutionMinPartitionCountForWrite(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, Integer.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
     {
         return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
-    }
-
-    public static long getAdaptivePartialAggregationMinRows(Session session)
-    {
-        return session.getSystemProperty(ADAPTIVE_PARTIAL_AGGREGATION_MIN_ROWS, Long.class);
     }
 
     public static double getAdaptivePartialAggregationUniqueRowsRatioThreshold(Session session)

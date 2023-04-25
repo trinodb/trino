@@ -33,7 +33,6 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.type.Type;
@@ -685,10 +684,20 @@ public class PlanBuilder
         }
     }
 
-    public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol, PartitioningScheme partitioningScheme)
+    public TableFinishNode tableFinish(PlanNode source, WriterTarget target, Symbol rowCountSymbol)
     {
         return new TableFinishNode(
                 idAllocator.getNextId(),
+                source,
+                target,
+                rowCountSymbol,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public TableFinishNode tableWithExchangeCreate(WriterTarget target, PlanNode source, Symbol rowCountSymbol)
+    {
+        return tableFinish(
                 exchange(e -> e
                         .addSource(tableWriter(
                                 ImmutableList.of(rowCountSymbol),
@@ -699,11 +708,9 @@ public class PlanBuilder
                                 source,
                                 rowCountSymbol))
                         .addInputsSet(rowCountSymbol)
-                        .partitioningScheme(partitioningScheme)),
+                        .partitioningScheme(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(rowCountSymbol)))),
                 target,
-                rowCountSymbol,
-                Optional.empty(),
-                Optional.empty());
+                rowCountSymbol);
     }
 
     public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean reportingWrittenBytesSupported, boolean multipleWritersPerPartitionSupported, OptionalInt maxWriterTasks)
@@ -1229,7 +1236,7 @@ public class PlanBuilder
                 sources,
                 tableArgumentProperties,
                 copartitioningLists,
-                new TableFunctionHandle(TEST_CATALOG_HANDLE, new SchemaFunctionName("system", name), new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
+                new TableFunctionHandle(TEST_CATALOG_HANDLE, new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
     }
 
     public TableFunctionProcessorNode tableFunctionProcessor(Consumer<TableFunctionProcessorBuilder> consumer)

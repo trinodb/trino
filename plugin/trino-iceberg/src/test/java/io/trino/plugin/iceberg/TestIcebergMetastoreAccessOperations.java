@@ -116,7 +116,7 @@ public class TestIcebergMetastoreAccessOperations
                 ImmutableMultiset.builder()
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
-                        .addCopies(GET_TABLE, 5)
+                        .addCopies(GET_TABLE, 4)
                         .add(REPLACE_TABLE)
                         .build());
     }

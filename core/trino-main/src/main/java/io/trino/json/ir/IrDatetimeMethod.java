@@ -17,20 +17,21 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class IrDatetimeMethod
-        extends IrMethod
+        extends IrPathNode
 {
+    private final IrPathNode base;
     private final Optional<String> format; // this is a string literal
 
     @JsonCreator
     public IrDatetimeMethod(@JsonProperty("base") IrPathNode base, @JsonProperty("format") Optional<String> format, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "datetime() method base is null");
         this.format = requireNonNull(format, "format is null");
     }
 
@@ -41,27 +42,14 @@ public class IrDatetimeMethod
     }
 
     @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
+    }
+
+    @JsonProperty
     public Optional<String> getFormat()
     {
         return format;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrDatetimeMethod other = (IrDatetimeMethod) obj;
-        return Objects.equals(this.base, other.base) && Objects.equals(this.format, other.format);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base, format);
     }
 }

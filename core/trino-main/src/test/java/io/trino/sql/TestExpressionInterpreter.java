@@ -396,6 +396,8 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("NULL BETWEEN 2 AND 4", "NULL");
         assertOptimizedEquals("3 BETWEEN NULL AND 4", "NULL");
         assertOptimizedEquals("3 BETWEEN 2 AND NULL", "NULL");
+        assertOptimizedEquals("2 BETWEEN 3 AND NULL", "false");
+        assertOptimizedEquals("8 BETWEEN NULL AND 6", "false");
 
         assertOptimizedEquals("'cc' BETWEEN 'b' AND 'd'", "true");
         assertOptimizedEquals("'b' BETWEEN 'cc' AND 'd'", "false");

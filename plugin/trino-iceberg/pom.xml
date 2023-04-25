@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>413-SNAPSHOT</version>
+        <version>415-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -71,12 +71,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-plugin-toolkit</artifactId>
-        </dependency>
-
-        <!-- TODO: move to runtime scope and remove dependency plugin exclusion below -->
-        <dependency>
-            <groupId>io.trino.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -176,6 +170,11 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
         </dependency>
@@ -188,6 +187,11 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
         </dependency>
 
         <dependency>
@@ -245,6 +249,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
             <scope>runtime</scope>
@@ -256,7 +266,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>node</artifactId>
@@ -278,14 +287,14 @@
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.1</version>
+            <version>5.2.1</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents.core5</groupId>
             <artifactId>httpcore5</artifactId>
-            <version>5.1.1</version>
+            <version>5.2.1</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -324,6 +333,18 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -504,34 +525,6 @@
             </plugin>
 
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <configuration>
-                    <rules>
-                        <requireUpperBoundDeps>
-                            <excludes combine.children="append">
-                                <exclude>com.google.guava:guava</exclude>
-                            </excludes>
-                        </requireUpperBoundDeps>
-                        <RestrictImports>
-                            <includeTestCode>false</includeTestCode>
-                            <bannedImport>org.apache.hadoop.**</bannedImport>
-                        </RestrictImports>
-                    </rules>
-                </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <ignoredNonTestScopedDependencies>
-                        <ignoredDependency>io.trino.hadoop:hadoop-apache</ignoredDependency>
-                    </ignoredNonTestScopedDependencies>
-                </configuration>
-            </plugin>
-
-            <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>
@@ -562,6 +555,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
+                                <exclude>**/Test*Avro*.java</exclude>
+                                <exclude>**/Test*Minio*.java</exclude>
                                 <exclude>**/TestIcebergGlueCatalogConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestTrinoGlueCatalog.java</exclude>
                                 <exclude>**/TestSharedGlueMetastore.java</exclude>
@@ -590,6 +585,24 @@
                         <configuration>
                             <includes>
                                 <include>**/Test*FailureRecoveryTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>minio-and-avro</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/Test*Avro*.java</include>
+                                <include>**/Test*Minio*.java</include>
                             </includes>
                         </configuration>
                     </plugin>

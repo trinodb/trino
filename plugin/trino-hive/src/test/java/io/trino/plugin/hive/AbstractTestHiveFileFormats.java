@@ -63,7 +63,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -146,7 +145,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(groups = "hive")
 public abstract class AbstractTestHiveFileFormats
 {
     protected static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");

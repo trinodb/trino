@@ -17,20 +17,21 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class IrFilter
-        extends IrAccessor
+        extends IrPathNode
 {
+    private final IrPathNode base;
     private final IrPredicate predicate;
 
     @JsonCreator
     public IrFilter(@JsonProperty("base") IrPathNode base, @JsonProperty("predicate") IrPredicate predicate, @JsonProperty("type") Optional<Type> type)
     {
-        super(base, type);
+        super(type);
+        this.base = requireNonNull(base, "filter base is null");
         this.predicate = requireNonNull(predicate, "predicate is null");
     }
 
@@ -41,27 +42,14 @@ public class IrFilter
     }
 
     @JsonProperty
+    public IrPathNode getBase()
+    {
+        return base;
+    }
+
+    @JsonProperty
     public IrPredicate getPredicate()
     {
         return predicate;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrFilter other = (IrFilter) obj;
-        return Objects.equals(this.base, other.base) && Objects.equals(this.predicate, other.predicate);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(base, predicate);
     }
 }

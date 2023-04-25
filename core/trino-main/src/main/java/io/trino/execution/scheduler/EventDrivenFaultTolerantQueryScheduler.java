@@ -33,6 +33,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
@@ -122,7 +123,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getDone;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForExecutionPerQuery;
 import static io.trino.SystemSessionProperties.getMaxTasksWaitingForNodePerStage;
 import static io.trino.SystemSessionProperties.getRetryDelayScaleFactor;
@@ -168,6 +169,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     private final NodeTaskMap nodeTaskMap;
     private final ExecutorService queryExecutor;
     private final ScheduledExecutorService scheduledExecutorService;
+    private final Tracer tracer;
     private final SplitSchedulerStats schedulerStats;
     private final PartitionMemoryEstimatorFactory memoryEstimatorFactory;
     private final NodePartitioningManager nodePartitioningManager;
@@ -195,6 +197,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             NodeTaskMap nodeTaskMap,
             ExecutorService queryExecutor,
             ScheduledExecutorService scheduledExecutorService,
+            Tracer tracer,
             SplitSchedulerStats schedulerStats,
             PartitionMemoryEstimatorFactory memoryEstimatorFactory,
             NodePartitioningManager nodePartitioningManager,
@@ -216,6 +219,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.scheduledExecutorService = requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.memoryEstimatorFactory = requireNonNull(memoryEstimatorFactory, "memoryEstimatorFactory is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "partitioningSchemeFactory is null");
@@ -266,7 +270,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory = new FaultTolerantPartitioningSchemeFactory(
                 nodePartitioningManager,
                 session,
-                getFaultTolerantExecutionPartitionCount(session));
+                getFaultTolerantExecutionMaxPartitionCount(session));
         Closer closer = Closer.create();
         NodeAllocator nodeAllocator = closer.register(nodeAllocatorService.getNodeAllocator(session));
         try {
@@ -279,7 +283,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                     summarizeTaskInfo,
                     nodeTaskMap,
                     queryExecutor,
-                    scheduledExecutorService, schedulerStats,
+                    scheduledExecutorService,
+                    tracer,
+                    schedulerStats,
                     memoryEstimatorFactory,
                     partitioningSchemeFactory,
                     exchangeManager,
@@ -458,6 +464,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final NodeTaskMap nodeTaskMap;
         private final ExecutorService queryExecutor;
         private final ScheduledExecutorService scheduledExecutorService;
+        private final Tracer tracer;
         private final SplitSchedulerStats schedulerStats;
         private final PartitionMemoryEstimatorFactory memoryEstimatorFactory;
         private final FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory;
@@ -501,6 +508,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 NodeTaskMap nodeTaskMap,
                 ExecutorService queryExecutor,
                 ScheduledExecutorService scheduledExecutorService,
+                Tracer tracer,
                 SplitSchedulerStats schedulerStats,
                 PartitionMemoryEstimatorFactory memoryEstimatorFactory,
                 FaultTolerantPartitioningSchemeFactory partitioningSchemeFactory,
@@ -525,6 +533,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.scheduledExecutorService = requireNonNull(scheduledExecutorService, "scheduledExecutorService is null");
+            this.tracer = requireNonNull(tracer, "tracer is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.memoryEstimatorFactory = requireNonNull(memoryEstimatorFactory, "memoryEstimatorFactory is null");
             this.partitioningSchemeFactory = requireNonNull(partitioningSchemeFactory, "partitioningSchemeFactory is null");
@@ -782,6 +791,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         summarizeTaskInfo,
                         nodeTaskMap,
                         queryStateMachine.getStateMachineExecutor(),
+                        tracer,
                         schedulerStats);
                 closer.register(stage::abort);
                 stageRegistry.add(stage);
@@ -811,13 +821,16 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                 EventDrivenTaskSource taskSource = closer.register(taskSourceFactory.create(
                         session,
+                        stage.getStageSpan(),
                         fragment,
                         sourceExchanges.buildOrThrow(),
-                        partitioningSchemeFactory.get(fragment.getPartitioning()),
+                        partitioningSchemeFactory.get(fragment.getPartitioning(), fragment.getPartitionCount()),
                         stage::recordGetSplitTime,
                         outputDataSizeEstimates.buildOrThrow()));
 
-                FaultTolerantPartitioningScheme sinkPartitioningScheme = partitioningSchemeFactory.get(fragment.getOutputPartitioningScheme().getPartitioning().getHandle());
+                FaultTolerantPartitioningScheme sinkPartitioningScheme = partitioningSchemeFactory.get(
+                        fragment.getOutputPartitioningScheme().getPartitioning().getHandle(),
+                        fragment.getOutputPartitioningScheme().getPartitionCount());
                 ExchangeContext exchangeContext = new ExchangeContext(queryStateMachine.getQueryId(), new ExchangeId("external-exchange-" + stage.getStageId().getId()));
 
                 boolean preserveOrderWithinPartition = rootFragment && stage.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION);
@@ -1118,7 +1131,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private static List<SubPlan> sortPlanInTopologicalOrder(SubPlan subPlan)
         {
             ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
-            Traverser.forTree(SubPlan::getChildren).depthFirstPreOrder(subPlan).forEach(result::add);
+            Traverser.forTree(SubPlan::getChildren).depthFirstPostOrder(subPlan).forEach(result::add);
             return result.build();
         }
 
@@ -1284,7 +1297,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             StagePartition partition = getStagePartition(partitionId);
-            partition.seal(partitionId);
+            partition.seal();
 
             if (!partition.isRunning()) {
                 // if partition is not yet running update its priority as it is no longer speculative
@@ -1758,7 +1771,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             return finalSelectors.contains(planNodeId);
         }
 
-        public void seal(int partitionId)
+        public void seal()
         {
             checkState(openTaskDescriptor.isPresent(), "openTaskDescriptor is empty");
             TaskDescriptor taskDescriptor = openTaskDescriptor.get().createTaskDescriptor(partitionId);
@@ -1995,6 +2008,12 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             return priority < SPECULATIVE_EXECUTION_PRIORITY;
         }
+
+        @Override
+        public String toString()
+        {
+            return "" + task.stageId() + "/" + task.partitionId() + "[" + priority + "]";
+        }
     }
 
     private static class SchedulingQueue
@@ -2028,7 +2047,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (prioritizedTask.isNonSpeculative()) {
                 nonSpeculativeTaskCount++;
             }
-            queue.addOrUpdate(prioritizedTask.task(), prioritizedTask.priority());
+            // using negative priority here as will return entries with lowest pririty first and here we use bigger number for tasks with lower priority
+            queue.addOrUpdate(prioritizedTask.task(), -prioritizedTask.priority());
         }
     }
 
