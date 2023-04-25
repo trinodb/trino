@@ -19,19 +19,21 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HiveHudiPartitionInfo;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +41,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hudi.HudiUtil.getFileStatus;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
+import static org.apache.hudi.hadoop.utils.HoodieInputFormatUtils.getFileStatus;
 
 public class HudiReadOptimizedDirectoryLister
         implements HudiDirectoryLister
@@ -99,10 +102,23 @@ public class HudiReadOptimizedDirectoryLister
     }
 
     @Override
-    public List<FileStatus> listStatus(HudiPartitionInfo partitionInfo)
+    public List<HudiFileStatus> listStatus(HudiPartitionInfo partitionInfo)
     {
         return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
-                .map(baseFile -> getFileStatus(baseFile))
+                .map(baseFile -> {
+                    try {
+                        return getFileStatus(baseFile);
+                    }
+                    catch (IOException e) {
+                        throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error getting file status of " + baseFile.getPath(), e);
+                    }
+                })
+                .map(status -> new HudiFileStatus(
+                        status.getPath(),
+                        false,
+                        status.getLen(),
+                        status.getModificationTime(),
+                        status.getBlockSize()))
                 .collect(toImmutableList());
     }
 

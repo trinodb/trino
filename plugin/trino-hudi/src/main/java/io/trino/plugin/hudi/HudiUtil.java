@@ -28,23 +28,18 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hudi.common.fs.FSUtils;
-import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
-import org.apache.hudi.hadoop.utils.HoodieInputFormatUtils;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
 import static java.util.stream.Collectors.toList;
 
@@ -160,15 +155,5 @@ public final class HudiUtil
         // Do not load the bootstrap index, will not read bootstrap base data or a mapping index defined
         client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
         return client;
-    }
-
-    public static FileStatus getFileStatus(HoodieBaseFile baseFile)
-    {
-        try {
-            return HoodieInputFormatUtils.getFileStatus(baseFile);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error getting file status of " + baseFile.getPath(), e);
-        }
     }
 }
