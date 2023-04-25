@@ -298,6 +298,57 @@ public class TestIcebergStatistics
     }
 
     @Test(dataProvider = "testCollectStatisticsOnWriteDataProvider")
+    public void testCollectStatisticsOnWrite(boolean collectOnStatsOnCreateTable, boolean partitioned)
+    {
+        String tableName = "test_collect_stats_insert_" + collectOnStatsOnCreateTable + partitioned;
+
+        assertUpdate(
+                withStatsOnWrite(getSession(), collectOnStatsOnCreateTable),
+                "CREATE TABLE " + tableName + " " +
+                        (partitioned ? "WITH (partitioning=ARRAY['regionkey']) " : "") +
+                        "AS SELECT * FROM tpch.sf1.nation WHERE nationkey < 12 AND regionkey < 3",
+                7);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                collectOnStatsOnCreateTable
+                        ? """
+                        VALUES
+                          ('nationkey', null, 7, 0, null, '0', '9'),
+                          ('regionkey', null, 3, 0, null, '0', '2'),
+                          ('comment', null, 7, 0, null, null, null),
+                          ('name', null, 7, 0, null, null, null),
+                          (null, null, null, null, 7, null, null)"""
+                        : """
+                        VALUES
+                          ('nationkey', null, null, 0, null, '0', '9'),
+                          ('regionkey', null, null, 0, null, '0', '2'),
+                          ('comment', null, null, 0, null, null, null),
+                          ('name', null, null, 0, null, null, null),
+                          (null, null, null, null, 7, null, null)""");
+
+        assertUpdate(withStatsOnWrite(getSession(), true), "INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation WHERE nationkey >= 12 OR regionkey >= 3", 18);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                collectOnStatsOnCreateTable
+                        ? """
+                        VALUES
+                          ('nationkey', null, 25, 0, null, '0', '24'),
+                          ('regionkey', null, 5, 0, null, '0', '4'),
+                          ('comment', null, 25, 0, null, null, null),
+                          ('name', null, 25, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)"""
+                        : """
+                        VALUES
+                          ('nationkey', null, null, 0, null, '0', '24'),
+                          ('regionkey', null, null, 0, null, '0', '4'),
+                          ('comment', null, null, 0, null, null, null),
+                          ('name', null, null, 0, null, null, null),
+                          (null, null, null, null, 25, null, null)""");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "testCollectStatisticsOnWriteDataProvider")
     public void testCollectStatisticsOnWriteToEmptyTable(boolean collectOnStatsOnCreateTable, boolean partitioned)
     {
         String tableName = "test_collect_stats_insert_into_empty_" + collectOnStatsOnCreateTable + partitioned;
