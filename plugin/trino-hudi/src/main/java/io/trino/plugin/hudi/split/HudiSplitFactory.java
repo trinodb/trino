@@ -15,10 +15,10 @@ package io.trino.plugin.hudi.split;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HivePartitionKey;
+import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.hadoop.PathWithBootstrapFileStatus;
@@ -45,7 +45,7 @@ public class HudiSplitFactory
         this.hudiSplitWeightProvider = requireNonNull(hudiSplitWeightProvider, "hudiSplitWeightProvider is null");
     }
 
-    public Stream<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, FileStatus fileStatus)
+    public Stream<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, HudiFileStatus fileStatus)
     {
         List<FileSplit> splits;
         try {
@@ -60,23 +60,23 @@ public class HudiSplitFactory
                         fileSplit.getPath().toString(),
                         fileSplit.getStart(),
                         fileSplit.getLength(),
-                        fileStatus.getLen(),
-                        fileStatus.getModificationTime(),
+                        fileStatus.length(),
+                        fileStatus.modificationTime(),
                         ImmutableList.of(),
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
                         hudiSplitWeightProvider.calculateSplitWeight(fileSplit.getLength())));
     }
 
-    private List<FileSplit> createSplits(FileStatus fileStatus)
+    private List<FileSplit> createSplits(HudiFileStatus fileStatus)
             throws IOException
     {
         if (fileStatus.isDirectory()) {
-            throw new IOException("Not a file: " + fileStatus.getPath());
+            throw new IOException("Not a file: " + fileStatus.path());
         }
 
-        Path path = fileStatus.getPath();
-        long length = fileStatus.getLen();
+        Path path = fileStatus.path();
+        long length = fileStatus.length();
 
         if (length == 0) {
             return ImmutableList.of(new FileSplit(path, 0, 0, new String[0]));
@@ -87,7 +87,7 @@ public class HudiSplitFactory
         }
 
         ImmutableList.Builder<FileSplit> splits = ImmutableList.builder();
-        long splitSize = fileStatus.getBlockSize();
+        long splitSize = fileStatus.blockSize();
 
         long bytesRemaining = length;
         while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {

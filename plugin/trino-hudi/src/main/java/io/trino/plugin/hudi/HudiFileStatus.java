@@ -11,23 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi.query;
+package io.trino.plugin.hudi;
 
-import io.trino.plugin.hive.metastore.Partition;
-import io.trino.plugin.hudi.HudiFileStatus;
-import io.trino.plugin.hudi.partition.HudiPartitionInfo;
+import org.apache.hadoop.fs.Path;
 
-import java.io.Closeable;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import static java.util.Objects.requireNonNull;
 
-public interface HudiDirectoryLister
-        extends Closeable
+public record HudiFileStatus(Path path, boolean isDirectory, long length, long modificationTime, long blockSize)
 {
-    List<HudiPartitionInfo> getPartitionsToScan();
-
-    List<HudiFileStatus> listStatus(HudiPartitionInfo partitionInfo);
-
-    Map<String, Optional<Partition>> getPartitions(List<String> partitionNames);
+    public HudiFileStatus
+    {
+        requireNonNull(path, "path is null");
+    }
 }
