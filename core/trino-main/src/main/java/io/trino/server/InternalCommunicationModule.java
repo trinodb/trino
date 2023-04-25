@@ -57,10 +57,7 @@ public class InternalCommunicationModule
             });
             configBinder(binder).bindConfigGlobalDefaults(NodeConfig.class, config -> config.setInternalAddressSource(IP_ENCODED_AS_HOSTNAME));
             // rewrite discovery client requests to use IP encoded as hostname
-            newSetBinder(binder, HttpRequestFilter.class, ForDiscoveryClient.class).addBinding()
-                    .toInstance(request -> Request.Builder.fromRequest(request)
-                            .setUri(toIpEncodedAsHostnameUri(request.getUri()))
-                            .build());
+            newSetBinder(binder, HttpRequestFilter.class, ForDiscoveryClient.class).addBinding().to(DiscoveryEncodeAddressAsHostname.class);
         }
         else {
             configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
@@ -77,22 +74,34 @@ public class InternalCommunicationModule
         httpClientBinder(binder).bindGlobalFilter(InternalAuthenticationManager.class);
     }
 
-    private static URI toIpEncodedAsHostnameUri(URI uri)
+    private static class DiscoveryEncodeAddressAsHostname
+            implements HttpRequestFilter
     {
-        if (!uri.getScheme().equals("https")) {
-            return uri;
+        @Override
+        public Request filterRequest(Request request)
+        {
+            return Request.Builder.fromRequest(request)
+                    .setUri(toIpEncodedAsHostnameUri(request.getUri()))
+                    .build();
         }
-        try {
-            String host = uri.getHost();
-            InetAddress inetAddress = InetAddress.getByName(host);
-            String addressAsHostname = encodeAddressAsHostname(inetAddress);
-            return new URI(uri.getScheme(), uri.getUserInfo(), addressAsHostname, uri.getPort(), uri.getPath(), uri.getQuery(), uri.getFragment());
-        }
-        catch (UnknownHostException e) {
-            throw new UncheckedIOException(e);
-        }
-        catch (URISyntaxException e) {
-            throw new RuntimeException(e);
+
+        private static URI toIpEncodedAsHostnameUri(URI uri)
+        {
+            if (!uri.getScheme().equals("https")) {
+                return uri;
+            }
+            try {
+                String host = uri.getHost();
+                InetAddress inetAddress = InetAddress.getByName(host);
+                String addressAsHostname = encodeAddressAsHostname(inetAddress);
+                return new URI(uri.getScheme(), uri.getUserInfo(), addressAsHostname, uri.getPort(), uri.getPath(), uri.getQuery(), uri.getFragment());
+            }
+            catch (UnknownHostException e) {
+                throw new UncheckedIOException(e);
+            }
+            catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }
