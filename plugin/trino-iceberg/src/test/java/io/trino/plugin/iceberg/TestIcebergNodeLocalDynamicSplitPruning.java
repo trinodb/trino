@@ -54,6 +54,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -165,7 +166,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),
                 ImmutableList.of(),
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                new HashMap<>());
 
         String tablePath = inputFile.location().fileName();
         TableHandle tableHandle = new TableHandle(
@@ -174,6 +176,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         SCHEMA_NAME,
                         TABLE_NAME,
                         TableType.DATA,
+                        Optional.empty(),
                         Optional.empty(),
                         SchemaParser.toJson(TABLE_SCHEMA),
                         Optional.of(PartitionSpecParser.toJson(PartitionSpec.unpartitioned())),

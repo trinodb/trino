@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static io.trino.plugin.iceberg.TableType.CHANGES;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Locale.ENGLISH;
@@ -71,13 +72,28 @@ public final class IcebergTableName
         }
     }
 
-    public static boolean isDataTable(String name)
+    public static boolean isDataOrChangesTable(String name)
     {
         Matcher match = TABLE_PATTERN.matcher(name);
         if (!match.matches()) {
             throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
         }
         String typeString = match.group("type");
-        return typeString == null;
+        return typeString == null || typeString.equalsIgnoreCase(CHANGES.toString());
+    }
+
+    public static boolean isChangesTable(String name)
+    {
+        Matcher match = TABLE_PATTERN.matcher(name);
+        if (!match.matches()) {
+            throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
+        }
+        String typeString = match.group("type");
+        return typeString != null && typeString.equalsIgnoreCase(CHANGES.toString());
+    }
+
+    public static boolean isSystemTable(Optional<TableType> tableType)
+    {
+        return tableType.isPresent() && tableType.get() != DATA && tableType.get() != CHANGES;
     }
 }

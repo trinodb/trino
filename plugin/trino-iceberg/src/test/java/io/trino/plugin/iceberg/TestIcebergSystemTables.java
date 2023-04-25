@@ -270,4 +270,17 @@ public class TestIcebergSystemTables
                         "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
     }
+
+    @Test
+    public void testChangesTable()
+    {
+        // Changes table is not a system table, but the syntax is the same so test it here to check columns
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$changes\"",
+                "VALUES ('_bigint', 'bigint', '', '')," +
+                        "('_date', 'date', '', '')," +
+                        "('_change_type', 'varchar', '', 'Record type in changelog')," +
+                        "('_change_ordinal', 'integer', '', 'Change ordinal in changelog')," +
+                        "('_commit_snapshot_id', 'bigint', '', 'Commit snapshot ID')");
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$changes\"");
+    }
 }

@@ -24,6 +24,7 @@ import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -46,6 +47,7 @@ public class IcebergSplit
     private final String partitionDataJson;
     private final List<DeleteFile> deletes;
     private final SplitWeight splitWeight;
+    private final Map<Integer, String> extraConstantColumnValues;
 
     @JsonCreator
     public IcebergSplit(
@@ -59,7 +61,8 @@ public class IcebergSplit
             @JsonProperty("partitionSpecJson") String partitionSpecJson,
             @JsonProperty("partitionDataJson") String partitionDataJson,
             @JsonProperty("deletes") List<DeleteFile> deletes,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+            @JsonProperty("splitWeight") SplitWeight splitWeight,
+            @JsonProperty("extraConstantColumnValues") Map<Integer, String> extraConstantColumnValues)
     {
         this.path = requireNonNull(path, "path is null");
         this.start = start;
@@ -72,6 +75,7 @@ public class IcebergSplit
         this.partitionDataJson = requireNonNull(partitionDataJson, "partitionDataJson is null");
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        this.extraConstantColumnValues = ImmutableMap.copyOf(requireNonNull(extraConstantColumnValues, "extraConstantColumnValues is null"));
     }
 
     @Override
@@ -146,6 +150,12 @@ public class IcebergSplit
     public SplitWeight getSplitWeight()
     {
         return splitWeight;
+    }
+
+    @JsonProperty
+    public Map<Integer, String> getExtraConstantColumnValues()
+    {
+        return extraConstantColumnValues;
     }
 
     @Override

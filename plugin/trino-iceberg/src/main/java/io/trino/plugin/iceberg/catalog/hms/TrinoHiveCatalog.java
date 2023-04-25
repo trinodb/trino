@@ -29,6 +29,7 @@ import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.plugin.iceberg.IcebergTableName;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -262,6 +263,10 @@ public class TrinoHiveCatalog
             String location,
             Map<String, String> properties)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Create table transaction not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         return newCreateTableTransaction(
                 session,
                 schemaTableName,
@@ -277,6 +282,10 @@ public class TrinoHiveCatalog
     public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, String metadataLocation)
             throws TrinoException
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Register table not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         Optional<String> owner = isUsingSystemSecurity ? Optional.empty() : Optional.of(session.getUser());
 
         io.trino.plugin.hive.metastore.Table.Builder builder = io.trino.plugin.hive.metastore.Table.builder()
@@ -299,6 +308,9 @@ public class TrinoHiveCatalog
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Unregister table not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
         dropTableFromMetastore(schemaTableName);
     }
 
@@ -315,6 +327,10 @@ public class TrinoHiveCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Drop table not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         BaseTable table = (BaseTable) loadTable(session, schemaTableName);
         TableMetadata metadata = table.operations().current();
         validateTableCanBeDropped(table);
@@ -363,6 +379,10 @@ public class TrinoHiveCatalog
     @Override
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
+        if (IcebergTableName.isChangesTable(from.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Rename table not supported for changes table type: %s", from.getTableName()));
+        }
+
         metastore.renameTable(from.getSchemaName(), from.getTableName(), to.getSchemaName(), to.getTableName());
     }
 

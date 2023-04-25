@@ -28,9 +28,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
 
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
@@ -76,19 +74,14 @@ public class IcebergSplitManager
             return emptySplitSource();
         }
 
-        Table icebergTable = transactionManager.get(transaction, session.getIdentity()).getIcebergTable(session, table.getSchemaTableName());
+        Table icebergTable = transactionManager.get(transaction, session.getIdentity()).getIcebergTable(session, table.getSchemaTableNameWithNonDataType());
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
-        TableScan tableScan = icebergTable.newScan()
-                .useSnapshot(table.getSnapshotId().get());
-        if (!asyncIcebergSplitProducer) {
-            tableScan = tableScan.planWith(newDirectExecutorService());
-        }
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,
                 session,
                 table,
-                tableScan,
+                IcebergSplitGenerator.createSplitGenerator(icebergTable, table, asyncIcebergSplitProducer),
                 table.getMaxScannedFileSize(),
                 dynamicFilter,
                 dynamicFilteringWaitTimeout,

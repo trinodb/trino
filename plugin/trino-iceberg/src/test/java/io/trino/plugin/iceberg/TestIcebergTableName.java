@@ -48,11 +48,11 @@ public class TestIcebergTableName
     @Test
     public void testIsDataTable()
     {
-        assertTrue(IcebergTableName.isDataTable("abc"));
+        assertTrue(IcebergTableName.isDataOrChangesTable("abc"));
 
-        assertFalse(IcebergTableName.isDataTable("abc$data")); // it's invalid
-        assertFalse(IcebergTableName.isDataTable("abc$history"));
-        assertFalse(IcebergTableName.isDataTable("abc$invalid"));
+        assertFalse(IcebergTableName.isDataOrChangesTable("abc$data")); // it's invalid
+        assertFalse(IcebergTableName.isDataOrChangesTable("abc$history"));
+        assertFalse(IcebergTableName.isDataOrChangesTable("abc$invalid"));
     }
 
     @Test

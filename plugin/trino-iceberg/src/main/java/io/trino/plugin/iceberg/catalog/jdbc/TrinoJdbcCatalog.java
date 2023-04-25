@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.iceberg.IcebergTableName;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.spi.TrinoException;
@@ -186,6 +187,11 @@ public class TrinoJdbcCatalog
         if (!listNamespaces(session, Optional.of(schemaTableName.getSchemaName())).contains(schemaTableName.getSchemaName())) {
             throw new SchemaNotFoundException(schemaTableName.getSchemaName());
         }
+
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Create table transaction not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         return newCreateTableTransaction(
                 session,
                 schemaTableName,
@@ -200,6 +206,10 @@ public class TrinoJdbcCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, String tableLocation, String metadataLocation)
     {
+        if (IcebergTableName.isChangesTable(tableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Register table not supported for changes table type: %s", tableName.getTableName()));
+        }
+
         // Using IcebergJdbcClient because JdbcCatalog.registerTable causes the below error.
         // "Cannot invoke "org.apache.iceberg.util.SerializableSupplier.get()" because "this.hadoopConf" is null"
         jdbcClient.createTable(tableName.getSchemaName(), tableName.getTableName(), metadataLocation);
@@ -208,6 +218,10 @@ public class TrinoJdbcCatalog
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
     {
+        if (IcebergTableName.isChangesTable(tableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Unregister table not supported for changes table type: %s", tableName.getTableName()));
+        }
+
         if (!jdbcCatalog.dropTable(toIdentifier(tableName), false)) {
             throw new TableNotFoundException(tableName);
         }
@@ -216,6 +230,10 @@ public class TrinoJdbcCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Drop table not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         BaseTable table = (BaseTable) loadTable(session, schemaTableName);
         validateTableCanBeDropped(table);
 
@@ -248,6 +266,10 @@ public class TrinoJdbcCatalog
     @Override
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
+        if (IcebergTableName.isChangesTable(from.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Rename table not supported for changes table type: %s", from.getTableName()));
+        }
+
         try {
             jdbcCatalog.renameTable(toIdentifier(from), toIdentifier(to));
         }

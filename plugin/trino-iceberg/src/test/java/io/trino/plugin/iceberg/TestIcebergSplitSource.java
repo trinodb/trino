@@ -126,6 +126,7 @@ public class TestIcebergSplitSource
                 schemaTableName.getTableName(),
                 TableType.DATA,
                 Optional.empty(),
+                Optional.empty(),
                 SchemaParser.toJson(nationTable.schema()),
                 Optional.of(PartitionSpecParser.toJson(nationTable.spec())),
                 1,
@@ -143,7 +144,7 @@ public class TestIcebergSplitSource
                 fileSystemFactory,
                 SESSION,
                 tableHandle,
-                nationTable.newScan(),
+                IcebergSplitGenerator.createSplitGenerator(nationTable, tableHandle, false),
                 Optional.empty(),
                 new DynamicFilter()
                 {

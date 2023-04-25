@@ -39,7 +39,8 @@ public class IcebergTableHandle
     private final String schemaName;
     private final String tableName;
     private final TableType tableType;
-    private final Optional<Long> snapshotId;
+    private final Optional<Long> startSnapshotId;
+    private final Optional<Long> endSnapshotId;
     private final String tableSchemaJson;
     // Empty means the partitioning spec is not known (can be the case for certain time travel queries).
     private final Optional<String> partitionSpecJson;
@@ -68,7 +69,8 @@ public class IcebergTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableType") TableType tableType,
-            @JsonProperty("snapshotId") Optional<Long> snapshotId,
+            @JsonProperty("startSnapshotId") Optional<Long> startSnapshotId,
+            @JsonProperty("snapshotId") Optional<Long> endSnapshotId,
             @JsonProperty("tableSchemaJson") String tableSchemaJson,
             @JsonProperty("partitionSpecJson") Optional<String> partitionSpecJson,
             @JsonProperty("formatVersion") int formatVersion,
@@ -84,7 +86,8 @@ public class IcebergTableHandle
                 schemaName,
                 tableName,
                 tableType,
-                snapshotId,
+                startSnapshotId,
+                endSnapshotId,
                 tableSchemaJson,
                 partitionSpecJson,
                 formatVersion,
@@ -103,7 +106,8 @@ public class IcebergTableHandle
             String schemaName,
             String tableName,
             TableType tableType,
-            Optional<Long> snapshotId,
+            Optional<Long> startSnapshotId,
+            Optional<Long> endSnapshotId,
             String tableSchemaJson,
             Optional<String> partitionSpecJson,
             int formatVersion,
@@ -120,7 +124,8 @@ public class IcebergTableHandle
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
-        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        this.startSnapshotId = requireNonNull(startSnapshotId, "startSnapshotId is null");
+        this.endSnapshotId = requireNonNull(endSnapshotId, "endSnapshotId is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.formatVersion = formatVersion;
@@ -153,11 +158,17 @@ public class IcebergTableHandle
         return tableType;
     }
 
+    @JsonProperty
+    public Optional<Long> getStartSnapshotId()
+    {
+        return startSnapshotId;
+    }
+
     // Empty only when reading from a table that has no snapshots yet.
     @JsonProperty
     public Optional<Long> getSnapshotId()
     {
-        return snapshotId;
+        return endSnapshotId;
     }
 
     @JsonProperty
@@ -242,13 +253,26 @@ public class IcebergTableHandle
         return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(Locale.ROOT));
     }
 
+    // For tables with data type, we have some places where we use schemaName.tableName as cache key
+    // using schemaName.tableName.DATA will result in two copies of the same table, so excluding that type
+    public SchemaTableName getSchemaTableNameWithNonDataType()
+    {
+        if (tableType == TableType.DATA) {
+            return getSchemaTableName();
+        }
+        else {
+            return getSchemaTableNameWithType();
+        }
+    }
+
     public IcebergTableHandle withProjectedColumns(Set<IcebergColumnHandle> projectedColumns)
     {
         return new IcebergTableHandle(
                 schemaName,
                 tableName,
                 tableType,
-                snapshotId,
+                startSnapshotId,
+                endSnapshotId,
                 tableSchemaJson,
                 partitionSpecJson,
                 formatVersion,
@@ -269,7 +293,8 @@ public class IcebergTableHandle
                 schemaName,
                 tableName,
                 tableType,
-                snapshotId,
+                startSnapshotId,
+                endSnapshotId,
                 tableSchemaJson,
                 partitionSpecJson,
                 formatVersion,
@@ -299,7 +324,8 @@ public class IcebergTableHandle
                 Objects.equals(schemaName, that.schemaName) &&
                 Objects.equals(tableName, that.tableName) &&
                 tableType == that.tableType &&
-                Objects.equals(snapshotId, that.snapshotId) &&
+                Objects.equals(startSnapshotId, that.startSnapshotId) &&
+                Objects.equals(endSnapshotId, that.endSnapshotId) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
                 Objects.equals(partitionSpecJson, that.partitionSpecJson) &&
                 formatVersion == that.formatVersion &&
@@ -320,7 +346,8 @@ public class IcebergTableHandle
                 schemaName,
                 tableName,
                 tableType,
-                snapshotId,
+                startSnapshotId,
+                endSnapshotId,
                 tableSchemaJson,
                 partitionSpecJson,
                 formatVersion,
@@ -339,7 +366,7 @@ public class IcebergTableHandle
     public String toString()
     {
         StringBuilder builder = new StringBuilder(getSchemaTableNameWithType().toString());
-        snapshotId.ifPresent(snapshotId -> builder.append("@").append(snapshotId));
+        endSnapshotId.ifPresent(snapshotId -> builder.append("@").append(snapshotId));
         if (enforcedPredicate.isNone()) {
             builder.append(" constraint=FALSE");
         }

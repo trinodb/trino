@@ -357,15 +357,19 @@ public class IcebergMetadata
             Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
+        Optional<TableType> tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
         if (startVersion.isPresent()) {
-            throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
+            if (!tableType.isPresent() || tableType.get() != TableType.CHANGES) {
+                throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
+            }
         }
 
-        if (!IcebergTableName.isDataTable(tableName.getTableName())) {
+        if (!IcebergTableName.isDataOrChangesTable(tableName.getTableName())) {
             // Pretend the table does not exist to produce better error message in case of table redirects to Hive
             return null;
         }
 
+        String realTableName = IcebergTableName.tableNameFrom(tableName.getTableName());
         BaseTable table;
         try {
             table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()));
@@ -395,12 +399,18 @@ public class IcebergMetadata
             partitionSpec = Optional.of(table.spec());
         }
 
+        Optional<Long> startSnapshotId = Optional.empty();
+        if (startVersion.isPresent()) {
+            startSnapshotId = Optional.of(getSnapshotIdFromVersion(table, startVersion.get()));
+        }
+
         Map<String, String> tableProperties = table.properties();
         String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
-                tableName.getTableName(),
-                DATA,
+                realTableName,
+                tableType.orElse(TableType.DATA),
+                startSnapshotId,
                 tableSnapshotId,
                 SchemaParser.toJson(tableSchema),
                 partitionSpec.map(PartitionSpecParser::toJson),
@@ -457,7 +467,7 @@ public class IcebergMetadata
 
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        if (IcebergTableName.isDataTable(tableName.getTableName())) {
+        if (IcebergTableName.isDataOrChangesTable(tableName.getTableName())) {
             return Optional.empty();
         }
 
@@ -481,7 +491,7 @@ public class IcebergMetadata
         }
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), IcebergTableName.tableNameWithType(name, tableType.get()));
         return switch (tableType.get()) {
-            case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
+            case DATA, CHANGES -> throw new VerifyException("Unexpected DATA or CHANGES table type"); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS -> Optional.of(new PartitionTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
@@ -586,7 +596,7 @@ public class IcebergMetadata
         IcebergTableHandle tableHandle = checkValidTableHandle(table);
         // This method does not calculate column metadata for the projected columns
         checkArgument(tableHandle.getProjectedColumns().isEmpty(), "Unexpected projected columns");
-        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableNameWithNonDataType());
         List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
     }
@@ -2284,6 +2294,7 @@ public class IcebergMetadata
                 table.getSchemaName(),
                 table.getTableName(),
                 table.getTableType(),
+                table.getStartSnapshotId(),
                 table.getSnapshotId(),
                 table.getTableSchemaJson(),
                 table.getPartitionSpecJson(),
@@ -2377,6 +2388,7 @@ public class IcebergMetadata
                         table.getSchemaName(),
                         table.getTableName(),
                         table.getTableType(),
+                        table.getStartSnapshotId(),
                         table.getSnapshotId(),
                         table.getTableSchemaJson(),
                         table.getPartitionSpecJson(),
@@ -2524,6 +2536,7 @@ public class IcebergMetadata
                         originalHandle.getSchemaName(),
                         originalHandle.getTableName(),
                         originalHandle.getTableType(),
+                        originalHandle.getStartSnapshotId(),
                         originalHandle.getSnapshotId(),
                         originalHandle.getTableSchemaJson(),
                         originalHandle.getPartitionSpecJson(),

@@ -19,8 +19,10 @@ import com.google.common.collect.Maps;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.iceberg.ChangesTable;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
+import io.trino.plugin.iceberg.IcebergTableName;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
@@ -200,6 +202,10 @@ public class TrinoRestCatalog
             String location,
             Map<String, String> properties)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Create table transaction not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         return restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
                 .withPartitionSpec(partitionSpec)
                 .withSortOrder(sortOrder)
@@ -223,6 +229,10 @@ public class TrinoRestCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Drop table not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         if (!restSessionCatalog.purgeTable(convert(session), toIdentifier(schemaTableName))) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to drop table: %s", schemaTableName));
         }
@@ -239,6 +249,10 @@ public class TrinoRestCatalog
     @Override
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
+        if (IcebergTableName.isChangesTable(from.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Rename table not supported for changes table type: %s", from.getTableName()));
+        }
+
         try {
             restSessionCatalog.renameTable(convert(session), toIdentifier(from), toIdentifier(to));
         }
@@ -250,13 +264,19 @@ public class TrinoRestCatalog
     @Override
     public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        SchemaTableName updatedTableName = new SchemaTableName(
+                schemaTableName.getSchemaName(), IcebergTableName.tableNameFrom(schemaTableName.getTableName()));
         try {
             return tableCache.computeIfAbsent(
                     schemaTableName.toString(),
                     key -> {
-                        BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toIdentifier(schemaTableName));
+                        BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toIdentifier(updatedTableName));
                         // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
-                        return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName));
+                        BaseTable updatedBaseTable = new BaseTable(baseTable.operations(), quotedTableName(updatedTableName));
+                        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+                            return new ChangesTable(updatedBaseTable);
+                        }
+                        return updatedBaseTable;
                     });
         }
         catch (NoSuchTableException e) {

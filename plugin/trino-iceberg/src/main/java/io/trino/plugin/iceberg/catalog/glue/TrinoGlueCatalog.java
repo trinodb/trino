@@ -43,6 +43,7 @@ import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewUtil;
 import io.trino.plugin.hive.ViewAlreadyExistsException;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
+import io.trino.plugin.iceberg.IcebergTableName;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -336,14 +337,16 @@ public class TrinoGlueCatalog
         TableMetadata metadata = tableMetadataCache.computeIfAbsent(
                 table,
                 ignore -> {
+                    SchemaTableName updatedTableName = new SchemaTableName(
+                            table.getSchemaName(), IcebergTableName.tableNameFrom(table.getTableName()));
                     TableOperations operations = tableOperationsProvider.createTableOperations(
                             this,
                             session,
-                            table.getSchemaName(),
-                            table.getTableName(),
+                            updatedTableName.getSchemaName(),
+                            updatedTableName.getTableName(),
                             Optional.empty(),
                             Optional.empty());
-                    return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER).operations().current();
+                    return new BaseTable(operations, quotedTableName(updatedTableName), TRINO_METRICS_REPORTER).operations().current();
                 });
 
         return getIcebergTableWithMetadata(
@@ -357,6 +360,10 @@ public class TrinoGlueCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Drop table not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         BaseTable table = (BaseTable) loadTable(session, schemaTableName);
         validateTableCanBeDropped(table);
         try {
@@ -398,6 +405,10 @@ public class TrinoGlueCatalog
             String location,
             Map<String, String> properties)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Create table transaction not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         return newCreateTableTransaction(
                 session,
                 schemaTableName,
@@ -413,6 +424,10 @@ public class TrinoGlueCatalog
     public void registerTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, String metadataLocation)
             throws TrinoException
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Register table not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
+
         TableInput tableInput = getTableInput(schemaTableName.getTableName(), Optional.of(session.getUser()), ImmutableMap.of(METADATA_LOCATION_PROP, metadataLocation));
         createTable(schemaTableName.getSchemaName(), tableInput);
     }
@@ -420,6 +435,9 @@ public class TrinoGlueCatalog
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
+        if (IcebergTableName.isChangesTable(schemaTableName.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Unregister table not supported for changes table type: %s", schemaTableName.getTableName()));
+        }
         dropTableFromMetastore(session, schemaTableName);
     }
 
@@ -443,6 +461,10 @@ public class TrinoGlueCatalog
     @Override
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
+        if (IcebergTableName.isChangesTable(from.getTableName())) {
+            throw new TrinoException(NOT_SUPPORTED, format("Rename table not supported for changes table type: %s", from.getTableName()));
+        }
+
         boolean newTableCreated = false;
         try {
             com.amazonaws.services.glue.model.Table table = getTable(session, from)

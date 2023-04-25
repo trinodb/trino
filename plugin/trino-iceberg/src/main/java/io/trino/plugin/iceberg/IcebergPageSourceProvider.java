@@ -62,6 +62,7 @@ import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
 import io.trino.plugin.iceberg.delete.RowPredicate;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -307,7 +308,8 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 effectivePredicate,
                 table.getNameMappingJson().map(NameMappingParser::fromJson),
-                partitionKeys);
+                partitionKeys,
+                split.getExtraConstantColumnValues());
         ReaderPageSource dataPageSource = readerPageSourceWithRowPositions.getReaderPageSource();
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
@@ -453,6 +455,7 @@ public class IcebergPageSourceProvider
                 columns,
                 tupleDomain,
                 Optional.empty(),
+                ImmutableMap.of(),
                 ImmutableMap.of())
                 .getReaderPageSource()
                 .get();
@@ -471,7 +474,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, String> extraConstantColumnValues)
     {
         switch (fileFormat) {
             case ORC:
@@ -496,7 +500,8 @@ public class IcebergPageSourceProvider
                         fileFormatDataSourceStats,
                         typeManager,
                         nameMapping,
-                        partitionKeys);
+                        partitionKeys,
+                        extraConstantColumnValues);
             case PARQUET:
                 return createParquetPageSource(
                         inputFile,
@@ -515,7 +520,8 @@ public class IcebergPageSourceProvider
                         predicate,
                         fileFormatDataSourceStats,
                         nameMapping,
-                        partitionKeys);
+                        partitionKeys,
+                        extraConstantColumnValues);
             case AVRO:
                 return createAvroPageSource(
                         inputFile,
@@ -526,7 +532,8 @@ public class IcebergPageSourceProvider
                         partitionData,
                         fileSchema,
                         nameMapping,
-                        dataColumns);
+                        dataColumns,
+                        extraConstantColumnValues);
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
@@ -545,7 +552,8 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats stats,
             TypeManager typeManager,
             Optional<NameMapping> nameMapping,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, String> extraConstantColumnValues)
     {
         OrcDataSource orcDataSource = null;
         try {
@@ -616,6 +624,9 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData))));
+                }
+                else if (extraConstantColumnValues.containsKey(column.getId())) {
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(generateConstantColumnBlock(column, extraConstantColumnValues.get(column.getId()))));
                 }
                 else if (orcColumn != null) {
                     Type readType = getOrcReadType(column.getType(), typeManager);
@@ -886,7 +897,8 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             Optional<NameMapping> nameMapping,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            Map<Integer, String> extraConstantColumnValues)
     {
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
@@ -980,6 +992,9 @@ public class IcebergPageSourceProvider
                 else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
                     pageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData)));
                 }
+                else if (extraConstantColumnValues.containsKey(column.getId())) {
+                    pageSourceBuilder.addConstantColumn(generateConstantColumnBlock(column, extraConstantColumnValues.get(column.getId())));
+                }
                 else {
                     org.apache.parquet.schema.Type parquetField = parquetFields.get(columnIndex);
                     Type trinoType = column.getBaseType();
@@ -1040,6 +1055,31 @@ public class IcebergPageSourceProvider
         }
     }
 
+    private static Block generateConstantColumnBlock(IcebergColumnHandle column, String value)
+    {
+        Type columnType = column.getType();
+        Object columnValue = null;
+
+        if (value == null) {
+            return nativeValueToBlock(columnType, columnValue);
+        }
+
+        if (columnType.getJavaType() == Slice.class) {
+            columnValue = utf8Slice(value);
+        }
+        else if (columnType.getJavaType() == int.class || columnType.getJavaType() == Integer.class) {
+            columnValue = Integer.parseInt(value);
+        }
+        else if (columnType.getJavaType() == long.class || columnType.getJavaType() == Long.class) {
+            columnValue = Long.parseLong(value);
+        }
+        else {
+            throw new TrinoException(NOT_SUPPORTED, "Not Supported Constant Column Type: " + columnType.getJavaType().toString());
+        }
+
+        return nativeValueToBlock(columnType, columnValue);
+    }
+
     private static ReaderPageSourceWithRowPositions createAvroPageSource(
             TrinoInputFile inputFile,
             long start,
@@ -1049,7 +1089,8 @@ public class IcebergPageSourceProvider
             String partitionData,
             Schema fileSchema,
             Optional<NameMapping> nameMapping,
-            List<IcebergColumnHandle> columns)
+            List<IcebergColumnHandle> columns,
+            Map<Integer, String> extraConstantColumnValues)
     {
         ConstantPopulatingPageSource.Builder constantPopulatingPageSourceBuilder = ConstantPopulatingPageSource.builder();
         int avroSourceChannel = 0;
@@ -1113,6 +1154,9 @@ public class IcebergPageSourceProvider
                 }
                 else if (column.getId() == TRINO_MERGE_PARTITION_DATA) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), utf8Slice(partitionData)));
+                }
+                else if (extraConstantColumnValues.containsKey(column.getId())) {
+                    constantPopulatingPageSourceBuilder.addConstantColumn(generateConstantColumnBlock(column, extraConstantColumnValues.get(column.getId())));
                 }
                 else if (field == null) {
                     constantPopulatingPageSourceBuilder.addConstantColumn(nativeValueToBlock(column.getType(), null));

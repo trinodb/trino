@@ -32,6 +32,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -45,8 +46,8 @@ import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
@@ -181,14 +182,26 @@ public final class IcebergUtil
 
     public static Table loadIcebergTable(TrinoCatalog catalog, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
+        // Trino expects loadTable to throw TableNotFound exception for system tables
+        Optional<TableType> tableType = IcebergTableName.tableTypeFrom(table.getTableName());
+        if (IcebergTableName.isSystemTable(tableType)) {
+            throw new TableNotFoundException(table);
+        }
+
+        SchemaTableName updatedTable = new SchemaTableName(table.getSchemaName(), IcebergTableName.tableNameFrom(table.getTableName()));
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 catalog,
                 session,
-                table.getSchemaName(),
-                table.getTableName(),
+                updatedTable.getSchemaName(),
+                updatedTable.getTableName(),
                 Optional.empty(),
                 Optional.empty());
-        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
+        BaseTable baseTable = new BaseTable(operations, quotedTableName(updatedTable), TRINO_METRICS_REPORTER);
+        if (tableType.isPresent() && tableType.get() == TableType.CHANGES) {
+            return new ChangesTable(baseTable);
+        }
+
+        return baseTable;
     }
 
     public static Table getIcebergTableWithMetadata(
@@ -198,15 +211,26 @@ public final class IcebergUtil
             SchemaTableName table,
             TableMetadata tableMetadata)
     {
+        // Trino expects loadTable to throw TableNotFound exception for system tables
+        Optional<TableType> tableType = IcebergTableName.tableTypeFrom(table.getTableName());
+        if (IcebergTableName.isSystemTable(tableType)) {
+            throw new TableNotFoundException(table);
+        }
+
+        SchemaTableName updatedTable = new SchemaTableName(table.getSchemaName(), IcebergTableName.tableNameFrom(table.getTableName()));
         IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
                 catalog,
                 session,
-                table.getSchemaName(),
-                table.getTableName(),
+                updatedTable.getSchemaName(),
+                updatedTable.getTableName(),
                 Optional.empty(),
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
-        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
+        BaseTable baseTable = new BaseTable(operations, quotedTableName(updatedTable), TRINO_METRICS_REPORTER);
+        if (tableType.isPresent() && tableType.get() == TableType.CHANGES) {
+            return new ChangesTable(baseTable);
+        }
+        return baseTable;
     }
 
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
@@ -526,7 +550,7 @@ public final class IcebergUtil
      * Returns a map from fieldId to serialized partition value containing entries for all identity partitions.
      * {@code null} partition values are represented with {@link Optional#empty}.
      */
-    public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
+    public static Map<Integer, Optional<String>> getPartitionKeys(ContentScanTask scanTask)
     {
         return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
     }

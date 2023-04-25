@@ -6466,6 +6466,53 @@ public abstract class BaseIcebergConnectorTest
         };
     }
 
+    @Test
+    public void testChangelogQuery()
+    {
+        String testTable = "test_changelog_basic";
+        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", testTable));
+        assertQueryReturnsEmptyResult(format("SELECT * FROM \"%s$changes\"", testTable));
+
+        // insert a few rows
+        assertUpdate(format("INSERT INTO %s(a, b) VALUES (1,2), (3,4), (5,6)", testTable), 3);
+
+        // query changelog
+        assertQuery(format("SELECT a, b, _change_type FROM \"%s$changes\"", testTable), "VALUES (1, 2, 'INSERT'), (3, 4, 'INSERT'), (5, 6, 'INSERT')");
+
+        // delete all the rows (the entire data file)
+        assertUpdate(format("DELETE FROM %s", testTable), 3);
+
+        // get table snapshots
+        List<Long> snapshotIds = getSnapshotsIdsByCreationOrder(testTable);
+        assertEquals(snapshotIds.size(), 3);
+
+        List<String> expectedRows = new ArrayList<>();
+        // rows from first snapshot
+        expectedRows.add(new String());
+        // rows from second snapshot
+        expectedRows.add(format("(1, 2, 'INSERT', 1, %d), (3, 4, 'INSERT', 1, %d), (5, 6, 'INSERT', 1, %d)",
+                snapshotIds.get(1), snapshotIds.get(1), snapshotIds.get(1)));
+        // rows from third snapshot
+        expectedRows.add(format("(1, 2, 'DELETE', 2, %d), (3, 4, 'DELETE', 2, %d), (5, 6, 'DELETE', 2, %d)",
+                snapshotIds.get(2), snapshotIds.get(2), snapshotIds.get(2)));
+
+        // query changelog up to the given snapshotId
+        for (int i = 0; i < snapshotIds.size(); i++) {
+            String sqlStatement = format("SELECT a, b, _change_type, _change_ordinal, _commit_snapshot_id FROM \"%s$changes\" FOR VERSION AS OF %d ORDER BY _change_ordinal ASC",
+                    testTable, snapshotIds.get(i));
+            if (i == 0) {
+                assertQueryReturnsEmptyResult(sqlStatement);
+                continue;
+            }
+
+            assertQuery(sqlStatement, format("VALUES %s", String.join(", ", expectedRows.subList(1, i + 1))));
+        }
+
+        // query entire changelog
+        assertQuery(format("SELECT a, b, _change_type, _change_ordinal, _commit_snapshot_id FROM \"%s$changes\" ORDER BY _change_ordinal ASC", testTable),
+                format("VALUES %s", String.join(", ", expectedRows.subList(1, 3))));
+    }
+
     @Override
     protected OptionalInt maxSchemaNameLength()
     {

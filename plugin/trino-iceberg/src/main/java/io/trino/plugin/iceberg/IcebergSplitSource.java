@@ -39,13 +39,9 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
-import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
-import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
 
 import javax.annotation.Nullable;
@@ -55,7 +51,6 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,7 +82,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -102,7 +96,6 @@ public class IcebergSplitSource
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ConnectorSession session;
     private final IcebergTableHandle tableHandle;
-    private final TableScan tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
     private final DynamicFilter dynamicFilter;
@@ -117,11 +110,8 @@ public class IcebergSplitSource
     private final Domain fileModifiedTimeDomain;
     private final OptionalLong limit;
 
+    private IcebergSplitGenerator splitGenerator;
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
-    private CloseableIterable<FileScanTask> fileScanIterable;
-    private long targetSplitSize;
-    private CloseableIterator<FileScanTask> fileScanIterator;
-    private Iterator<FileScanTask> fileTasksIterator = emptyIterator();
     private boolean fileHasAnyDeletions;
 
     private final boolean recordScannedFiles;
@@ -132,7 +122,7 @@ public class IcebergSplitSource
             TrinoFileSystemFactory fileSystemFactory,
             ConnectorSession session,
             IcebergTableHandle tableHandle,
-            TableScan tableScan,
+            IcebergSplitGenerator splitGenerator,
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
             Duration dynamicFilteringWaitTimeout,
@@ -144,9 +134,9 @@ public class IcebergSplitSource
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.tableScan = requireNonNull(tableScan, "tableScan is null");
+        this.splitGenerator = requireNonNull(splitGenerator, "icebergSplitGenerator is null");
         this.maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
-        this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
+        this.fieldIdToType = primitiveFieldTypes(splitGenerator.schema());
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
@@ -175,7 +165,7 @@ public class IcebergSplitSource
                     .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
         }
 
-        if (fileScanIterable == null) {
+        if (!splitGenerator.initialized()) {
             // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
             boolean dynamicFilterIsComplete = dynamicFilter.isComplete();
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast);
@@ -200,14 +190,8 @@ public class IcebergSplitSource
             Expression filterExpression = toIcebergExpression(effectivePredicate);
             // If the Dynamic Filter will be evaluated against each file, stats are required. Otherwise, skip them.
             boolean requiresColumnStats = usedSimplifiedPredicate || !dynamicFilterIsComplete;
-            TableScan scan = tableScan.filter(filterExpression);
-            if (requiresColumnStats) {
-                scan = scan.includeColumnStats();
-            }
-            this.fileScanIterable = closer.register(scan.planFiles());
-            this.targetSplitSize = tableScan.targetSplitSize();
-            this.fileScanIterator = closer.register(fileScanIterable.iterator());
-            this.fileTasksIterator = emptyIterator();
+            splitGenerator.initialize(filterExpression, requiresColumnStats);
+            closer.register(splitGenerator);
         }
 
         TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
@@ -218,15 +202,8 @@ public class IcebergSplitSource
         }
 
         List<ConnectorSplit> splits = new ArrayList<>(maxSize);
-        while (splits.size() < maxSize && (fileTasksIterator.hasNext() || fileScanIterator.hasNext())) {
-            if (!fileTasksIterator.hasNext()) {
-                FileScanTask wholeFileTask = fileScanIterator.next();
-                fileTasksIterator = wholeFileTask.split(targetSplitSize).iterator();
-                fileHasAnyDeletions = false;
-                // In theory, .split() could produce empty iterator, so let's evaluate the outer loop condition again.
-                continue;
-            }
-            FileScanTask scanTask = fileTasksIterator.next();
+        while (splits.size() < maxSize && splitGenerator.hasNext()) {
+            IcebergCommonScanTask scanTask = splitGenerator.next();
             fileHasAnyDeletions = fileHasAnyDeletions || !scanTask.deletes().isEmpty();
             if (scanTask.deletes().isEmpty() &&
                     maxScannedFileSizeInBytes.isPresent() &&
@@ -290,7 +267,7 @@ public class IcebergSplitSource
                 List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = tableHandle.getEnforcedPredicate().isAll() ? scanTask.deletes() : ImmutableList.of();
                 scannedFiles.add(new DataFileWithDeleteFiles(scanTask.file(), fullyAppliedDeletes));
             }
-            if (!fileTasksIterator.hasNext()) {
+            if (splitGenerator.isEndOfFile()) {
                 // This is the last task for this file
                 if (!fileHasAnyDeletions) {
                     // There were no deletions, so we produced splits covering the whole file
@@ -319,14 +296,13 @@ public class IcebergSplitSource
     private void finish()
     {
         close();
-        this.fileScanIterable = CloseableIterable.empty();
-        this.fileScanIterator = CloseableIterator.empty();
+        splitGenerator.finish();
     }
 
     @Override
     public boolean isFinished()
     {
-        return fileScanIterator != null && !fileScanIterator.hasNext() && !fileTasksIterator.hasNext();
+        return splitGenerator.isFinished();
     }
 
     @Override
@@ -456,7 +432,7 @@ public class IcebergSplitSource
         return true;
     }
 
-    private IcebergSplit toIcebergSplit(FileScanTask task)
+    private IcebergSplit toIcebergSplit(IcebergCommonScanTask task)
     {
         return new IcebergSplit(
                 task.file().path().toString(),
@@ -471,7 +447,8 @@ public class IcebergSplitSource
                 task.deletes().stream()
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
-                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)));
+                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / splitGenerator.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
+                task.getExtraConstantColumnValues());
     }
 
     private static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
