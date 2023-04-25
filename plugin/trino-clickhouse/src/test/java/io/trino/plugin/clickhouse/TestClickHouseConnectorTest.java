@@ -1000,27 +1000,20 @@ public class TestClickHouseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        TestTable table;
-        try {
-            table = new TestTable(getQueryRunner()::execute, "test_set_column_type_", "WITH (engine='mergetree',order_by=ARRAY['col2']) AS SELECT CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + ") AS col, CAST(123 as int) AS col2");
+        String tableName = "test_set_column_type_"  + System.currentTimeMillis();
+        assertUpdate("CREATE TABLE " + tableName + "(col "   + setup.sourceColumnType() + ", col2 int not null)  WITH (engine='mergetree', order_by=ARRAY['col2'])");
+        query("insert into " + tableName + "(col, col2)  values(CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + "), 2)");
+        Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType());
+        if (setup.unsupportedType()) {
+            assertThatThrownBy(setColumnType::run)
+                    .satisfies(this::verifySetColumnTypeFailurePermissible);
+            return;
         }
-        catch (Exception e) {
-            verifyUnsupportedTypeException(e, setup.sourceColumnType());
-            throw new SkipException("Unsupported column type: " + setup.sourceColumnType());
-        }
-        try (table) {
-            Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType());
-            if (setup.unsupportedType()) {
-                assertThatThrownBy(setColumnType::run)
-                        .satisfies(this::verifySetColumnTypeFailurePermissible);
-                return;
-            }
-            setColumnType.run();
+        setColumnType.run();
 
-            assertEquals(getColumnType(table.getName(), "col"), setup.newColumnType());
-            assertThat(query("SELECT * FROM " + table.getName()))
-                    .skippingTypesCheck()
-                    .matches("SELECT " + setup.newValueLiteral());
-        }
+        assertEquals(getColumnType(tableName, "col"), setup.newColumnType());
+        assertThat(query("SELECT col FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("SELECT " + setup.newValueLiteral());
     }
 }
