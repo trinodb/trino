@@ -964,7 +964,7 @@ public class HiveMetadata
         }
 
         if (bucketProperty.isPresent() && getAvroSchemaLiteral(tableMetadata.getProperties()) != null) {
-            throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not spported when Avro schema literal is set");
+            throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema literal is set");
         }
 
         if (isTransactional) {
