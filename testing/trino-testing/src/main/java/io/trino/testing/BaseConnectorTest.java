@@ -4164,6 +4164,14 @@ public abstract class BaseConnectorTest
         }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_correlated_exists_subquery", "AS SELECT * FROM nation")) {
+            // delete using correlated EXISTS subquery, that subquery without varchar predicate
+            assertUpdate(format("DELETE FROM %1$s WHERE EXISTS(SELECT regionkey FROM region WHERE regionkey = %1$s.regionkey)", table.getName()), 15);
+            assertQuery(
+                    "SELECT * FROM " + table.getName(),
+                    "SELECT * FROM nation WHERE regionkey NOT IN (SELECT regionkey FROM region)");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_correlated_exists_subquery", "AS SELECT * FROM nation")) {
             // delete using correlated EXISTS subquery
             assertUpdate(format("DELETE FROM %1$s WHERE EXISTS(SELECT regionkey FROM region WHERE regionkey = %1$s.regionkey AND name LIKE 'A%%')", table.getName()), 15);
             assertQuery(
