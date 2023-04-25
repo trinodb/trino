@@ -247,9 +247,15 @@ public class InformationSchemaMetadata
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        return listSchemaNames(session)
+        Set<QualifiedTablePrefix> schemaPrefixes = listSchemaNames(session)
                 .filter(prefix -> predicate.get().test(schemaAsFixedValues(prefix.getSchemaName().get())))
                 .collect(toImmutableSet());
+        if (schemaPrefixes.size() > MAX_PREFIXES_COUNT) {
+            // in case of high number of prefixes it is better to populate all data and then filter
+            // TODO this may cause re-running the above filtering upon next applyFilter
+            return defaultPrefixes(catalogName);
+        }
+        return schemaPrefixes;
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
