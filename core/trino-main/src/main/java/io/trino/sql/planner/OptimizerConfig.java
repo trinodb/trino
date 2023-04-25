@@ -96,6 +96,12 @@ public class OptimizerConfig
     private DataSize minInputSizePerTask = DataSize.of(5, GIGABYTE);
     private long minInputRowsPerTask = 10_000_000L;
 
+    private boolean preferSortMergeJoin;
+
+    private int sortMergeJoinMaxBufferPageCount = 10;
+
+    private int sortMergeJoinBufferInMemoryThreshold = 4096;
+
     public enum JoinReorderingStrategy
     {
         NONE,
@@ -787,6 +793,42 @@ public class OptimizerConfig
     public OptimizerConfig setUseCostBasedPartitioning(boolean useCostBasedPartitioning)
     {
         this.useCostBasedPartitioning = useCostBasedPartitioning;
+        return this;
+    }
+
+    public boolean isPreferSortMergeJoin()
+    {
+        return preferSortMergeJoin;
+    }
+
+    @Config("optimizer.prefer-sort-merge-join")
+    public OptimizerConfig setPreferSortMergeJoin(boolean preferSortMergeJoin)
+    {
+        this.preferSortMergeJoin = preferSortMergeJoin;
+        return this;
+    }
+
+    public int getSortMergeJoinMaxBufferPageCount()
+    {
+        return sortMergeJoinMaxBufferPageCount;
+    }
+
+    @Config("optimizer.sort-merge-join-max-buffer-page-count")
+    public OptimizerConfig setSortMergeJoinMaxBufferPageCount(int sortMergeJoinMaxBufferPageCount)
+    {
+        this.sortMergeJoinMaxBufferPageCount = sortMergeJoinMaxBufferPageCount;
+        return this;
+    }
+
+    public int getSortMergeJoinBufferInMemoryThreshold()
+    {
+        return sortMergeJoinBufferInMemoryThreshold;
+    }
+
+    @Config("optimizer.sort-merge-join-buffer-in-memory-threshold")
+    public OptimizerConfig setSortMergeJoinBufferInMemoryThreshold(int sortMergeJoinBufferInMemoryThreshold)
+    {
+        this.sortMergeJoinBufferInMemoryThreshold = sortMergeJoinBufferInMemoryThreshold;
         return this;
     }
 }

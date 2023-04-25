@@ -43,6 +43,7 @@ public class GenericSpiller
     private final Closer closer = Closer.create();
     private ListenableFuture<Void> previousSpill = immediateVoidFuture();
     private final List<SingleStreamSpiller> singleStreamSpillers = new ArrayList<>();
+    private SingleStreamSpiller curSingleStreamSpiller;
 
     public GenericSpiller(
             List<Type> types,
@@ -54,6 +55,27 @@ public class GenericSpiller
         this.spillContext = requireNonNull(spillContext, "spillContext cannot be null");
         this.aggregatedMemoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext cannot be null");
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory cannot be null");
+    }
+
+    @Override
+    public void beginSpill()
+    {
+        curSingleStreamSpiller = singleStreamSpillerFactory.create(types, spillContext, aggregatedMemoryContext.newLocalMemoryContext(GenericSpiller.class.getSimpleName()));
+        closer.register(curSingleStreamSpiller);
+        singleStreamSpillers.add(curSingleStreamSpiller);
+        curSingleStreamSpiller.beginSpill();
+    }
+
+    @Override
+    public void spillOnePage(Page page)
+    {
+        curSingleStreamSpiller.spillOnePage(page);
+    }
+
+    @Override
+    public void endSpill()
+    {
+        curSingleStreamSpiller.endSpill();
     }
 
     @Override

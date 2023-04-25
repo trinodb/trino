@@ -41,6 +41,21 @@ public class DummySpillerFactory
             private final List<Iterable<Page>> spills = new ArrayList<>();
 
             @Override
+            public void beginSpill()
+            {
+            }
+
+            @Override
+            public void spillOnePage(Page page)
+            {
+            }
+
+            @Override
+            public void endSpill()
+            {
+            }
+
+            @Override
             public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
             {
                 spillsCount++;

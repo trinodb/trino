@@ -228,6 +228,7 @@ import io.trino.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import io.trino.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import io.trino.sql.planner.iterative.rule.TransformExistsApplyToCorrelatedJoin;
 import io.trino.sql.planner.iterative.rule.TransformFilteringSemiJoinToInnerJoin;
+import io.trino.sql.planner.iterative.rule.TransformHashJoinToSortMergeJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.trino.sql.planner.iterative.rule.TransformUncorrelatedSubqueryToJoin;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
@@ -241,6 +242,7 @@ import io.trino.sql.planner.optimizations.AddLocalExchanges;
 import io.trino.sql.planner.optimizations.BeginTableWrite;
 import io.trino.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import io.trino.sql.planner.optimizations.DeterminePartitionCount;
+import io.trino.sql.planner.optimizations.EliminateSortOptimizer;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.sql.planner.optimizations.IndexJoinOptimizer;
 import io.trino.sql.planner.optimizations.LimitPushDown;
@@ -857,6 +859,14 @@ public class PlanOptimizers
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(plannerContext, typeAnalyzer, statsCalculator, taskCountEstimator)));
             // It can only run after AddExchanges since it estimates the hash partition count for all remote exchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new DeterminePartitionCount(statsCalculator)));
+            builder.add(new IterativeOptimizer(
+                    plannerContext,
+                    ruleStats,
+                    statsCalculator,
+                    costCalculator,
+                    ImmutableSet.<Rule<?>>builder()
+                            .add(new TransformHashJoinToSortMergeJoin())
+                            .build()));
         }
 
         // use cost calculator without estimated exchanges after AddExchanges
@@ -980,6 +990,7 @@ public class PlanOptimizers
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
+        builder.add(new EliminateSortOptimizer());
         this.optimizers = builder.build();
     }
 

@@ -1173,7 +1173,7 @@ public class TestEventListenerBasic
                                 ImmutableList.of(),
                                 ImmutableList.of(),
                                 ImmutableList.of(new JsonRenderedNode(
-                                        "171",
+                                        "175",
                                         "LocalExchange",
                                         ImmutableMap.of(
                                                 "partitioning", "[connectorHandleType = SystemPartitioningHandle, partitioning = SINGLE, function = SINGLE]",

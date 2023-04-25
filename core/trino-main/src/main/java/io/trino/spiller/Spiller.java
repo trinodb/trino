@@ -23,6 +23,12 @@ import java.util.List;
 public interface Spiller
         extends Closeable
 {
+    void beginSpill();
+
+    void spillOnePage(Page page);
+
+    void endSpill();
+
     /**
      * Initiate spilling of pages stream. Returns completed future once spilling has finished.
      */

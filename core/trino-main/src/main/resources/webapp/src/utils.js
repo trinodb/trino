@@ -249,6 +249,7 @@ export function getChildren(nodeInfo: any)
         case 'scalar':
             return [nodeInfo.source];
         case 'join':
+        case 'sortmergejoin':
             return [nodeInfo.left, nodeInfo.right];
         case 'semijoin':
             return [nodeInfo.source, nodeInfo.filteringSource];

@@ -26,6 +26,12 @@ import static com.google.common.collect.Iterators.singletonIterator;
 public interface SingleStreamSpiller
         extends Closeable
 {
+    void beginSpill();
+
+    void spillOnePage(Page page);
+
+    void endSpill();
+
     /**
      * Initiate spilling of pages stream. Returns completed future once spilling has finished.
      * Next spill can be initiated as soon as previous one completes.

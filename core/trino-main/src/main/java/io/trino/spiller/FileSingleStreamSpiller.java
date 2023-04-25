@@ -77,6 +77,9 @@ public class FileSingleStreamSpiller
 
     private final Runnable fileSystemErrorHandler;
 
+    private SliceOutput output;
+    private PageSerializer serializer;
+
     public FileSingleStreamSpiller(
             PagesSerdeFactory serdeFactory,
             Optional<SecretKey> encryptionKey,
@@ -112,6 +115,40 @@ public class FileSingleStreamSpiller
         catch (IOException e) {
             this.fileSystemErrorHandler.run();
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create spill file", e);
+        }
+    }
+
+    @Override
+    public void beginSpill()
+    {
+        try {
+            output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE);
+        }
+        catch (IOException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
+        }
+        serializer = serdeFactory.createSerializer(encryptionKey);
+    }
+
+    @Override
+    public void spillOnePage(Page page)
+    {
+        spilledPagesInMemorySize += page.getSizeInBytes();
+        Slice serializedPage = serializer.serialize(page);
+        long pageSize = serializedPage.length();
+        localSpillContext.updateBytes(pageSize);
+        spillerStats.addToTotalSpilledBytes(pageSize);
+        output.writeBytes(serializedPage);
+    }
+
+    @Override
+    public void endSpill()
+    {
+        try {
+            output.close();
+        }
+        catch (IOException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
         }
     }
 
@@ -169,7 +206,6 @@ public class FileSingleStreamSpiller
 
     private Iterator<Page> readPages()
     {
-        checkState(writable, "Repeated reads are disallowed to prevent potential resource leaks");
         writable = false;
 
         try {

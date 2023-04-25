@@ -70,6 +70,7 @@ import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -1170,6 +1171,83 @@ public class UnaliasSymbolReferences
                             node.isSpillable(),
                             newDynamicFilters,
                             node.getReorderJoinStatsAndCost()),
+                    outputMapping);
+        }
+
+        @Override
+        public PlanAndMappings visitSortMergeJoin(SortMergeJoinNode node, UnaliasContext context)
+        {
+            // it is assumed that symbols are distinct between left and right join source. Only symbols from outer correlation might be the exception
+            PlanAndMappings rewrittenLeft = node.getLeft().accept(this, context);
+            PlanAndMappings rewrittenRight = node.getRight().accept(this, context);
+
+            // unify mappings from left and right join source
+            Map<Symbol, Symbol> unifiedMapping = new HashMap<>();
+            unifiedMapping.putAll(rewrittenLeft.getMappings());
+            unifiedMapping.putAll(rewrittenRight.getMappings());
+
+            SymbolMapper mapper = symbolMapper(unifiedMapping);
+
+            ImmutableList.Builder<JoinNode.EquiJoinClause> builder = ImmutableList.builder();
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                builder.add(new JoinNode.EquiJoinClause(mapper.map(clause.getLeft()), mapper.map(clause.getRight())));
+            }
+            List<JoinNode.EquiJoinClause> newCriteria = builder.build();
+
+            Optional<Expression> newFilter = node.getFilter().map(mapper::map);
+
+            // rewrite dynamic filters
+            Map<Symbol, DynamicFilterId> canonicalDynamicFilters = new HashMap<>();
+            ImmutableMap.Builder<DynamicFilterId, Symbol> filtersBuilder = ImmutableMap.builder();
+            for (Map.Entry<DynamicFilterId, Symbol> entry : node.getDynamicFilters().entrySet()) {
+                Symbol canonical = mapper.map(entry.getValue());
+                DynamicFilterId canonicalDynamicFilterId = canonicalDynamicFilters.putIfAbsent(canonical, entry.getKey());
+                if (canonicalDynamicFilterId == null) {
+                    filtersBuilder.put(entry.getKey(), canonical);
+                }
+                else {
+                    dynamicFilterIdMap.put(entry.getKey(), canonicalDynamicFilterId);
+                }
+            }
+            Map<DynamicFilterId, Symbol> newDynamicFilters = filtersBuilder.buildOrThrow();
+
+            // derive new mappings from inner join equi criteria
+            Map<Symbol, Symbol> newMapping = new HashMap<>();
+            if (node.getType() == INNER) {
+                newCriteria.stream()
+                        // Map right equi-condition symbol to left symbol. This helps to
+                        // reuse join node partitioning better as partitioning properties are
+                        // only derived from probe side symbols
+                        .forEach(clause -> newMapping.put(clause.getRight(), clause.getLeft()));
+            }
+
+            Map<Symbol, Symbol> outputMapping = new HashMap<>();
+            outputMapping.putAll(unifiedMapping);
+            outputMapping.putAll(newMapping);
+
+            mapper = symbolMapper(outputMapping);
+            List<Symbol> canonicalOutputs = mapper.mapAndDistinct(node.getOutputSymbols());
+            List<Symbol> newLeftOutputSymbols = canonicalOutputs.stream()
+                    .filter(rewrittenLeft.getRoot().getOutputSymbols()::contains)
+                    .collect(toImmutableList());
+            List<Symbol> newRightOutputSymbols = canonicalOutputs.stream()
+                    .filter(rewrittenRight.getRoot().getOutputSymbols()::contains)
+                    .collect(toImmutableList());
+
+            return new PlanAndMappings(
+                    new SortMergeJoinNode(
+                            node.getId(),
+                            node.getType(),
+                            rewrittenLeft.getRoot(),
+                            rewrittenRight.getRoot(),
+                            newCriteria,
+                            newLeftOutputSymbols,
+                            newRightOutputSymbols,
+                            newFilter,
+                            node.getDistributionType(),
+                            newDynamicFilters,
+                            node.getNeedSortLeft(),
+                            node.getNeedSortRight()),
                     outputMapping);
         }
 

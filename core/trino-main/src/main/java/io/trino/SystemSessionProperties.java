@@ -199,6 +199,9 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_FORCE_PREFERRED_WRITE_PARTITIONING_ENABLED = "fault_tolerant_execution_force_preferred_write_partitioning_enabled";
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
 
+    public static final String PREFER_SORT_MERGE_JOIN = "prefer_sort_merge_join";
+    public static final String SORT_MERGE_JOIN_MAX_BUFFER_PAGE_COUNT = "sort_merge_join_max_buffer_page_count";
+    public static final String SORT_MERGE_JOIN_BUFFER_IN_MEMORY_THRESHOLD = "sort_merge_join_buffer_in_memory_threshold";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
@@ -1003,7 +1006,20 @@ public final class SystemSessionProperties
                 integerProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE,
                         "Maximum number of free buffers in the per task partitioned page buffer pool. Setting this to zero effectively disables the pool",
                         taskManagerConfig.getPagePartitioningBufferPoolSize(),
-                        true));
+                        true),
+                booleanProperty(PREFER_SORT_MERGE_JOIN,
+                        "When enabled this will prefer using sort merge join.",
+                        optimizerConfig.isPreferSortMergeJoin(),
+                        false),
+                integerProperty(
+                        SORT_MERGE_JOIN_MAX_BUFFER_PAGE_COUNT,
+                        "Max number of buffer page for sort merge join to executed.",
+                        optimizerConfig.getSortMergeJoinMaxBufferPageCount(),
+                        false),
+                integerProperty(
+                        SORT_MERGE_JOIN_BUFFER_IN_MEMORY_THRESHOLD,
+                        "Threshold for number of rows guaranteed to be held in memory by the sort merge join operator.",
+                        optimizerConfig.getSortMergeJoinBufferInMemoryThreshold(), false));
     }
 
     @Override
@@ -1798,5 +1814,20 @@ public final class SystemSessionProperties
     public static int getPagePartitioningBufferPoolSize(Session session)
     {
         return session.getSystemProperty(PAGE_PARTITIONING_BUFFER_POOL_SIZE, Integer.class);
+    }
+
+    public static boolean isPreferSortMergeJoin(Session session)
+    {
+        return session.getSystemProperty(PREFER_SORT_MERGE_JOIN, Boolean.class);
+    }
+
+    public static Integer getSortMergeJoinMaxBufferPageCount(Session session)
+    {
+        return session.getSystemProperty(SORT_MERGE_JOIN_MAX_BUFFER_PAGE_COUNT, Integer.class);
+    }
+
+    public static Integer getSortMergeJoinBufferInMemoryThreshold(Session session)
+    {
+        return session.getSystemProperty(SORT_MERGE_JOIN_BUFFER_IN_MEMORY_THRESHOLD, Integer.class);
     }
 }

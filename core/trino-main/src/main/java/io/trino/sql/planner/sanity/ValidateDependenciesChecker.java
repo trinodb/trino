@@ -57,6 +57,7 @@ import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SetOperationNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
@@ -574,6 +575,36 @@ public final class ValidateDependenciesChecker
                         .build();
                 checkDependencies(node.getOutputSymbols(), inputs, "Cross join output symbols (%s) must contain all of the source symbols (%s)", node.getOutputSymbols(), inputs);
             }
+
+            return null;
+        }
+
+        @Override
+        public Void visitSortMergeJoin(SortMergeJoinNode node, Set<Symbol> boundSymbols)
+        {
+            node.getLeft().accept(this, boundSymbols);
+            node.getRight().accept(this, boundSymbols);
+
+            Set<Symbol> leftInputs = createInputs(node.getLeft(), boundSymbols);
+            Set<Symbol> rightInputs = createInputs(node.getRight(), boundSymbols);
+            Set<Symbol> allInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(leftInputs)
+                    .addAll(rightInputs)
+                    .build();
+
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                checkArgument(leftInputs.contains(clause.getLeft()), "Symbol from join clause (%s) not in left source (%s)", clause.getLeft(), node.getLeft().getOutputSymbols());
+                checkArgument(rightInputs.contains(clause.getRight()), "Symbol from join clause (%s) not in right source (%s)", clause.getRight(), node.getRight().getOutputSymbols());
+            }
+
+            node.getFilter().ifPresent(predicate -> {
+                Set<Symbol> predicateSymbols = extractUnique(predicate);
+                checkArgument(
+                        allInputs.containsAll(predicateSymbols),
+                        "Symbol from filter (%s) not in sources (%s)",
+                        predicateSymbols,
+                        allInputs);
+            });
 
             return null;
         }

@@ -339,6 +339,21 @@ public final class JoinTestUtils
                 private final List<Page> spills = new ArrayList<>();
 
                 @Override
+                public void beginSpill()
+                {
+                }
+
+                @Override
+                public void spillOnePage(Page page)
+                {
+                }
+
+                @Override
+                public void endSpill()
+                {
+                }
+
+                @Override
                 public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
                 {
                     checkState(writing, "writing already finished");

@@ -55,6 +55,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -913,6 +914,23 @@ public class AddLocalExchanges
         //
         // Joins
         //
+
+        @Override
+        public PlanWithProperties visitSortMergeJoin(SortMergeJoinNode node, StreamPreferredProperties parentPreferences)
+        {
+            if (getTaskConcurrency(session) > 1) {
+                List<Symbol> leftHashSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getLeft);
+                StreamPreferredProperties leftPreference = exactlyPartitionedOn(leftHashSymbols);
+                PlanWithProperties left = planAndEnforce(node.getLeft(), leftPreference, leftPreference);
+                List<Symbol> rightHashSymbols = Lists.transform(node.getCriteria(), JoinNode.EquiJoinClause::getRight);
+                StreamPreferredProperties rightPreference = exactlyPartitionedOn(rightHashSymbols);
+                PlanWithProperties right = planAndEnforce(node.getRight(), rightPreference, rightPreference);
+                return rebaseAndDeriveProperties(node, ImmutableList.of(left, right));
+            }
+            else {
+                return super.visitSortMergeJoin(node, parentPreferences);
+            }
+        }
 
         @Override
         public PlanWithProperties visitJoin(JoinNode node, StreamPreferredProperties parentPreferences)

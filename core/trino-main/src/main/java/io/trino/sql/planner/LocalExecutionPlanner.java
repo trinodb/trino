@@ -124,6 +124,9 @@ import io.trino.operator.join.LookupSourceFactory;
 import io.trino.operator.join.NestedLoopJoinBridge;
 import io.trino.operator.join.NestedLoopJoinPagesSupplier;
 import io.trino.operator.join.PartitionedLookupSourceFactory;
+import io.trino.operator.join.smj.SortMergeJoinBridge;
+import io.trino.operator.join.smj.SortMergeJoinBuildOperatorFactory;
+import io.trino.operator.join.smj.SortMergeJoinProbeOperatorFactory;
 import io.trino.operator.join.unspilled.HashBuilderOperator;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputFactory;
 import io.trino.operator.output.PositionsAppenderFactory;
@@ -219,6 +222,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregationsDescriptor;
@@ -301,6 +305,8 @@ import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemo
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.SystemSessionProperties.getPagePartitioningBufferPoolSize;
+import static io.trino.SystemSessionProperties.getSortMergeJoinBufferInMemoryThreshold;
+import static io.trino.SystemSessionProperties.getSortMergeJoinMaxBufferPageCount;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static io.trino.SystemSessionProperties.getTaskScaleWritersMaxWriterCount;
@@ -2509,6 +2515,17 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitSortMergeJoin(SortMergeJoinNode node, LocalExecutionPlanContext context)
+        {
+            List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+
+            List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
+            List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
+
+            return createSortMergeJoin(node, node.getLeft(), leftSymbols, node.getRight(), rightSymbols, context);
+        }
+
+        @Override
         public PhysicalOperation visitSpatialJoin(SpatialJoinNode node, LocalExecutionPlanContext context)
         {
             Expression filterExpression = node.getFilter();
@@ -2799,6 +2816,111 @@ public class LocalExecutionPlanner
                     buildContext.getDriverInstanceCount());
 
             return builderOperatorFactory.getPagesSpatialIndexFactory();
+        }
+
+        private PhysicalOperation sortBy(PlanNodeId id,
+                PhysicalOperation source,
+                LocalExecutionPlanContext context,
+                OrderingScheme ordering)
+        {
+            List<Integer> orderByChannels = getChannelsForSymbols(ordering.getOrderBy(), source.getLayout());
+            List<SortOrder> sortOrder = new ArrayList<>(ordering.getOrderings().values());
+
+            ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
+            for (int i = 0; i < source.getTypes().size(); i++) {
+                outputChannels.add(i);
+            }
+
+            boolean spillEnabled = isSpillEnabled(session);
+            OperatorFactory operatorFactory = new OrderByOperatorFactory(
+                    context.getNextOperatorId(),
+                    id,
+                    source.getTypes(),
+                    outputChannels.build(),
+                    10_000,
+                    orderByChannels,
+                    sortOrder,
+                    pagesIndexFactory,
+                    spillEnabled,
+                    Optional.of(spillerFactory),
+                    orderingCompiler);
+
+            PhysicalOperation sourceAfterSort = new PhysicalOperation(operatorFactory, source.getLayout(), context, source);
+            return sourceAfterSort;
+        }
+
+        private PhysicalOperation createSortMergeJoin(
+                SortMergeJoinNode node,
+                PlanNode probeNode,
+                List<Symbol> probeEquiJoinClause,
+                PlanNode buildNode,
+                List<Symbol> buildEquiJoinClause,
+                LocalExecutionPlanContext context)
+        {
+            // Plan build
+            LocalExecutionPlanContext buildContext = context.createSubContext();
+            PhysicalOperation buildSource = buildNode.accept(this, buildContext);
+            if (node.getNeedSortRight()) {
+                buildSource = sortBy(node.getId(), buildSource, buildContext, node.getRightOrdering());
+            }
+
+            Integer maxBufferPageCount = getSortMergeJoinMaxBufferPageCount(session);
+            SortMergeJoinBridge bridge = new SortMergeJoinBridge(context.getTaskContext().getTaskId().toString(),
+                    buildContext.getDriverInstanceCount().getAsInt(), maxBufferPageCount);
+
+            OperatorFactory sortMergeJoinBuildOperatorFactory = new SortMergeJoinBuildOperatorFactory(
+                    buildContext.getNextOperatorId(),
+                    node.getId(), bridge);
+
+            PhysicalOperation mergeJoinBuild = new PhysicalOperation(sortMergeJoinBuildOperatorFactory,
+                    buildSource.getLayout(), buildContext, buildSource);
+            context.addDriverFactory(
+                    buildContext.isInputDriver(),
+                    false,
+                    mergeJoinBuild,
+                    buildContext.getDriverInstanceCount());
+
+            // Plan probe
+            PhysicalOperation probeSource = probeNode.accept(this, context);
+
+            if (context.getDriverInstanceCount().getAsInt() != buildContext.getDriverInstanceCount().getAsInt()) {
+                throw new VerifyException("Driver instance count should be same between left and right side of SortMergeJoinNode.");
+            }
+
+            if (node.getNeedSortLeft()) {
+                probeSource = sortBy(node.getId(), probeSource, context, node.getLeftOrdering());
+            }
+
+            List<Integer> buildEquiJoinClauseChannels = ImmutableList.copyOf(getChannelsForSymbols(buildEquiJoinClause, buildSource.getLayout()));
+            List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(node.getRightOutputSymbols(), buildSource.getLayout()));
+
+            List<Integer> probeEquiJoinClauseChannels = ImmutableList.copyOf(getChannelsForSymbols(probeEquiJoinClause, probeSource.getLayout()));
+            List<Integer> probeOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(node.getLeftOutputSymbols(), probeSource.getLayout()));
+
+            OperatorFactory sortMergeJoinProbeOperatorFactory = new SortMergeJoinProbeOperatorFactory(
+                    maxBufferPageCount,
+                    getSortMergeJoinBufferInMemoryThreshold(session),
+                    Optional.of(spillerFactory),
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    node.getType(),
+                    bridge,
+                    blockTypeOperators,
+                    probeSource.getTypes(),
+                    probeEquiJoinClauseChannels,
+                    probeOutputChannels,
+                    buildSource.getTypes(),
+                    buildEquiJoinClauseChannels,
+                    buildOutputChannels);
+
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            List<Symbol> outputSymbols = node.getOutputSymbols();
+            for (int i = 0; i < outputSymbols.size(); i++) {
+                Symbol symbol = outputSymbols.get(i);
+                outputMappings.put(symbol, i);
+            }
+
+            return new PhysicalOperation(sortMergeJoinProbeOperatorFactory, outputMappings.buildOrThrow(), context, probeSource);
         }
 
         private PhysicalOperation createLookupJoin(

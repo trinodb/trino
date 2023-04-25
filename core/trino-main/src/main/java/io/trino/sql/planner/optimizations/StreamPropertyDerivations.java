@@ -57,6 +57,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -197,6 +198,26 @@ public final class StreamPropertyDerivations
         //
         // Joins
         //
+
+        @Override
+        public StreamProperties visitSortMergeJoin(SortMergeJoinNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties leftProperties = inputProperties.get(0);
+            StreamProperties rightProperties = inputProperties.get(1);
+            return switch (node.getType()) {
+                case INNER, LEFT -> leftProperties
+                        .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
+                        .unordered(true);
+                case RIGHT -> rightProperties
+                        .translate(column -> PropertyDerivations.filterIfMissing(node.getOutputSymbols(), column))
+                        .unordered(true);
+                case FULL ->
+                    // the left can contain nulls in any stream so we can't say anything about the
+                    // partitioning, and nulls from the right are produced from a extra new stream
+                    // so we will always have multiple streams.
+                        new StreamProperties(MULTIPLE, Optional.empty(), false);
+            };
+        }
 
         @Override
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)

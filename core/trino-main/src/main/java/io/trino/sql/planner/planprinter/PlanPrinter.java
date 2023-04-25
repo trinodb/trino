@@ -98,6 +98,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
@@ -723,6 +724,33 @@ public class PlanPrinter
             node.getLeft().accept(this, new Context());
             node.getRight().accept(this, new Context());
 
+            return null;
+        }
+
+        @Override
+        public Void visitSortMergeJoin(SortMergeJoinNode node, Context context)
+        {
+            List<Expression> joinExpressions = new ArrayList<>();
+            for (JoinNode.EquiJoinClause clause : node.getCriteria()) {
+                joinExpressions.add(unresolveFunctions(clause.toExpression()));
+            }
+            node.getFilter()
+                    .map(PlanPrinter::unresolveFunctions)
+                    .ifPresent(joinExpressions::add);
+
+            NodeRepresentation nodeOutput;
+            ImmutableMap.Builder<String, String> descriptor = ImmutableMap.<String, String>builder()
+                    .put("criteria", Joiner.on(" AND ").join(anonymizeExpressions(joinExpressions)))
+                    .put("sortLeft", node.getNeedSortLeft().toString())
+                    .put("sortRight", node.getNeedSortRight().toString());
+            nodeOutput = addNode(node, "SortMerge" + node.getType().getJoinLabel(), descriptor.buildOrThrow(), context.tag());
+
+            node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
+            if (!node.getDynamicFilters().isEmpty()) {
+                nodeOutput.appendDetails("dynamicFilterAssignments = %s", printDynamicFilterAssignments(node.getDynamicFilters()));
+            }
+            node.getLeft().accept(this, context);
+            node.getRight().accept(this, context);
             return null;
         }
 

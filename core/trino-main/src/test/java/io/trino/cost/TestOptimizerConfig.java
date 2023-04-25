@@ -90,7 +90,10 @@ public class TestOptimizerConfig
                 .setMinInputSizePerTask(DataSize.of(5, GIGABYTE))
                 .setMinInputRowsPerTask(10_000_000L)
                 .setUseExactPartitioning(false)
-                .setUseCostBasedPartitioning(true));
+                .setUseCostBasedPartitioning(true)
+                .setPreferSortMergeJoin(false)
+                .setSortMergeJoinBufferInMemoryThreshold(4096)
+                .setSortMergeJoinMaxBufferPageCount(10));
     }
 
     @Test
@@ -148,6 +151,9 @@ public class TestOptimizerConfig
                 .put("optimizer.min-input-rows-per-task", "1000000")
                 .put("optimizer.use-exact-partitioning", "true")
                 .put("optimizer.use-cost-based-partitioning", "false")
+                .put("optimizer.prefer-sort-merge-join", "true")
+                .put("optimizer.sort-merge-join-buffer-in-memory-threshold", "40960")
+                .put("optimizer.sort-merge-join-max-buffer-page-count", "100")
                 .buildOrThrow();
 
         OptimizerConfig expected = new OptimizerConfig()
@@ -201,7 +207,10 @@ public class TestOptimizerConfig
                 .setMinInputSizePerTask(DataSize.of(1, MEGABYTE))
                 .setMinInputRowsPerTask(1_000_000L)
                 .setUseExactPartitioning(true)
-                .setUseCostBasedPartitioning(false);
+                .setUseCostBasedPartitioning(false)
+                .setPreferSortMergeJoin(true)
+                .setSortMergeJoinBufferInMemoryThreshold(40960)
+                .setSortMergeJoinMaxBufferPageCount(100);
         assertFullMapping(properties, expected);
     }
 }

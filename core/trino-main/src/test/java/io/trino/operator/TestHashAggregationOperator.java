@@ -913,6 +913,21 @@ public class TestHashAggregationOperator
             return new Spiller()
             {
                 @Override
+                public void beginSpill()
+                {
+                }
+
+                @Override
+                public void spillOnePage(Page page)
+                {
+                }
+
+                @Override
+                public void endSpill()
+                {
+                }
+
+                @Override
                 public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
                 {
                     return immediateFailedFuture(new IOException("Failed to spill"));

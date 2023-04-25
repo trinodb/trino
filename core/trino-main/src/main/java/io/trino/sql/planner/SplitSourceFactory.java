@@ -54,6 +54,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -195,6 +196,17 @@ public class SplitSourceFactory
 
         @Override
         public Map<PlanNodeId, SplitSource> visitJoin(JoinNode node, Void context)
+        {
+            Map<PlanNodeId, SplitSource> leftSplits = node.getLeft().accept(this, context);
+            Map<PlanNodeId, SplitSource> rightSplits = node.getRight().accept(this, context);
+            return ImmutableMap.<PlanNodeId, SplitSource>builder()
+                    .putAll(leftSplits)
+                    .putAll(rightSplits)
+                    .buildOrThrow();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitSortMergeJoin(SortMergeJoinNode node, Void context)
         {
             Map<PlanNodeId, SplitSource> leftSplits = node.getLeft().accept(this, context);
             Map<PlanNodeId, SplitSource> rightSplits = node.getRight().accept(this, context);

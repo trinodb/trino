@@ -67,6 +67,7 @@ import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
@@ -577,6 +578,42 @@ public final class PropertyDerivations
                 case FULL ->
                         // We can't say anything about the partitioning scheme because any partition of
                         // a hash-partitioned join can produce nulls in case of a lack of matches
+                        ActualProperties.builder()
+                                .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
+                                .build();
+            };
+        }
+
+        @Override
+        public ActualProperties visitSortMergeJoin(SortMergeJoinNode node, List<ActualProperties> inputProperties)
+        {
+            ActualProperties probeProperties = inputProperties.get(0);
+            ActualProperties buildProperties = inputProperties.get(1);
+
+            return switch (node.getType()) {
+                case INNER -> {
+                    probeProperties = probeProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
+                    buildProperties = buildProperties.translate(column -> filterOrRewrite(node.getOutputSymbols(), node.getCriteria(), column));
+
+                    Map<Symbol, NullableValue> constants = new HashMap<>();
+                    constants.putAll(probeProperties.getConstants());
+                    constants.putAll(buildProperties.getConstants());
+
+                    yield ActualProperties.builderFrom(probeProperties)
+                            .constants(constants)
+                            .unordered(true)
+                            .build();
+                }
+                case LEFT -> ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                        .unordered(true)
+                        .build();
+                case RIGHT -> ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
+                        .local(ImmutableList.of())
+                        .unordered(true)
+                        .build();
+                case FULL ->
+                    // We can't say anything about the partitioning scheme because any partition of
+                    // a hash-partitioned join can produce nulls in case of a lack of matches
                         ActualProperties.builder()
                                 .global(probeProperties.isSingleNode() ? singlePartition() : arbitraryPartition())
                                 .build();

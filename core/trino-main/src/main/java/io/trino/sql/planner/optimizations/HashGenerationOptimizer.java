@@ -56,6 +56,7 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowNumberNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
+import io.trino.sql.planner.plan.SortMergeJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
@@ -312,6 +313,19 @@ public class HashGenerationOptimizer
                             node.isPartial(),
                             Optional.of(hashSymbol)),
                     child.getHashSymbols());
+        }
+
+        @Override
+        public PlanWithProperties visitSortMergeJoin(SortMergeJoinNode node, HashComputationSet parentPreference)
+        {
+            // join does not pass through preferred hash symbols since they take more memory and since
+            // the join node filters, may take more compute
+            PlanWithProperties left = planAndEnforce(node.getLeft(), new HashComputationSet(), true, new HashComputationSet());
+            PlanWithProperties right = planAndEnforce(node.getRight(), new HashComputationSet(), true, new HashComputationSet());
+            checkState(left.getHashSymbols().isEmpty() && right.getHashSymbols().isEmpty());
+            return new PlanWithProperties(
+                    replaceChildren(node, ImmutableList.of(left.getNode(), right.getNode())),
+                    ImmutableMap.of());
         }
 
         @Override
