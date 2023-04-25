@@ -107,6 +107,12 @@ public class HiveColumnProjectionInfo
                 Objects.equals(this.type, other.type);
     }
 
+    @Override
+    public String toString()
+    {
+        return partialName + ":" + type.getDisplayName();
+    }
+
     public static String generatePartialName(List<String> dereferenceNames)
     {
         return dereferenceNames.stream()
