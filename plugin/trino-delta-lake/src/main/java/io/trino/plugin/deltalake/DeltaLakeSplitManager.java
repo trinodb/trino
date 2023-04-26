@@ -53,6 +53,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFilteringWaitTimeout;
@@ -310,19 +311,15 @@ public class DeltaLakeSplitManager
     {
         // paths are relative to the table location and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+        // decoding is implicit within URI class, done lazily on get methods
         URI uri = URI.create(addAction.getPath());
-        String path = uri.getPath();
 
-        // org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem encodes the path as URL when opening files
-        // https://issues.apache.org/jira/browse/HADOOP-18580
-        if (tableLocation.startsWith("abfs://") || tableLocation.startsWith("abfss://")) {
-            // Replace '+' with '%2B' beforehand. Otherwise, the character becomes a space ' ' by URL decode.
-            path = URLDecoder.decode(path.replace("+", "%2B"), UTF_8);
+        if (!uri.isAbsolute()) {
+            return appendPath(tableLocation, uri.getPath());
         }
-        if (tableLocation.endsWith("/")) {
-            return tableLocation + path;
+        else {
+            return uri.getScheme() + ":" + uri.getSchemeSpecificPart();
         }
-        return tableLocation + "/" + path;
     }
 
     private DeltaLakeMetastore getMetastore(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
