@@ -116,8 +116,8 @@ public class TestIcebergGetTableStatisticsOperations
                 "FROM iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
+                ImmutableMultiset.<CountingAccessMetadata.Method>builder()
+                        .addCopies(CountingAccessMetadata.Method.GET_TABLE_STATISTICS, 2)
                         .build());
     }
 
@@ -128,8 +128,8 @@ public class TestIcebergGetTableStatisticsOperations
                 "FROM iceberg.tiny.customer c, iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
+                ImmutableMultiset.<CountingAccessMetadata.Method>builder()
+                        .addCopies(CountingAccessMetadata.Method.GET_TABLE_STATISTICS, 3)
                         .build());
     }
 
