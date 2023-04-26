@@ -119,13 +119,24 @@ Date and time functions
 
 .. function:: at_timezone(timestamp, zone) -> timestamp(p) with time zone
 
-    Change the time zone component of ``timestamp`` with precision ``p`` to
-    ``zone`` while preserving the instant in time.
+    Returns the timestamp specified in ``timestamp`` with time zone converted from the session time zone
+    to the time zone specified in ``zone`` with precision ``p``::
+
+        SELECT current_timezone()
+        -- America/New York
+
+        SELECT at_timezone(TIMESTAMP '2022-11-01 00:00:00', 'America/Los_Angeles')
+        -- 2022-10-31 21:00:00 America/Los_Angeles
 
 .. function:: with_timezone(timestamp, zone) -> timestamp(p) with time zone
 
-    Returns a timestamp with time zone from ``timestamp`` with precision ``p``
-    and ``zone``.
+    Returns the timestamp specified in ``timestamp`` with time zone specified in ``zone`` with precision ``p``::
+
+        SELECT current_timezone()
+        -- America/New York
+
+        SELECT with_timezone(TIMESTAMP '2022-11-01 00:00:00', 'America/Los_Angeles')
+        -- 2022-11-01 00:00:00 America/Los_Angeles
 
 .. function:: from_unixtime(unixtime) -> timestamp(3) with time zone
 
