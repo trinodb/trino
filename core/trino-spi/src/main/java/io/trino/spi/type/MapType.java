@@ -192,13 +192,13 @@ public class MapType
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public MapBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         return new MapBlockBuilder(this, blockBuilderStatus, expectedEntries);
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public MapBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, EXPECTED_BYTES_PER_ENTRY);
     }
@@ -262,14 +262,12 @@ public class MapType
             throw new IllegalArgumentException("Maps must be represented with SingleMapBlock");
         }
 
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-
-        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            keyType.appendTo(singleMapBlock, i, entryBuilder);
-            valueType.appendTo(singleMapBlock, i + 1, entryBuilder);
-        }
-
-        blockBuilder.closeEntry();
+        ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+            for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
+                keyType.appendTo(singleMapBlock, i, keyBuilder);
+                valueType.appendTo(singleMapBlock, i + 1, valueBuilder);
+            }
+        });
     }
 
     @Override

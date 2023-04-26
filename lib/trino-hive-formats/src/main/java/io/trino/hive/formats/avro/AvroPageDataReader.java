@@ -17,8 +17,10 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import org.apache.avro.Resolver;
@@ -468,17 +470,17 @@ public class AvroPageDataReader
         protected void decodeIntoBlock(Decoder decoder, BlockBuilder builder)
                 throws IOException
         {
-            BlockBuilder elementBuilder = builder.beginBlockEntry();
-            long elementsInBlock = decoder.readArrayStart();
-            if (elementsInBlock > 0) {
-                do {
-                    for (int i = 0; i < elementsInBlock; i++) {
-                        elementBlockBuildingDecoder.decodeIntoBlock(decoder, elementBuilder);
+            ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                long elementsInBlock = decoder.readArrayStart();
+                if (elementsInBlock > 0) {
+                    do {
+                        for (int i = 0; i < elementsInBlock; i++) {
+                            elementBlockBuildingDecoder.decodeIntoBlock(decoder, elementBuilder);
+                        }
                     }
+                    while ((elementsInBlock = decoder.arrayNext()) > 0);
                 }
-                while ((elementsInBlock = decoder.arrayNext()) > 0);
-            }
-            builder.closeEntry();
+            });
         }
     }
 
@@ -500,19 +502,19 @@ public class AvroPageDataReader
         protected void decodeIntoBlock(Decoder decoder, BlockBuilder builder)
                 throws IOException
         {
-            BlockBuilder entryBuilder = builder.beginBlockEntry();
-            long entriesInBlock = decoder.readMapStart();
-            // TODO need to filter out all but last value for key?
-            if (entriesInBlock > 0) {
-                do {
-                    for (int i = 0; i < entriesInBlock; i++) {
-                        keyBlockBuildingDecoder.decodeIntoBlock(decoder, entryBuilder);
-                        valueBlockBuildingDecoder.decodeIntoBlock(decoder, entryBuilder);
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                long entriesInBlock = decoder.readMapStart();
+                // TODO need to filter out all but last value for key?
+                if (entriesInBlock > 0) {
+                    do {
+                        for (int i = 0; i < entriesInBlock; i++) {
+                            keyBlockBuildingDecoder.decodeIntoBlock(decoder, keyBuilder);
+                            valueBlockBuildingDecoder.decodeIntoBlock(decoder, valueBuilder);
+                        }
                     }
+                    while ((entriesInBlock = decoder.mapNext()) > 0);
                 }
-                while ((entriesInBlock = decoder.mapNext()) > 0);
-            }
-            builder.closeEntry();
+            });
         }
     }
 
@@ -576,9 +578,7 @@ public class AvroPageDataReader
         protected void decodeIntoBlock(Decoder decoder, BlockBuilder builder)
                 throws IOException
         {
-            SingleRowBlockWriter currentBuilder = (SingleRowBlockWriter) builder.beginBlockEntry();
-            decodeIntoBlockProvided(decoder, currentBuilder::getFieldBlockBuilder);
-            builder.closeEntry();
+            ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> decodeIntoBlockProvided(decoder, fieldBuilders::get));
         }
 
         protected void decodeIntoPageBuilder(Decoder decoder, PageBuilder builder)
@@ -880,19 +880,19 @@ public class AvroPageDataReader
         protected static void makeSingleRowWithTagAndAllFieldsNullButOne(int outputChannel, int totalChannels, BlockBuildingDecoder blockBuildingDecoder, Decoder decoder, BlockBuilder builder)
                 throws IOException
         {
-            SingleRowBlockWriter currentBuilder = (SingleRowBlockWriter) builder.beginBlockEntry();
-            //add tag with channel
-            UNION_FIELD_TAG_TYPE.writeLong(currentBuilder.getFieldBlockBuilder(0), outputChannel);
-            //add in null fields except one
-            for (int channel = 1; channel <= totalChannels; channel++) {
-                if (channel == outputChannel + 1) {
-                    blockBuildingDecoder.decodeIntoBlock(decoder, currentBuilder.getFieldBlockBuilder(channel));
+            ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
+                //add tag with channel
+                UNION_FIELD_TAG_TYPE.writeLong(fieldBuilders.get(0), outputChannel);
+                //add in null fields except one
+                for (int channel = 1; channel <= totalChannels; channel++) {
+                    if (channel == outputChannel + 1) {
+                        blockBuildingDecoder.decodeIntoBlock(decoder, fieldBuilders.get(channel));
+                    }
+                    else {
+                        fieldBuilders.get(channel).appendNull();
+                    }
                 }
-                else {
-                    currentBuilder.getFieldBlockBuilder(channel).appendNull();
-                }
-            }
-            builder.closeEntry();
+            });
         }
 
         protected static int[] getIndexToChannel(List<Schema> schemas)

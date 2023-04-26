@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.List;
@@ -53,12 +54,12 @@ public class RowDecoder
             output.appendNull();
         }
         else if (data instanceof Map) {
-            BlockBuilder row = output.beginBlockEntry();
-            for (int i = 0; i < decoders.size(); i++) {
-                String field = fieldNames.get(i);
-                decoders.get(i).decode(hit, () -> getField((Map<String, Object>) data, field), row);
-            }
-            output.closeEntry();
+            ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                for (int i = 0; i < decoders.size(); i++) {
+                    String field = fieldNames.get(i);
+                    decoders.get(i).decode(hit, () -> getField((Map<String, Object>) data, field), fieldBuilders.get(i));
+                }
+            });
         }
         else {
             throw new TrinoException(TYPE_MISMATCH, format("Expected object for field '%s' of type ROW: %s [%s]", path, data, data.getClass().getSimpleName()));

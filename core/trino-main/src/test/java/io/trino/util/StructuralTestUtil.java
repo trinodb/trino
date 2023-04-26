@@ -16,8 +16,11 @@ package io.trino.util;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
@@ -76,28 +79,28 @@ public final class StructuralTestUtil
             blockBuilder.appendNull();
         }
         else if (type instanceof ArrayType && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Object subElement : (Iterable<?>) element) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
-            }
-            blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                for (Object subElement : (Iterable<?>) element) {
+                    appendToBlockBuilder(type.getTypeParameters().get(0), subElement, elementBuilder);
+                }
+            });
         }
         else if (type instanceof RowType && element instanceof Iterable<?>) {
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            int field = 0;
-            for (Object subElement : (Iterable<?>) element) {
-                appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
-                field++;
-            }
-            blockBuilder.closeEntry();
+            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                int field = 0;
+                for (Object subElement : (Iterable<?>) element) {
+                    appendToBlockBuilder(type.getTypeParameters().get(field), subElement, fieldBuilders.get(field));
+                    field++;
+                }
+            });
         }
-        else if (type instanceof MapType && element instanceof Map<?, ?>) {
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
-                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
-            }
-            blockBuilder.closeEntry();
+        else if (type instanceof MapType mapType && element instanceof Map<?, ?>) {
+            ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (Map.Entry<?, ?> entry : ((Map<?, ?>) element).entrySet()) {
+                    appendToBlockBuilder(mapType.getKeyType(), entry.getKey(), keyBuilder);
+                    appendToBlockBuilder(mapType.getValueType(), entry.getValue(), valueBuilder);
+                }
+            });
         }
         else if (javaType == boolean.class) {
             type.writeBoolean(blockBuilder, (Boolean) element);

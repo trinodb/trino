@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -631,15 +632,12 @@ public class TestApproximatePercentileAggregation
 
     private static Block createRleBlock(Iterable<Double> percentiles, int positionCount)
     {
-        BlockBuilder rleBlockBuilder = new ArrayType(DOUBLE).createBlockBuilder(null, 1);
-        BlockBuilder arrayBlockBuilder = rleBlockBuilder.beginBlockEntry();
-
-        for (double percentile : percentiles) {
-            DOUBLE.writeDouble(arrayBlockBuilder, percentile);
-        }
-
-        rleBlockBuilder.closeEntry();
-
-        return RunLengthEncodedBlock.create(rleBlockBuilder.build(), positionCount);
+        ArrayBlockBuilder arrayBuilder = new ArrayType(DOUBLE).createBlockBuilder(null, 1);
+        arrayBuilder.buildEntry(elementBuilder -> {
+            for (double percentile : percentiles) {
+                DOUBLE.writeDouble(elementBuilder, percentile);
+            }
+        });
+        return RunLengthEncodedBlock.create(arrayBuilder.build(), positionCount);
     }
 }

@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import io.airlift.stats.TDigest;
 import io.trino.operator.aggregation.state.TDigestAndPercentileArrayState;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -65,13 +66,11 @@ public final class ApproximateLongPercentileArrayAggregations
             return;
         }
 
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-
-        List<Double> valuesAtPercentiles = valuesAtPercentiles(digest, percentiles);
-        for (double value : valuesAtPercentiles) {
-            BIGINT.writeLong(blockBuilder, Math.round(value));
-        }
-
-        out.closeEntry();
+        ((ArrayBlockBuilder) out).buildEntry(elementBuilder -> {
+            List<Double> valuesAtPercentiles = valuesAtPercentiles(digest, percentiles);
+            for (double value : valuesAtPercentiles) {
+                BIGINT.writeLong(elementBuilder, Math.round(value));
+            }
+        });
     }
 }

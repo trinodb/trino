@@ -27,9 +27,11 @@ import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -528,15 +530,14 @@ public class JsonDeserializer
         void decodeValue(LineBuffer lineBuffer, JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            BlockBuilder elementBuilder = builder.beginBlockEntry();
-
-            if (parser.currentToken() != START_ARRAY) {
-                throw invalidJson("start of array expected");
-            }
-            while (nextTokenRequired(parser) != JsonToken.END_ARRAY) {
-                elementDecoder.decode(lineBuffer, parser, elementBuilder);
-            }
-            builder.closeEntry();
+            ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                if (parser.currentToken() != START_ARRAY) {
+                    throw invalidJson("start of array expected");
+                }
+                while (nextTokenRequired(parser) != JsonToken.END_ARRAY) {
+                    elementDecoder.decode(lineBuffer, parser, elementBuilder);
+                }
+            });
         }
     }
 
@@ -570,23 +571,23 @@ public class JsonDeserializer
             Block keyBlock = readKeys(createParserAt(parser.currentTokenLocation(), lineBuffer));
             boolean[] distinctKeys = distinctMapKeys.selectDistinctKeys(keyBlock);
 
-            BlockBuilder entryBuilder = builder.beginBlockEntry();
-            if (parser.currentToken() != START_OBJECT) {
-                throw invalidJson("start of object expected");
-            }
-            int keyIndex = 0;
-            while (nextObjectField(parser)) {
-                if (distinctKeys[keyIndex]) {
-                    keyType.appendTo(keyBlock, keyIndex, entryBuilder);
-                    parser.nextToken();
-                    valueDecoder.decode(lineBuffer, parser, entryBuilder);
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                if (parser.currentToken() != START_OBJECT) {
+                    throw invalidJson("start of object expected");
                 }
-                else {
-                    skipNextValue(parser);
+                int keyIndex = 0;
+                while (nextObjectField(parser)) {
+                    if (distinctKeys[keyIndex]) {
+                        keyType.appendTo(keyBlock, keyIndex, keyBuilder);
+                        parser.nextToken();
+                        valueDecoder.decode(lineBuffer, parser, valueBuilder);
+                    }
+                    else {
+                        skipNextValue(parser);
+                    }
+                    keyIndex++;
                 }
-                keyIndex++;
-            }
-            builder.closeEntry();
+            });
         }
 
         private Block readKeys(JsonParser fieldNameParser)
@@ -687,9 +688,7 @@ public class JsonDeserializer
         void decodeValue(LineBuffer lineBuffer, JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            SingleRowBlockWriter currentBuilder = (SingleRowBlockWriter) builder.beginBlockEntry();
-            decodeValue(lineBuffer, parser, currentBuilder::getFieldBlockBuilder);
-            builder.closeEntry();
+            ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> decodeValue(lineBuffer, parser, fieldBuilders::get));
         }
 
         private void decodeValue(LineBuffer lineBuffer, JsonParser parser, IntFunction<BlockBuilder> fieldBuilders)

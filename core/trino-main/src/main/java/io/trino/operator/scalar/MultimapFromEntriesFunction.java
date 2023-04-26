@@ -16,8 +16,8 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
@@ -109,12 +109,13 @@ public final class MultimapFromEntriesFunction
 
         Block resultMap = mapValueBuilder.build(keySet.size(), (keyBuilder, valueBuilder) -> {
             for (int i = 0; i < keySet.size(); i++) {
-                keyType.appendTo(mapEntryType.getObject(mapEntries, entryIndicesList[i].getInt(0)), 0, keyBuilder);
-                BlockBuilder valuesArray = valueBuilder.beginBlockEntry();
-                for (int entryIndex : entryIndicesList[i]) {
-                    valueType.appendTo(mapEntryType.getObject(mapEntries, entryIndex), 1, valuesArray);
-                }
-                valueBuilder.closeEntry();
+                IntList indexList = entryIndicesList[i];
+                keyType.appendTo(mapEntryType.getObject(mapEntries, indexList.getInt(0)), 0, keyBuilder);
+                ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
+                    for (int entryIndex : indexList) {
+                        valueType.appendTo(mapEntryType.getObject(mapEntries, entryIndex), 1, elementBuilder);
+                    }
+                });
             }
         });
         clearEntryIndices(keySet.size());

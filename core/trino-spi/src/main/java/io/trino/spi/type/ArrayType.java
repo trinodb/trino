@@ -230,22 +230,21 @@ public class ArrayType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         Block arrayBlock = (Block) value;
-
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            elementType.appendTo(arrayBlock, i, entryBuilder);
-        }
-        blockBuilder.closeEntry();
+        ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+            for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
+                elementType.appendTo(arrayBlock, i, elementBuilder);
+            }
+        });
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public ArrayBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         return new ArrayBlockBuilder(elementType, blockBuilderStatus, expectedEntries, expectedBytesPerEntry);
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public ArrayBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, 100);
     }

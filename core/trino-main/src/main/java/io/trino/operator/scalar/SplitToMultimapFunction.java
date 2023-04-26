@@ -18,8 +18,8 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
@@ -95,11 +95,11 @@ public class SplitToMultimapFunction
         return mapValueBuilder.build(multimap.size(), (keyBuilder, valueBuilder) -> {
             multimap.asMap().forEach((key, values) -> {
                 VARCHAR.writeSlice(keyBuilder, key);
-                BlockBuilder valueBlockBuilder = valueBuilder.beginBlockEntry();
-                for (Slice value : values) {
-                    VARCHAR.writeSlice(valueBlockBuilder, value);
-                }
-                valueBuilder.closeEntry();
+                ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
+                    for (Slice value : values) {
+                        VARCHAR.writeSlice(elementBuilder, value);
+                    }
+                });
             });
         });
     }

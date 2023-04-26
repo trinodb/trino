@@ -14,8 +14,10 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import com.google.common.base.Throwables;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrays;
@@ -84,16 +86,15 @@ public class TypedHeap
 
     public void serialize(BlockBuilder out)
     {
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-        BIGINT.writeLong(blockBuilder, capacity);
+        ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), capacity);
 
-        BlockBuilder elements = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < positionCount; i++) {
-            elementType.appendTo(heapBlockBuilder, heapIndex[i], elements);
-        }
-        blockBuilder.closeEntry();
-
-        out.closeEntry();
+            ((ArrayBlockBuilder) fieldBuilders.get(1)).buildEntry(elementBuilder -> {
+                for (int i = 0; i < positionCount; i++) {
+                    elementType.appendTo(heapBlockBuilder, heapIndex[i], elementBuilder);
+                }
+            });
+        });
     }
 
     public static TypedHeap deserialize(boolean min, MethodHandle compare, Type elementType, Block rowBlock)

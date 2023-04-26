@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import io.trino.array.ObjectBigArray;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
@@ -122,11 +123,7 @@ public final class MinMaxNStateFactory
                 return;
             }
 
-            BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-
-            typedHeap.writeAll(arrayBlockBuilder);
-
-            out.closeEntry();
+            ((ArrayBlockBuilder) out).buildEntry(typedHeap::writeAll);
         }
 
         @Override
@@ -238,9 +235,7 @@ public final class MinMaxNStateFactory
                 return;
             }
 
-            BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-            typedHeap.writeAll(arrayBlockBuilder);
-            out.closeEntry();
+            ((ArrayBlockBuilder) out).buildEntry(typedHeap::writeAll);
         }
 
         @Override
