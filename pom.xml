@@ -2205,7 +2205,7 @@
                             <DynamicDependency>
                                 <groupId>org.apache.maven.surefire</groupId>
                                 <artifactId>surefire-testng</artifactId>
-                                <version>2.22.2</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>3.0.0</version> <!-- legacy version which Surefire seems to need for some reason -->
                                 <type>jar</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
