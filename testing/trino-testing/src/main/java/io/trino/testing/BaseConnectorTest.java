@@ -4988,7 +4988,7 @@ public abstract class BaseConnectorTest
 
     protected String dataMappingTableName(String trinoTypeName)
     {
-        return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomNameSuffix();
+        return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + randomNameSuffix();
     }
 
     @Test(dataProvider = "testCommentDataProvider")
