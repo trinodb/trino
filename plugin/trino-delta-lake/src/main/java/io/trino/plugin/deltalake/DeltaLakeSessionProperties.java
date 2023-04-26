@@ -48,7 +48,7 @@ public final class DeltaLakeSessionProperties
     public static final String VACUUM_MIN_RETENTION = "vacuum_min_retention";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
-    private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet.max_read_block_row_count";
+    private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
