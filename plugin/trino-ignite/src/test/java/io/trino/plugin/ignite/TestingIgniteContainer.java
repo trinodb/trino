@@ -28,7 +28,7 @@ public class TestingIgniteContainer
 
     public TestingIgniteContainer()
     {
-        super(DockerImageName.parse("apacheignite/ignite:2.8.0"));
+        super(DockerImageName.parse("apacheignite/ignite:2.9.0"));
         this.withExposedPorts(10800);
         this.withEnv("IGNITE_SQL_MERGE_TABLE_MAX_SIZE", IGNITE_SQL_MERGE_TABLE_MAX_SIZE).withStartupAttempts(10);
         this.waitingFor((new HttpWaitStrategy()).forStatusCode(200).forResponsePredicate("Ok."::equals).withStartupTimeout(Duration.ofMinutes(1L)));
