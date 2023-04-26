@@ -6,17 +6,19 @@ Delta Lake connector
 
   <img src="../_static/img/delta-lake.png" class="connector-logo">
 
-The Delta Lake connector allows querying data stored in `Delta Lake
+The Delta Lake connector allows querying data stored in the `Delta Lake
 <https://delta.io>`_ format, including `Databricks Delta Lake
-<https://docs.databricks.com/delta/index.html>`_. It can natively read the Delta
-transaction log, and thus detect when external systems change data.
+<https://docs.databricks.com/delta/index.html>`_. The connector can natively
+read the Delta Lake transaction log and thus detect when external systems change
+data.
 
 Requirements
 ------------
 
 To connect to Databricks Delta Lake, you need:
 
-* Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS, 10.4 LTS, 11.3 LTS and 12.2 LTS are supported.
+* Tables written by Databricks Runtime 7.3 LTS, 9.1 LTS, 10.4 LTS, 11.3 LTS, and
+  12.2 LTS are supported.
 * Deployments using AWS, HDFS, Azure Storage, and Google Cloud Storage (GCS) are
   fully supported.
 * Network access from the coordinator and workers to the Delta Lake storage.
@@ -32,7 +34,7 @@ metastore configuration properties as the :doc:`Hive connector
 </connector/hive>`. At a minimum, ``hive.metastore.uri`` must be configured.
 
 The connector recognizes Delta tables created in the metastore by the Databricks
-runtime. If non-Delta tables are present in the metastore, as well, they are not
+runtime. If non-Delta tables are present in the metastore as well, they are not
 visible to the connector.
 
 To configure the Delta Lake connector, create a catalog properties file
@@ -59,13 +61,13 @@ including the metastore :ref:`Thrift <hive-thrift-metastore>` and :ref:`Glue
 documentation </connector/hive>`.
 
 To configure access to S3 and S3-compatible storage, Azure storage, and others,
-consult the appropriate section of the Hive documentation.
+consult the appropriate section of the Hive documentation:
 
 * :doc:`Amazon S3 </connector/hive-s3>`
 * :doc:`Azure storage documentation </connector/hive-azure>`
 * :ref:`GCS <hive-google-cloud-storage-configuration>`
 
-Delta lake general configuration properties
+Delta Lake general configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following configuration properties are all using reasonable, tested default
@@ -79,24 +81,24 @@ values. Typical usage does not require you to configure them.
       - Description
       - Default
     * - ``delta.metadata.cache-ttl``
-      - Frequency of checks for metadata updates, equivalent to transactions, to
+      - Frequency of checks for metadata updates equivalent to transactions to
         update the metadata cache specified in :ref:`prop-type-duration`.
       - ``5m``
     * - ``delta.metadata.cache-size``
       - The maximum number of Delta table metadata entries to cache.
-      - 1000
+      - ``1000``
     * - ``delta.metadata.live-files.cache-size``
       - Amount of memory allocated for caching information about files. Must
         be specified in :ref:`prop-type-data-size` values such as ``64MB``.
         Default is calculated to 10% of the maximum memory allocated to the JVM.
       -
     * - ``delta.metadata.live-files.cache-ttl``
-      - Caching duration for active files which correspond to the Delta Lake
+      - Caching duration for active files that correspond to the Delta Lake
         tables.
       - ``30m``
     * - ``delta.compression-codec``
       - The compression codec to be used when writing new data files.
-        Possible values are
+        Possible values are:
 
         * ``NONE``
         * ``SNAPPY``
@@ -105,15 +107,15 @@ values. Typical usage does not require you to configure them.
       - ``SNAPPY``
     * - ``delta.max-partitions-per-writer``
       - Maximum number of partitions per writer.
-      - 100
+      - ``100``
     * - ``delta.hide-non-delta-lake-tables``
       - Hide information about tables that are not managed by Delta Lake. Hiding
-        only applies to tables with the metadata managed in a Glue catalog, does
-        not apply to usage with a Hive metastore service.
+        only applies to tables with the metadata managed in a Glue catalog, and
+        does not apply to usage with a Hive metastore service.
       - ``false``
     * - ``delta.enable-non-concurrent-writes``
       - Enable :ref:`write support <delta-lake-data-management>` for all
-        supported file systems, specifically take note of the warning about
+        supported file systems. Specifically, take note of the warning about
         concurrency and checkpoints.
       - ``false``
     * - ``delta.default-checkpoint-writing-interval``
@@ -121,7 +123,7 @@ values. Typical usage does not require you to configure them.
         the value is set to N, then checkpoints are written after every Nth
         statement performing table writes. The value can be overridden for a
         specific table with the ``checkpoint_interval`` table property.
-      - 10
+      - ``10``
     * - ``delta.hive-catalog-name``
       - Name of the catalog to which ``SELECT`` queries are redirected when a
         Hive table is detected.
@@ -149,13 +151,13 @@ values. Typical usage does not require you to configure them.
       - Time zone for Parquet read and write.
       - JVM default
     * - ``delta.target-max-file-size``
-      - Target maximum size of written files; the actual size may be larger.
+      - Target maximum size of written files; the actual size could be larger.
       - ``1GB``
     * - ``delta.unique-table-location``
       - Use randomized, unique table locations.
       - ``true``
     * - ``delta.register-table-procedure.enabled``
-      - Enable to allow users to call the ``register_table`` procedure
+      - Enable to allow users to call the ``register_table`` procedure.
       - ``false``
 
 Catalog session properties
@@ -173,8 +175,8 @@ configure processing of Parquet files.
       - Description
       - Default
     * - ``parquet_optimized_reader_enabled``
-      - Whether batched column readers are used when reading Parquet files
-        for improved performance.
+      - Specifies whether batched column readers are used when reading Parquet
+        files for improved performance.
       - ``true``
     * - ``parquet_max_read_block_size``
       - The maximum block size used when reading Parquet files.
@@ -186,7 +188,7 @@ configure processing of Parquet files.
       - The maximum page size created by the Parquet writer.
       - ``1MB``
     * - ``parquet_writer_batch_size``
-      - Maximum number of rows processed by the parquet writer in a batch.
+      - Maximum number of rows processed by the Parquet writer in a batch.
       - ``10000``
 
 .. _delta-lake-type-mapping:
@@ -196,7 +198,7 @@ Type mapping
 
 Because Trino and Delta Lake each support types that the other does not, this
 connector :ref:`modifies some types <type-mapping-overview>` when reading or
-writing data. Data types may not map the same way in both directions between
+writing data. Data types might not map the same way in both directions between
 Trino and the data source. Refer to the following sections for type mapping in
 each direction.
 
@@ -299,7 +301,7 @@ Security
 --------
 
 The Delta Lake connector allows you to choose one of several means of providing
-autorization at the catalog level. You can select a different type of
+authorization at the catalog level. You can select a different type of
 authorization check in different Delta Lake catalog files.
 
 .. _delta-lake-authorization:
@@ -307,9 +309,9 @@ authorization check in different Delta Lake catalog files.
 Authorization checks
 ^^^^^^^^^^^^^^^^^^^^
 
-You can enable authorization checks for the connector by setting
-the ``delta.security`` property in the catalog properties file. This
-property must be one of the following values:
+Enable authorization checks for the connector by setting the ``delta.security``
+property in the catalog properties file. This property must be one of the
+security values in the following table:
 
 .. list-table:: Delta Lake security values
   :widths: 30, 60
@@ -378,8 +380,8 @@ removed if the table is dropped::
   CREATE SCHEMA example.example_schema;
 
 
-When Delta tables exist in storage, but not in the metastore, Trino can be used
-to register them::
+When Delta Lake tables exist in storage but not in the metastore, Trino can be
+used to register the tables::
 
   CREATE TABLE example.default.example_table (
     dummy bigint
@@ -388,17 +390,18 @@ to register them::
     location = '...'
   )
 
-Columns listed in the DDL, such as ``dummy`` in the preceeding example, are
-ignored. The table schema is read from the transaction log, instead. If the
+Columns listed in the DDL, such as ``dummy`` in the preceding example, are
+ignored. The table schema is read from the transaction log instead. If the
 schema is changed by an external system, Trino automatically uses the new
 schema.
 
 .. warning::
 
-   Using ``CREATE TABLE`` with an existing table content is deprecated, instead use the
-   ``system.register_table`` procedure. The ``CREATE TABLE ... WITH (location=...)``
-   syntax can be temporarily re-enabled using the ``delta.legacy-create-table-with-existing-location.enabled``
-   config property or ``legacy_create_table_with_existing_location_enabled`` session property.
+   Using ``CREATE TABLE`` with an existing table content is deprecated, instead
+   use the ``system.register_table`` procedure. The ``CREATE TABLE ... WITH
+   (location=...)`` syntax can be temporarily re-enabled using the
+   ``delta.legacy-create-table-with-existing-location.enabled`` config property
+   or ``legacy_create_table_with_existing_location_enabled`` session property.
 
 If the specified location does not already contain a Delta table, the connector
 automatically writes the initial transaction log entries and registers the table
@@ -424,15 +427,18 @@ catalog. The following code snippet displays how to call the
 Register table
 """"""""""""""
 
-The connector can register table into the metastore with existing transaction logs and data files.
+The connector can register table into the metastore with existing transaction
+logs and data files.
 
-The ``system.register_table`` procedure allows the caller to register an existing delta lake
-table in the metastore, using its existing transaction logs and data files::
+The ``system.register_table`` procedure allows the caller to register an
+existing Delta Lake table in the metastore, using its existing transaction logs
+and data files::
 
     CALL example.system.register_table(schema_name => 'testdb', table_name => 'customer_orders', table_location => 's3://my-bucket/a/path')
 
-To prevent unauthorized users from accessing data, this procedure is disabled by default.
-The procedure is enabled only when ``delta.register-table-procedure.enabled`` is set to ``true``.
+To prevent unauthorized users from accessing data, this procedure is disabled by
+default. The procedure is enabled only when
+``delta.register-table-procedure.enabled`` is set to ``true``.
 
 .. _delta-lake-unregister-table:
 
@@ -452,12 +458,12 @@ Flush metadata cache
 
 * ``system.flush_metadata_cache()``
 
-  Flush all metadata caches.
+  Flushes all metadata caches.
 
 * ``system.flush_metadata_cache(schema_name => ..., table_name => ...)``
 
-  Flush metadata caches entries connected with selected table.
-  Procedure requires named parameters to be passed
+  Flushes metadata cache entries of a specific table.
+  Procedure requires passing named parameters.
 
 .. _delta-lake-write-support:
 
@@ -479,7 +485,7 @@ Write operations are supported for tables stored on the following systems:
 
   Writes to :doc:`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
   with the ``delta.enable-non-concurrent-writes`` property. Writes to S3 can
-  safely be made from multiple Trino clusters, however write collisions are not
+  safely be made from multiple Trino clusters; however, write collisions are not
   detected when writing concurrently from other Delta Lake engines. You need to
   make sure that no concurrent data modifications are run to avoid data
   corruption.
@@ -501,14 +507,14 @@ as follows:
 
   CALL example.system.vacuum('exampleschemaname', 'exampletablename', '7d');
 
-All parameters are required, and must be presented in the following order:
+All parameters are required and must be presented in the following order:
 
 * Schema name
 * Table name
 * Retention period
 
-The ``delta.vacuum.min-retention`` config property provides a safety
-measure to ensure that files are retained as expected.  The minimum value for
+The ``delta.vacuum.min-retention`` configuration property provides a safety
+measure to ensure that files are retained as expected. The minimum value for
 this property is ``0s``. There is a minimum retention session property as well,
 ``vacuum_min_retention``.
 
@@ -532,7 +538,7 @@ Write operations are supported for tables stored on the following systems:
 
   Writes to :doc:`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
   with the ``delta.enable-non-concurrent-writes`` property. Writes to S3 can
-  safely be made from multiple Trino clusters, however write collisions are not
+  safely be made from multiple Trino clusters; however, write collisions are not
   detected when writing concurrently from other Delta Lake engines. You must
   make sure that no concurrent data modifications are run to avoid data
   corruption.
@@ -562,15 +568,13 @@ The connector supports the following commands for use with
 optimize
 ~~~~~~~~
 
-The ``optimize`` command is used for rewriting the content
-of the specified table so that it is merged into fewer but larger files.
-In case that the table is partitioned, the data compaction
-acts separately on each partition selected for optimization.
-This operation improves read performance.
+The ``optimize`` command is used for rewriting the content of the specified
+table so that it is merged into fewer but larger files. If the table is
+partitioned, the data compaction acts separately on each partition selected for
+optimization. This operation improves read performance.
 
-All files with a size below the optional ``file_size_threshold``
-parameter (default value for the threshold is ``100MB``) are
-merged:
+All files with a size below the optional ``file_size_threshold`` parameter
+(default value for the threshold is ``100MB``) are merged:
 
 .. code-block:: sql
 
@@ -583,7 +587,7 @@ under 10 megabytes in size:
 
     ALTER TABLE test_table EXECUTE optimize(file_size_threshold => '10MB')
 
-You can use a ``WHERE`` clause with the columns used to partition the table,
+You can use a ``WHERE`` clause with the columns used to partition the table
 to filter which partitions are optimized:
 
 .. code-block:: sql
@@ -593,7 +597,7 @@ to filter which partitions are optimized:
 
 Table properties
 """"""""""""""""
-The following properties are available for use:
+The following table properties are available for use:
 
 .. list-table:: Delta Lake table properties
   :widths: 40, 60
@@ -663,7 +667,7 @@ by using the following query::
            1 | 2023-01-19 07:40:41.373 Europe/Vienna | trino   | trino     | ADD COLUMNS  | {queryId=20230119_064041_00007_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true
            0 | 2023-01-19 07:40:10.497 Europe/Vienna | trino   | trino     | CREATE TABLE | {queryId=20230119_064010_00005_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true
 
-The output of the query has the following columns:
+The output of the query has the following history columns:
 
 .. list-table:: History columns
   :widths: 30, 30, 40
@@ -725,7 +729,7 @@ directly or used in conditional statements.
 Performance
 -----------
 
-The connector includes a number of performance improvements, detailed in the
+The connector includes a number of performance improvements detailed in the
 following sections:
 
 * Support for :doc:`write partitioning </admin/properties-write-partitioning>`.
@@ -735,10 +739,10 @@ following sections:
 Table statistics
 ^^^^^^^^^^^^^^^^
 
-You can use :doc:`/sql/analyze` statements in Trino to populate the table
-statistics in Delta Lake. Data size and number of distinct values (NDV)
-statistics are supported, while Minimum value, maximum value, and null value
-count statistics are not supported. The :doc:`cost-based optimizer
+Use :doc:`/sql/analyze` statements in Trino to populate the table statistics in
+Delta Lake. Data size and number of distinct values (NDV) statistics are
+supported; whereas minimum value, maximum value, and null value count statistics
+are not supported. The :doc:`cost-based optimizer
 </optimizer/cost-based-optimizations>` then uses these statistics to improve
 query performance.
 
@@ -760,7 +764,7 @@ To collect statistics for a table, execute the following statement::
 To gain the most benefit from cost-based optimizations, run periodic ``ANALYZE``
 statements on every large table that is frequently queried.
 
-Fine tuning
+Fine-tuning
 """""""""""
 
 The ``files_modified_after`` property is useful if you want to run the
@@ -796,8 +800,8 @@ disable it for a session, with the :doc:`catalog session property
 </sql/set-session>` ``extended_statistics_enabled`` set to ``false``.
 
 If a table is changed with many delete and update operation, calling ``ANALYZE``
-does not result in accurate statistics. To correct the statistics you have to
-drop the extended stats and analyze table again.
+does not result in accurate statistics. To correct the statistics, you have to
+drop the extended statistics and analyze the table again.
 
 Use the ``system.drop_extended_stats`` procedure in the catalog to drop the
 extended statistics for a specified table in a specified schema:
@@ -814,13 +818,13 @@ grows with the size of Delta Lake transaction logs of any accessed tables. It is
 important to take that into account when provisioning the coordinator.
 
 You must decrease memory usage by keeping the number of active data files in
-table low by running ``OPTIMIZE`` and ``VACUUM`` in Delta Lake regularly.
+the table low by regularly running ``OPTIMIZE`` and ``VACUUM`` in Delta Lake.
 
 Memory monitoring
 """""""""""""""""
 
-When using the Delta Lake connector you must monitor memory usage on the
-coordinator. Specifically monitor JVM heap utilization using standard tools as
+When using the Delta Lake connector, you must monitor memory usage on the
+coordinator. Specifically, monitor JVM heap utilization using standard tools as
 part of routine operation of the cluster.
 
 A good proxy for memory usage is the cache utilization of Delta Lake caches. It
@@ -846,7 +850,7 @@ Following is an example result:
   node                                    | trino-master
   object_name                             | io.trino.plugin.deltalake.transactionlog:type=TransactionLogAccess,name=delta
 
-In a healthy system both ``datafilemetadatacachestats.hitrate`` and
+In a healthy system, both ``datafilemetadatacachestats.hitrate`` and
 ``metadatacachestats.hitrate`` are close to ``1.0``.
 
 .. _delta-lake-table-redirection:
@@ -869,7 +873,7 @@ connector.
 
    Performance tuning configuration properties are considered expert-level
    features. Altering these properties from their default values is likely to
-   cause instability and performance degradation. We strongly suggest that
+   cause instability and performance degradation. It is strongly suggested that
    you use them only to address non-trivial performance issues, and that you
    keep a backup of the original values if you change them.
 
@@ -881,16 +885,16 @@ connector.
       - Description
       - Default
     * - ``delta.domain-compaction-threshold``
-      - Minimum size of query predicates above which Trino compacts the predicates.
-        Pushing a large list of predicates down to the data source can
-        compromise performance. For optimization in that situation, Trino can
-        compact the large predicates. If necessary, adjust the threshold to
+      - Minimum size of query predicates above which Trino compacts the
+        predicates. Pushing a large list of predicates down to the data source
+        can compromise performance. For optimization in that situation, Trino
+        can compact the large predicates. If necessary, adjust the threshold to
         ensure a balance between performance and predicate pushdown.
-      - 100
+      - ``100``
     * - ``delta.max-outstanding-splits``
       - The target number of buffered splits for each table scan in a query,
         before the scheduler tries to pause.
-      - 1000
+      - ``1000``
     * - ``delta.max-splits-per-second``
       - Sets the maximum number of splits used per second to access underlying
         storage. Reduce this number if your limit is routinely exceeded, based
@@ -898,12 +902,12 @@ connector.
         which results in Trino maximizing the parallelization of data access
         by default. Attempting to set it higher results in Trino not being
         able to start.
-      - Integer.MAX_VALUE
+      - ``Integer.MAX_VALUE``
     * - ``delta.max-initial-splits``
       - For each query, the coordinator assigns file sections to read first
         at the ``initial-split-size`` until the ``max-initial-splits`` is
-        reached. Then, it starts issuing reads of the ``max-split-size`` size.
-      - 200
+        reached. Then it starts issuing reads of the ``max-split-size`` size.
+      - ``200``
     * - ``delta.max-initial-split-size``
       - Sets the initial :ref:`prop-type-data-size` for a single read section
         assigned to a worker until ``max-initial-splits`` have been processed.
@@ -912,26 +916,28 @@ connector.
       - ``32MB``
     * - ``delta.max-split-size``
       - Sets the largest :ref:`prop-type-data-size` for a single read section
-        assigned to a worker after max-initial-splits have been processed. You
-        can also use the corresponding catalog session property
+        assigned to a worker after ``max-initial-splits`` have been processed.
+        You can also use the corresponding catalog session property
         ``<catalog-name>.max_split_size``.
       - ``64MB``
     * - ``delta.minimum-assigned-split-weight``
-      - A decimal value in the range (0, 1] used as a minimum for weights assigned to each split. A low value may improve performance
-        on tables with small files. A higher value may improve performance for queries with highly skewed aggregations or joins.
-      - 0.05
+      - A decimal value in the range (0, 1] used as a minimum for weights
+        assigned to each split. A low value might improve performance on tables
+        with small files. A higher value might improve performance for queries
+        with highly skewed aggregations or joins.
+      - ``0.05``
     * - ``parquet.max-read-block-row-count``
       - Sets the maximum number of rows read in a batch.
       - ``8192``
     * - ``parquet.optimized-reader.enabled``
-      - Whether batched column readers are used when reading Parquet files
-        for improved performance. Set this property to ``false`` to disable the
-        optimized parquet reader by default. The equivalent catalog session
-        property is ``parquet_optimized_reader_enabled``.
+      - Specifies whether batched column readers are used when reading Parquet
+        files for improved performance. Set this property to ``false`` to
+        disable the optimized parquet reader by default. The equivalent catalog
+        session property is ``parquet_optimized_reader_enabled``.
       - ``true``
     * - ``parquet.optimized-nested-reader.enabled``
-      - Whether batched column readers are used when reading ARRAY, MAP
-        and ROW types from Parquet files for improved performance. Set this
+      - Specifies whether batched column readers are used when reading ARRAY,
+        MAP, and ROW types from Parquet files for improved performance. Set this
         property to ``false`` to disable the optimized parquet reader by default
         for structural data types. The equivalent catalog session property is
         ``parquet_optimized_nested_reader_enabled``.
