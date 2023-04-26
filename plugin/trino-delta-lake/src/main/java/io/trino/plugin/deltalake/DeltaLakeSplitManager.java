@@ -15,7 +15,10 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
+import io.trino.plugin.deltalake.functions.tablechanges.TableChangesSplitSource;
+import io.trino.plugin.deltalake.functions.tablechanges.TableChangesTableFunctionHandle;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
@@ -33,6 +36,7 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -76,13 +80,15 @@ public class DeltaLakeSplitManager
     private final int maxSplitsPerSecond;
     private final int maxOutstandingSplits;
     private final double minimumAssignedSplitWeight;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
     public DeltaLakeSplitManager(
             TypeManager typeManager,
             TransactionLogAccess transactionLogAccess,
             ExecutorService executor,
-            DeltaLakeConfig config)
+            DeltaLakeConfig config,
+            TrinoFileSystemFactory fileSystemFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
@@ -91,6 +97,7 @@ public class DeltaLakeSplitManager
         this.maxSplitsPerSecond = config.getMaxSplitsPerSecond();
         this.maxOutstandingSplits = config.getMaxOutstandingSplits();
         this.minimumAssignedSplitWeight = config.getMinimumAssignedSplitWeight();
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     @Override
@@ -120,6 +127,15 @@ public class DeltaLakeSplitManager
                 deltaLakeTableHandle.isRecordScannedFiles());
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, DeltaLakeSplitManager.class.getClassLoader());
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle function)
+    {
+        if (function instanceof TableChangesTableFunctionHandle tableFunctionHandle) {
+            return new TableChangesSplitSource(session, fileSystemFactory, tableFunctionHandle);
+        }
+        throw new UnsupportedOperationException("Unrecognized function: " + function);
     }
 
     private Stream<DeltaLakeSplit> getSplits(
