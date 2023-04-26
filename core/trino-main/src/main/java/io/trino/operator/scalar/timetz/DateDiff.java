@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timetz;
 
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.DateTimeUnit;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
@@ -32,7 +33,6 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_HOUR;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_MINUTE;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
-import static java.util.Locale.ENGLISH;
 
 @Description("Difference of the given times in the given unit")
 @ScalarFunction("date_diff")
@@ -43,46 +43,40 @@ public class DateDiff
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.BIGINT)
     public static long diff(
-            @SqlType("varchar(x)") Slice unit,
+            @SqlType("varchar(x)") Slice unitString,
             @SqlType("time(p) with time zone") long left,
             @SqlType("time(p) with time zone") long right)
     {
         long nanos = normalize(right) - normalize(left);
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return nanos / NANOSECONDS_PER_MILLISECOND;
-            case "second":
-                return nanos / NANOSECONDS_PER_SECOND;
-            case "minute":
-                return nanos / NANOSECONDS_PER_MINUTE;
-            case "hour":
-                return nanos / NANOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        DateTimeUnit unit = DateTimeUnit.valueOf(unitString, true)
+                .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString.toStringUtf8() + "' is not a valid TIME field"));
+
+        return switch (unit) {
+            case MILLISECOND -> nanos / NANOSECONDS_PER_MILLISECOND;
+            case SECOND -> nanos / NANOSECONDS_PER_SECOND;
+            case MINUTE -> nanos / NANOSECONDS_PER_MINUTE;
+            case HOUR -> nanos / NANOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+        };
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.BIGINT)
     public static long diff(
-            @SqlType("varchar(x)") Slice unit,
+            @SqlType("varchar(x)") Slice unitString,
             @SqlType("time(p) with time zone") LongTimeWithTimeZone left,
             @SqlType("time(p) with time zone") LongTimeWithTimeZone right)
     {
         long picos = normalize(right) - normalize(left);
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return picos / PICOSECONDS_PER_MILLISECOND;
-            case "second":
-                return picos / PICOSECONDS_PER_SECOND;
-            case "minute":
-                return picos / PICOSECONDS_PER_MINUTE;
-            case "hour":
-                return picos / PICOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a TIME field");
-        }
+        DateTimeUnit unit = DateTimeUnit.valueOf(unitString, true)
+                .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString.toStringUtf8() + "' is not a valid TIME field"));
+
+        return switch (unit) {
+            case MILLISECOND -> picos / PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> picos / PICOSECONDS_PER_SECOND;
+            case MINUTE -> picos / PICOSECONDS_PER_MINUTE;
+            case HOUR -> picos / PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
     }
 }

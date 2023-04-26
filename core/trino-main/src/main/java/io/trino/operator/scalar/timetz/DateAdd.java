@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.timetz;
 
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.DateTimeUnit;
 import io.trino.operator.scalar.time.TimeOperators;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
@@ -39,7 +40,6 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.SECONDS_PER_DAY;
 import static io.trino.type.DateTimes.round;
-import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeConstants.MINUTES_PER_DAY;
 
 @Description("Add the specified amount of time to the given time")
@@ -78,26 +78,19 @@ public class DateAdd
         return new LongTimeWithTimeZone(picos, time.getOffsetMinutes());
     }
 
-    private static long add(long picos, Slice unit, long value)
+    private static long add(long picos, Slice unitString, long value)
     {
-        long delta = value;
-        String unitString = unit.toStringAscii().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                delta = (delta % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
-                break;
-            case "second":
-                delta = (delta % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
-                break;
-            case "minute":
-                delta = (delta % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
-                break;
-            case "hour":
-                delta = (delta % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
-                break;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        DateTimeUnit unit = DateTimeUnit.valueOf(unitString, true)
+                .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString.toStringUtf8() + "' is not a valid TIME field"));
+
+        long delta = switch (unit) {
+            case MILLISECOND -> (value % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> (value % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
+            case MINUTE -> (value % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
+            case HOUR -> (value % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit + "' is not a valid TIME field");
+        };
+
         return TimeOperators.add(picos, delta);
     }
 }

@@ -14,6 +14,7 @@
 package io.trino.operator.scalar.time;
 
 import io.airlift.slice.Slice;
+import io.trino.operator.scalar.DateTimeUnit;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -36,7 +37,6 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.trino.type.DateTimes.SECONDS_PER_DAY;
 import static io.trino.type.DateTimes.SECONDS_PER_MINUTE;
 import static io.trino.type.DateTimes.round;
-import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeConstants.MINUTES_PER_DAY;
 
 public class TimeFunctions
@@ -83,22 +83,18 @@ public class TimeFunctions
     @ScalarFunction("date_trunc")
     @LiteralParameters({"x", "p"})
     @SqlType("time(p)")
-    public static long truncate(@SqlType("varchar(x)") Slice unit, @SqlType("time(p)") long time)
+    public static long truncate(@SqlType("varchar(x)") Slice unitString, @SqlType("time(p)") long time)
     {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
+        DateTimeUnit unit = DateTimeUnit.valueOf(unitString, false)
+                .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString.toStringUtf8() + "' is not a valid TIME field"));
 
-        switch (unitString) {
-            case "millisecond":
-                return time / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
-            case "second":
-                return time / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
-            case "minute":
-                return time / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
-            case "hour":
-                return time / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        return switch (unit) {
+            case MILLISECOND -> time / PICOSECONDS_PER_MILLISECOND * PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> time / PICOSECONDS_PER_SECOND * PICOSECONDS_PER_SECOND;
+            case MINUTE -> time / PICOSECONDS_PER_MINUTE * PICOSECONDS_PER_MINUTE;
+            case HOUR -> time / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit + "' is not a valid TIME field");
+        };
     }
 
     @Description("Add the specified amount of time to the given time")
@@ -107,28 +103,20 @@ public class TimeFunctions
     @SqlType("time(p)")
     public static long dateAdd(
             @LiteralParameter("p") long precision,
-            @SqlType("varchar(x)") Slice unit,
+            @SqlType("varchar(x)") Slice unitString,
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType("time(p)") long time)
     {
-        long delta = value;
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                delta = (delta % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
-                break;
-            case "second":
-                delta = (delta % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
-                break;
-            case "minute":
-                delta = (delta % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
-                break;
-            case "hour":
-                delta = (delta % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
-                break;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        DateTimeUnit unit = DateTimeUnit.valueOf(unitString, true)
+                .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString.toStringUtf8() + "' is not a valid TIME field"));
+
+        long delta = switch (unit) {
+            case MILLISECOND -> (value % MILLISECONDS_PER_DAY) * PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> (value % SECONDS_PER_DAY) * PICOSECONDS_PER_SECOND;
+            case MINUTE -> (value % MINUTES_PER_DAY) * PICOSECONDS_PER_MINUTE;
+            case HOUR -> (value % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit + "' is not a valid TIME field");
+        };
 
         long result = TimeOperators.add(time, delta);
 
@@ -144,21 +132,18 @@ public class TimeFunctions
     @ScalarFunction("date_diff")
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.BIGINT)
-    public static long dateDiff(@SqlType("varchar(x)") Slice unit, @SqlType("time(p)") long time1, @SqlType("time(p)") long time2)
+    public static long dateDiff(@SqlType("varchar(x)") Slice unitString, @SqlType("time(p)") long time1, @SqlType("time(p)") long time2)
     {
         long delta = time2 - time1;
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return delta / PICOSECONDS_PER_MILLISECOND;
-            case "second":
-                return delta / PICOSECONDS_PER_SECOND;
-            case "minute":
-                return delta / PICOSECONDS_PER_MINUTE;
-            case "hour":
-                return delta / PICOSECONDS_PER_HOUR;
-            default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
-        }
+        DateTimeUnit unit = DateTimeUnit.valueOf(unitString, true)
+                .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString.toStringUtf8() + "' is not a valid TIME field"));
+
+        return switch (unit) {
+            case MILLISECOND -> delta / PICOSECONDS_PER_MILLISECOND;
+            case SECOND -> delta / PICOSECONDS_PER_SECOND;
+            case MINUTE -> delta / PICOSECONDS_PER_MINUTE;
+            case HOUR -> delta / PICOSECONDS_PER_HOUR;
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
+        };
     }
 }

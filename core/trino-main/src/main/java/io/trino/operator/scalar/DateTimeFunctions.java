@@ -66,7 +66,6 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -288,48 +287,37 @@ public final class DateTimeFunctions
         return getDateField(UTC_CHRONOLOGY, unit).getDifferenceAsLong(DAYS.toMillis(date2), DAYS.toMillis(date1));
     }
 
-    private static DateTimeField getDateField(ISOChronology chronology, Slice unit)
+    private static DateTimeField getDateField(ISOChronology chronology, Slice unitString)
     {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "day":
-                return chronology.dayOfMonth();
-            case "week":
-                return chronology.weekOfWeekyear();
-            case "month":
-                return chronology.monthOfYear();
-            case "quarter":
-                return QUARTER_OF_YEAR.getField(chronology);
-            case "year":
-                return chronology.year();
-        }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid DATE field");
+        DateTimeUnit unit = DateTimeUnit.valueOf(unitString, false)
+                .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString.toStringUtf8() + "' is not a valid DATE field"));
+
+        return switch (unit) {
+            case DAY -> chronology.dayOfMonth();
+            case WEEK -> chronology.weekOfWeekyear();
+            case MONTH -> chronology.monthOfYear();
+            case QUARTER -> QUARTER_OF_YEAR.getField(chronology);
+            case YEAR -> chronology.year();
+            default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unit + "' is not a valid DATE field");
+        };
     }
 
-    public static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
+    public static DateTimeField getTimestampField(ISOChronology chronology, Slice unitString)
     {
-        String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
-        switch (unitString) {
-            case "millisecond":
-                return chronology.millisOfSecond();
-            case "second":
-                return chronology.secondOfMinute();
-            case "minute":
-                return chronology.minuteOfHour();
-            case "hour":
-                return chronology.hourOfDay();
-            case "day":
-                return chronology.dayOfMonth();
-            case "week":
-                return chronology.weekOfWeekyear();
-            case "month":
-                return chronology.monthOfYear();
-            case "quarter":
-                return QUARTER_OF_YEAR.getField(chronology);
-            case "year":
-                return chronology.year();
-        }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIMESTAMP field");
+        DateTimeUnit unit = DateTimeUnit.valueOf(unitString, false)
+                .orElseThrow(() -> new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString.toStringUtf8() + "' is not a valid TIMESTAMP field"));
+
+        return switch (unit) {
+            case MILLISECOND -> chronology.millisOfSecond();
+            case SECOND -> chronology.secondOfMinute();
+            case MINUTE -> chronology.minuteOfHour();
+            case HOUR -> chronology.hourOfDay();
+            case DAY -> chronology.dayOfMonth();
+            case WEEK -> chronology.weekOfWeekyear();
+            case MONTH -> chronology.monthOfYear();
+            case QUARTER -> QUARTER_OF_YEAR.getField(chronology);
+            case YEAR -> chronology.year();
+        };
     }
 
     @Description("Parses the specified date/time by the given format")

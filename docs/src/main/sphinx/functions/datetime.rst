@@ -224,7 +224,7 @@ Date and time functions
 Truncation function
 -------------------
 
-The ``date_trunc`` function supports the following units:
+The ``date_trunc`` function supports the following case-insensitive units:
 
 =========== ===========================
 Unit        Example Truncated Value
@@ -259,7 +259,7 @@ The above examples use the timestamp ``2001-08-22 03:04:05.321`` as the input.
 Interval functions
 ------------------
 
-The functions in this section support the following interval units:
+The functions in this section support the following case-insensitive interval units:
 
 ================= ==================
 Unit              Description
@@ -274,6 +274,8 @@ Unit              Description
 ``quarter``       Quarters of a year
 ``year``          Years
 ================= ==================
+
+Interval units in plural form are also supported.
 
 .. function:: date_add(unit, value, timestamp) -> [same as input]
 
