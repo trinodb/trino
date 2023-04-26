@@ -79,11 +79,8 @@ public final class HudiUtil
             List<HiveColumnHandle> partitionColumnHandles,
             TupleDomain<HiveColumnHandle> constraintSummary)
     {
-        List<Type> partitionColumnTypes = partitionColumnHandles.stream()
-                .map(HiveColumnHandle::getType)
-                .collect(toList());
         HivePartition partition = HivePartitionManager.parsePartition(
-                tableName, hivePartitionName, partitionColumnHandles, partitionColumnTypes);
+                tableName, hivePartitionName, partitionColumnHandles);
 
         return partitionMatches(partitionColumnHandles, constraintSummary, partition);
     }
