@@ -75,7 +75,7 @@ public class TestBeginQuery
     public void setUp()
     {
         metadata = new TestMetadata();
-        getQueryRunner().installPlugin(new TestPlugin(metadata));
+        getQueryRunner().installPlugin(new TestingPlugin(metadata));
         getQueryRunner().installPlugin(new TpchPlugin());
         getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
         getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
@@ -142,12 +142,12 @@ public class TestBeginQuery
         metadata.resetCounters();
     }
 
-    private static class TestPlugin
+    private static class TestingPlugin
             implements Plugin
     {
         private final TestMetadata metadata;
 
-        private TestPlugin(TestMetadata metadata)
+        private TestingPlugin(TestMetadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
