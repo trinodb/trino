@@ -32,6 +32,7 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -42,6 +43,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
+import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CHANGE_DATA_FEED_COLUMN_NAMES;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
@@ -51,6 +53,9 @@ import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_FUNCTION;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -1215,6 +1220,482 @@ public class TestDeltaLakeConnectorTest
                 "_array(.*) := _array:array\\(row\\(child bigint\\)\\):REGULAR",
                 "_map(.*) := _map:map\\(bigint, bigint\\):REGULAR",
                 "_row#child := _row#child:bigint:REGULAR");
+    }
+
+    @Test
+    public void testReadCdfChanges()
+    {
+        String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3)", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain4', 4), ('url5', 'domain5', 2), ('url6', 'domain6', 6)", 3);
+
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE views = 2", 2);
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '1'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '1'),
+                            ('url4', 'domain4', 4, 'insert', BIGINT '2'),
+                            ('url5', 'domain5', 2, 'insert', BIGINT '2'),
+                            ('url6', 'domain6', 6, 'insert', BIGINT '2'),
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '3'),
+                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '3'),
+                            ('url5', 'domain5', 2, 'update_preimage', BIGINT '3'),
+                            ('url22', 'domain5', 2, 'update_postimage', BIGINT '3')
+                        """);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE views = 2", 2);
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))",
+                """
+                        VALUES
+                            ('url22', 'domain2', 2, 'delete', BIGINT '4'),
+                            ('url22', 'domain5', 2, 'delete', BIGINT '4')
+                        """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "')) ORDER BY _commit_version, _change_type, domain",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '1'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '1'),
+                            ('url4', 'domain4', 4, 'insert', BIGINT '2'),
+                            ('url5', 'domain5', 2, 'insert', BIGINT '2'),
+                            ('url6', 'domain6', 6, 'insert', BIGINT '2'),
+                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '3'),
+                            ('url22', 'domain5', 2, 'update_postimage', BIGINT '3'),
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '3'),
+                            ('url5', 'domain5', 2, 'update_preimage', BIGINT '3'),
+                            ('url22', 'domain2', 2, 'delete', BIGINT '4'),
+                            ('url22', 'domain5', 2, 'delete', BIGINT '4')
+                        """);
+    }
+
+    @Test
+    public void testReadCdfChangesOnPartitionedTable()
+    {
+        String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain1', 3)", 3);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url4', 'domain1', 400), ('url5', 'domain2', 500), ('url6', 'domain3', 2)", 3);
+
+        assertUpdate("UPDATE " + tableName + " SET domain = 'domain4' WHERE views = 2", 2);
+        assertQuery("SELECT * FROM " + tableName, "" +
+                        """
+                            VALUES
+                                ('url1', 'domain1', 1),
+                                ('url2', 'domain4', 2),
+                                ('url3', 'domain1', 3),
+                                ('url4', 'domain1', 400),
+                                ('url5', 'domain2', 500),
+                                ('url6', 'domain4', 2)
+                        """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '1'),
+                            ('url3', 'domain1', 3, 'insert', BIGINT '1'),
+                            ('url4', 'domain1', 400, 'insert', BIGINT '2'),
+                            ('url5', 'domain2', 500, 'insert', BIGINT '2'),
+                            ('url6', 'domain3', 2, 'insert', BIGINT '2'),
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '3'),
+                            ('url2', 'domain4', 2, 'update_postimage', BIGINT '3'),
+                            ('url6', 'domain3', 2, 'update_preimage', BIGINT '3'),
+                            ('url6', 'domain4', 2, 'update_postimage', BIGINT '3')
+                        """);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE domain = 'domain4'", 2);
+        assertQuery("SELECT * FROM " + tableName,
+                        """
+                            VALUES
+                                ('url1', 'domain1', 1),
+                                ('url3', 'domain1', 3),
+                                ('url4', 'domain1', 400),
+                                ('url5', 'domain2', 500)
+                        """);
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))",
+                """
+                        VALUES
+                            ('url2', 'domain4', 2, 'delete', BIGINT '4'),
+                            ('url6', 'domain4', 2, 'delete', BIGINT '4')
+                        """);
+    }
+
+    @Test
+    public void testReadMergeChanges()
+    {
+        String tableName1 = "test_basic_operations_on_table_with_cdf_enabled_merge_into_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName1 + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3), ('url4', 'domain4', 4)", 4);
+
+        String tableName2 = "test_basic_operations_on_table_with_cdf_enabled_merge_from_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName2 + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES('url1', 'domain10', 10), ('url2', 'domain20', 20), ('url5', 'domain5', 50)", 3);
+        assertUpdate("INSERT INTO " + tableName2 + " VALUES('url4', 'domain40', 40)", 1);
+
+        assertUpdate("MERGE INTO " + tableName1 + " tableWithCdf USING " + tableName2 + " source " +
+                "ON (tableWithCdf.page_url = source.page_url) " +
+                "WHEN MATCHED AND tableWithCdf.views > 1 " +
+                "THEN UPDATE SET views = (tableWithCdf.views + source.views) " +
+                "WHEN MATCHED AND tableWithCdf.views <= 1 " +
+                "THEN DELETE " +
+                "WHEN NOT MATCHED " +
+                "THEN INSERT (page_url, domain, views) VALUES (source.page_url, source.domain, source.views)", 4);
+
+        assertQuery("SELECT * FROM " + tableName1,
+                        """
+                            VALUES
+                                ('url2', 'domain2', 22),
+                                ('url3', 'domain3', 3),
+                                ('url4', 'domain4', 44),
+                                ('url5', 'domain5', 50)
+                        """);
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName1 + "', 0))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '1'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '1'),
+                            ('url4', 'domain4', 4, 'insert', BIGINT '1'),
+                            ('url4', 'domain4', 4, 'update_preimage', BIGINT '2'),
+                            ('url4', 'domain4', 44, 'update_postimage', BIGINT '2'),
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '2'),
+                            ('url2', 'domain2', 22, 'update_postimage', BIGINT '2'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '2'),
+                            ('url5', 'domain5', 50, 'insert', BIGINT '2')
+                        """);
+    }
+
+    @Test
+    public void testReadMergeChangesOnPartitionedTable()
+    {
+        String targetTable = "test_basic_operations_on_partitioned_table_with_cdf_enabled_target_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + targetTable + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true, partitioned_by = ARRAY['domain'])");
+        assertUpdate("INSERT INTO " + targetTable + " VALUES('url1', 'domain1', 1), ('url2', 'domain2', 2), ('url3', 'domain3', 3), ('url4', 'domain1', 4)", 4);
+
+        String sourceTable1 = "test_basic_operations_on_partitioned_table_with_cdf_enabled_source_1_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable1 + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTable1 + " VALUES('url1', 'domain1', 10), ('url2', 'domain2', 20), ('url5', 'domain3', 5)", 3);
+        assertUpdate("INSERT INTO " + sourceTable1 + " VALUES('url4', 'domain2', 40)", 1);
+
+        assertUpdate("MERGE INTO " + targetTable + " target USING " + sourceTable1 + " source " +
+                "ON (target.page_url = source.page_url) " +
+                "WHEN MATCHED AND target.views > 2 " +
+                "THEN UPDATE SET views = (target.views + source.views) " +
+                "WHEN MATCHED AND target.views <= 2 " +
+                "THEN DELETE " +
+                "WHEN NOT MATCHED " +
+                "THEN INSERT (page_url, domain, views) VALUES (source.page_url, source.domain, source.views)", 4);
+
+        assertQuery("SELECT * FROM " + targetTable,
+                        """
+                        VALUES
+                            ('url3', 'domain3', 3),
+                            ('url4', 'domain1', 44),
+                            ('url5', 'domain3', 5)
+                        """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + targetTable + "'))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', 1),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '1'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '1'),
+                            ('url4', 'domain1', 4, 'insert', BIGINT '1'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '2'),
+                            ('url2', 'domain2', 2, 'delete', BIGINT '2'),
+                            ('url4', 'domain1', 4, 'update_preimage', BIGINT '2'),
+                            ('url4', 'domain1', 44, 'update_postimage', BIGINT '2'),
+                            ('url5', 'domain3', 5, 'insert', BIGINT '2')
+                        """);
+
+        String sourceTable2 = "test_basic_operations_on_partitioned_table_with_cdf_enabled_source_1_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + sourceTable2 + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("INSERT INTO " + sourceTable2 +
+                " VALUES('url3', 'domain1', 300), ('url4', 'domain2', 400), ('url5', 'domain3', 500), ('url6', 'domain1', 600)", 4);
+
+        assertUpdate("MERGE INTO " + targetTable + " target USING " + sourceTable2 + " source " +
+                "ON (target.page_url = source.page_url) " +
+                "WHEN MATCHED AND target.views > 3 " +
+                "THEN UPDATE SET domain = source.domain, views = (source.views + target.views) " +
+                "WHEN MATCHED AND target.views <= 3 " +
+                "THEN DELETE " +
+                "WHEN NOT MATCHED " +
+                "THEN INSERT (page_url, domain, views) VALUES (source.page_url, source.domain, source.views)", 4);
+
+        assertQuery("SELECT * FROM " + targetTable,
+                 """
+                 VALUES
+                    ('url4', 'domain2', 444),
+                    ('url5', 'domain3', 505),
+                    ('url6', 'domain1', 600)
+                 """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + targetTable + "', 2))",
+                """
+                        VALUES
+                            ('url3', 'domain3', 3, 'delete', BIGINT '3'),
+                            ('url4', 'domain1', 44, 'update_preimage', BIGINT '3'),
+                            ('url4', 'domain2', 444, 'update_postimage', BIGINT '3'),
+                            ('url5', 'domain3', 5, 'update_preimage', BIGINT '3'),
+                            ('url5', 'domain3', 505, 'update_postimage', BIGINT '3'),
+                            ('url6', 'domain1', 600, 'insert', BIGINT '3')
+                        """);
+    }
+
+    @Test
+    public void testCdfCommitTimestamp()
+    {
+        String tableName = "test_cdf_commit_timestamp_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
+        ZonedDateTime historyCommitTimestamp = (ZonedDateTime) computeScalar("SELECT timestamp FROM \"" + tableName + "$history\" WHERE version = 1");
+        ZonedDateTime tableChangesCommitTimestamp = (ZonedDateTime) computeScalar("SELECT _commit_timestamp FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0)) WHERE _commit_Version = 1");
+        assertThat(historyCommitTimestamp).isEqualTo(tableChangesCommitTimestamp);
+    }
+
+    @Test
+    public void testReadDifferentChangeRanges()
+    {
+        String tableName = "test_reading_ranges_of_changes_on_table_with_cdf_enabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertQueryReturnsEmptyResult("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
+        assertQueryReturnsEmptyResult("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))");
+
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE domain = 'domain2'", 1);
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url33' WHERE views = 3", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE page_url = 'url1'", 1);
+
+        assertQuery("SELECT * FROM " + tableName,
+                """
+                 VALUES
+                    ('url22', 'domain2', 2),
+                    ('url33', 'domain3', 3)
+                 """);
+
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 1000))",
+                "since_version: 1000 is higher then current table version: 6");
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '2'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '3'),
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '4'),
+                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '4'),
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '5'),
+                            ('url33', 'domain3', 3, 'update_postimage', BIGINT '5'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '6')
+                        """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '2'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '3'),
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '4'),
+                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '4'),
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '5'),
+                            ('url33', 'domain3', 3, 'update_postimage', BIGINT '5'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '6')
+                        """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))",
+                """
+                        VALUES
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '4'),
+                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '4'),
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '5'),
+                            ('url33', 'domain3', 3, 'update_postimage', BIGINT '5'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '6')
+                        """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 5))",
+                "VALUES ('url1', 'domain1', 1, 'delete', BIGINT '6')");
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 10))", "since_version: 10 is higher then current table version: 6");
+    }
+
+    @Test
+    public void testReadChangesOnTableWithColumnAdded()
+    {
+        String tableName = "test_reading_changes_on_table_with_columns_added_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN company VARCHAR");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2, 'starburst')", 1);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, null, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'starburst', 'insert', BIGINT '3')
+                        """);
+    }
+
+    @Test
+    public void testReadChangesOnTableWithRowColumn()
+    {
+        String tableName = "test_reading_changes_on_table_with_columns_added_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, costs ROW(month VARCHAR, amount BIGINT)) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', ROW('01', 11))", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', ROW('02', 19))", 1);
+        assertUpdate("UPDATE " + tableName + " SET costs = ROW('02', 37) WHERE costs.month = '02'", 1);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))",
+                """
+                        VALUES
+                            ('url1', ROW('01', BIGINT '11') , 'insert', BIGINT '1'),
+                            ('url2', ROW('02', BIGINT '19') , 'insert', BIGINT '2'),
+                            ('url2', ROW('02', BIGINT '19') , 'update_preimage', BIGINT '3'),
+                            ('url2', ROW('02', BIGINT '37') , 'update_postimage', BIGINT '3')
+                        """);
+
+        assertThat(query("SELECT costs.month, costs.amount, _commit_version FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))"))
+                .matches("""
+                        VALUES
+                            (VARCHAR '01', BIGINT '11', BIGINT '1'),
+                            (VARCHAR '02', BIGINT '19', BIGINT '2'),
+                            (VARCHAR '02', BIGINT '19', BIGINT '3'),
+                            (VARCHAR '02', BIGINT '37', BIGINT '3')
+                        """);
+    }
+
+    @Test
+    public void testCdfOnTableWhichDoesntHaveItEnabledInitially()
+    {
+        String tableName = "test_cdf_on_table_without_it_initially_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '2'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '3')
+                        """);
+
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE domain = 'domain2'", 1);
+        assertQuerySucceeds("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url33' WHERE views = 3", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE page_url = 'url1'", 1);
+
+        assertQuery("SELECT * FROM " + tableName,
+                """
+                 VALUES
+                    ('url22', 'domain2', 2),
+                    ('url33', 'domain3', 3)
+                 """);
+
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))",
+                "Change Data Feed is not enabled at version 4. Version contains 'remove' entries without 'cdc' entries");
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))",
+                "Change Data Feed is not enabled at version 4. Version contains 'remove' entries without 'cdc' entries");
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 5))",
+                """
+                        VALUES
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '6'),
+                            ('url33', 'domain3', 3, 'update_postimage', BIGINT '6'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '7')
+                        """);
+    }
+
+    @Test
+    public void testReadChangesFromCtasTable()
+    {
+        String tableName = "test_basic_operations_on_table_with_cdf_enabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true) AS SELECT * FROM (VALUES" +
+                "('url1', 'domain1', 1), " +
+                "('url2', 'domain2', 2)) t(page_url, domain, views)",
+                2);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '0'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '0')
+                        """);
+    }
+
+    @Test
+    public void testVacuumDeletesCdfFiles()
+            throws InterruptedException
+    {
+        String tableName = "test_vacuum_correctly_deletes_cdf_files_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1), ('url3', 'domain3', 3), ('url2', 'domain2', 2)", 3);
+        assertUpdate("UPDATE " + tableName + " SET views = views * 10 WHERE views = 1", 1);
+        assertUpdate("UPDATE " + tableName + " SET views = views * 10 WHERE views = 2", 1);
+        Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+        Thread.sleep(2000);
+        assertUpdate("UPDATE " + tableName + " SET views = views * 30 WHERE views = 3", 1);
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+        Set<String> allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
+        assertThat(allFilesFromCdfDirectory).hasSizeGreaterThanOrEqualTo(3);
+        long retention = timeSinceUpdate.elapsed().getSeconds();
+        getQueryRunner().execute(sessionWithShortRetentionUnlocked, "CALL delta_lake.system.vacuum('test_schema', '" + tableName + "', '" + retention + "s')");
+        allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
+        assertThat(allFilesFromCdfDirectory).hasSizeBetween(1, 2);
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 2))", ".*File does not exist.*");
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))",
+                """
+                        VALUES
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '4'),
+                            ('url3', 'domain3', 90, 'update_postimage', BIGINT '4')
+                        """);
+    }
+
+    @Test
+    public void testCdfWithOptimize()
+    {
+        String tableName = "test_cdf_with_optimize_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
+        assertUpdate("UPDATE " + tableName + " SET views = views * 30 WHERE views = 3", 1);
+        computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url10', 'domain10', 10)", 1);
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 0))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '2'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '3'),
+                            ('url10', 'domain10', 10, 'insert', BIGINT '6'),
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '4'),
+                            ('url3', 'domain3', 90, 'update_postimage', BIGINT '4')
+                        """);
+    }
+
+    @Test
+    public void testTableChangesAccessControl()
+    {
+        String tableName = "test_deny_table_changes_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) ");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
+
+        assertAccessDenied(
+                "SELECT * FROM TABLE(system.table_changes('" + SCHEMA + "', '" + tableName + "', 0))",
+                "Cannot execute function .*",
+                privilege("delta_lake.system.table_changes", EXECUTE_FUNCTION));
+
+        assertAccessDenied(
+                "SELECT * FROM TABLE(system.table_changes('" + SCHEMA + "', '" + tableName + "', 0))",
+                "Cannot select from columns .*",
+                privilege(tableName, SELECT_COLUMN));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1279,5 +1760,20 @@ public class TestDeltaLakeConnectorTest
         return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", BUCKET_NAME, path))
                 .collect(toImmutableList());
+    }
+
+    private void assertTableChangesQuery(@Language("SQL") String sql, @Language("SQL") String expectedResult)
+    {
+        assertThat(query(sql))
+                .exceptColumns("_commit_timestamp")
+                .skippingTypesCheck()
+                .matches(expectedResult);
+    }
+
+    private Set<String> getAllFilesFromCdfDirectory(String tableName)
+    {
+        return getTableFiles(tableName).stream()
+                .filter(path -> path.contains("/" + CHANGE_DATA_FOLDER_NAME))
+                .collect(toImmutableSet());
     }
 }

@@ -185,6 +185,13 @@ public class DeltaLakeColumnHandle
         return projectionInfo.isEmpty();
     }
 
+    @JsonIgnore
+    public Type getType()
+    {
+        return projectionInfo.map(DeltaLakeColumnProjectionInfo::getType)
+                .orElse(baseType);
+    }
+
     @Override
     public int hashCode()
     {

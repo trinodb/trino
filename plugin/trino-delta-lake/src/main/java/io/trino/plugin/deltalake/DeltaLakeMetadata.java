@@ -288,6 +288,8 @@ public class DeltaLakeMetadata
     public static final String ADD_COLUMN_OPERATION = "ADD COLUMNS";
     public static final String INSERT_OPERATION = "WRITE";
     public static final String MERGE_OPERATION = "MERGE";
+    public static final String UPDATE_OPERATION = "UPDATE"; // used by old Trino versions and Spark
+    public static final String DELETE_OPERATION = "DELETE"; // used by old Trino versions and Spark
     public static final String OPTIMIZE_OPERATION = "OPTIMIZE";
     public static final String SET_TBLPROPERTIES_OPERATION = "SET TBLPROPERTIES";
     public static final String CHANGE_COLUMN_OPERATION = "CHANGE COLUMN";

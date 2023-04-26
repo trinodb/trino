@@ -23,6 +23,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
+import io.trino.plugin.deltalake.functions.tablechanges.TableChangesFunctionProvider;
+import io.trino.plugin.deltalake.functions.tablechanges.TableChangesProcessorProvider;
 import io.trino.plugin.deltalake.procedure.DropExtendedStatsProcedure;
 import io.trino.plugin.deltalake.procedure.FlushMetadataCacheProcedure;
 import io.trino.plugin.deltalake.procedure.OptimizeTableProcedure;
@@ -57,7 +59,9 @@ import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.TableProcedureMetadata;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.inject.Singleton;
 
@@ -141,6 +145,10 @@ public class DeltaLakeModule
 
         Multibinder<TableProcedureMetadata> tableProcedures = newSetBinder(binder, TableProcedureMetadata.class);
         tableProcedures.addBinding().toProvider(OptimizeTableProcedure.class).in(Scopes.SINGLETON);
+
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableChangesFunctionProvider.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionProvider.class).to(DeltaLakeFunctionProvider.class).in(Scopes.SINGLETON);
+        binder.bind(TableChangesProcessorProvider.class).in(Scopes.SINGLETON);
     }
 
     @Singleton
