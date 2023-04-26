@@ -31,6 +31,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 
@@ -90,29 +91,29 @@ public final class StructuralTestUtil
 
     public static Block mapBlockOf(Type keyType, Type valueType, Object key, Object value)
     {
-        MapType mapType = mapType(keyType, valueType);
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 10);
-        BlockBuilder singleMapBlockWriter = blockBuilder.beginBlockEntry();
-        appendToBlockBuilder(keyType, key, singleMapBlockWriter);
-        appendToBlockBuilder(valueType, value, singleMapBlockWriter);
-        blockBuilder.closeEntry();
-        return mapType.getObject(blockBuilder, 0);
+        return buildMapValue(
+                mapType(keyType, valueType),
+                1,
+                (keyBuilder, valueBuilder) -> {
+                    appendToBlockBuilder(keyType, key, keyBuilder);
+                    appendToBlockBuilder(valueType, value, valueBuilder);
+                });
     }
 
     public static Block mapBlockOf(Type keyType, Type valueType, Object[] keys, Object[] values)
     {
         checkArgument(keys.length == values.length, "keys/values must have the same length");
-        MapType mapType = mapType(keyType, valueType);
-        BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 10);
-        BlockBuilder singleMapBlockWriter = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < keys.length; i++) {
-            Object key = keys[i];
-            Object value = values[i];
-            appendToBlockBuilder(keyType, key, singleMapBlockWriter);
-            appendToBlockBuilder(valueType, value, singleMapBlockWriter);
-        }
-        blockBuilder.closeEntry();
-        return mapType.getObject(blockBuilder, 0);
+        return buildMapValue(
+                mapType(keyType, valueType),
+                keys.length,
+                (keyBuilder, valueBuilder) -> {
+                    for (int i = 0; i < keys.length; i++) {
+                        Object key = keys[i];
+                        Object value = values[i];
+                        appendToBlockBuilder(keyType, key, keyBuilder);
+                        appendToBlockBuilder(valueType, value, valueBuilder);
+                    }
+                });
     }
 
     public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
