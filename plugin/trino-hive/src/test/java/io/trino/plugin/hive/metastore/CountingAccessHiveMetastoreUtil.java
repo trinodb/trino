@@ -40,7 +40,7 @@ public final class CountingAccessHiveMetastoreUtil
     {
         metastore.resetCounters();
         queryRunner.execute(session, query);
-        Multiset<CountingAccessHiveMetastore.Methods> actualInvocations = metastore.getMethodInvocations();
+        Multiset<CountingAccessHiveMetastore.Method> actualInvocations = metastore.getMethodInvocations();
 
         if (expectedInvocations.equals(actualInvocations)) {
             return;
