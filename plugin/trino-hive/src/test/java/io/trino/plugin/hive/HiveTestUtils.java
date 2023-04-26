@@ -95,6 +95,7 @@ import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -331,15 +332,17 @@ public final class HiveTestUtils
             blockBuilder.closeEntry();
             return type.getObject(blockBuilder, 0);
         }
-        if (type instanceof MapType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) hiveValue).entrySet()) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), entry.getKey(), subBlockBuilder);
-                appendToBlockBuilder(type.getTypeParameters().get(1), entry.getValue(), subBlockBuilder);
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
+        if (type instanceof MapType mapType) {
+            Map<?, ?> hiveMap = (Map<?, ?>) hiveValue;
+            return buildMapValue(
+                    mapType,
+                    hiveMap.size(),
+                    (keyBuilder, valueBuilder) -> {
+                        hiveMap.forEach((key, value) -> {
+                            appendToBlockBuilder(mapType.getKeyType(), key, keyBuilder);
+                            appendToBlockBuilder(mapType.getValueType(), value, valueBuilder);
+                        });
+                    });
         }
         if (type instanceof BooleanType) {
             return hiveValue;

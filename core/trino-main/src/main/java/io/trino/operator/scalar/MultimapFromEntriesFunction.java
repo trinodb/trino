@@ -15,10 +15,10 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.TypedSet;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -50,14 +50,14 @@ public final class MultimapFromEntriesFunction
     private static final String NAME = "multimap_from_entries";
     private static final int INITIAL_ENTRY_COUNT = 128;
 
-    private final PageBuilder pageBuilder;
+    private final BufferedMapValueBuilder mapValueBuilder;
     private IntList[] entryIndicesList;
 
     @TypeParameter("K")
     @TypeParameter("V")
     public MultimapFromEntriesFunction(@TypeParameter("map(K,array(V))") Type mapType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+        mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         initializeEntryIndicesList(INITIAL_ENTRY_COUNT);
     }
 
@@ -80,10 +80,6 @@ public final class MultimapFromEntriesFunction
         Type keyType = mapType.getKeyType();
         Type valueType = ((ArrayType) mapType.getValueType()).getElementType();
         RowType mapEntryType = RowType.anonymous(ImmutableList.of(keyType, valueType));
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
 
         int entryCount = mapEntries.getPositionCount();
         if (entryCount > entryIndicesList.length) {
@@ -111,21 +107,18 @@ public final class MultimapFromEntriesFunction
             }
         }
 
-        BlockBuilder multimapBlockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder mapWriter = multimapBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < keySet.size(); i++) {
-            keyType.appendTo(mapEntryType.getObject(mapEntries, entryIndicesList[i].getInt(0)), 0, mapWriter);
-            BlockBuilder valuesArray = mapWriter.beginBlockEntry();
-            for (int entryIndex : entryIndicesList[i]) {
-                valueType.appendTo(mapEntryType.getObject(mapEntries, entryIndex), 1, valuesArray);
+        Block resultMap = mapValueBuilder.build(keySet.size(), (keyBuilder, valueBuilder) -> {
+            for (int i = 0; i < keySet.size(); i++) {
+                keyType.appendTo(mapEntryType.getObject(mapEntries, entryIndicesList[i].getInt(0)), 0, keyBuilder);
+                BlockBuilder valuesArray = valueBuilder.beginBlockEntry();
+                for (int entryIndex : entryIndicesList[i]) {
+                    valueType.appendTo(mapEntryType.getObject(mapEntries, entryIndex), 1, valuesArray);
+                }
+                valueBuilder.closeEntry();
             }
-            mapWriter.closeEntry();
-        }
-
-        multimapBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
+        });
         clearEntryIndices(keySet.size());
-        return mapType.getObject(multimapBlockBuilder, multimapBlockBuilder.getPositionCount() - 1);
+        return resultMap;
     }
 
     private void clearEntryIndices(int entryCount)
