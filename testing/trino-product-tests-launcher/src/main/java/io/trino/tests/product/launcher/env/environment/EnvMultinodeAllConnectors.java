@@ -79,6 +79,7 @@ public final class EnvMultinodeAllConnectors
                         "redis",
                         "redshift",
                         "sqlserver",
+                        "starrocks",
                         "trino_thrift",
                         "tpcds")
                 .forEach(connector -> builder.addConnector(
