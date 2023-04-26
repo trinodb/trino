@@ -379,21 +379,7 @@ public class TrinoHiveCatalog
     @Override
     public void updateViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
     {
-        io.trino.plugin.hive.metastore.Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
-                .orElseThrow(() -> new ViewNotFoundException(viewName));
-
-        ConnectorViewDefinition definition = TrinoViewUtil.getView(viewName, view.getViewOriginalText(), view.getTableType(), view.getParameters(), view.getOwner())
-                .orElseThrow(() -> new ViewNotFoundException(viewName));
-        ConnectorViewDefinition newDefinition = new ConnectorViewDefinition(
-                definition.getOriginalSql(),
-                definition.getCatalog(),
-                definition.getSchema(),
-                definition.getColumns(),
-                comment,
-                definition.getOwner(),
-                definition.isRunAsInvoker());
-
-        replaceView(session, viewName, view, newDefinition);
+        trinoViewHiveMetastore.updateViewComment(session, viewName, comment);
     }
 
     @Override
