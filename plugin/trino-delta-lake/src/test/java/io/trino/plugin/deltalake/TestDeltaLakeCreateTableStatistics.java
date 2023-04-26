@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -34,13 +33,17 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
@@ -57,22 +60,14 @@ import static org.testng.Assert.assertEquals;
 public class TestDeltaLakeCreateTableStatistics
         extends AbstractTestQueryFramework
 {
-    private static final String SCHEMA = "default";
-    private String bucketName;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.bucketName = "delta-test-create-table-statistics-" + randomNameSuffix();
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
-        hiveMinioDataLake.start();
-        return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        return createDeltaLakeQueryRunner(
                 DELTA_CATALOG,
-                SCHEMA,
-                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
+                ImmutableMap.of(),
+                ImmutableMap.of("delta.enable-non-concurrent-writes", "true"));
     }
 
     @Test
@@ -455,10 +450,10 @@ public class TestDeltaLakeCreateTableStatistics
             this.name = name + randomNameSuffix();
             String columns = columnNames.isEmpty() ? "" :
                     "(" + String.join(",", columnNames) + ")";
-            String partitionedBy = partitionNames.isEmpty() ? "" :
-                    format(", partitioned_by = ARRAY[%s]", partitionNames.stream().map(partitionName -> "'" + partitionName + "'").collect(Collectors.joining(",")));
-            computeActual(session, format("CREATE TABLE %s %s WITH (location = 's3://%s/%1$s' %s) AS %s",
-                    this.name, columns, bucketName, partitionedBy, values));
+            String tableProperties = partitionNames.isEmpty() ? "" :
+                    format("WITH (partitioned_by = ARRAY[%s])", partitionNames.stream().map(partitionName -> "'" + partitionName + "'").collect(Collectors.joining(",")));
+            computeActual(session, format("CREATE TABLE %s %s %s AS %s",
+                    this.name, columns, tableProperties, values));
         }
 
         public TestTable(String name, List<String> columnNames, List<String> partitionNames, String values)
@@ -481,6 +476,18 @@ public class TestDeltaLakeCreateTableStatistics
     protected List<AddFileEntry> getAddFileEntries(String tableName)
             throws IOException
     {
-        return TestingDeltaLakeUtils.getAddFileEntries(format("s3://%s/%s", bucketName, tableName));
+        return TestingDeltaLakeUtils.getAddFileEntries(getTableLocation(tableName));
+    }
+
+    private String getTableLocation(String tableName)
+    {
+        Pattern locationPattern = Pattern.compile(".*location = '(.*?)'.*", Pattern.DOTALL);
+        Matcher m = locationPattern.matcher((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue());
+        if (m.find()) {
+            String location = m.group(1);
+            verify(!m.find(), "Unexpected second match");
+            return location;
+        }
+        throw new IllegalStateException("Location not found in SHOW CREATE TABLE result");
     }
 }
