@@ -75,8 +75,8 @@ public class TestGetTableStatisticsOperations
                 "FROM tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
+                ImmutableMultiset.<CountingAccessMetadata.Method>builder()
+                        .addCopies(CountingAccessMetadata.Method.GET_TABLE_STATISTICS, 2)
                         .build());
     }
 
@@ -87,8 +87,8 @@ public class TestGetTableStatisticsOperations
                 "FROM tpch.tiny.customer c, tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
+                ImmutableMultiset.<CountingAccessMetadata.Method>builder()
+                        .addCopies(CountingAccessMetadata.Method.GET_TABLE_STATISTICS, 3)
                         .build());
     }
 

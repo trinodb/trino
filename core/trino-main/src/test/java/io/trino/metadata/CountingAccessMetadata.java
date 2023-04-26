@@ -76,20 +76,20 @@ import java.util.Set;
 public class CountingAccessMetadata
         implements Metadata
 {
-    public enum Methods
+    public enum Method
     {
         GET_TABLE_STATISTICS,
     }
 
     private final Metadata delegate;
-    private final ConcurrentHashMultiset<Methods> methodInvocations = ConcurrentHashMultiset.create();
+    private final ConcurrentHashMultiset<Method> methodInvocations = ConcurrentHashMultiset.create();
 
     public CountingAccessMetadata(Metadata delegate)
     {
         this.delegate = delegate;
     }
 
-    public Multiset<Methods> getMethodInvocations()
+    public Multiset<Method> getMethodInvocations()
     {
         return ImmutableMultiset.copyOf(methodInvocations);
     }
@@ -210,7 +210,7 @@ public class CountingAccessMetadata
     @Override
     public TableStatistics getTableStatistics(Session session, TableHandle tableHandle)
     {
-        methodInvocations.add(Methods.GET_TABLE_STATISTICS);
+        methodInvocations.add(Method.GET_TABLE_STATISTICS);
         return delegate.getTableStatistics(session, tableHandle);
     }
 
