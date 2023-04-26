@@ -150,6 +150,7 @@
         <module>plugin/trino-hudi</module>
         <module>plugin/trino-iceberg</module>
         <module>plugin/trino-ignite</module>
+        <module>plugin/trino-influxdb</module>
         <module>plugin/trino-jmx</module>
         <module>plugin/trino-kafka</module>
         <module>plugin/trino-kinesis</module>
