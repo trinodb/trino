@@ -72,7 +72,6 @@ public class TestRedshiftConnectorTest
                 return false;
 
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
             case SUPPORTS_ARRAY:
