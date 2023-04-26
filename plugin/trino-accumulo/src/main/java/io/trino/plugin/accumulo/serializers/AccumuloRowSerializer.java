@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeUtils;
 import io.trino.spi.type.VarcharType;
@@ -31,6 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 
 /**
  * Interface for deserializing the data in Accumulo into a Trino row.
@@ -541,25 +544,22 @@ public interface AccumuloRowSerializer
     /**
      * Encodes the given map into a Block.
      *
-     * @param mapType Trino type of the map
+     * @param type Trino type of the map
      * @param map Map of key/value pairs to encode
      * @return Trino Block
      */
-    static Block getBlockFromMap(Type mapType, Map<?, ?> map)
+    static Block getBlockFromMap(Type type, Map<?, ?> map)
     {
-        Type keyType = mapType.getTypeParameters().get(0);
-        Type valueType = mapType.getTypeParameters().get(1);
+        MapType mapType = (MapType) type;
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
 
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
-        BlockBuilder builder = mapBlockBuilder.beginBlockEntry();
-
-        for (Entry<?, ?> entry : map.entrySet()) {
-            writeObject(builder, keyType, entry.getKey());
-            writeObject(builder, valueType, entry.getValue());
-        }
-
-        mapBlockBuilder.closeEntry();
-        return (Block) mapType.getObject(mapBlockBuilder, 0);
+        return buildMapValue(mapType, map.size(), (keyBuilder, valueBuilder) -> {
+            map.forEach((key, value) -> {
+                writeObject(keyBuilder, keyType, key);
+                writeObject(valueBuilder, valueType, value);
+            });
+        });
     }
 
     /**
