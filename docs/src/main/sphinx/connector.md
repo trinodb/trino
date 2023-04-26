@@ -38,6 +38,7 @@ Redis           <connector/redis>
 Redshift        <connector/redshift>
 SingleStore     <connector/singlestore>
 SQL Server      <connector/sqlserver>
+StarRocks       <connector/starrocks>
 System          <connector/system>
 Thrift          <connector/thrift>
 TPCDS           <connector/tpcds>
