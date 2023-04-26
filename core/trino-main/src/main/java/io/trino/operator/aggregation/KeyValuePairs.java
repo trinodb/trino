@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
@@ -126,12 +127,12 @@ public class KeyValuePairs
 
     public void serialize(BlockBuilder out)
     {
-        BlockBuilder mapBlockBuilder = out.beginBlockEntry();
-        for (int i = 0; i < keyBlockBuilder.getPositionCount(); i++) {
-            keyType.appendTo(keyBlockBuilder, i, mapBlockBuilder);
-            valueType.appendTo(valueBlockBuilder, i, mapBlockBuilder);
-        }
-        out.closeEntry();
+        ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
+            for (int i = 0; i < keyBlockBuilder.getPositionCount(); i++) {
+                keyType.appendTo(keyBlockBuilder, i, keyBuilder);
+                valueType.appendTo(valueBlockBuilder, i, valueBuilder);
+            }
+        });
     }
 
     public long estimatedInMemorySize()

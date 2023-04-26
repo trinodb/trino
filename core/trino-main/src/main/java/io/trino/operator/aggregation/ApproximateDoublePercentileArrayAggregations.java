@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Doubles;
 import io.airlift.stats.TDigest;
 import io.trino.operator.aggregation.state.TDigestAndPercentileArrayState;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
@@ -95,14 +96,12 @@ public final class ApproximateDoublePercentileArrayAggregations
             return;
         }
 
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-
         List<Double> valuesAtPercentiles = valuesAtPercentiles(digest, percentiles);
-        for (double value : valuesAtPercentiles) {
-            DOUBLE.writeDouble(blockBuilder, value);
-        }
-
-        out.closeEntry();
+        ((ArrayBlockBuilder) out).buildEntry(elementBuilder -> {
+            for (double value : valuesAtPercentiles) {
+                DOUBLE.writeDouble(elementBuilder, value);
+            }
+        });
     }
 
     public static List<Double> valuesAtPercentiles(TDigest digest, List<Double> percentiles)

@@ -26,6 +26,7 @@ import io.trino.array.ReferenceCountMap;
 import io.trino.array.SliceBigArray;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -317,11 +318,11 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(singleMapBlockWriter, 123L);
-            VARCHAR.writeSlice(singleMapBlockWriter, utf8Slice("testBlock"));
-            mapBlockBuilder.closeEntry();
+            MapBlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                BIGINT.writeLong(keyBuilder, 123L);
+                VARCHAR.writeSlice(valueBuilder, utf8Slice("testBlock"));
+            });
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
@@ -346,11 +347,11 @@ public class TestStateCompiler
             Block array = createLongsBlock(45);
             retainedSize += array.getRetainedSizeInBytes();
             groupedState.setBlock(array);
-            BlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
-            BIGINT.writeLong(singleMapBlockWriter, 123L);
-            VARCHAR.writeSlice(singleMapBlockWriter, utf8Slice("testBlock"));
-            mapBlockBuilder.closeEntry();
+            MapBlockBuilder mapBlockBuilder = mapType(BIGINT, VARCHAR).createBlockBuilder(null, 1);
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                BIGINT.writeLong(keyBuilder, 123L);
+                VARCHAR.writeSlice(valueBuilder, utf8Slice("testBlock"));
+            });
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);

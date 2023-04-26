@@ -22,8 +22,11 @@ import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -385,31 +388,31 @@ public class MaterializedResult
         else if (type instanceof ArrayType) {
             List<?> list = (List<?>) value;
             Type elementType = ((ArrayType) type).getElementType();
-            BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Object element : list) {
-                writeValue(elementType, arrayBlockBuilder, element);
-            }
-            blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                for (Object element : list) {
+                    writeValue(elementType, elementBuilder, element);
+                }
+            });
         }
         else if (type instanceof MapType) {
             Map<?, ?> map = (Map<?, ?>) value;
             Type keyType = ((MapType) type).getKeyType();
             Type valueType = ((MapType) type).getValueType();
-            BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Entry<?, ?> entry : map.entrySet()) {
-                writeValue(keyType, mapBlockBuilder, entry.getKey());
-                writeValue(valueType, mapBlockBuilder, entry.getValue());
-            }
-            blockBuilder.closeEntry();
+            ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (Entry<?, ?> entry : map.entrySet()) {
+                    writeValue(keyType, keyBuilder, entry.getKey());
+                    writeValue(valueType, valueBuilder, entry.getValue());
+                }
+            });
         }
         else if (type instanceof RowType) {
             List<?> row = (List<?>) value;
             List<Type> fieldTypes = type.getTypeParameters();
-            BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
-            for (int field = 0; field < row.size(); field++) {
-                writeValue(fieldTypes.get(field), rowBlockBuilder, row.get(field));
-            }
-            blockBuilder.closeEntry();
+            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                for (int field = 0; field < row.size(); field++) {
+                    writeValue(fieldTypes.get(field), fieldBuilders.get(field), row.get(field));
+                }
+            });
         }
         else {
             throw new IllegalArgumentException("Unsupported type " + type);

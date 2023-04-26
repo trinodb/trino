@@ -13,6 +13,7 @@
  */
 package io.trino.operator.aggregation.arrayagg;
 
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -45,9 +46,7 @@ public class ArrayAggregationStateSerializer
             out.appendNull();
         }
         else {
-            BlockBuilder entryBuilder = out.beginBlockEntry();
-            state.forEach((block, position) -> elementType.appendTo(block, position, entryBuilder));
-            out.closeEntry();
+            ((ArrayBlockBuilder) out).buildEntry(elementBuilder -> state.forEach((block, position) -> elementType.appendTo(block, position, elementBuilder)));
         }
     }
 

@@ -184,23 +184,15 @@ public class MapBlockBuilder
         consumer.accept(this, INSTANCE_SIZE);
     }
 
-    @Override
-    public SingleMapBlockWriter beginBlockEntry()
+    public <E extends Throwable> void buildEntry(MapValueBuilder<E> builder)
+            throws E
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
+
         currentEntryOpened = true;
-        return new SingleMapBlockWriter(keyBlockBuilder.getPositionCount() * 2, keyBlockBuilder, valueBlockBuilder, this::strict);
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
+        builder.build(keyBlockBuilder, valueBlockBuilder);
         entryAdded(false);
         currentEntryOpened = false;
 
@@ -213,6 +205,11 @@ public class MapBlockBuilder
             case STRICT_EQUALS -> hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
             case STRICT_NOT_DISTINCT_FROM -> hashTables.buildDistinctHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
         }
+    }
+
+    @Override
+    public BlockBuilder closeEntry()
+    {
         return this;
     }
 

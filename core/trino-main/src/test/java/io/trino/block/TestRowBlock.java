@@ -135,30 +135,31 @@ public class TestRowBlock
 
     private BlockBuilder createBlockBuilderWithValues(List<Type> fieldTypes, List<Object>[] rows)
     {
-        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
+        RowBlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
         for (List<Object> row : rows) {
             if (row == null) {
                 rowBlockBuilder.appendNull();
             }
             else {
-                BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-                for (Object fieldValue : row) {
-                    if (fieldValue == null) {
-                        singleRowBlockWriter.appendNull();
-                    }
-                    else {
-                        if (fieldValue instanceof Long) {
-                            BIGINT.writeLong(singleRowBlockWriter, ((Long) fieldValue).longValue());
-                        }
-                        else if (fieldValue instanceof String) {
-                            VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
+                rowBlockBuilder.buildEntry(fieldBuilders -> {
+                    for (int i = 0; i < row.size(); i++) {
+                        Object fieldValue = row.get(i);
+                        if (fieldValue == null) {
+                            fieldBuilders.get(i).appendNull();
                         }
                         else {
-                            throw new IllegalArgumentException();
+                            if (fieldValue instanceof Long) {
+                                BIGINT.writeLong(fieldBuilders.get(i), ((Long) fieldValue).longValue());
+                            }
+                            else if (fieldValue instanceof String) {
+                                VARCHAR.writeSlice(fieldBuilders.get(i), utf8Slice((String) fieldValue));
+                            }
+                            else {
+                                throw new IllegalArgumentException();
+                            }
                         }
                     }
-                }
-                rowBlockBuilder.closeEntry();
+                });
             }
         }
 

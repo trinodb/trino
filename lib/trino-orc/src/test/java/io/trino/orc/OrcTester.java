@@ -28,8 +28,11 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -760,32 +763,32 @@ public class OrcTester
                 if (type instanceof ArrayType) {
                     List<?> array = (List<?>) value;
                     Type elementType = type.getTypeParameters().get(0);
-                    BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (Object elementValue : array) {
-                        writeValue(elementType, arrayBlockBuilder, elementValue);
-                    }
-                    blockBuilder.closeEntry();
+                    ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                        for (Object elementValue : array) {
+                            writeValue(elementType, elementBuilder, elementValue);
+                        }
+                    });
                 }
-                else if (type instanceof MapType) {
+                else if (type instanceof MapType mapType) {
                     Map<?, ?> map = (Map<?, ?>) value;
-                    Type keyType = type.getTypeParameters().get(0);
-                    Type valueType = type.getTypeParameters().get(1);
-                    BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (Entry<?, ?> entry : map.entrySet()) {
-                        writeValue(keyType, mapBlockBuilder, entry.getKey());
-                        writeValue(valueType, mapBlockBuilder, entry.getValue());
-                    }
-                    blockBuilder.closeEntry();
+                    Type keyType = mapType.getKeyType();
+                    Type valueType = mapType.getValueType();
+                    ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+                        map.forEach((key, value1) -> {
+                            writeValue(keyType, keyBuilder, key);
+                            writeValue(valueType, valueBuilder, value1);
+                        });
+                    });
                 }
                 else if (type instanceof RowType) {
                     List<?> array = (List<?>) value;
                     List<Type> fieldTypes = type.getTypeParameters();
-                    BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
-                        Type fieldType = fieldTypes.get(fieldId);
-                        writeValue(fieldType, rowBlockBuilder, array.get(fieldId));
-                    }
-                    blockBuilder.closeEntry();
+                    ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                        for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
+                            Type fieldType = fieldTypes.get(fieldId);
+                            writeValue(fieldType, fieldBuilders.get(fieldId), array.get(fieldId));
+                        }
+                    });
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported type " + type);

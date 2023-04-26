@@ -38,11 +38,10 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testArrayBlock()
     {
-        BlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRIES);
+        ArrayBlockBuilder arrayBlockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
-            BlockBuilder arrayElementBuilder = arrayBlockBuilder.beginBlockEntry();
-            writeNativeValue(BIGINT, arrayElementBuilder, castIntegerToObject(i, BIGINT));
-            arrayBlockBuilder.closeEntry();
+            int value = i;
+            arrayBlockBuilder.buildEntry(elementBuilder -> writeNativeValue(BIGINT, elementBuilder, castIntegerToObject(value, BIGINT)));
         }
         checkRetainedSize(arrayBlockBuilder.build(), false);
     }

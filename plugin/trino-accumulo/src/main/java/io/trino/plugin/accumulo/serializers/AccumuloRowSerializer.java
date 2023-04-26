@@ -16,8 +16,10 @@ package io.trino.plugin.accumulo.serializers;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeUtils;
@@ -574,20 +576,20 @@ public interface AccumuloRowSerializer
     static void writeObject(BlockBuilder builder, Type type, Object obj)
     {
         if (Types.isArrayType(type)) {
-            BlockBuilder arrayBldr = builder.beginBlockEntry();
-            Type elementType = Types.getElementType(type);
-            for (Object item : (List<?>) obj) {
-                writeObject(arrayBldr, elementType, item);
-            }
-            builder.closeEntry();
+            ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                Type elementType = Types.getElementType(type);
+                for (Object item : (List<?>) obj) {
+                    writeObject(elementBuilder, elementType, item);
+                }
+            });
         }
-        else if (Types.isMapType(type)) {
-            BlockBuilder mapBlockBuilder = builder.beginBlockEntry();
-            for (Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
-                writeObject(mapBlockBuilder, Types.getKeyType(type), entry.getKey());
-                writeObject(mapBlockBuilder, Types.getValueType(type), entry.getValue());
-            }
-            builder.closeEntry();
+        else if (type instanceof MapType mapType) {
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                    writeObject(keyBuilder, mapType.getKeyType(), entry.getKey());
+                    writeObject(valueBuilder, mapType.getValueType(), entry.getValue());
+                }
+            });
         }
         else {
             TypeUtils.writeNativeValue(type, builder, obj);

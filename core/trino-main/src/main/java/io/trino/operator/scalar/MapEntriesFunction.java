@@ -14,8 +14,8 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -55,10 +55,11 @@ public class MapEntriesFunction
         int entryCount = block.getPositionCount() / 2;
         return arrayValueBuilder.build(entryCount, valueBuilder -> {
             for (int i = 0; i < entryCount; i++) {
-                BlockBuilder rowBuilder = valueBuilder.beginBlockEntry();
-                keyType.appendTo(block, 2 * i, rowBuilder);
-                valueType.appendTo(block, 2 * i + 1, rowBuilder);
-                valueBuilder.closeEntry();
+                int position = 2 * i;
+                ((RowBlockBuilder) valueBuilder).buildEntry(fieldBuilders -> {
+                    keyType.appendTo(block, position, fieldBuilders.get(0));
+                    valueType.appendTo(block, position + 1, fieldBuilders.get(1));
+                });
             }
         });
     }

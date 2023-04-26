@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation.minmaxbyn;
 
 import io.trino.array.ObjectBigArray;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
@@ -119,13 +120,9 @@ public final class MinMaxByNStateFactory
                 return;
             }
 
-            BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-
             size -= typedHeap.getEstimatedSize();
-            typedHeap.popAllReverse(arrayBlockBuilder);
+            ((ArrayBlockBuilder) out).buildEntry(typedHeap::popAllReverse);
             size += typedHeap.getEstimatedSize();
-
-            out.closeEntry();
         }
 
         @Override
@@ -238,9 +235,7 @@ public final class MinMaxByNStateFactory
                 return;
             }
 
-            BlockBuilder arrayBlockBuilder = out.beginBlockEntry();
-            typedHeap.popAllReverse(arrayBlockBuilder);
-            out.closeEntry();
+            ((ArrayBlockBuilder) out).buildEntry(typedHeap::popAllReverse);
         }
 
         @Override

@@ -20,8 +20,8 @@ import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -281,11 +281,11 @@ public class KafkaRecordSet
                 (keyBuilder, valueBuilder) -> {
                     for (String headerKey : headerMap.keySet()) {
                         writeNativeValue(keyType, keyBuilder, headerKey);
-                        BlockBuilder arrayBuilder = valueBuilder.beginBlockEntry();
-                        for (byte[] value : headerMap.get(headerKey)) {
-                            writeNativeValue(valueType, arrayBuilder, value);
-                        }
-                        valueBuilder.closeEntry();
+                        ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
+                            for (byte[] value : headerMap.get(headerKey)) {
+                                writeNativeValue(valueType, elementBuilder, value);
+                            }
+                        });
                     }
                 });
 

@@ -18,6 +18,7 @@ import io.trino.operator.aggregation.NullablePosition;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -109,12 +110,12 @@ public final class MultimapAggregationFunction
 
             // Write keys and value arrays into one Block
             Type valueArrayType = new ArrayType(valueType);
-            BlockBuilder multimapBlockBuilder = out.beginBlockEntry();
-            for (int i = 0; i < distinctKeyBlockBuilder.getPositionCount(); i++) {
-                keyType.appendTo(distinctKeyBlockBuilder, i, multimapBlockBuilder);
-                valueArrayType.writeObject(multimapBlockBuilder, valueArrayBlockBuilders.get(i).build());
-            }
-            out.closeEntry();
+            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
+                for (int i = 0; i < distinctKeyBlockBuilder.getPositionCount(); i++) {
+                    keyType.appendTo(distinctKeyBlockBuilder, i, keyBuilder);
+                    valueArrayType.writeObject(valueBuilder, valueArrayBlockBuilders.get(i).build());
+                }
+            });
         }
     }
 }

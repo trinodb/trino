@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -91,20 +91,20 @@ public class BenchmarkRowEqualOperator
         private static Block[] createChannels(int positionCount, RowType rowType)
         {
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            BlockBuilder leftBlockBuilder = rowType.createBlockBuilder(null, positionCount);
-            BlockBuilder rightBlockBuilder = rowType.createBlockBuilder(null, positionCount);
+            RowBlockBuilder leftBlockBuilder = rowType.createBlockBuilder(null, positionCount);
+            RowBlockBuilder rightBlockBuilder = rowType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder leftEntryBuilder = leftBlockBuilder.beginBlockEntry();
-                BlockBuilder rightEntryBuilder = rightBlockBuilder.beginBlockEntry();
-
-                List<Field> fields = rowType.getFields();
-                for (int i = 0; i < fields.size() - 1; i++) {
-                    addElement(fields.get(i).getType(), random, leftEntryBuilder, rightEntryBuilder, true);
-                }
-                // last field has a 50% chance of being equal
-                addElement(fields.get(fields.size() - 1).getType(), random, leftEntryBuilder, rightEntryBuilder, random.nextBoolean());
-                leftBlockBuilder.closeEntry();
-                rightBlockBuilder.closeEntry();
+                leftBlockBuilder.buildEntry(leftFieldBuilders -> {
+                    rightBlockBuilder.buildEntry(rightFieldBuilders -> {
+                        List<Field> fields = rowType.getFields();
+                        for (int i = 0; i < fields.size() - 1; i++) {
+                            addElement(fields.get(i).getType(), random, leftFieldBuilders.get(i), rightFieldBuilders.get(i), true);
+                        }
+                        // last field has a 50% chance of being equal
+                        int lastIndex = fields.size() - 1;
+                        addElement(fields.get(lastIndex).getType(), random, leftFieldBuilders.get(lastIndex), rightFieldBuilders.get(lastIndex), random.nextBoolean());
+                    });
+                });
             }
             return new Block[] {leftBlockBuilder.build(), rightBlockBuilder.build()};
         }
