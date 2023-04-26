@@ -14,16 +14,20 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Map;
+import java.util.Optional;
 
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static java.lang.String.format;
 
 public class CdfFileEntry
 {
     private final String path;
     private final Map<String, String> partitionValues;
+    private final Map<String, Optional<String>> canonicalPartitionValues;
     private final long size;
     private final boolean dataChange;
 
@@ -35,6 +39,7 @@ public class CdfFileEntry
     {
         this.path = path;
         this.partitionValues = partitionValues;
+        this.canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
         this.size = size;
         this.dataChange = false;
     }
@@ -49,6 +54,12 @@ public class CdfFileEntry
     public Map<String, String> getPartitionValues()
     {
         return partitionValues;
+    }
+
+    @JsonIgnore // derived from partitionValues
+    public Map<String, Optional<String>> getCanonicalPartitionValues()
+    {
+        return canonicalPartitionValues;
     }
 
     @JsonProperty

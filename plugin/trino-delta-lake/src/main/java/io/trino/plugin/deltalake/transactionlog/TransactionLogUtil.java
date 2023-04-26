@@ -42,7 +42,7 @@ public final class TransactionLogUtil
     {
         return partitionValues.entrySet().stream()
                 .collect(toImmutableMap(
-                        // canonicalize partition keys to lowercase, so they match column names used in DeltaLakeColumnHandle
+                        // canonicalize partition keys to lowercase so they match column names used in DeltaLakeColumnHandle
                         entry -> canonicalizeColumnName(entry.getKey()),
                         entry -> {
                             String value = entry.getValue();
