@@ -15,6 +15,7 @@ package io.trino.plugin.hudi;
 
 import com.google.common.util.concurrent.Futures;
 import io.airlift.units.DataSize;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -65,10 +66,12 @@ public class HudiSplitSource
             Map<String, HiveColumnHandle> partitionColumnHandleMap,
             ExecutorService executor,
             int maxSplitsPerSecond,
-            int maxOutstandingSplits)
+            int maxOutstandingSplits,
+            HdfsEnvironment hdfsEnvironment)
     {
         boolean metadataEnabled = isHudiMetadataEnabled(session);
-        HoodieTableMetaClient metaClient = buildTableMetaClient(configuration, tableHandle.getBasePath());
+        HoodieTableMetaClient metaClient =
+                hdfsEnvironment.doAs(session.getIdentity(), () -> buildTableMetaClient(configuration, tableHandle.getBasePath()));
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(configuration);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)

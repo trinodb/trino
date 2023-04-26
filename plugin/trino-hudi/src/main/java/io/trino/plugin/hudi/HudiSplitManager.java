@@ -101,7 +101,8 @@ public class HudiSplitManager
                 partitionColumnHandles,
                 executor,
                 maxSplitsPerSecond,
-                maxOutstandingSplits);
+                maxOutstandingSplits,
+                hdfsEnvironment);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }
 }

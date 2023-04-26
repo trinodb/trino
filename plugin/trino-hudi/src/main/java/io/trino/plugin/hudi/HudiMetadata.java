@@ -37,10 +37,11 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.model.HoodieTableType;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -56,6 +57,7 @@ import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.util.HiveUtil.columnMetadataGetter;
 import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNKNOWN_TABLE_TYPE;
 import static io.trino.plugin.hudi.HudiSessionProperties.getColumnsToHide;
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
@@ -65,7 +67,6 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static org.apache.hudi.common.fs.FSUtils.getFs;
 import static org.apache.hudi.common.table.HoodieTableMetaClient.METAFOLDER_NAME;
 import static org.apache.hudi.common.util.StringUtils.isNullOrEmpty;
 import static org.apache.hudi.exception.TableNotFoundException.checkTableValidity;
@@ -197,9 +198,15 @@ public class HudiMetadata
     private boolean isHudiTable(ConnectorSession session, Table table)
     {
         String basePath = table.getStorage().getLocation();
-        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath));
+        FileSystem fileSystem;
         try {
-            checkTableValidity(getFs(basePath, configuration), new Path(basePath), new Path(basePath, METAFOLDER_NAME));
+            fileSystem = hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(basePath));
+        } catch (IOException e) {
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, "Failed getting FileSystem: " + basePath, e);
+        }
+
+        try {
+            checkTableValidity(fileSystem, new Path(basePath), new Path(basePath, METAFOLDER_NAME));
         }
         catch (org.apache.hudi.exception.TableNotFoundException e) {
             log.warn("Could not find Hudi table at path '%s'", basePath);
