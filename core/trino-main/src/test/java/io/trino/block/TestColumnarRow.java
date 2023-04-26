@@ -131,28 +131,29 @@ public class TestColumnarRow
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        BlockBuilder blockBuilder = createBlockBuilder(null, 100);
+        RowBlockBuilder blockBuilder = createBlockBuilder(null, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
             }
             else {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (Slice v : expectedValue) {
-                    if (v == null) {
-                        entryBuilder.appendNull();
+                blockBuilder.buildEntry(fieldBuilders -> {
+                    for (int i = 0; i < expectedValue.length; i++) {
+                        Slice v = expectedValue[i];
+                        if (v == null) {
+                            fieldBuilders.get(i).appendNull();
+                        }
+                        else {
+                            VARCHAR.writeSlice(fieldBuilders.get(i), v);
+                        }
                     }
-                    else {
-                        VARCHAR.writeSlice(entryBuilder, v);
-                    }
-                }
-                blockBuilder.closeEntry();
+                });
             }
         }
         return blockBuilder;
     }
 
-    private static BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    private static RowBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return new RowBlockBuilder(Collections.nCopies(FIELD_COUNT, VARCHAR), blockBuilderStatus, expectedEntries);
     }

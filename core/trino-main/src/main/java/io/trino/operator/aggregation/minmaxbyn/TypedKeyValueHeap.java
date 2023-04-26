@@ -15,8 +15,10 @@ package io.trino.operator.aggregation.minmaxbyn;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -96,22 +98,21 @@ public class TypedKeyValueHeap
 
     public void serialize(BlockBuilder out)
     {
-        BlockBuilder blockBuilder = out.beginBlockEntry();
-        BIGINT.writeLong(blockBuilder, getCapacity());
+        ((RowBlockBuilder) out).buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), getCapacity());
 
-        BlockBuilder keyElements = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < positionCount; i++) {
-            keyType.appendTo(keyBlockBuilder, heapIndex[i], keyElements);
-        }
-        blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) fieldBuilders.get(1)).buildEntry(elementBuilder -> {
+                for (int i = 0; i < positionCount; i++) {
+                    keyType.appendTo(keyBlockBuilder, heapIndex[i], elementBuilder);
+                }
+            });
 
-        BlockBuilder valueElements = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < positionCount; i++) {
-            valueType.appendTo(valueBlockBuilder, heapIndex[i], valueElements);
-        }
-        blockBuilder.closeEntry();
-
-        out.closeEntry();
+            ((ArrayBlockBuilder) fieldBuilders.get(2)).buildEntry(elementBuilder -> {
+                for (int i = 0; i < positionCount; i++) {
+                    valueType.appendTo(valueBlockBuilder, heapIndex[i], elementBuilder);
+                }
+            });
+        });
     }
 
     public static TypedKeyValueHeap deserialize(boolean min, MethodHandle compare, Type keyType, Type valueType, Block rowBlock)

@@ -16,6 +16,7 @@ package io.trino.hive.formats.encodings.binary;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.ReadWriteUtils;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -63,7 +64,11 @@ public class ListEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        // entries in list
+        ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> decodeArrayInto(elementBuilder, slice, offset));
+    }
+
+    private void decodeArrayInto(BlockBuilder elementBuilder, Slice slice, int offset)
+    {
         int entries = toIntExact(ReadWriteUtils.readVInt(slice, offset));
         offset += ReadWriteUtils.decodeVIntSize(slice.getByte(offset));
 
@@ -73,24 +78,22 @@ public class ListEncoding
 
         // read elements starting after null bytes
         int elementOffset = nullByteEnd;
-        BlockBuilder arrayBuilder = builder.beginBlockEntry();
         for (int i = 0; i < entries; i++) {
             if ((slice.getByte(nullByteCur) & (1 << (i % 8))) != 0) {
                 int valueOffset = elementEncoding.getValueOffset(slice, elementOffset);
                 int valueLength = elementEncoding.getValueLength(slice, elementOffset);
 
-                elementEncoding.decodeValueInto(arrayBuilder, slice, elementOffset + valueOffset, valueLength);
+                elementEncoding.decodeValueInto(elementBuilder, slice, elementOffset + valueOffset, valueLength);
 
                 elementOffset = elementOffset + valueOffset + valueLength;
             }
             else {
-                arrayBuilder.appendNull();
+                elementBuilder.appendNull();
             }
             // move onto the next null byte
             if (7 == (i % 8)) {
                 nullByteCur++;
             }
         }
-        builder.closeEntry();
     }
 }

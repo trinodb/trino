@@ -18,6 +18,7 @@ import io.trino.array.LongBigArray;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
@@ -106,12 +107,12 @@ public class SingleTypedHistogram
         }
         else {
             Block valuesBlock = values.build();
-            BlockBuilder blockBuilder = out.beginBlockEntry();
-            for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
-                type.appendTo(valuesBlock, i, blockBuilder);
-                BIGINT.writeLong(blockBuilder, counts.get(i));
-            }
-            out.closeEntry();
+            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
+                for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
+                    type.appendTo(valuesBlock, i, keyBuilder);
+                    BIGINT.writeLong(valueBuilder, counts.get(i));
+                }
+            });
         }
     }
 

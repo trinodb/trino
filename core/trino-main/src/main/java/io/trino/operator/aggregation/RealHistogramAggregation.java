@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.CombineFunction;
@@ -59,12 +60,12 @@ public final class RealHistogramAggregation
         }
         else {
             Map<Double, Double> value = state.get().getBuckets();
-            BlockBuilder entryBuilder = out.beginBlockEntry();
-            for (Map.Entry<Double, Double> entry : value.entrySet()) {
-                REAL.writeLong(entryBuilder, floatToRawIntBits(entry.getKey().floatValue()));
-                REAL.writeLong(entryBuilder, floatToRawIntBits(entry.getValue().floatValue()));
-            }
-            out.closeEntry();
+            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
+                for (Map.Entry<Double, Double> entry : value.entrySet()) {
+                    REAL.writeLong(keyBuilder, floatToRawIntBits(entry.getKey().floatValue()));
+                    REAL.writeLong(valueBuilder, floatToRawIntBits(entry.getValue().floatValue()));
+                }
+            });
         }
     }
 }

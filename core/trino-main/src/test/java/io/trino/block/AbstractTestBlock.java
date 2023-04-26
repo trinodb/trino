@@ -25,7 +25,6 @@ import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
-import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 
 import java.lang.invoke.MethodHandle;
@@ -125,9 +124,6 @@ public abstract class AbstractTestBlock
                 else if (type == SliceOutput.class) {
                     retainedSize += ((SliceOutput) field.get(block)).getRetainedSize();
                 }
-                else if (type == SingleRowBlockWriter.class) {
-                    retainedSize += SingleRowBlockWriter.INSTANCE_SIZE;
-                }
                 else if (type == int[].class) {
                     retainedSize += sizeOf((int[]) field.get(block));
                 }
@@ -154,6 +150,10 @@ public abstract class AbstractTestBlock
                     // and they are shared among blocks created by the same MapType.
                     // So we don't account for the memory held onto by MethodHandle instances.
                     // Otherwise, we will be counting it multiple times.
+                }
+                else if (field.getName().equals("fieldBlockBuildersList")) {
+                    // RowBlockBuilder fieldBlockBuildersList is a simple wrapper around the
+                    // array already accounted for in the instance
                 }
                 else {
                     throw new IllegalArgumentException(format("Unknown type encountered: %s", type));

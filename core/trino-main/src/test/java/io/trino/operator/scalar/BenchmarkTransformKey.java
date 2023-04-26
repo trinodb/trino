@@ -22,7 +22,7 @@ import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -139,24 +139,24 @@ public class BenchmarkTransformKey
 
         private static Block createChannel(int positionCount, MapType mapType, Type elementType)
         {
-            BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
-            BlockBuilder singleMapBlockWriter = mapBlockBuilder.beginBlockEntry();
-            Object value;
-            for (int position = 0; position < positionCount; position++) {
-                if (elementType.equals(BIGINT)) {
-                    value = ThreadLocalRandom.current().nextLong();
+            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
+            mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                Object value;
+                for (int position = 0; position < positionCount; position++) {
+                    if (elementType.equals(BIGINT)) {
+                        value = ThreadLocalRandom.current().nextLong();
+                    }
+                    else if (elementType.equals(DOUBLE)) {
+                        value = ThreadLocalRandom.current().nextDouble();
+                    }
+                    else {
+                        throw new UnsupportedOperationException();
+                    }
+                    // Use position as the key to avoid collision
+                    writeNativeValue(elementType, keyBuilder, position);
+                    writeNativeValue(elementType, valueBuilder, value);
                 }
-                else if (elementType.equals(DOUBLE)) {
-                    value = ThreadLocalRandom.current().nextDouble();
-                }
-                else {
-                    throw new UnsupportedOperationException();
-                }
-                // Use position as the key to avoid collision
-                writeNativeValue(elementType, singleMapBlockWriter, position);
-                writeNativeValue(elementType, singleMapBlockWriter, value);
-            }
-            mapBlockBuilder.closeEntry();
+            });
             return mapBlockBuilder.build();
         }
 

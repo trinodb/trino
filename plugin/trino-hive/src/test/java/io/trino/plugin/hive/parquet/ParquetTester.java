@@ -43,8 +43,11 @@ import io.trino.plugin.hive.parquet.write.TestingMapredParquetOutputFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -872,32 +875,32 @@ public class ParquetTester
                 if (type instanceof ArrayType) {
                     List<?> array = (List<?>) value;
                     Type elementType = type.getTypeParameters().get(0);
-                    BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (Object elementValue : array) {
-                        writeValue(elementType, arrayBlockBuilder, elementValue);
-                    }
-                    blockBuilder.closeEntry();
+                    ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                        for (Object elementValue : array) {
+                            writeValue(elementType, elementBuilder, elementValue);
+                        }
+                    });
                 }
                 else if (type instanceof MapType) {
                     Map<?, ?> map = (Map<?, ?>) value;
                     Type keyType = type.getTypeParameters().get(0);
                     Type valueType = type.getTypeParameters().get(1);
-                    BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (Map.Entry<?, ?> entry : map.entrySet()) {
-                        writeValue(keyType, mapBlockBuilder, entry.getKey());
-                        writeValue(valueType, mapBlockBuilder, entry.getValue());
-                    }
-                    blockBuilder.closeEntry();
+                    ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+                        for (Map.Entry<?, ?> entry : map.entrySet()) {
+                            writeValue(keyType, keyBuilder, entry.getKey());
+                            writeValue(valueType, valueBuilder, entry.getValue());
+                        }
+                    });
                 }
                 else if (type instanceof RowType) {
                     List<?> array = (List<?>) value;
                     List<Type> fieldTypes = type.getTypeParameters();
-                    BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
-                        Type fieldType = fieldTypes.get(fieldId);
-                        writeValue(fieldType, rowBlockBuilder, array.get(fieldId));
-                    }
-                    blockBuilder.closeEntry();
+                    ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                        for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
+                            Type fieldType = fieldTypes.get(fieldId);
+                            writeValue(fieldType, fieldBuilders.get(fieldId), array.get(fieldId));
+                        }
+                    });
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported type " + type);

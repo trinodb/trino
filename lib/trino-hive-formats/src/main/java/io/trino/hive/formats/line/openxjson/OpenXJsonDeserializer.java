@@ -24,9 +24,11 @@ import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -658,18 +660,17 @@ public final class OpenXJsonDeserializer
                 return;
             }
 
-            BlockBuilder elementBuilder = builder.beginBlockEntry();
-
-            if (jsonValue instanceof List<?> jsonArray) {
-                for (Object element : jsonArray) {
-                    elementDecoder.decode(element, elementBuilder);
+            ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                if (jsonValue instanceof List<?> jsonArray) {
+                    for (Object element : jsonArray) {
+                        elementDecoder.decode(element, elementBuilder);
+                    }
                 }
-            }
-            else {
-                // all other values are coerced to a single element array
-                elementDecoder.decode(jsonValue, elementBuilder);
-            }
-            builder.closeEntry();
+                else {
+                    // all other values are coerced to a single element array
+                    elementDecoder.decode(jsonValue, elementBuilder);
+                }
+            });
         }
     }
 
@@ -681,7 +682,7 @@ public final class OpenXJsonDeserializer
         private final Type keyType;
 
         private final DistinctMapKeys distinctMapKeys;
-        private BlockBuilder keyBlockBuilder;
+        private BlockBuilder tempKeyBlockBuilder;
 
         public MapDecoder(MapType mapType, Decoder keyDecoder, Decoder valueDecoder)
         {
@@ -690,7 +691,7 @@ public final class OpenXJsonDeserializer
             this.valueDecoder = valueDecoder;
 
             this.distinctMapKeys = new DistinctMapKeys(mapType, true);
-            this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
+            this.tempKeyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
         }
 
         @Override
@@ -713,16 +714,16 @@ public final class OpenXJsonDeserializer
             Block keyBlock = readKeys(fieldNames);
             boolean[] distinctKeys = distinctMapKeys.selectDistinctKeys(keyBlock);
 
-            BlockBuilder entryBuilder = builder.beginBlockEntry();
-            int keyIndex = 0;
-            for (Object fieldName : fieldNames) {
-                if (distinctKeys[keyIndex]) {
-                    keyType.appendTo(keyBlock, keyIndex, entryBuilder);
-                    valueDecoder.decode(jsonObject.get(fieldName), entryBuilder);
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                int keyIndex = 0;
+                for (Object fieldName : fieldNames) {
+                    if (distinctKeys[keyIndex]) {
+                        keyType.appendTo(keyBlock, keyIndex, keyBuilder);
+                        valueDecoder.decode(jsonObject.get(fieldName), valueBuilder);
+                    }
+                    keyIndex++;
                 }
-                keyIndex++;
-            }
-            builder.closeEntry();
+            });
         }
 
         private Block readKeys(Collection<?> fieldNames)
@@ -731,11 +732,11 @@ public final class OpenXJsonDeserializer
                 // field names are always processed as a quoted JSON string even though they may
                 // have not been quoted in the original JSON text
                 JsonString jsonValue = new JsonString(fieldName.toString(), true);
-                keyDecoder.decode(jsonValue, keyBlockBuilder);
+                keyDecoder.decode(jsonValue, tempKeyBlockBuilder);
             }
 
-            Block keyBlock = keyBlockBuilder.build();
-            keyBlockBuilder = keyType.createBlockBuilder(null, keyBlock.getPositionCount());
+            Block keyBlock = tempKeyBlockBuilder.build();
+            tempKeyBlockBuilder = keyType.createBlockBuilder(null, keyBlock.getPositionCount());
             return keyBlock;
         }
     }
@@ -759,7 +760,6 @@ public final class OpenXJsonDeserializer
         }
 
         public void decode(Object jsonValue, PageBuilder builder)
-                throws IOException
         {
             builder.declarePosition();
             decodeValue(jsonValue, builder::getBlockBuilder);
@@ -768,9 +768,7 @@ public final class OpenXJsonDeserializer
         @Override
         void decodeValue(Object jsonValue, BlockBuilder builder)
         {
-            SingleRowBlockWriter currentBuilder = (SingleRowBlockWriter) builder.beginBlockEntry();
-            decodeValue(jsonValue, currentBuilder::getFieldBlockBuilder);
-            builder.closeEntry();
+            ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> decodeValue(jsonValue, fieldBuilders::get));
         }
 
         private void decodeValue(Object jsonValue, IntFunction<BlockBuilder> fieldBuilders)

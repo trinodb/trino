@@ -233,6 +233,64 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.SingleArrayBlockWriter io.trino.spi.block.ArrayBlockBuilder::beginBlockEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.BlockBuilder::beginBlockEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.SingleMapBlockWriter io.trino.spi.block.MapBlockBuilder::beginBlockEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.SingleRowBlockWriter io.trino.spi.block.RowBlockBuilder::beginBlockEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.SingleArrayBlockWriter</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.SingleMapBlockWriter</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.SingleRowBlockWriter</old>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.ArrayType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</old>
+                                    <new>method io.trino.spi.block.ArrayBlockBuilder io.trino.spi.type.ArrayType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.ArrayType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.ArrayBlockBuilder io.trino.spi.type.ArrayType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.MapType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</old>
+                                    <new>method io.trino.spi.block.MapBlockBuilder io.trino.spi.type.MapType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.MapType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.MapBlockBuilder io.trino.spi.type.MapType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.RowType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</old>
+                                    <new>method io.trino.spi.block.RowBlockBuilder io.trino.spi.type.RowType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.RowType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.RowBlockBuilder io.trino.spi.type.RowType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
