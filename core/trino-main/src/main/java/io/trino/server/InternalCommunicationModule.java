@@ -17,6 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.client.ForDiscoveryClient;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.airlift.http.server.HttpsConfig;
@@ -32,6 +33,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.node.AddressToHostname.encodeAddressAsHostname;
 import static io.airlift.node.NodeConfig.AddressSource.IP_ENCODED_AS_HOSTNAME;
+import static io.trino.server.InternalCommunicationHttpClientModule.configureClient;
 
 public class InternalCommunicationModule
         extends AbstractConfigurationAwareModule
@@ -49,6 +51,7 @@ public class InternalCommunicationModule
             discoveryFilterBinder.addBinding().to(DiscoveryEncodeAddressAsHostname.class);
         }
         discoveryFilterBinder.addBinding().to(InternalAuthenticationManager.class);
+        configBinder(binder).bindConfigDefaults(HttpClientConfig.class, ForDiscoveryClient.class, config -> configureClient(config, internalCommunicationConfig));
         binder.bind(InternalAuthenticationManager.class);
     }
 
