@@ -19,8 +19,10 @@ import com.google.common.io.CountingInputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -225,19 +227,19 @@ public class PrometheusRecordCursor
     {
         if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
-            BlockBuilder arrayBuilder = builder.beginBlockEntry();
-            for (Object item : (List<?>) obj) {
-                writeObject(arrayBuilder, elementType, item);
-            }
-            builder.closeEntry();
+            ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                for (Object item : (List<?>) obj) {
+                    writeObject(elementBuilder, elementType, item);
+                }
+            });
         }
         else if (type instanceof MapType mapType) {
-            BlockBuilder mapBlockBuilder = builder.beginBlockEntry();
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
-                writeObject(mapBlockBuilder, mapType.getKeyType(), entry.getKey());
-                writeObject(mapBlockBuilder, mapType.getValueType(), entry.getValue());
-            }
-            builder.closeEntry();
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                    writeObject(keyBuilder, mapType.getKeyType(), entry.getKey());
+                    writeObject(valueBuilder, mapType.getValueType(), entry.getValue());
+                }
+            });
         }
         else {
             if (BOOLEAN.equals(type)

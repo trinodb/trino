@@ -16,7 +16,6 @@ package io.trino.type;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.type.RowType;
 
 import java.util.List;
@@ -41,24 +40,22 @@ public class TestSimpleRowType
 
     private static Block createTestBlock()
     {
-        RowBlockBuilder blockBuilder = (RowBlockBuilder) TYPE.createBlockBuilder(null, 3);
+        RowBlockBuilder blockBuilder = TYPE.createBlockBuilder(null, 3);
 
-        SingleRowBlockWriter singleRowBlockWriter;
+        blockBuilder.buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), 1);
+            VARCHAR.writeSlice(fieldBuilders.get(1), utf8Slice("cat"));
+        });
 
-        singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(singleRowBlockWriter, 1);
-        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("cat"));
-        blockBuilder.closeEntry();
+        blockBuilder.buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), 2);
+            VARCHAR.writeSlice(fieldBuilders.get(1), utf8Slice("cats"));
+        });
 
-        singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(singleRowBlockWriter, 2);
-        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("cats"));
-        blockBuilder.closeEntry();
-
-        singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(singleRowBlockWriter, 3);
-        VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice("dog"));
-        blockBuilder.closeEntry();
+        blockBuilder.buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), 3);
+            VARCHAR.writeSlice(fieldBuilders.get(1), utf8Slice("dog"));
+        });
 
         return blockBuilder.build();
     }
