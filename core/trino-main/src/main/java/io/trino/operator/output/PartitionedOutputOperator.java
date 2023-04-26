@@ -230,7 +230,7 @@ public class PartitionedOutputOperator
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitionerPool pagePartitionerPool;
-    private final PagePartitioner partitionFunction;
+    private final PagePartitioner pagePartitioner;
     // outputBuffer is used only to block the operator from finishing if the outputBuffer is full
     private final OutputBuffer outputBuffer;
     private ListenableFuture<Void> isBlocked = NOT_BLOCKED;
@@ -246,8 +246,8 @@ public class PartitionedOutputOperator
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
         this.pagePartitionerPool = requireNonNull(pagePartitionerPool, "pagePartitionerPool is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
-        this.partitionFunction = requireNonNull(pagePartitionerPool.poll(), "partitionFunction is null");
-        this.partitionFunction.setupOperator(operatorContext);
+        this.pagePartitioner = requireNonNull(pagePartitionerPool.poll(), "pagePartitioner is null");
+        this.pagePartitioner.setupOperator(operatorContext);
     }
 
     @Override
@@ -260,7 +260,7 @@ public class PartitionedOutputOperator
     public void finish()
     {
         if (!finished) {
-            pagePartitionerPool.release(partitionFunction);
+            pagePartitionerPool.release(pagePartitioner);
             finished = true;
         }
     }
@@ -309,7 +309,7 @@ public class PartitionedOutputOperator
         }
 
         page = pagePreprocessor.apply(page);
-        partitionFunction.partitionPage(page);
+        pagePartitioner.partitionPage(page);
     }
 
     @Override
