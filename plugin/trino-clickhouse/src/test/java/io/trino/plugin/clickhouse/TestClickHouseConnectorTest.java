@@ -1015,6 +1015,7 @@ public class TestClickHouseConnectorTest
     }
 
     @DataProvider
+    @Override
     public Object[][] setColumnTypesDataProvider()
     {
         return setColumnTypeSetupData().stream()
@@ -1055,8 +1056,8 @@ public class TestClickHouseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        String tableName = "test_set_column_type_"  + System.currentTimeMillis();
-        assertUpdate("CREATE TABLE " + tableName + "(col "   + setup.sourceColumnType() + ", col2 int not null)  WITH (engine='mergetree', order_by=ARRAY['col2'])");
+        String tableName = "test_set_column_type_" + System.currentTimeMillis();
+        assertUpdate("CREATE TABLE " + tableName + "(col " + setup.sourceColumnType() + ", col2 int not null)  WITH (engine='mergetree', order_by=ARRAY['col2'])");
         query("insert into " + tableName + "(col, col2)  values(CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + "), 2)");
         Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType());
         if (setup.unsupportedType()) {
@@ -1078,7 +1079,7 @@ public class TestClickHouseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_to_empty", "(a_varchar varchar, b varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['b'])"))  {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_to_empty", "(a_varchar varchar, b varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['b'])")) {
             String tableName = table.getName();
             String addNonNullColumn = "ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL";
 
