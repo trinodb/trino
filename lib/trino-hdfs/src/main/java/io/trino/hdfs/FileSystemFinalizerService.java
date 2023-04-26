@@ -49,7 +49,12 @@ public class FileSystemFinalizerService
         return instance.get();
     }
 
-    public synchronized void shutdown()
+    public static synchronized void shutdown()
+    {
+        instance.ifPresent(FileSystemFinalizerService::doShutdown);
+    }
+
+    public synchronized void doShutdown()
     {
         shutdown = true;
         finalizerThread.interrupt();

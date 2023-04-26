@@ -80,7 +80,7 @@ public class HdfsEnvironment
     {
         // shut down if running in a plugin classloader
         if (!getClass().getClassLoader().equals(Plugin.class.getClassLoader())) {
-            FileSystemFinalizerService.getInstance().shutdown();
+            FileSystemFinalizerService.shutdown();
             stopFileSystemStatsThread();
             TrinoFileSystemCache.INSTANCE.closeAll();
         }
