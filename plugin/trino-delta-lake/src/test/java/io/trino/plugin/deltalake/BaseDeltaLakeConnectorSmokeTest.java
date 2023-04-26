@@ -189,6 +189,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         return queryRunner;
     }
 
+    @SuppressWarnings("DuplicateBranchesInSwitch")
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
