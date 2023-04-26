@@ -29,6 +29,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -41,6 +42,7 @@ import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
+import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.aggregation.ImplementCount;
@@ -57,6 +59,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -87,9 +91,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
@@ -105,6 +111,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isMapStringAsVarchar;
+import static io.trino.plugin.clickhouse.ClickHouseSessionProperties.isReplaceNullToDefault;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.ORDER_BY_PROPERTY;
 import static io.trino.plugin.clickhouse.ClickHouseTableProperties.PARTITION_BY_PROPERTY;
@@ -146,6 +153,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -179,6 +187,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.System.arraycopy;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -878,5 +887,67 @@ public class ClickHouseClient
     private static SliceWriteFunction uuidWriteFunction()
     {
         return (statement, index, value) -> statement.setObject(index, trinoUuidToJavaUuid(value), Types.OTHER);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        if (tableHandle.getColumns().isPresent()) {
+            return tableHandle.getColumns().get();
+        }
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+        verify(tableHandle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(tableHandle));
+        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
+
+        try (Connection connection = connectionFactory.openConnection(session);
+                ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+            Map<String, CaseSensitivity> caseSensitivityMapping = getCaseSensitivityForColumns(session, connection, tableHandle);
+            int allColumns = 0;
+            List<JdbcColumnHandle> columns = new ArrayList<>();
+            while (resultSet.next()) {
+                // skip if table doesn't match expected
+                if (!(Objects.equals(remoteTableName, getRemoteTable(resultSet)))) {
+                    continue;
+                }
+                allColumns++;
+                String columnName = resultSet.getString("COLUMN_NAME");
+                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                        getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
+                        Optional.ofNullable(resultSet.getString("TYPE_NAME")),
+                        getInteger(resultSet, "COLUMN_SIZE"),
+                        getInteger(resultSet, "DECIMAL_DIGITS"),
+                        Optional.empty(),
+                        Optional.ofNullable(caseSensitivityMapping.get(columnName)));
+                Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
+                boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+                // skip unsupported column types
+                columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
+                        .setColumnName(columnName)
+                        .setJdbcTypeHandle(typeHandle)
+                        .setColumnType(mapping.getType())
+                        .setNullable(nullable ? true : isReplaceNullToDefault(session) ? true : false)
+                        .setComment(comment)
+                        .build()));
+                if (columnMapping.isEmpty()) {
+                    UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
+                    verify(
+                            unsupportedTypeHandling == IGNORE,
+                            "Unsupported type handling is set to %s, but toColumnMapping() returned empty for %s",
+                            unsupportedTypeHandling,
+                            typeHandle);
+                }
+            }
+            if (columns.isEmpty()) {
+                throw new TableNotFoundException(
+                        schemaTableName,
+                        format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
+            }
+            return ImmutableList.copyOf(columns);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 }

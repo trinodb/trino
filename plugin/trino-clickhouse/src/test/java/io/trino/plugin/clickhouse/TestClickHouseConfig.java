@@ -42,7 +42,8 @@ public class TestClickHouseConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ClickHouseConfig.class)
-                .setMapStringAsVarchar(false));
+                .setMapStringAsVarchar(false)
+                .setReplaceNullToDefault(false));
     }
 
     @Test
@@ -50,10 +51,12 @@ public class TestClickHouseConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("clickhouse.map-string-as-varchar", "true")
+                .put("clickhouse.replace-null-to-default", "true")
                 .buildOrThrow();
 
         ClickHouseConfig expected = new ClickHouseConfig()
-                .setMapStringAsVarchar(true);
+                .setMapStringAsVarchar(true)
+                .setReplaceNullToDefault(true);
 
         assertFullMapping(properties, expected);
     }

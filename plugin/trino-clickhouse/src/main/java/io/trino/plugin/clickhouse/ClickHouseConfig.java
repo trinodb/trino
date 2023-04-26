@@ -22,10 +22,16 @@ public class ClickHouseConfig
 {
     // TODO (https://github.com/trinodb/trino/issues/7102) reconsider default behavior
     private boolean mapStringAsVarchar;
+    private boolean replaceNullToDefault;
 
     public boolean isMapStringAsVarchar()
     {
         return mapStringAsVarchar;
+    }
+
+    public boolean isReplaceNullToDefault()
+    {
+        return replaceNullToDefault;
     }
 
     @Config("clickhouse.map-string-as-varchar")
@@ -33,6 +39,14 @@ public class ClickHouseConfig
     public ClickHouseConfig setMapStringAsVarchar(boolean mapStringAsVarchar)
     {
         this.mapStringAsVarchar = mapStringAsVarchar;
+        return this;
+    }
+
+    @Config("clickhouse.replace-null-to-default")
+    @ConfigDescription("Replace null to the default value of corresponding data type")
+    public ClickHouseConfig setReplaceNullToDefault(boolean replaceNullToDefault)
+    {
+        this.replaceNullToDefault = replaceNullToDefault;
         return this;
     }
 }

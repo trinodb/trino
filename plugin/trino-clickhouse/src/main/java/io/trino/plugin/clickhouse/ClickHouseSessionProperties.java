@@ -28,6 +28,7 @@ public class ClickHouseSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String MAP_STRING_AS_VARCHAR = "map_string_as_varchar";
+    public static final String REPLACE_NULL_TO_DEFAULT = "replace_null_to_default";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -39,6 +40,11 @@ public class ClickHouseSessionProperties
                         MAP_STRING_AS_VARCHAR,
                         "Map ClickHouse String and FixedString as varchar instead of varbinary",
                         clickHouseConfig.isMapStringAsVarchar(),
+                        false),
+                booleanProperty(
+                        REPLACE_NULL_TO_DEFAULT,
+                        "Replace null to the default value of corresponding data type",
+                        clickHouseConfig.isReplaceNullToDefault(),
                         false));
     }
 
@@ -51,5 +57,10 @@ public class ClickHouseSessionProperties
     public static boolean isMapStringAsVarchar(ConnectorSession session)
     {
         return session.getProperty(MAP_STRING_AS_VARCHAR, Boolean.class);
+    }
+
+    public static boolean isReplaceNullToDefault(ConnectorSession session)
+    {
+        return session.getProperty(REPLACE_NULL_TO_DEFAULT, Boolean.class);
     }
 }
