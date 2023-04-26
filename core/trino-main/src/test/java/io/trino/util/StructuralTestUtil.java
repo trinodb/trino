@@ -31,6 +31,7 @@ import io.trino.spi.type.TypeSignatureParameter;
 import java.math.BigDecimal;
 import java.util.Map;
 
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToRawIntBits;
@@ -48,17 +49,17 @@ public final class StructuralTestUtil
         return blockBuilder.build();
     }
 
-    public static Block mapBlockOf(Type keyType, Type valueType, Map<?, ?> value)
+    public static Block mapBlockOf(Type keyType, Type valueType, Map<?, ?> map)
     {
-        MapType mapType = mapType(keyType, valueType);
-        BlockBuilder mapArrayBuilder = mapType.createBlockBuilder(null, 1);
-        BlockBuilder singleMapWriter = mapArrayBuilder.beginBlockEntry();
-        for (Map.Entry<?, ?> entry : value.entrySet()) {
-            appendToBlockBuilder(keyType, entry.getKey(), singleMapWriter);
-            appendToBlockBuilder(valueType, entry.getValue(), singleMapWriter);
-        }
-        mapArrayBuilder.closeEntry();
-        return mapType.getObject(mapArrayBuilder, 0);
+        return buildMapValue(
+                mapType(keyType, valueType),
+                map.size(),
+                (keyBuilder, valueBuilder) -> {
+                    map.forEach((key, value) -> {
+                        appendToBlockBuilder(keyType, key, keyBuilder);
+                        appendToBlockBuilder(valueType, value, valueBuilder);
+                    });
+                });
     }
 
     public static MapType mapType(Type keyType, Type valueType)
