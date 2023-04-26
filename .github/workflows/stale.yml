@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/stale@v7
         with:
-          stale-pr-message: 'This pull request has gone a while without any activity. Tagging the Trino developer relations team: @bitsondatadev @colebow @mosabua'
+          stale-pr-message: 'This pull request has gone a while without any activity. Tagging the Trino developer relations team: @colebow @mosabua'
           days-before-pr-stale: 21
           days-before-pr-close: 21
           close-pr-message: 'Closing this pull request, as it has been stale for six weeks. Feel free to re-open at any time.'
