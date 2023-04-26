@@ -387,6 +387,7 @@ jobs:
             !:trino-singlestore,
             !:trino-snowflake,
             !:trino-sqlserver,
+            !:trino-starrocks,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift'
@@ -491,6 +492,7 @@ jobs:
             - { modules: plugin/trino-snowflake }
             - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
+            - { modules: plugin/trino-starrocks }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
@@ -880,6 +882,7 @@ jobs:
             - suite-snowflake
             - suite-hudi
             - suite-ignite
+            - suite-starrocks
           exclude:
             - suite: suite-azure
               ignore exclusion if: >-
