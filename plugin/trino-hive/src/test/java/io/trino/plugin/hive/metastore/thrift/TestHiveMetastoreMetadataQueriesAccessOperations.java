@@ -22,7 +22,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods;
+import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.Table;
@@ -39,10 +39,10 @@ import java.util.Optional;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.MAX_PREFIXES_COUNT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_ALL_DATABASES;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_ALL_TABLES_FROM_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_ALL_VIEWS_FROM_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_DATABASES;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
@@ -374,7 +374,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         metastore.resetCounters();
         computeActual("SELECT * FROM information_schema.columns WHERE table_name = 'test_table_0'");
-        Multiset<Methods> invocations = metastore.getMethodInvocations();
+        Multiset<Method> invocations = metastore.getMethodInvocations();
 
         assertThat(invocations.count(GET_TABLE)).as("GET_TABLE invocations")
                 // some lengthy explanatory comment why variable count
