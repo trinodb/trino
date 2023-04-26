@@ -17,7 +17,8 @@ public class TestDeltaLakeOssDeltaLakeCompatibility
         extends BaseDeltaLakeCompatibility
 {
     public TestDeltaLakeOssDeltaLakeCompatibility()
+            throws Exception
     {
-        super("ossdeltalake-test-queries", "io/trino/plugin/deltalake/testing/resources/ossdeltalake/");
+        super("io/trino/plugin/deltalake/testing/resources/ossdeltalake/");
     }
 }

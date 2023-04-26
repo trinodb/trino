@@ -17,7 +17,8 @@ public class TestDeltaLakeDatabricksCompatibility
         extends BaseDeltaLakeCompatibility
 {
     public TestDeltaLakeDatabricksCompatibility()
+            throws Exception
     {
-        super("databricks-test-queries", "io/trino/plugin/deltalake/testing/resources/databricks/");
+        super("io/trino/plugin/deltalake/testing/resources/databricks/");
     }
 }
