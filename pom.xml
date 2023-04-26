@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>136</version>
+        <version>137</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -49,7 +49,7 @@
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.11.1</dep.antlr.version>
-        <dep.airlift.version>229</dep.airlift.version>
+        <dep.airlift.version>230</dep.airlift.version>
         <dep.arrow.version>9.0.0</dep.arrow.version>
         <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
