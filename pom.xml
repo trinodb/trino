@@ -173,6 +173,7 @@
             -XX:+UnlockDiagnosticVMOptions
             <!-- # Allow loading dynamic agent used by JOL -->
             -XX:+EnableDynamicAgentLoading
+            ${extraJavaVectorArgs}
         </air.test.jvm.additional-arguments.default>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
@@ -210,6 +211,7 @@
         <dep.tempto.version>202</dep.tempto.version>
         <dep.wire.version>4.9.9</dep.wire.version>
         <dep.zookeeper.version>3.9.2</dep.zookeeper.version>
+        <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
     </properties>
 
     <dependencyManagement>

@@ -16,7 +16,6 @@ package io.trino.parquet.reader.decoders;
 import io.airlift.slice.Slices;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BinaryBuffer;
-import io.trino.parquet.reader.flat.BitPackingUtils;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
@@ -30,9 +29,7 @@ import static io.trino.parquet.ParquetReaderUtils.toShortExact;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
-import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
 import static io.trino.spi.block.Fixed12Block.encodeFixed12;
-import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
@@ -141,73 +138,6 @@ public final class PlainValueDecoders
         public void skip(int n)
         {
             input.skip(n * Integer.BYTES);
-        }
-    }
-
-    public static final class BooleanPlainValueDecoder
-            implements ValueDecoder<byte[]>
-    {
-        private SimpleSliceInputStream input;
-        // Number of unread bits in the current byte
-        private int alreadyReadBits;
-        // Partly read byte
-        private byte partiallyReadByte;
-
-        @Override
-        public void init(SimpleSliceInputStream input)
-        {
-            this.input = requireNonNull(input, "input is null");
-            alreadyReadBits = 0;
-        }
-
-        @Override
-        public void read(byte[] values, int offset, int length)
-        {
-            if (alreadyReadBits != 0) { // Use partially unpacked byte
-                int bitsRemaining = Byte.SIZE - alreadyReadBits;
-                int chunkSize = min(bitsRemaining, length);
-                unpack(values, offset, partiallyReadByte, alreadyReadBits, alreadyReadBits + chunkSize);
-                alreadyReadBits = (alreadyReadBits + chunkSize) % Byte.SIZE; // Set to 0 when full byte reached
-                if (length == chunkSize) {
-                    return;
-                }
-                offset += chunkSize;
-                length -= chunkSize;
-            }
-
-            // Read full bytes
-            int bytesToRead = length / Byte.SIZE;
-            while (bytesToRead > 0) {
-                byte packedByte = input.readByte();
-                BitPackingUtils.unpack8FromByte(values, offset, packedByte);
-                bytesToRead--;
-                offset += Byte.SIZE;
-            }
-
-            // Partially read the last byte
-            alreadyReadBits = length % Byte.SIZE;
-            if (alreadyReadBits != 0) {
-                partiallyReadByte = input.readByte();
-                unpack(values, offset, partiallyReadByte, 0, alreadyReadBits);
-            }
-        }
-
-        @Override
-        public void skip(int n)
-        {
-            if (alreadyReadBits != 0) { // Skip the partially read byte
-                int chunkSize = min(Byte.SIZE - alreadyReadBits, n);
-                n -= chunkSize;
-                alreadyReadBits = (alreadyReadBits + chunkSize) % Byte.SIZE; // Set to 0 when full byte reached
-            }
-
-            // Skip full bytes
-            input.skip(n / Byte.SIZE);
-
-            if (n % Byte.SIZE != 0) { // Partially skip the last byte
-                alreadyReadBits = n % Byte.SIZE;
-                partiallyReadByte = input.readByte();
-            }
         }
     }
 

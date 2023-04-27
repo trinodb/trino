@@ -13,12 +13,15 @@
  */
 package io.trino.parquet.reader.flat;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 
 import static io.trino.parquet.reader.flat.BitPackingUtils.bitCount;
 import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
+import static io.trino.parquet.reader.flat.VectorBitPackingUtils.vectorUnpack8FromByte;
+import static io.trino.parquet.reader.flat.VectorBitPackingUtils.vectorUnpackAndInvert8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBitPackingUtils
@@ -35,17 +38,17 @@ public class TestBitPackingUtils
     @Test
     public void testUnpack()
     {
-        Random random = new Random(0);
         boolean[] values = new boolean[100 + 8];
         for (int packedByte = 0; packedByte < 256; packedByte++) {
             for (int start = 0; start < 8; start++) {
                 for (int end = start + 1; end <= 8; end++) {
-                    int offset = random.nextInt(100);
-                    int nonNullCount = unpack(values, offset, (byte) packedByte, start, end);
-                    assertThat(nonNullCount).isEqualTo((end - start) - Integer.bitCount(selectBits(packedByte, start, end)));
+                    for (int offset : ImmutableList.of(0, 12, 23, 99)) {
+                        int nonNullCount = unpack(values, offset, (byte) packedByte, start, end);
+                        assertThat(nonNullCount).isEqualTo((end - start) - Integer.bitCount(selectBits(packedByte, start, end)));
 
-                    for (int bit = start; bit < end; bit++) {
-                        assertThat(values[offset + bit - start]).isEqualTo(((packedByte >>> bit) & 1) == 1);
+                        for (int bit = start; bit < end; bit++) {
+                            assertThat(values[offset + bit - start]).isEqualTo(((packedByte >>> bit) & 1) == 1);
+                        }
                     }
                 }
             }
@@ -88,6 +91,22 @@ public class TestBitPackingUtils
     }
 
     @Test
+    public void testVectorUnpackAndInvert8()
+    {
+        Random random = new Random(0);
+        boolean[] values = new boolean[100 + 8];
+        for (int packedByte = 0; packedByte < 256; packedByte++) {
+            int offset = random.nextInt(100);
+            int nonNullCount = vectorUnpackAndInvert8(values, offset, (byte) packedByte);
+            assertThat(nonNullCount).isEqualTo(Integer.bitCount(packedByte));
+
+            for (int bit = 0; bit < 8; bit++) {
+                assertThat(values[offset + bit]).isEqualTo(((packedByte >>> bit) & 1) == 0);
+            }
+        }
+    }
+
+    @Test
     public void testUnpack8FromByte()
     {
         Random random = new Random(0);
@@ -95,6 +114,21 @@ public class TestBitPackingUtils
         for (int packedByte = 0; packedByte < 256; packedByte++) {
             int offset = random.nextInt(100);
             BitPackingUtils.unpack8FromByte(values, offset, (byte) packedByte);
+
+            for (int bit = 0; bit < 8; bit++) {
+                assertThat(values[offset + bit]).isEqualTo((byte) ((packedByte >>> bit) & 1));
+            }
+        }
+    }
+
+    @Test
+    public void testVectorUnpack8FromByte()
+    {
+        Random random = new Random(0);
+        byte[] values = new byte[100 + 8];
+        for (int packedByte = 0; packedByte < 256; packedByte++) {
+            int offset = random.nextInt(100);
+            vectorUnpack8FromByte(values, offset, (byte) packedByte);
 
             for (int bit = 0; bit < 8; bit++) {
                 assertThat(values[offset + bit]).isEqualTo((byte) ((packedByte >>> bit) & 1));
