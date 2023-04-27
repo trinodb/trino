@@ -16,7 +16,7 @@ package io.trino.filesystem.memory;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.ParsedLocation;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.ParsedLocation.parseLocation;
+import static io.trino.filesystem.Location.parse;
 
 /**
  * A blob file system for testing.
@@ -155,11 +155,11 @@ public class MemoryFileSystem
         };
     }
 
-    private static String toBlobKey(String location)
+    private static String toBlobKey(String locationString)
     {
-        ParsedLocation parsedLocation = parseMemoryLocation(location);
-        parsedLocation.verifyValidFileLocation();
-        return parsedLocation.path();
+        Location location = parseMemoryLocation(locationString);
+        location.verifyValidFileLocation();
+        return location.path();
     }
 
     private static String toBlobPrefix(String location)
@@ -171,12 +171,12 @@ public class MemoryFileSystem
         return directoryPath;
     }
 
-    private static ParsedLocation parseMemoryLocation(String location)
+    private static Location parseMemoryLocation(String locationString)
     {
-        ParsedLocation parsedLocation = parseLocation(location);
-        checkArgument("memory".equals(parsedLocation.scheme()), "Only 'memory' scheme is supported: %s", location);
-        checkArgument(parsedLocation.userInfo().isEmpty(), "Memory location cannot contain user info: %s", location);
-        checkArgument(parsedLocation.host().isEmpty(), "Memory location cannot contain a host: %s", location);
-        return parsedLocation;
+        Location location = parse(locationString);
+        checkArgument("memory".equals(location.scheme()), "Only 'memory' scheme is supported: %s", locationString);
+        checkArgument(location.userInfo().isEmpty(), "Memory location cannot contain user info: %s", locationString);
+        checkArgument(location.host().isEmpty(), "Memory location cannot contain a host: %s", locationString);
+        return location;
     }
 }
