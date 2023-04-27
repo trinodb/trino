@@ -14,22 +14,31 @@
 package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import io.trino.filesystem.FileEntry.Block;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
 public class BlockLocation
 {
+    /**
+     * Number of hosts will be low compared to potential number of splits. Host
+     * set will also be limited and slowly changing even in most extreme cases.
+     * Interning host names allows to have significant memory savings on coordinator.
+     */
+    private static final Interner<String> HOST_INTERNER = Interners.newWeakInterner();
+
     private final List<String> hosts;
     private final long offset;
     private final long length;
@@ -40,14 +49,16 @@ public class BlockLocation
             return ImmutableList.of();
         }
 
-        return Arrays.stream(blockLocations)
+        return stream(blockLocations)
                 .map(BlockLocation::new)
                 .collect(toImmutableList());
     }
 
     public BlockLocation(Block block)
     {
-        this.hosts = ImmutableList.copyOf(block.hosts());
+        this.hosts = block.hosts().stream()
+                .map(HOST_INTERNER::intern)
+                .collect(toImmutableList());
         this.offset = block.offset();
         this.length = block.length();
     }
@@ -56,7 +67,9 @@ public class BlockLocation
     {
         requireNonNull(blockLocation, "blockLocation is null");
         try {
-            this.hosts = ImmutableList.copyOf(blockLocation.getHosts());
+            this.hosts = stream(blockLocation.getHosts())
+                    .map(HOST_INTERNER::intern)
+                    .collect(toImmutableList());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
