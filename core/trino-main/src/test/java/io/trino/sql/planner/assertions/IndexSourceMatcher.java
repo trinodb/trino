@@ -16,7 +16,7 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.TableMetadata;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -48,8 +48,8 @@ final class IndexSourceMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         IndexSourceNode indexSourceNode = (IndexSourceNode) node;
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, indexSourceNode.getTableHandle());
-        String actualTableName = tableMetadata.getTable().getTableName();
+        CatalogSchemaTableName tableName = metadata.getTableName(session, indexSourceNode.getTableHandle());
+        String actualTableName = tableName.getSchemaTableName().getTableName();
 
         if (!expectedTableName.equalsIgnoreCase(actualTableName)) {
             return NO_MATCH;
