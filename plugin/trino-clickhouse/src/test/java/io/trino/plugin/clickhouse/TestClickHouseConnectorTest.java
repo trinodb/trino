@@ -92,9 +92,6 @@ public class TestClickHouseConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
                 return false;
 
-            case SUPPORTS_SET_COLUMN_TYPE:
-                return true;
-
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
             case SUPPORTS_NEGATIVE_DATE:
@@ -225,24 +222,38 @@ public class TestClickHouseConnectorTest
         return "(x VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'])";
     }
 
-//    @Override
-//    public void testAddNotNullColumnToNonEmptyTable()
-//    {
-//        // Override because the default storage type doesn't support adding columns
-//        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
-//            String tableName = table.getName();
-//
-//            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
-//            assertFalse(columnIsNullable(tableName, "b_varchar"));
-//
-//            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
-//
-//            // ClickHouse set an empty character as the default value
-//            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
-//            assertFalse(columnIsNullable(tableName, "c_varchar"));
-//            assertQuery("SELECT c_varchar FROM " + tableName, "VALUES ''");
-//        }
-//    }
+    @Override // Overridden because the default storage type doesn't support adding columns
+    public void testAddNotNullColumnToEmptyTable()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col_to_empty", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+            String tableName = table.getName();
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "b_varchar"));
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+            assertThat(query("TABLE " + tableName))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('a', 'b')");
+        }
+    }
+
+    @Override // Overridden because (a) the default storage type doesn't support adding columns and (b) ClickHouse has implicit default value for new NON NULL column
+    public void testAddNotNullColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+            String tableName = table.getName();
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "b_varchar"));
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+
+            // ClickHouse set an empty character as the default value
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
+            assertFalse(columnIsNullable(tableName, "c_varchar"));
+            assertQuery("SELECT c_varchar FROM " + tableName, "VALUES ''");
+        }
+    }
 
     @Test
     @Override
@@ -321,7 +332,7 @@ public class TestClickHouseConnectorTest
                         "col_nullable Nullable(Int64)," +
                         "col_default Nullable(Int64) DEFAULT 43," +
                         "col_nonnull_default Int64 DEFAULT 42," +
-                        "col_required2 Int64) ENGINE=MergeTree() order by col_required2");
+                        "col_required2 Int64) ENGINE=MergeTree() ORDER BY col_required2");
     }
 
     @Override
@@ -927,7 +938,6 @@ public class TestClickHouseConnectorTest
     @Override
     public void testSetColumnType()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
         String tableName = "test_set_column_type";
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double NOT NULL, c varchar(50)) WITH (order_by=ARRAY['b'], engine = 'MergeTree')");
         assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN a SET DATA TYPE varchar(50)");
@@ -1071,53 +1081,5 @@ public class TestClickHouseConnectorTest
         assertThat(query("SELECT col FROM " + tableName))
                 .skippingTypesCheck()
                 .matches("SELECT " + setup.newValueLiteral());
-    }
-
-    @Test
-    @Override
-    public void testAddNotNullColumnToEmptyTable()
-    {
-        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
-
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_to_empty", "(a_varchar varchar, b varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['b'])")) {
-            String tableName = table.getName();
-            String addNonNullColumn = "ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL";
-
-            if (!hasBehavior(SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT)) {
-                assertQueryFails(
-                        addNonNullColumn,
-                        hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT)
-                                ? "This connector does not support adding not null columns"
-                                : ".* Catalog '.*' does not support NOT NULL for column '.*'");
-                return;
-            }
-
-            assertUpdate(addNonNullColumn);
-            assertFalse(columnIsNullable(tableName, "b_varchar"));
-            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b', 'c')", 1);
-            assertThat(query("TABLE " + tableName))
-                    .skippingTypesCheck()
-                    .matches("VALUES ('a', 'b', 'c')");
-        }
-    }
-
-    @Test
-    @Override
-    public void testAddNotNullColumn()
-    {
-        // Override because the default storage type doesn't support adding columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_notnull_col", "(a_varchar varchar NOT NULL)  WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
-            String tableName = table.getName();
-
-            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar NOT NULL");
-            assertFalse(columnIsNullable(tableName, "b_varchar"));
-
-            assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
-
-            // ClickHouse set an empty character as the default value
-            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c_varchar varchar NOT NULL");
-            assertFalse(columnIsNullable(tableName, "c_varchar"));
-            assertQuery("SELECT c_varchar FROM " + tableName, "VALUES ''");
-        }
     }
 }
