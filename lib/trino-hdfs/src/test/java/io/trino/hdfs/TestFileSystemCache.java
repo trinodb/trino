@@ -42,7 +42,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 
-@Test(singleThreaded = true)
 public class TestFileSystemCache
 {
     @BeforeMethod(alwaysRun = true)
