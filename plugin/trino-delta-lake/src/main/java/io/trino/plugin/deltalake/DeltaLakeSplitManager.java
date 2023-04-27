@@ -311,9 +311,9 @@ public class DeltaLakeSplitManager
     {
         // paths are relative to the table location and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
-        // decoding is implicit within URI class, done lazily on get methods
         URI uri = URI.create(addAction.getPath());
 
+        // decoding is implicit within URI class, done lazily on get methods
         if (!uri.isAbsolute()) {
             return appendPath(tableLocation, uri.getPath());
         }
