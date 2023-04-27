@@ -6673,6 +6673,14 @@ public class TestAnalyzer
                 .hasMessage("Invalid index: 1 of required column from table argument INPUT");
     }
 
+    @Test
+    public void testJsonTable()
+    {
+        assertFails("SELECT * FROM JSON_TABLE('[1, 2, 3]', 'lax $[2]' COLUMNS(o FOR ORDINALITY))")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:15: JSON_TABLE is not yet supported");
+    }
+
     @BeforeClass
     public void setup()
     {
