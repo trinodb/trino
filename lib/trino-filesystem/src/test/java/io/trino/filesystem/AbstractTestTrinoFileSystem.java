@@ -73,21 +73,21 @@ public abstract class AbstractTestTrinoFileSystem
     {
         // an input file cannot be created at the root of the file system
         assertThatThrownBy(() -> getFileSystem().newInputFile(getRootLocation()))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation());
         assertThatThrownBy(() -> getFileSystem().newInputFile(getRootLocation() + "/"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation() + "/");
         // an input file location cannot end with a slash
         assertThatThrownBy(() -> getFileSystem().newInputFile(createLocation("foo/")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo/"));
         // an input file location cannot end with whitespace
         assertThatThrownBy(() -> getFileSystem().newInputFile(createLocation("foo ")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo "));
         assertThatThrownBy(() -> getFileSystem().newInputFile(createLocation("foo\t")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo\t"));
 
         try (TempBlob tempBlob = randomBlobLocation("inputFileMetadata")) {
@@ -124,21 +124,21 @@ public abstract class AbstractTestTrinoFileSystem
     {
         // an input file cannot be created at the root of the file system
         assertThatThrownBy(() -> getFileSystem().newInputFile(getRootLocation(), 22))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation());
         assertThatThrownBy(() -> getFileSystem().newInputFile(getRootLocation() + "/", 22))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation() + "/");
         // an input file location cannot end with a slash
         assertThatThrownBy(() -> getFileSystem().newInputFile(createLocation("foo/"), 22))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo/"));
         // an input file location cannot end with whitespace
         assertThatThrownBy(() -> getFileSystem().newInputFile(createLocation("foo "), 22))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo "));
         assertThatThrownBy(() -> getFileSystem().newInputFile(createLocation("foo\t"), 22))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo\t"));
 
         try (TempBlob tempBlob = randomBlobLocation("inputFileWithLengthMetadata")) {
@@ -350,21 +350,21 @@ public abstract class AbstractTestTrinoFileSystem
     {
         // an output file cannot be created at the root of the file system
         assertThatThrownBy(() -> getFileSystem().newOutputFile(getRootLocation()))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation());
         assertThatThrownBy(() -> getFileSystem().newOutputFile(getRootLocation() + "/"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation() + "/");
         // an output file location cannot end with a slash
         assertThatThrownBy(() -> getFileSystem().newOutputFile(createLocation("foo/")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo/"));
         // an output file location cannot end with whitespace
         assertThatThrownBy(() -> getFileSystem().newOutputFile(createLocation("foo ")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo "));
         assertThatThrownBy(() -> getFileSystem().newOutputFile(createLocation("foo\t")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo\t"));
 
         try (TempBlob tempBlob = randomBlobLocation("outputFile")) {
@@ -505,21 +505,21 @@ public abstract class AbstractTestTrinoFileSystem
     {
         // delete file location cannot be the root of the file system
         assertThatThrownBy(() -> getFileSystem().deleteFile(getRootLocation()))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation());
         assertThatThrownBy(() -> getFileSystem().deleteFile(getRootLocation() + "/"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation() + "/");
         // delete file location cannot end with a slash
         assertThatThrownBy(() -> getFileSystem().deleteFile(createLocation("foo/")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo/"));
         // delete file location cannot end with whitespace
         assertThatThrownBy(() -> getFileSystem().deleteFile(createLocation("foo ")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo "));
         assertThatThrownBy(() -> getFileSystem().deleteFile(createLocation("foo\t")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo\t"));
 
         try (TempBlob tempBlob = randomBlobLocation("delete")) {
@@ -595,36 +595,36 @@ public abstract class AbstractTestTrinoFileSystem
     {
         // rename file locations cannot be the root of the file system
         assertThatThrownBy(() -> getFileSystem().renameFile(getRootLocation(), createLocation("file")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation());
         assertThatThrownBy(() -> getFileSystem().renameFile(createLocation("file"), getRootLocation()))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation());
         assertThatThrownBy(() -> getFileSystem().renameFile(getRootLocation() + "/", createLocation("file")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation() + "/");
         assertThatThrownBy(() -> getFileSystem().renameFile(createLocation("file"), getRootLocation() + "/"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(getRootLocation() + "/");
         // rename file locations cannot end with a slash
         assertThatThrownBy(() -> getFileSystem().renameFile(createLocation("foo/"), createLocation("file")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo/"));
         assertThatThrownBy(() -> getFileSystem().renameFile(createLocation("file"), createLocation("foo/")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo/"));
         // rename file locations cannot end with whitespace
         assertThatThrownBy(() -> getFileSystem().renameFile(createLocation("foo "), createLocation("file")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo "));
         assertThatThrownBy(() -> getFileSystem().renameFile(createLocation("file"), createLocation("foo ")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo "));
         assertThatThrownBy(() -> getFileSystem().renameFile(createLocation("foo\t"), createLocation("file")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo\t"));
         assertThatThrownBy(() -> getFileSystem().renameFile(createLocation("file"), createLocation("foo\t")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(createLocation("foo\t"));
 
         // todo rename to existing file name
