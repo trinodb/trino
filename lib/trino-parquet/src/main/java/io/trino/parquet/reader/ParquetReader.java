@@ -149,7 +149,7 @@ public class ParquetReader
         this.primitiveFields = getPrimitiveFields(columnFields.stream().map(Column::field).collect(toImmutableList()));
         this.rowGroups = requireNonNull(rowGroups, "rowGroups is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
-        this.columnReaderFactory = new ColumnReaderFactory(timeZone);
+        this.columnReaderFactory = new ColumnReaderFactory(timeZone, options);
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");

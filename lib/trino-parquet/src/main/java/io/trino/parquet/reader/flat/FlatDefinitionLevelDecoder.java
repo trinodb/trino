@@ -16,6 +16,7 @@ package io.trino.parquet.reader.flat;
 import io.airlift.slice.Slice;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.parquet.reader.flat.NullsDecoders.createNullsDecoder;
 
 public interface FlatDefinitionLevelDecoder
 {
@@ -37,12 +38,12 @@ public interface FlatDefinitionLevelDecoder
         FlatDefinitionLevelDecoder create(int maxDefinitionLevel);
     }
 
-    static FlatDefinitionLevelDecoder getFlatDefinitionLevelDecoder(int maxDefinitionLevel)
+    static FlatDefinitionLevelDecoder getFlatDefinitionLevelDecoder(int maxDefinitionLevel, boolean vectorizedDecodingEnabled)
     {
         checkArgument(maxDefinitionLevel >= 0 && maxDefinitionLevel <= 1, "Invalid max definition level: %s", maxDefinitionLevel);
         if (maxDefinitionLevel == 0) {
             return new ZeroDefinitionLevelDecoder();
         }
-        return new NullsDecoder();
+        return createNullsDecoder(vectorizedDecodingEnabled);
     }
 }
