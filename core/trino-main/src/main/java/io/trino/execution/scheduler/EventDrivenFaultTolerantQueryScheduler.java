@@ -484,8 +484,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final SchedulingQueue schedulingQueue = new SchedulingQueue();
         private int nextSchedulingPriority;
 
-        private final Map<ScheduledTask, NodeLease> nodeAcquisitions = new HashMap<>();
-        private final Set<ScheduledTask> tasksWaitingForSinkInstanceHandle = new HashSet<>();
+        private final Map<ScheduledTask, PreSchedulingTaskContext> preSchedulingTaskContexts = new HashMap<>();
 
         private final SchedulingDelayer schedulingDelayer;
 
@@ -575,11 +574,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             for (StageExecution execution : stageExecutions.values()) {
                 failure = closeAndAddSuppressed(failure, execution::abort);
             }
-            for (NodeLease nodeLease : nodeAcquisitions.values()) {
-                failure = closeAndAddSuppressed(failure, nodeLease::release);
+            for (PreSchedulingTaskContext context : preSchedulingTaskContexts.values()) {
+                failure = closeAndAddSuppressed(failure, context.getNodeLease()::release);
             }
-            nodeAcquisitions.clear();
-            tasksWaitingForSinkInstanceHandle.clear();
+            preSchedulingTaskContexts.clear();
             failure = closeAndAddSuppressed(failure, nodeAllocator);
 
             failure.ifPresent(queryStateMachine::transitionToFailed);
@@ -869,7 +867,9 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void scheduleTasks()
         {
-            while (nodeAcquisitions.size() < maxTasksWaitingForNode && !schedulingQueue.isEmpty()) {
+            long tasksWaitingForNode = preSchedulingTaskContexts.values().stream().filter(context -> !context.getNodeLease().getNode().isDone()).count();
+
+            while (tasksWaitingForNode < maxTasksWaitingForNode && !schedulingQueue.isEmpty()) {
                 ScheduledTask scheduledTask = schedulingQueue.pollOrThrow();
                 StageExecution stageExecution = getStageExecution(scheduledTask.stageId());
                 if (stageExecution.getState().isDone()) {
@@ -884,25 +884,31 @@ public class EventDrivenFaultTolerantQueryScheduler
                 MemoryRequirements memoryRequirements = stageExecution.getMemoryRequirements(partitionId);
                 NodeLease lease = nodeAllocator.acquire(nodeRequirements.get(), memoryRequirements.getRequiredMemory());
                 lease.getNode().addListener(() -> eventQueue.add(Event.WAKE_UP), queryExecutor);
-                nodeAcquisitions.put(scheduledTask, lease);
+                preSchedulingTaskContexts.put(scheduledTask, new PreSchedulingTaskContext(lease));
+                tasksWaitingForNode++;
             }
         }
 
         private void processNodeAcquisitions()
         {
-            Iterator<Map.Entry<ScheduledTask, NodeLease>> nodeAcquisitionIterator = nodeAcquisitions.entrySet().iterator();
-            while (nodeAcquisitionIterator.hasNext()) {
-                Map.Entry<ScheduledTask, NodeLease> nodeAcquisition = nodeAcquisitionIterator.next();
-                ScheduledTask scheduledTask = nodeAcquisition.getKey();
-                NodeLease nodeLease = nodeAcquisition.getValue();
+            Iterator<Map.Entry<ScheduledTask, PreSchedulingTaskContext>> iterator = preSchedulingTaskContexts.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<ScheduledTask, PreSchedulingTaskContext> entry = iterator.next();
+                ScheduledTask scheduledTask = entry.getKey();
+                PreSchedulingTaskContext context = entry.getValue();
+                if (context.isWaitingForSinkInstanceHandle()) {
+                    verify(context.getNodeLease().getNode().isDone(), "isWaitingForSinkInstanceHandle true but node not set");
+                    continue; // this entry is already in the isWaitingForSinkInstanceHandle phase
+                }
+
+                NodeLease nodeLease = context.getNodeLease();
                 StageExecution stageExecution = getStageExecution(scheduledTask.stageId());
                 if (stageExecution.getState().isDone()) {
-                    nodeAcquisitionIterator.remove();
+                    iterator.remove();
                     nodeLease.release();
                 }
                 else if (nodeLease.getNode().isDone()) {
-                    nodeAcquisitionIterator.remove();
-                    tasksWaitingForSinkInstanceHandle.add(scheduledTask);
+                    context.setWaitingForSinkInstanceHandle(true);
                     Optional<GetExchangeSinkInstanceHandleResult> getExchangeSinkInstanceHandleResult = stageExecution.getExchangeSinkInstanceHandle(scheduledTask.partitionId());
                     if (getExchangeSinkInstanceHandleResult.isPresent()) {
                         CompletableFuture<ExchangeSinkInstanceHandle> sinkInstanceHandleFuture = getExchangeSinkInstanceHandleResult.get().exchangeSinkInstanceHandleFuture();
@@ -921,6 +927,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         });
                     }
                     else {
+                        iterator.remove();
                         nodeLease.release();
                     }
                 }
@@ -931,7 +938,10 @@ public class EventDrivenFaultTolerantQueryScheduler
         public void onSinkInstanceHandleAcquired(SinkInstanceHandleAcquiredEvent sinkInstanceHandleAcquiredEvent)
         {
             ScheduledTask scheduledTask = new ScheduledTask(sinkInstanceHandleAcquiredEvent.getStageId(), sinkInstanceHandleAcquiredEvent.getPartitionId());
-            verify(tasksWaitingForSinkInstanceHandle.remove(scheduledTask), "expected %s in tasksWaitingForSinkInstanceHandle", scheduledTask);
+            PreSchedulingTaskContext context = preSchedulingTaskContexts.remove(scheduledTask);
+            verify(context != null, "expected %s in preSchedulingTaskContexts", scheduledTask);
+            verify(context.getNodeLease().getNode().isDone(), "expected node set for %s", scheduledTask);
+            verify(context.isWaitingForSinkInstanceHandle(), "expected isWaitingForSinkInstanceHandle set for %s", scheduledTask);
             NodeLease nodeLease = sinkInstanceHandleAcquiredEvent.getNodeLease();
             int partitionId = sinkInstanceHandleAcquiredEvent.getPartitionId();
             StageId stageId = sinkInstanceHandleAcquiredEvent.getStageId();
@@ -1088,7 +1098,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             assignment.sealedPartitions().forEach(partitionId -> {
                 Optional<PrioritizedScheduledTask> scheduledTask = stageExecution.sealPartition(partitionId);
                 scheduledTask.ifPresent(prioritizedTask -> {
-                    if (nodeAcquisitions.containsKey(prioritizedTask.task()) || tasksWaitingForSinkInstanceHandle.contains(prioritizedTask.task)) {
+                    if (preSchedulingTaskContexts.containsKey(prioritizedTask.task())) {
                         // task is already waiting for node or for sink instance handle
                         return;
                     }
@@ -2295,6 +2305,32 @@ public class EventDrivenFaultTolerantQueryScheduler
         public GetExchangeSinkInstanceHandleResult
         {
             requireNonNull(exchangeSinkInstanceHandleFuture, "exchangeSinkInstanceHandleFuture is null");
+        }
+    }
+
+    private static class PreSchedulingTaskContext
+    {
+        private final NodeLease nodeLease;
+        private boolean waitingForSinkInstanceHandle;
+
+        public PreSchedulingTaskContext(NodeLease nodeLease)
+        {
+            this.nodeLease = requireNonNull(nodeLease, "nodeLease is null");
+        }
+
+        public NodeLease getNodeLease()
+        {
+            return nodeLease;
+        }
+
+        public boolean isWaitingForSinkInstanceHandle()
+        {
+            return waitingForSinkInstanceHandle;
+        }
+
+        public void setWaitingForSinkInstanceHandle(boolean waitingForSinkInstanceHandle)
+        {
+            this.waitingForSinkInstanceHandle = waitingForSinkInstanceHandle;
         }
     }
 }
