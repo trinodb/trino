@@ -14,7 +14,7 @@
 package io.trino.filesystem.local;
 
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.ParsedLocation;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
@@ -27,7 +27,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.ParsedLocation.parseLocation;
+import static io.trino.filesystem.Location.parse;
 import static io.trino.filesystem.local.LocalUtils.handleException;
 
 /**
@@ -153,10 +153,10 @@ public class LocalFileSystem
 
     private Path toFilePath(String fileLocation)
     {
-        ParsedLocation parsedLocation = parseLocalLocation(fileLocation);
-        parsedLocation.verifyValidFileLocation();
+        Location location = parseLocalLocation(fileLocation);
+        location.verifyValidFileLocation();
 
-        Path localPath = toPath(fileLocation, parsedLocation);
+        Path localPath = toPath(fileLocation, location);
 
         // local file path can not be empty as this would create a file for the root entry
         checkArgument(!localPath.equals(rootPath), "Local file location must contain a path: %s", fileLocation);
@@ -165,25 +165,25 @@ public class LocalFileSystem
 
     private Path toDirectoryPath(String directoryLocation)
     {
-        ParsedLocation parsedLocation = parseLocalLocation(directoryLocation);
-        Path localPath = toPath(directoryLocation, parsedLocation);
+        Location location = parseLocalLocation(directoryLocation);
+        Path localPath = toPath(directoryLocation, location);
         return localPath;
     }
 
-    private static ParsedLocation parseLocalLocation(String location)
+    private static Location parseLocalLocation(String locationString)
     {
-        ParsedLocation parsedLocation = parseLocation(location);
-        checkArgument("local".equals(parsedLocation.scheme()), "Only 'local' scheme is supported: %s", location);
-        checkArgument(parsedLocation.userInfo().isEmpty(), "Local location cannot contain user info: %s", location);
-        checkArgument(parsedLocation.host().isEmpty(), "Local location cannot contain a host: %s", location);
-        return parsedLocation;
+        Location location = parse(locationString);
+        checkArgument("local".equals(location.scheme()), "Only 'local' scheme is supported: %s", locationString);
+        checkArgument(location.userInfo().isEmpty(), "Local location cannot contain user info: %s", locationString);
+        checkArgument(location.host().isEmpty(), "Local location cannot contain a host: %s", locationString);
+        return location;
     }
 
-    private Path toPath(String location, ParsedLocation parsedLocation)
+    private Path toPath(String locationString, Location location)
     {
         // ensure path isn't something like '../../data'
-        Path localPath = rootPath.resolve(parsedLocation.path()).normalize();
-        checkArgument(localPath.startsWith(rootPath), "Location references data outside of the root: %s", location);
+        Path localPath = rootPath.resolve(location.path()).normalize();
+        checkArgument(localPath.startsWith(rootPath), "Location references data outside of the root: %s", locationString);
         return localPath;
     }
 }

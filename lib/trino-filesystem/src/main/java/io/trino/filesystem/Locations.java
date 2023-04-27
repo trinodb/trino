@@ -15,6 +15,10 @@ package io.trino.filesystem;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+/**
+ * @deprecated use {@link Location} instead
+ */
+@Deprecated
 public final class Locations
 {
     private Locations() {}
