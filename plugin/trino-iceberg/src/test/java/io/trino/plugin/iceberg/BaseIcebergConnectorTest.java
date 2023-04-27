@@ -101,10 +101,10 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
@@ -4545,16 +4545,10 @@ public abstract class BaseIcebergConnectorTest
     public Object[][] repartitioningDataProvider()
     {
         Session defaultSession = getSession();
-        // For identity-only partitioning, Iceberg connector returns ConnectorTableLayout with partitionColumns set, but without partitioning.
-        // This is treated by engine as "preferred", but not mandatory partitioning, and gets ignored if stats suggest number of partitions
-        // written is low. Without partitioning, number of files created is nondeterministic, as a writer (worker node) may or may not receive data.
-        Session obeyConnectorPartitioning = Session.builder(defaultSession)
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
-                .build();
 
         return new Object[][] {
                 // identity partitioning column
-                {obeyConnectorPartitioning, "'orderstatus'", 3},
+                {defaultSession, "'orderstatus'", 3},
                 // bucketing
                 {defaultSession, "'bucket(custkey, 13)'", 13},
                 // varchar-based
@@ -4580,17 +4574,14 @@ public abstract class BaseIcebergConnectorTest
 
     private void testStatsBasedRepartitionData(boolean ctas)
     {
-        Session sessionRepartitionSmall = Session.builder(getSession())
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "2")
-                .build();
         Session sessionRepartitionMany = Session.builder(getSession())
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "5")
                 .setSystemProperty(SCALE_WRITERS, "false")
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
                 .build();
         // Use DISTINCT to add data redistribution between source table and the writer. This makes it more likely that all writers get some data.
         String sourceRelation = "(SELECT DISTINCT orderkey, custkey, orderstatus FROM tpch.tiny.orders)";
         testRepartitionData(
-                sessionRepartitionSmall,
+                getSession(),
                 sourceRelation,
                 ctas,
                 "'orderstatus'",
@@ -5051,7 +5042,6 @@ public abstract class BaseIcebergConnectorTest
                 .setCatalog(getQueryRunner().getDefaultSession().getCatalog())
                 .setSchema(getQueryRunner().getDefaultSession().getSchema())
                 .setSystemProperty("use_preferred_write_partitioning", "true")
-                .setSystemProperty("preferred_write_partitioning_min_number_of_partitions", "100")
                 .build();
         String tableName = "test_repartitiong_during_optimize_" + randomNameSuffix();
         assertUpdate(session, "CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = " + formatVersion + ", partitioning = ARRAY['key'])");

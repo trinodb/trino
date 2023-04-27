@@ -1737,7 +1737,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setCatalog(getQueryRunner().getDefaultSession().getCatalog())
                 .setSchema(getQueryRunner().getDefaultSession().getSchema())
                 .setSystemProperty("use_preferred_write_partitioning", "true")
-                .setSystemProperty("preferred_write_partitioning_min_number_of_partitions", "1")
                 .build();
         String tableName = "test_optimize_partitioned_table_" + randomNameSuffix();
         String tableLocation = getLocationForTable(bucketName, tableName);

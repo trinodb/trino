@@ -3285,7 +3285,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            int maxWriterCount = getWriterCount(session, node.getPartitioningScheme(), node.getPreferredPartitioningScheme(), node.getSource());
+            int maxWriterCount = getWriterCount(session, node.getPartitioningScheme(), node.getSource());
             context.setDriverInstanceCount(maxWriterCount);
             context.taskContext.setMaxWriterCount(maxWriterCount);
 
@@ -3443,7 +3443,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableExecute(TableExecuteNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            int maxWriterCount = getWriterCount(session, node.getPartitioningScheme(), node.getPreferredPartitioningScheme(), node.getSource());
+            int maxWriterCount = getWriterCount(session, node.getPartitioningScheme(), node.getSource());
             context.setDriverInstanceCount(maxWriterCount);
             context.taskContext.setMaxWriterCount(maxWriterCount);
 
@@ -3470,7 +3470,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMapping.buildOrThrow(), context, source);
         }
 
-        private int getWriterCount(Session session, Optional<PartitioningScheme> partitioningScheme, Optional<PartitioningScheme> preferredPartitioningScheme, PlanNode source)
+        private int getWriterCount(Session session, Optional<PartitioningScheme> partitioningScheme, PlanNode source)
         {
             // This check is required because we don't know which writer count to use when exchange is
             // single distribution. It could be possible that when scaling is enabled, a single distribution is
@@ -3480,18 +3480,12 @@ public class LocalExecutionPlanner
                 return 1;
             }
 
-            if (isLocalScaledWriterExchange(source)) {
-                return partitioningScheme.or(() -> preferredPartitioningScheme)
-                        // The default value of partitioned writer count is 32 which is high enough to use it
-                        // for both cases when scaling is enabled or not. Additionally, it doesn't lead to too many
-                        // small files since when scaling is disabled only single writer will handle a single partition.
-                        .map(scheme -> getTaskPartitionedWriterCount(session))
-                        .orElseGet(() -> getTaskScaleWritersMaxWriterCount(session));
-            }
-
+            // The default value of partitioned writer count is 32 which is high enough to use it
+            // for both cases when scaling is enabled or not. Additionally, it doesn't lead to too many
+            // small files since when scaling is disabled only single writer will handle a single partition.
             return partitioningScheme
                     .map(scheme -> getTaskPartitionedWriterCount(session))
-                    .orElseGet(() -> getTaskWriterCount(session));
+                    .orElseGet(() -> isLocalScaledWriterExchange(source) ? getTaskScaleWritersMaxWriterCount(session) : getTaskWriterCount(session));
         }
 
         private boolean isSingleGatheringExchange(PlanNode node)
