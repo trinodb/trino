@@ -13,6 +13,7 @@
  */
 package io.trino.parquet.reader;
 
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -31,7 +32,7 @@ public class TestColumnReaderFactory
     @Test
     public void testTopLevelPrimitiveFields()
     {
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC);
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions());
         PrimitiveType primitiveType = new PrimitiveType(OPTIONAL, INT32, "test");
 
         PrimitiveField topLevelRepeatedPrimitiveField = new PrimitiveField(

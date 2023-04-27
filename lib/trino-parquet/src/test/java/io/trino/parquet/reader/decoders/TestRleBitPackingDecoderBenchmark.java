@@ -31,6 +31,7 @@ public class TestRleBitPackingDecoderBenchmark
                 benchmark.setup();
                 benchmark.apacheRunLengthBitPackingHybridDecoder();
                 benchmark.rleBitPackingHybridDecoder();
+                benchmark.vectorRleBitPackingHybridDecoder();
             }
         }
     }

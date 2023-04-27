@@ -147,6 +147,19 @@ public class ParquetReaderConfig
         return options.getSmallFileThreshold();
     }
 
+    @Config("parquet.experimental.vectorized-decoding.enabled")
+    @ConfigDescription("Enable using Java Vector API for faster decoding of parquet files")
+    public ParquetReaderConfig setVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
+    {
+        options = options.withVectorizedDecodingEnabled(vectorizedDecodingEnabled);
+        return this;
+    }
+
+    public boolean isVectorizedDecodingEnabled()
+    {
+        return options.isVectorizedDecodingEnabled();
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;
