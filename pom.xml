@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>137</version>
+        <version>138</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -2032,8 +2032,6 @@
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
                                     <include>org.yaml:snakeyaml:2.0</include>
-                                    <!-- allow in test scope (tempto and benchto are using old versions) -->
-                                    <include>org.yaml:snakeyaml:*:jar:test</include>
                                 </includes>
                             </bannedDependencies>
                             <requireProfileIdsExist />
