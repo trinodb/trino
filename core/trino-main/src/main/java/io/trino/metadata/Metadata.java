@@ -122,6 +122,8 @@ public interface Metadata
 
     Optional<Object> getInfo(Session session, TableHandle handle);
 
+    CatalogSchemaTableName getTableName(Session session, TableHandle tableHandle);
+
     /**
      * Return table schema definition for the specified table handle.
      * Table schema definition is a set of information
