@@ -216,16 +216,6 @@ public class TracingConnectorMetadata
         }
     }
 
-    @SuppressWarnings("deprecation")
-    @Override
-    public SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
-    {
-        Span span = startSpan("getSchemaTableName", table);
-        try (var ignored = scopedSpan(span)) {
-            return delegate.getSchemaTableName(session, table);
-        }
-    }
-
     @Override
     public ConnectorTableSchema getTableSchema(ConnectorSession session, ConnectorTableHandle table)
     {
