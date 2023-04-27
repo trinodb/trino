@@ -128,6 +128,13 @@ import io.trino.sql.tree.JsonPathInvocation;
 import io.trino.sql.tree.JsonPathParameter;
 import io.trino.sql.tree.JsonPathParameter.JsonFormat;
 import io.trino.sql.tree.JsonQuery;
+import io.trino.sql.tree.JsonTable;
+import io.trino.sql.tree.JsonTableColumnDefinition;
+import io.trino.sql.tree.JsonTableDefaultPlan;
+import io.trino.sql.tree.JsonTablePlan;
+import io.trino.sql.tree.JsonTablePlan.ParentChildPlanType;
+import io.trino.sql.tree.JsonTablePlan.SiblingsPlanType;
+import io.trino.sql.tree.JsonTableSpecificPlan;
 import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
@@ -144,6 +151,7 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
+import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NotExpression;
@@ -153,6 +161,7 @@ import io.trino.sql.tree.NumericParameter;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OneOrMoreQuantifier;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.PathElement;
 import io.trino.sql.tree.PathSpecification;
@@ -164,6 +173,9 @@ import io.trino.sql.tree.PatternRecognitionRelation;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.PatternSearchMode;
 import io.trino.sql.tree.PatternVariable;
+import io.trino.sql.tree.PlanLeaf;
+import io.trino.sql.tree.PlanParentChild;
+import io.trino.sql.tree.PlanSiblings;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.ProcessingMode;
@@ -173,6 +185,7 @@ import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.QuantifiedPattern;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QueryBody;
+import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
@@ -245,6 +258,7 @@ import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Use;
+import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.VariableDefinition;
 import io.trino.sql.tree.WhenClause;
@@ -3394,6 +3408,228 @@ class AstBuilder
         QueryPeriod.RangeType type = getRangeType((Token) context.rangeType().getChild(0).getPayload());
         Expression marker = (Expression) visit(context.valueExpression());
         return new QueryPeriod(getLocation(context), type, marker);
+    }
+
+    @Override
+    public Node visitJsonTable(SqlBaseParser.JsonTableContext context)
+    {
+        JsonPathInvocation jsonPathInvocation = (JsonPathInvocation) visit(context.jsonPathInvocation());
+        List<JsonTableColumnDefinition> columns = visit(context.jsonTableColumn(), JsonTableColumnDefinition.class);
+        Optional<JsonTablePlan> plan = visitIfPresent(context.jsonTableSpecificPlan(), JsonTablePlan.class);
+        if (!plan.isPresent()) {
+            plan = visitIfPresent(context.jsonTableDefaultPlan(), JsonTablePlan.class);
+        }
+        Optional<JsonTable.ErrorBehavior> errorBehavior = Optional.empty();
+        if (context.EMPTY() != null) {
+            errorBehavior = Optional.of(JsonTable.ErrorBehavior.EMPTY);
+        }
+        else if (context.ERROR(0) != null) {
+            errorBehavior = Optional.of(JsonTable.ErrorBehavior.ERROR);
+        }
+
+        return new JsonTable(getLocation(context), jsonPathInvocation, columns, plan, errorBehavior);
+    }
+
+    @Override
+    public Node visitOrdinalityColumn(SqlBaseParser.OrdinalityColumnContext context)
+    {
+        return new OrdinalityColumn(getLocation(context), (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitValueColumn(SqlBaseParser.ValueColumnContext context)
+    {
+        JsonValue.EmptyOrErrorBehavior emptyBehavior;
+        Optional<Expression> emptyDefault = Optional.empty();
+        SqlBaseParser.JsonValueBehaviorContext emptyBehaviorContext = context.emptyBehavior;
+        if (emptyBehaviorContext == null || emptyBehaviorContext.NULL() != null) {
+            emptyBehavior = JsonValue.EmptyOrErrorBehavior.NULL;
+        }
+        else if (emptyBehaviorContext.ERROR() != null) {
+            emptyBehavior = JsonValue.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (emptyBehaviorContext.DEFAULT() != null) {
+            emptyBehavior = JsonValue.EmptyOrErrorBehavior.DEFAULT;
+            emptyDefault = visitIfPresent(emptyBehaviorContext.expression(), Expression.class);
+        }
+        else {
+            throw new IllegalArgumentException("Unexpected empty behavior: " + emptyBehaviorContext.getText());
+        }
+
+        Optional<JsonValue.EmptyOrErrorBehavior> errorBehavior = Optional.empty();
+        Optional<Expression> errorDefault = Optional.empty();
+        SqlBaseParser.JsonValueBehaviorContext errorBehaviorContext = context.errorBehavior;
+        if (errorBehaviorContext != null) {
+            if (errorBehaviorContext.NULL() != null) {
+                errorBehavior = Optional.of(JsonValue.EmptyOrErrorBehavior.NULL);
+            }
+            else if (errorBehaviorContext.ERROR() != null) {
+                errorBehavior = Optional.of(JsonValue.EmptyOrErrorBehavior.ERROR);
+            }
+            else if (errorBehaviorContext.DEFAULT() != null) {
+                errorBehavior = Optional.of(JsonValue.EmptyOrErrorBehavior.DEFAULT);
+                errorDefault = visitIfPresent(errorBehaviorContext.expression(), Expression.class);
+            }
+            else {
+                throw new IllegalArgumentException("Unexpected error behavior: " + errorBehaviorContext.getText());
+            }
+        }
+
+        return new ValueColumn(
+                getLocation(context),
+                (Identifier) visit(context.identifier()),
+                (DataType) visit(context.type()),
+                visitIfPresent(context.string(), StringLiteral.class),
+                emptyBehavior,
+                emptyDefault,
+                errorBehavior,
+                errorDefault);
+    }
+
+    @Override
+    public Node visitQueryColumn(SqlBaseParser.QueryColumnContext context)
+    {
+        SqlBaseParser.JsonQueryWrapperBehaviorContext wrapperBehaviorContext = context.jsonQueryWrapperBehavior();
+        JsonQuery.ArrayWrapperBehavior wrapperBehavior;
+        if (wrapperBehaviorContext == null || wrapperBehaviorContext.WITHOUT() != null) {
+            wrapperBehavior = WITHOUT;
+        }
+        else if (wrapperBehaviorContext.CONDITIONAL() != null) {
+            wrapperBehavior = CONDITIONAL;
+        }
+        else {
+            wrapperBehavior = UNCONDITIONAL;
+        }
+
+        Optional<JsonQuery.QuotesBehavior> quotesBehavior = Optional.empty();
+        if (context.KEEP() != null) {
+            quotesBehavior = Optional.of(KEEP);
+        }
+        else if (context.OMIT() != null) {
+            quotesBehavior = Optional.of(OMIT);
+        }
+
+        JsonQuery.EmptyOrErrorBehavior emptyBehavior;
+        SqlBaseParser.JsonQueryBehaviorContext emptyBehaviorContext = context.emptyBehavior;
+        if (emptyBehaviorContext == null || emptyBehaviorContext.NULL() != null) {
+            emptyBehavior = JsonQuery.EmptyOrErrorBehavior.NULL;
+        }
+        else if (emptyBehaviorContext.ERROR() != null) {
+            emptyBehavior = JsonQuery.EmptyOrErrorBehavior.ERROR;
+        }
+        else if (emptyBehaviorContext.ARRAY() != null) {
+            emptyBehavior = EMPTY_ARRAY;
+        }
+        else if (emptyBehaviorContext.OBJECT() != null) {
+            emptyBehavior = EMPTY_OBJECT;
+        }
+        else {
+            throw new IllegalArgumentException("Unexpected empty behavior: " + emptyBehaviorContext.getText());
+        }
+
+        Optional<JsonQuery.EmptyOrErrorBehavior> errorBehavior = Optional.empty();
+        SqlBaseParser.JsonQueryBehaviorContext errorBehaviorContext = context.errorBehavior;
+        if (errorBehaviorContext != null) {
+            if (errorBehaviorContext.NULL() != null) {
+                errorBehavior = Optional.of(JsonQuery.EmptyOrErrorBehavior.NULL);
+            }
+            else if (errorBehaviorContext.ERROR() != null) {
+                errorBehavior = Optional.of(JsonQuery.EmptyOrErrorBehavior.ERROR);
+            }
+            else if (errorBehaviorContext.ARRAY() != null) {
+                errorBehavior = Optional.of(EMPTY_ARRAY);
+            }
+            else if (errorBehaviorContext.OBJECT() != null) {
+                errorBehavior = Optional.of(EMPTY_OBJECT);
+            }
+            else {
+                throw new IllegalArgumentException("Unexpected error behavior: " + errorBehaviorContext.getText());
+            }
+        }
+
+        return new QueryColumn(
+                getLocation(context),
+                (Identifier) visit(context.identifier()),
+                (DataType) visit(context.type()),
+                getJsonFormat(context.jsonRepresentation()),
+                visitIfPresent(context.string(), StringLiteral.class),
+                wrapperBehavior,
+                quotesBehavior,
+                emptyBehavior,
+                errorBehavior);
+    }
+
+    @Override
+    public Node visitNestedColumns(SqlBaseParser.NestedColumnsContext context)
+    {
+        return new NestedColumns(
+                getLocation(context),
+                (StringLiteral) visit(context.string()),
+                visitIfPresent(context.identifier(), Identifier.class),
+                visit(context.jsonTableColumn(), JsonTableColumnDefinition.class));
+    }
+
+    @Override
+    public Node visitJoinPlan(SqlBaseParser.JoinPlanContext context)
+    {
+        ParentChildPlanType type;
+        if (context.OUTER() != null) {
+            type = ParentChildPlanType.OUTER;
+        }
+        else if (context.INNER() != null) {
+            type = ParentChildPlanType.INNER;
+        }
+        else {
+            throw new IllegalArgumentException("Unexpected parent-child type: " + context.getText());
+        }
+
+        return new PlanParentChild(
+                getLocation(context),
+                type,
+                (PlanLeaf) visit(context.jsonTablePathName()),
+                (JsonTableSpecificPlan) visit(context.planPrimary()));
+    }
+
+    @Override
+    public Node visitUnionPlan(SqlBaseParser.UnionPlanContext context)
+    {
+        return new PlanSiblings(getLocation(context), SiblingsPlanType.UNION, visit(context.planPrimary(), JsonTableSpecificPlan.class));
+    }
+
+    @Override
+    public Node visitCrossPlan(SqlBaseParser.CrossPlanContext context)
+    {
+        return new PlanSiblings(getLocation(context), SiblingsPlanType.CROSS, visit(context.planPrimary(), JsonTableSpecificPlan.class));
+    }
+
+    @Override
+    public Node visitJsonTablePathName(SqlBaseParser.JsonTablePathNameContext context)
+    {
+        return new PlanLeaf(getLocation(context), (Identifier) visit(context.identifier()));
+    }
+
+    @Override
+    public Node visitPlanPrimary(SqlBaseParser.PlanPrimaryContext context)
+    {
+        if (context.jsonTablePathName() != null) {
+            return visit(context.jsonTablePathName());
+        }
+        return visit(context.jsonTableSpecificPlan());
+    }
+
+    @Override
+    public Node visitJsonTableDefaultPlan(SqlBaseParser.JsonTableDefaultPlanContext context)
+    {
+        ParentChildPlanType parentChildPlanType = ParentChildPlanType.OUTER;
+        if (context.INNER() != null) {
+            parentChildPlanType = ParentChildPlanType.INNER;
+        }
+        SiblingsPlanType siblingsPlanType = SiblingsPlanType.UNION;
+        if (context.CROSS() != null) {
+            siblingsPlanType = SiblingsPlanType.CROSS;
+        }
+
+        return new JsonTableDefaultPlan(getLocation(context), parentChildPlanType, siblingsPlanType);
     }
 
     // ***************** helpers *****************
