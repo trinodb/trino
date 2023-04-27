@@ -14,6 +14,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <!-- e.g. TestFileSystemCache asserts on static global state -->
+        <air.test.thread-count>1</air.test.thread-count>
     </properties>
 
     <dependencies>
