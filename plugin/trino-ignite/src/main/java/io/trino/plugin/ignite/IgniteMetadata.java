@@ -120,7 +120,7 @@ public class IgniteMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
         return new ConnectorTableMetadata(
-                getSchemaTableName(handle),
+                handle.getRequiredNamedRelation().getSchemaTableName(),
                 getColumnMetadata(session, handle),
                 igniteClient.getTableProperties(session, handle));
     }
@@ -138,7 +138,7 @@ public class IgniteMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
         return new ConnectorTableSchema(
-                getSchemaTableName(handle),
+                handle.getRequiredNamedRelation().getSchemaTableName(),
                 getColumnMetadata(session, handle).stream()
                         .map(ColumnMetadata::getColumnSchema)
                         .collect(toImmutableList()));

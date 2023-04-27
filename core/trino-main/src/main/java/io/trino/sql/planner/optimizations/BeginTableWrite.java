@@ -253,7 +253,7 @@ public class BeginTableWrite
             if (target instanceof InsertReference insert) {
                 return new InsertTarget(
                         metadata.beginInsert(session, insert.getHandle(), insert.getColumns()),
-                        metadata.getTableMetadata(session, insert.getHandle()).getTable(),
+                        metadata.getTableName(session, insert.getHandle()).getSchemaTableName(),
                         target.supportsReportingWrittenBytes(metadata, session),
                         target.supportsMultipleWritersPerPartition(metadata, session),
                         target.getMaxWriterTasks(metadata, session));
@@ -270,7 +270,7 @@ public class BeginTableWrite
                 return new TableWriterNode.RefreshMaterializedViewTarget(
                         refreshMV.getStorageTableHandle(),
                         metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
-                        metadata.getTableMetadata(session, refreshMV.getStorageTableHandle()).getTable(),
+                        metadata.getTableName(session, refreshMV.getStorageTableHandle()).getSchemaTableName(),
                         refreshMV.getSourceTableHandles());
             }
             if (target instanceof TableExecuteTarget tableExecute) {

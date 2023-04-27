@@ -262,6 +262,15 @@ public class TracingMetadata
     }
 
     @Override
+    public CatalogSchemaTableName getTableName(Session session, TableHandle tableHandle)
+    {
+        Span span = startSpan("getTableName", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getTableName(session, tableHandle);
+        }
+    }
+
+    @Override
     public TableSchema getTableSchema(Session session, TableHandle tableHandle)
     {
         Span span = startSpan("getTableSchema", tableHandle);

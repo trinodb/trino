@@ -23,7 +23,6 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -95,8 +94,7 @@ public class ApplyTableScanRedirection
             throw new TrinoException(NOT_SUPPORTED, format("Further redirection of destination table '%s' to '%s' is not supported", destinationObjectName, name));
         });
 
-        TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(context.getSession(), scanNode.getTable());
-        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName(tableMetadata.getCatalogName(), tableMetadata.getTable());
+        CatalogSchemaTableName sourceTable = plannerContext.getMetadata().getTableName(context.getSession(), scanNode.getTable());
         if (destinationTable.equals(sourceTable)) {
             return Result.empty();
         }

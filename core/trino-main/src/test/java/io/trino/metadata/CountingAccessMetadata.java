@@ -190,6 +190,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public CatalogSchemaTableName getTableName(Session session, TableHandle tableHandle)
+    {
+        return delegate.getTableName(session, tableHandle);
+    }
+
+    @Override
     public TableSchema getTableSchema(Session session, TableHandle tableHandle)
     {
         return delegate.getTableSchema(session, tableHandle);
