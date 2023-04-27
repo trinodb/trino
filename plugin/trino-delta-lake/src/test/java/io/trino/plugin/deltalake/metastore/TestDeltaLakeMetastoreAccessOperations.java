@@ -47,7 +47,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
     private static final Session TEST_SESSION = testSessionBuilder()
-            .setCatalog("delta_lake")
+            .setCatalog("delta")
             .setSchema("test_schema")
             .build();
 
@@ -65,7 +65,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
         ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
         deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
-        queryRunner.createCatalog("delta_lake", "delta_lake", deltaLakeProperties.buildOrThrow());
+        queryRunner.createCatalog("delta", "delta_lake", deltaLakeProperties.buildOrThrow());
 
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;
