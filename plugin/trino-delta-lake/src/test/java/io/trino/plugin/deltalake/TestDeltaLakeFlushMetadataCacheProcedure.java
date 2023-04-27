@@ -90,7 +90,7 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
         assertQuery(showTablesSql, "VALUES 'renamed'");
 
         // Verify that schema cache is flushed
-        String showSchemasSql = "SHOW SCHEMAS FROM delta_lake";
+        String showSchemasSql = "SHOW SCHEMAS FROM delta";
         // Fill caches
         assertQuery(showSchemasSql, "VALUES ('cached'), ('information_schema'), ('default')");
 
@@ -117,12 +117,12 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
         assertUpdate("CREATE TABLE " + intermediateTableName + " WITH (location = '" + location + "') AS TABLE tpch.tiny.region", 5);
 
         // This may cause the connector to cache the fact that the table does not exist
-        assertQueryFails("TABLE " + tableName, "\\Qline 1:1: Table 'delta_lake.default.flush_metadata_after_table_created' does not exist");
+        assertQueryFails("TABLE " + tableName, "\\Qline 1:1: Table 'delta.default.flush_metadata_after_table_created' does not exist");
 
         metastore.renameTable(schema, intermediateTableName, schema, tableName);
 
         // Verify cached state (we currently cache missing objects in CachingMetastore)
-        assertQueryFails("TABLE " + tableName, "\\Qline 1:1: Table 'delta_lake.default.flush_metadata_after_table_created' does not exist");
+        assertQueryFails("TABLE " + tableName, "\\Qline 1:1: Table 'delta.default.flush_metadata_after_table_created' does not exist");
 
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
         assertThat(query("TABLE " + tableName))
