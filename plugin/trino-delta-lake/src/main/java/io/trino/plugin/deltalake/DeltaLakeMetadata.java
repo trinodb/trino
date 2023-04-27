@@ -1310,12 +1310,12 @@ public class DeltaLakeMetadata
         // This check acts as a safeguard in cases where the input columns may differ from the table metadata case-sensitively
         checkAllColumnsPassedOnInsert(tableMetadata, inputColumns);
 
-        return createInsertHandle(session, retryMode, table, inputColumns, tableMetadata);
+        return createInsertHandle(session, retryMode, table, inputColumns);
     }
 
-    private DeltaLakeInsertTableHandle createInsertHandle(ConnectorSession session, RetryMode retryMode, DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns, ConnectorTableMetadata tableMetadata)
+    private DeltaLakeInsertTableHandle createInsertHandle(ConnectorSession session, RetryMode retryMode, DeltaLakeTableHandle table, List<DeltaLakeColumnHandle> inputColumns)
     {
-        String tableLocation = getLocation(tableMetadata.getProperties());
+        String tableLocation = metastore.getTableLocation(table.getSchemaTableName());
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             return new DeltaLakeInsertTableHandle(
@@ -1478,13 +1478,11 @@ public class DeltaLakeMetadata
         }
         checkWriteSupported(session, handle.getSchemaTableName(), handle.getMetadataEntry());
 
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle);
-
         List<DeltaLakeColumnHandle> inputColumns = getColumns(handle.getMetadataEntry()).stream()
                 .filter(column -> column.getColumnType() != SYNTHESIZED)
                 .collect(toImmutableList());
 
-        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(session, retryMode, handle, inputColumns, tableMetadata);
+        DeltaLakeInsertTableHandle insertHandle = createInsertHandle(session, retryMode, handle, inputColumns);
 
         return new DeltaLakeMergeTableHandle(handle, insertHandle);
     }
