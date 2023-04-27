@@ -506,7 +506,7 @@ public class TestDeltaLakeConnectorTest
                 .setSystemProperty("task_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
-                .setCatalogSessionProperty("delta_lake", "target_max_file_size", maxSize.toString())
+                .setCatalogSessionProperty("delta", "target_max_file_size", maxSize.toString())
                 .build();
 
         assertUpdate(session, createTableSql, 100000);
@@ -1643,7 +1643,7 @@ public class TestDeltaLakeConnectorTest
         Set<String> allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
         assertThat(allFilesFromCdfDirectory).hasSizeGreaterThanOrEqualTo(3);
         long retention = timeSinceUpdate.elapsed().getSeconds();
-        getQueryRunner().execute(sessionWithShortRetentionUnlocked, "CALL delta_lake.system.vacuum('test_schema', '" + tableName + "', '" + retention + "s')");
+        getQueryRunner().execute(sessionWithShortRetentionUnlocked, "CALL delta.system.vacuum('test_schema', '" + tableName + "', '" + retention + "s')");
         allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
         assertThat(allFilesFromCdfDirectory).hasSizeBetween(1, 2);
         assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 2))", ".*File does not exist.*");
@@ -1690,7 +1690,7 @@ public class TestDeltaLakeConnectorTest
         assertAccessDenied(
                 "SELECT * FROM TABLE(system.table_changes('" + SCHEMA + "', '" + tableName + "', 0))",
                 "Cannot execute function .*",
-                privilege("delta_lake.system.table_changes", EXECUTE_FUNCTION));
+                privilege("delta.system.table_changes", EXECUTE_FUNCTION));
 
         assertAccessDenied(
                 "SELECT * FROM TABLE(system.table_changes('" + SCHEMA + "', '" + tableName + "', 0))",
