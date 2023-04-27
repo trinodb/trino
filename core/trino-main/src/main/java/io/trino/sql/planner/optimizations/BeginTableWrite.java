@@ -129,7 +129,6 @@ public class BeginTableWrite
                     node.getColumns(),
                     node.getColumnNames(),
                     node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }
@@ -146,8 +145,7 @@ public class BeginTableWrite
                     node.getFragmentSymbol(),
                     node.getColumns(),
                     node.getColumnNames(),
-                    node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme());
+                    node.getPartitioningScheme());
         }
 
         @Override

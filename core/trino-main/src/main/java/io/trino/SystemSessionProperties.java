@@ -80,7 +80,6 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
-    public static final String PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS = "preferred_write_partitioning_min_number_of_partitions";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
     public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
@@ -305,16 +304,6 @@ public final class SystemSessionProperties
                         USE_PREFERRED_WRITE_PARTITIONING,
                         "Use preferred write partitioning",
                         optimizerConfig.isUsePreferredWritePartitioning(),
-                        false),
-                integerProperty(
-                        PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS,
-                        "Use preferred write partitioning when the number of written partitions exceeds the configured threshold",
-                        optimizerConfig.getPreferredWritePartitioningMinNumberOfPartitions(),
-                        value -> {
-                            if (value < 1) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 1: %s", PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, value));
-                            }
-                        },
                         false),
                 booleanProperty(
                         SCALE_WRITERS,
@@ -1091,11 +1080,6 @@ public final class SystemSessionProperties
     public static boolean isUsePreferredWritePartitioning(Session session)
     {
         return session.getSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, Boolean.class);
-    }
-
-    public static int getPreferredWritePartitioningMinNumberOfPartitions(Session session)
-    {
-        return session.getSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, Integer.class);
     }
 
     public static boolean isScaleWriters(Session session)
