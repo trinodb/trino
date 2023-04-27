@@ -1171,4 +1171,49 @@ public abstract class AstVisitor<R, C>
     {
         return visitNode(node, context);
     }
+
+    protected R visitJsonTable(JsonTable node, C context)
+    {
+        return visitRelation(node, context);
+    }
+
+    protected R visitOrdinalityColumn(OrdinalityColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitValueColumn(ValueColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitQueryColumn(QueryColumn node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitNestedColumns(NestedColumns node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanParentChild(PlanParentChild node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanSiblings(PlanSiblings node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitPlanLeaf(PlanLeaf node, C context)
+    {
+        return visitNode(node, context);
+    }
+
+    protected R visitJsonTableDefaultPlan(JsonTableDefaultPlan node, C context)
+    {
+        return visitNode(node, context);
+    }
 }

@@ -1,3 +1,4 @@
+
 =================
 Reserved keywords
 =================
@@ -58,6 +59,7 @@ Keyword                        SQL:2016      SQL-92
 ``JSON_EXISTS``                reserved
 ``JSON_OBJECT``                reserved
 ``JSON_QUERY``                 reserved
+``JSON_TABLE``                 reserved
 ``JSON_VALUE``                 reserved
 ``LEFT``                       reserved      reserved
 ``LIKE``                       reserved      reserved
