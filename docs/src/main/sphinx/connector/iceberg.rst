@@ -809,20 +809,7 @@ These metadata tables contain information about the internal structure
 of the Iceberg table. You can query each metadata table by appending the
 metadata table name to the table name::
 
-   SELECT * FROM "test_table$data"
-
-``$data`` table
-~~~~~~~~~~~~~~~
-
-The ``$data`` table is an alias for the Iceberg table itself.
-
-The statement::
-
-    SELECT * FROM "test_table$data"
-
-is equivalent to::
-
-    SELECT * FROM test_table
+   SELECT * FROM "test_table$properties"
 
 ``$properties`` table
 ~~~~~~~~~~~~~~~~~~~~~
