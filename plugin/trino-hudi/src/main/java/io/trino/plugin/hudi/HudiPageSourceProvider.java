@@ -43,7 +43,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TypeSignature;
-import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -146,8 +145,8 @@ public class HudiPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         HudiSplit split = (HudiSplit) connectorSplit;
-        Path path = new Path(split.getPath());
-        HoodieFileFormat hudiFileFormat = getHudiFileFormat(path.toString());
+        String path = split.getPath();
+        HoodieFileFormat hudiFileFormat = getHudiFileFormat(path);
         if (!HoodieFileFormat.PARQUET.equals(hudiFileFormat)) {
             throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, format("File format %s not supported", hudiFileFormat));
         }
@@ -161,7 +160,7 @@ public class HudiPageSourceProvider
                 .filter(columnHandle -> !columnHandle.isPartitionKey() && !columnHandle.isHidden())
                 .collect(Collectors.toList());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = fileSystem.newInputFile(path.toString(), split.getFileSize());
+        TrinoInputFile inputFile = fileSystem.newInputFile(path, split.getFileSize());
         ConnectorPageSource dataPageSource = createPageSource(session, regularColumns, split, inputFile, dataSourceStats, options, timeZone);
 
         return new HudiPageSource(
@@ -185,7 +184,7 @@ public class HudiPageSourceProvider
     {
         ParquetDataSource dataSource = null;
         boolean useColumnNames = shouldUseParquetColumnNames(session);
-        Path path = new Path(hudiSplit.getPath());
+        String path = hudiSplit.getPath();
         long start = hudiSplit.getStart();
         long length = hudiSplit.getLength();
         try {
