@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
@@ -80,7 +81,9 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
+import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.filterConjuncts;
+import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
 
 public class SplitSourceFactory
@@ -176,7 +179,8 @@ public class SplitSourceFactory
 
             Constraint constraint = filterPredicate
                     .map(predicate -> {
-                        predicate = filterConjuncts(plannerContext.getMetadata(), predicate, expression -> !DynamicFilters.isDynamicFilter(expression));
+                        Metadata metadata = plannerContext.getMetadata();
+                        predicate = filterConjuncts(metadata, predicate, expression -> !isDynamicFilter(expression) && isDeterministic(expression, metadata));
                         LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate);
                         return new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments());
                     })
