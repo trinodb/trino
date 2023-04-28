@@ -32,7 +32,6 @@ import io.trino.json.ir.IrExistsPredicate;
 import io.trino.json.ir.IrFilter;
 import io.trino.json.ir.IrFloorMethod;
 import io.trino.json.ir.IrIsUnknownPredicate;
-import io.trino.json.ir.IrJsonNull;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
@@ -103,6 +102,7 @@ import static io.trino.json.ir.IrComparisonPredicate.Operator.GREATER_THAN_OR_EQ
 import static io.trino.json.ir.IrComparisonPredicate.Operator.LESS_THAN;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.NOT_EQUAL;
+import static io.trino.json.ir.IrJsonNull.JSON_NULL;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
@@ -260,7 +260,7 @@ class JsonPathTranslator
         @Override
         protected IrPathNode visitJsonNullLiteral(JsonNullLiteral node, Void context)
         {
-            return new IrJsonNull();
+            return JSON_NULL;
         }
 
         @Override
@@ -309,7 +309,7 @@ class JsonPathTranslator
         protected IrPathNode visitSqlValueLiteral(SqlValueLiteral node, Void context)
         {
             Expression value = node.getValue();
-            return new IrLiteral(types.get(PathNodeRef.of(node)), literalInterpreter.evaluate(value, types.get(PathNodeRef.of(node))));
+            return new IrLiteral(Optional.of(types.get(PathNodeRef.of(node))), literalInterpreter.evaluate(value, types.get(PathNodeRef.of(node))));
         }
 
         @Override

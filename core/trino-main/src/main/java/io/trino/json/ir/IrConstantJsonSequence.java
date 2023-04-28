@@ -13,8 +13,6 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
@@ -24,34 +22,25 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IrConstantJsonSequence
-        extends IrPathNode
+public record IrConstantJsonSequence(List<JsonNode> sequence, Optional<Type> type)
+        implements IrPathNode
 {
     public static final IrConstantJsonSequence EMPTY_SEQUENCE = new IrConstantJsonSequence(ImmutableList.of(), Optional.empty());
-
-    private final List<JsonNode> sequence;
 
     public static IrConstantJsonSequence singletonSequence(JsonNode jsonNode, Optional<Type> type)
     {
         return new IrConstantJsonSequence(ImmutableList.of(jsonNode), type);
     }
 
-    @JsonCreator
-    public IrConstantJsonSequence(@JsonProperty("sequence") List<JsonNode> sequence, @JsonProperty("type") Optional<Type> type)
+    public IrConstantJsonSequence(List<JsonNode> sequence, Optional<Type> type)
     {
-        super(type);
-        this.sequence = ImmutableList.copyOf(requireNonNull(sequence, "sequence is null"));
+        this.type = requireNonNull(type, "type is null");
+        this.sequence = ImmutableList.copyOf(sequence);
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrConstantJsonSequence(this, context);
-    }
-
-    @JsonProperty
-    public List<JsonNode> getSequence()
-    {
-        return sequence;
     }
 }

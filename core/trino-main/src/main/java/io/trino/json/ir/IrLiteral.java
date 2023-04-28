@@ -14,7 +14,6 @@
 package io.trino.json.ir;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
@@ -26,16 +25,14 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static java.util.Objects.requireNonNull;
 
-public class IrLiteral
-        extends IrPathNode
+public record IrLiteral(Optional<Type> type, Object value)
+        implements IrPathNode
 {
-    // (boxed) native representation
-    private final Object value;
-
-    public IrLiteral(Type type, Object value)
+    public IrLiteral
     {
-        super(Optional.of(type));
-        this.value = requireNonNull(value, "value is null"); // no null values allowed
+        requireNonNull(type, "type is null");
+        checkArgument(type.isPresent(), "type is empty");
+        requireNonNull(value, "value is null"); // (boxed) native representation. No null values allowed.
     }
 
     @Deprecated // For JSON deserialization only
@@ -43,24 +40,18 @@ public class IrLiteral
     public static IrLiteral fromJson(@JsonProperty("type") Type type, @JsonProperty("valueAsBlock") Block value)
     {
         checkArgument(value.getPositionCount() == 1);
-        return new IrLiteral(type, readNativeValue(type, value, 0));
+        return new IrLiteral(Optional.of(type), readNativeValue(type, value, 0));
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrLiteral(this, context);
-    }
-
-    @JsonIgnore
-    public Object getValue()
-    {
-        return value;
     }
 
     @JsonProperty
     public Block getValueAsBlock()
     {
-        return nativeValueToBlock(getType().orElseThrow(), value);
+        return nativeValueToBlock(type().orElseThrow(), value);
     }
 }

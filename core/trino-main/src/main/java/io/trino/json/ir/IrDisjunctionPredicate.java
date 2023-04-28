@@ -13,40 +13,20 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import static java.util.Objects.requireNonNull;
 
-public class IrDisjunctionPredicate
-        extends IrPredicate
+public record IrDisjunctionPredicate(IrPredicate left, IrPredicate right)
+        implements IrPredicate
 {
-    private final IrPredicate left;
-    private final IrPredicate right;
-
-    @JsonCreator
-    public IrDisjunctionPredicate(@JsonProperty("left") IrPredicate left, @JsonProperty("right") IrPredicate right)
+    public IrDisjunctionPredicate
     {
-        super();
-        this.left = requireNonNull(left, "left is null");
-        this.right = requireNonNull(right, "right is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrDisjunctionPredicate(this, context);
-    }
-
-    @JsonProperty
-    public IrPathNode getLeft()
-    {
-        return left;
-    }
-
-    @JsonProperty
-    public IrPathNode getRight()
-    {
-        return right;
     }
 }
