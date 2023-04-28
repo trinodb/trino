@@ -30,10 +30,10 @@ import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.MonitoredTrinoInputFile;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.fs.MonitoredInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
@@ -142,7 +142,7 @@ public abstract class LinePageSourceFactory
 
         // buffer file if small
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
-        TrinoInputFile inputFile = new MonitoredTrinoInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
+        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
         try {
             length = min(inputFile.length() - start, length);
             if (!inputFile.exists()) {
