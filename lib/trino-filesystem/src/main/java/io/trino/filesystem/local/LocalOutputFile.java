@@ -16,6 +16,7 @@ package io.trino.filesystem.local;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -25,7 +26,7 @@ import java.nio.file.StandardOpenOption;
 import static io.trino.filesystem.local.LocalUtils.handleException;
 import static java.util.Objects.requireNonNull;
 
-class LocalOutputFile
+public class LocalOutputFile
         implements TrinoOutputFile
 {
     private final String location;
@@ -35,6 +36,11 @@ class LocalOutputFile
     {
         this.location = requireNonNull(location, "location is null");
         this.path = requireNonNull(path, "path is null");
+    }
+
+    public LocalOutputFile(File file)
+    {
+        this(file.getPath(), file.toPath());
     }
 
     @Override
