@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
@@ -85,7 +86,6 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.avro.file.DataFileStream;
@@ -149,6 +149,7 @@ import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
+import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -1466,7 +1467,8 @@ public class IcebergPageSourceProvider
         return Optional.of(new GroupType(baseType.getRepetition(), baseType.getName(), ImmutableList.of(type)));
     }
 
-    private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
+    @VisibleForTesting
+    static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, ColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
     {
         if (effectivePredicate.isNone()) {
             return TupleDomain.none();
@@ -1476,9 +1478,9 @@ public class IcebergPageSourceProvider
                 .collect(toImmutableMap(descriptor -> descriptor.getPrimitiveType().getId().intValue(), identity()));
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
         effectivePredicate.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
-            String baseType = columnHandle.getType().getTypeSignature().getBase();
+            ColumnIdentity columnIdentity = columnHandle.getColumnIdentity();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (columnHandle.isBaseColumn() && (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW))) {
+            if (PRIMITIVE.equals(columnIdentity.getTypeCategory())) {
                 ColumnDescriptor descriptor = descriptorsById.get(columnHandle.getId());
                 if (descriptor != null) {
                     predicate.put(descriptor, domain);
