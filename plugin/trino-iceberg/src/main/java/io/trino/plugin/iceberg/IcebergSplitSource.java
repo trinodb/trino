@@ -65,7 +65,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
@@ -392,8 +391,7 @@ public class IcebergSplitSource
             Supplier<Map<ColumnHandle, NullableValue>> partitionValues,
             Constraint constraint)
     {
-        // We use Constraint just to pass functional predicate here from DistributedExecutionPlanner
-        verify(constraint.getSummary().isAll());
+        // We ignore constraint.getSummary() on the assumption we have already seen it and is part of IcebergTableHandle.enforcedPredicate or IcebergTableHandle.unenforcedPredicate
 
         if (constraint.predicate().isEmpty() ||
                 intersection(constraint.getPredicateColumns().orElseThrow(), identityPartitionColumns).isEmpty()) {

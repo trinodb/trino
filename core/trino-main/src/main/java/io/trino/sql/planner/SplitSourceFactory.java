@@ -20,9 +20,9 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.server.DynamicFilterService;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SampledSplitSource;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
@@ -78,6 +78,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
@@ -181,8 +182,25 @@ public class SplitSourceFactory
                     .map(predicate -> {
                         Metadata metadata = plannerContext.getMetadata();
                         predicate = filterConjuncts(metadata, predicate, expression -> !isDynamicFilter(expression) && isDeterministic(expression, metadata));
+                        DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.getExtractionResult(plannerContext, session, predicate, typeProvider);
+                        ConnectorExpressionTranslator.ConnectorExpressionTranslation expressionTranslation = ConnectorExpressionTranslator.translateConjuncts(
+                                session,
+                                decomposedPredicate.getRemainingExpression(),
+                                typeProvider,
+                                plannerContext,
+                                typeAnalyzer);
+                        Map<String, ColumnHandle> connectorExpressionAssignments = node.getAssignments()
+                                .entrySet().stream()
+                                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+                        // TODO Constraint.predicate is supposed not to cover Constraint.expression, but not Constraint.summary
                         LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate);
-                        return new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments());
+                        return new Constraint(
+                                decomposedPredicate.getTupleDomain()
+                                        .transformKeys(node.getAssignments()::get),
+                                expressionTranslation.connectorExpression(),
+                                connectorExpressionAssignments,
+                                evaluator::isCandidate,
+                                evaluator.getArguments());
                     })
                     .orElse(alwaysTrue());
 
