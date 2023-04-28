@@ -502,7 +502,7 @@ public class TrinoGlueCatalog
                     LOG.warn(e, "Failed to cache table metadata from table at %s", metadataLocation);
                 }
             }
-            else if (isTrinoMaterializedView(getTableType(table), parameters)) {
+            else if (isTrinoMaterializedView(parameters)) {
                 if (viewCache.containsKey(schemaTableName) || tableMetadataCache.containsKey(schemaTableName)) {
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. Materialized View cannot also be a table or view");
                 }
@@ -819,7 +819,7 @@ public class TrinoGlueCatalog
                             stats.getGetTables())
                             .map(GetTablesResult::getTableList)
                             .flatMap(List::stream)
-                            .filter(table -> isTrinoMaterializedView(getTableType(table), firstNonNull(table.getParameters(), ImmutableMap.of())))
+                            .filter(table -> isTrinoMaterializedView(firstNonNull(table.getParameters(), ImmutableMap.of())))
                             .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                             .collect(toImmutableList()));
                 }
@@ -845,7 +845,7 @@ public class TrinoGlueCatalog
         Optional<com.amazonaws.services.glue.model.Table> existing = getTable(session, viewName);
 
         if (existing.isPresent()) {
-            if (!isTrinoMaterializedView(getTableType(existing.get()), firstNonNull(existing.get().getParameters(), ImmutableMap.of()))) {
+            if (!isTrinoMaterializedView(firstNonNull(existing.get().getParameters(), ImmutableMap.of()))) {
                 throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Existing table is not a Materialized View: " + viewName);
             }
             if (!replace) {
@@ -897,7 +897,7 @@ public class TrinoGlueCatalog
         com.amazonaws.services.glue.model.Table view = getTable(session, viewName)
                 .orElseThrow(() -> new MaterializedViewNotFoundException(viewName));
 
-        if (!isTrinoMaterializedView(getTableType(view), firstNonNull(view.getParameters(), ImmutableMap.of()))) {
+        if (!isTrinoMaterializedView(firstNonNull(view.getParameters(), ImmutableMap.of()))) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + view.getDatabaseName() + "." + view.getName());
         }
         materializedViewCache.remove(viewName);
@@ -940,7 +940,7 @@ public class TrinoGlueCatalog
         }
 
         com.amazonaws.services.glue.model.Table table = maybeTable.get();
-        if (!isTrinoMaterializedView(getTableType(table), firstNonNull(table.getParameters(), ImmutableMap.of()))) {
+        if (!isTrinoMaterializedView(firstNonNull(table.getParameters(), ImmutableMap.of()))) {
             return Optional.empty();
         }
 
@@ -991,7 +991,7 @@ public class TrinoGlueCatalog
             com.amazonaws.services.glue.model.Table glueTable = getTable(session, source)
                     .orElseThrow(() -> new TableNotFoundException(source));
             materializedViewCache.remove(source);
-            if (!isTrinoMaterializedView(getTableType(glueTable), firstNonNull(glueTable.getParameters(), ImmutableMap.of()))) {
+            if (!isTrinoMaterializedView(firstNonNull(glueTable.getParameters(), ImmutableMap.of()))) {
                 throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + source);
             }
             TableInput tableInput = getMaterializedViewTableInput(target.getTableName(), glueTable.getViewOriginalText(), glueTable.getOwner(), glueTable.getParameters());

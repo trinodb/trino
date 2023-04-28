@@ -34,8 +34,8 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isViewOrMaterializedView;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.isIcebergTable;
@@ -73,8 +73,8 @@ public abstract class AbstractMetastoreTableOperations
         }
         Table table = getTable();
 
-        if (isPrestoView(table) && isHiveOrPrestoView(table)) {
-            // this is a Hive view, hence not a table
+        if (isPrestoView(table) && isViewOrMaterializedView(table)) {
+            // this is a view or a materialized view, hence not a table
             throw new TableNotFoundException(getSchemaTableName());
         }
         if (!isIcebergTable(table)) {

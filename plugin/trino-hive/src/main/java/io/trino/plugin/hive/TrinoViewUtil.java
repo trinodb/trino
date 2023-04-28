@@ -28,8 +28,8 @@ import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isViewOrMaterializedView;
 
 public final class TrinoViewUtil
 {
@@ -70,7 +70,7 @@ public final class TrinoViewUtil
 
     private static boolean isView(String tableType, Map<String, String> tableParameters)
     {
-        return isHiveOrPrestoView(tableType) && PRESTO_VIEW_COMMENT.equals(tableParameters.get(TABLE_COMMENT));
+        return isViewOrMaterializedView(tableType) && PRESTO_VIEW_COMMENT.equals(tableParameters.get(TABLE_COMMENT));
     }
 
     public static Map<String, String> createViewProperties(ConnectorSession session, String trinoVersion, String connectorName)

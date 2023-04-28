@@ -72,8 +72,8 @@ import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isViewOrMaterializedView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
@@ -504,7 +504,7 @@ public class TrinoHiveCatalog
         Optional<io.trino.plugin.hive.metastore.Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
 
         if (existing.isPresent()) {
-            if (!isTrinoMaterializedView(existing.get().getTableType(), existing.get().getParameters())) {
+            if (!isTrinoMaterializedView(existing.get().getParameters())) {
                 throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Existing table is not a Materialized View: " + viewName);
             }
             if (!replace) {
@@ -558,7 +558,7 @@ public class TrinoHiveCatalog
         io.trino.plugin.hive.metastore.Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
                 .orElseThrow(() -> new MaterializedViewNotFoundException(viewName));
 
-        if (!isTrinoMaterializedView(view.getTableType(), view.getParameters())) {
+        if (!isTrinoMaterializedView(view.getParameters())) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, "Not a Materialized View: " + viewName);
         }
 
@@ -585,7 +585,7 @@ public class TrinoHiveCatalog
         }
 
         io.trino.plugin.hive.metastore.Table table = tableOptional.get();
-        if (!isTrinoMaterializedView(table.getTableType(), table.getParameters())) {
+        if (!isTrinoMaterializedView(table.getParameters())) {
             return Optional.empty();
         }
 
@@ -656,7 +656,7 @@ public class TrinoHiveCatalog
 
         Optional<io.trino.plugin.hive.metastore.Table> table = metastore.getTable(tableNameBase.getSchemaName(), tableNameBase.getTableName());
 
-        if (table.isEmpty() || isHiveOrPrestoView(table.get().getTableType())) {
+        if (table.isEmpty() || isViewOrMaterializedView(table.get().getTableType())) {
             return Optional.empty();
         }
         if (!isIcebergTable(table.get())) {

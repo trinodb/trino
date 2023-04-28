@@ -28,7 +28,7 @@ import java.util.Optional;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isViewOrMaterializedView;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -86,8 +86,8 @@ public class HiveMetastoreBackedDeltaLakeMetastore
 
     public static void verifyDeltaLakeTable(Table table)
     {
-        if (isHiveOrPrestoView(table)) {
-            // this is a Hive view, hence not a table
+        if (isViewOrMaterializedView(table)) {
+            // this is a view, hence not a table
             throw new NotADeltaLakeTableException(table.getDatabaseName(), table.getTableName());
         }
         if (!TABLE_PROVIDER_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_PROVIDER_PROPERTY))) {

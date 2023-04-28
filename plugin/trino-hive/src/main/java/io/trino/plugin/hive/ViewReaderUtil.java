@@ -140,25 +140,30 @@ public final class ViewReaderUtil
         return "true".equals(tableParameters.get(PRESTO_VIEW_FLAG));
     }
 
-    public static boolean isHiveOrPrestoView(Table table)
+    public static boolean isTrinoMaterializedView(Table table)
     {
-        return isHiveOrPrestoView(table.getTableType());
+        return isTrinoMaterializedView(table.getParameters());
     }
 
-    public static boolean isHiveOrPrestoView(String tableType)
+    public static boolean isTrinoMaterializedView(Map<String, String> tableParameters)
     {
-        return tableType.equals(VIRTUAL_VIEW.name());
-    }
-
-    public static boolean isTrinoMaterializedView(String tableType, Map<String, String> tableParameters)
-    {
-        return isHiveOrPrestoView(tableType) && isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
+        return isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
     }
 
     public static boolean canDecodeView(Table table)
     {
         // we can decode Hive or Presto view
         return table.getTableType().equals(VIRTUAL_VIEW.name());
+    }
+
+    public static boolean isViewOrMaterializedView(Table table)
+    {
+        return isViewOrMaterializedView(table.getTableType());
+    }
+
+    public static boolean isViewOrMaterializedView(String tableType)
+    {
+        return tableType.equals(VIRTUAL_VIEW.name());
     }
 
     public static String encodeViewData(ConnectorViewDefinition definition)

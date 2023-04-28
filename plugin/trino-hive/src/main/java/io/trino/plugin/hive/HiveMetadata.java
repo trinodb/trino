@@ -263,8 +263,9 @@ import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isViewOrMaterializedView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -622,7 +623,7 @@ public class HiveMetadata
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hive table '%s'", tableName));
         }
 
-        if (!translateHiveViews && isHiveOrPrestoView(table)) {
+        if (!translateHiveViews && isViewOrMaterializedView(table)) {
             throw new TableNotFoundException(tableName);
         }
 
@@ -2725,7 +2726,7 @@ public class HiveMetadata
     private Optional<ConnectorViewDefinition> toConnectorViewDefinition(ConnectorSession session, SchemaTableName viewName, Optional<Table> table)
     {
         return table
-                .filter(ViewReaderUtil::canDecodeView)
+                .filter(view -> isViewOrMaterializedView(view) && !isTrinoMaterializedView(view))
                 .map(view -> {
                     if (!translateHiveViews && !isPrestoView(view)) {
                         throw new HiveViewNotSupportedException(viewName);
