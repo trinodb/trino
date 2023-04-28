@@ -75,6 +75,8 @@
         <dep.okio.version>3.3.0</dep.okio.version>
 
         <dep.docker.images.version>80</dep.docker.images.version>
+        <!-- override airbase version until it's updated -->
+        <dep.guice.version>6.0.0</dep.guice.version>
 
         <!--
           America/Bahia_Banderas has:
