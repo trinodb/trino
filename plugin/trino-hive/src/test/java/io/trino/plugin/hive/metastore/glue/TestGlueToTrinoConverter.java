@@ -41,6 +41,7 @@ import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlu
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
+import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTrinoMaterializedView;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
@@ -257,6 +258,15 @@ public class TestGlueToTrinoConverter
                 testTable.getStorageDescriptor().getColumns().stream()
                         .map(com.amazonaws.services.glue.model.Column::getName)
                         .collect(toImmutableSet()));
+    }
+
+    @Test
+    public void testIcebergMaterializedViewNullStorageDescriptor()
+    {
+        Table testMaterializedView = getGlueTestTrinoMaterializedView(testDatabase.getName());
+        assertNull(testMaterializedView.getStorageDescriptor());
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testMaterializedView, testDatabase.getName());
+        assertEquals(trinoTable.getDataColumns().size(), 1);
     }
 
     @Test

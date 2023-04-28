@@ -51,6 +51,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.metastore.util.Memoizers.memoizeLast;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -95,21 +96,25 @@ public final class GlueToTrinoConverter
     {
         SchemaTableName table = new SchemaTableName(dbName, glueTable.getName());
 
+        String tableType = getTableType(glueTable);
         Map<String, String> tableParameters = convertParameters(glueTable.getParameters());
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getSchemaName())
                 .setTableName(table.getTableName())
                 .setOwner(Optional.ofNullable(glueTable.getOwner()))
-                .setTableType(getTableType(glueTable))
+                .setTableType(tableType)
                 .setParameters(tableParameters)
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
 
         StorageDescriptor sd = glueTable.getStorageDescriptor();
 
-        if (isIcebergTable(tableParameters) || (sd == null && isDeltaLakeTable(tableParameters))) {
+        if (isIcebergTable(tableParameters) ||
+                (sd == null && isDeltaLakeTable(tableParameters)) ||
+                (sd == null && isTrinoMaterializedView(tableType, tableParameters))) {
             // Iceberg tables do not need to read the StorageDescriptor field, but we still need to return dummy properties for compatibility
             // Delta Lake tables only need to provide a dummy properties if a StorageDescriptor was not explicitly configured.
+            // Materialized views do not need to read the StorageDescriptor, but we still need to return dummy properties for compatibility
             tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty())));
             tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
         }
