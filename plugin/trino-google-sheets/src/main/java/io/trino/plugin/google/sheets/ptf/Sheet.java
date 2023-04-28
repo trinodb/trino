@@ -24,6 +24,7 @@ import io.trino.plugin.google.sheets.SheetsConnectorTableHandle;
 import io.trino.plugin.google.sheets.SheetsMetadata;
 import io.trino.plugin.google.sheets.SheetsSheetTableHandle;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -98,7 +99,11 @@ public class Sheet
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             String sheetId = ((Slice) ((ScalarArgument) arguments.get(ID_ARGUMENT)).getValue()).toStringUtf8();
             validateSheetId(sheetId);

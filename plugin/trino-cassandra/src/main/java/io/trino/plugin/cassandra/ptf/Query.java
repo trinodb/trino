@@ -23,6 +23,7 @@ import io.trino.plugin.cassandra.CassandraMetadata;
 import io.trino.plugin.cassandra.CassandraQueryRelationHandle;
 import io.trino.plugin.cassandra.CassandraTableHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.ptf.AbstractConnectorTableFunction;
@@ -88,7 +89,11 @@ public class Query
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument argument = (ScalarArgument) getOnlyElement(arguments.values());
             String query = ((Slice) argument.getValue()).toStringUtf8();
