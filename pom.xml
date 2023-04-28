@@ -73,6 +73,9 @@
         <dep.netty.version>4.1.91.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
 
+        <!-- test guice 6.0.0 release candidate -->
+        <dep.guice.version>6.0.0-rc1</dep.guice.version>
+
         <dep.docker.images.version>79</dep.docker.images.version>
 
         <!--
