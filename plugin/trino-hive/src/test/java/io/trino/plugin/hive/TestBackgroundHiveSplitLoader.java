@@ -912,11 +912,11 @@ public class TestBackgroundHiveSplitLoader
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
 
         Path filePath = new Path("hdfs://VOL1:9000/db_name/table_name/file1");
-        Path directoryPath = new Path("hdfs://VOL1:9000/db_name/table_name/dir");
+        Path directoryPath = new Path("hdfs://VOL1:9000/db_name/table_name/dir/file2");
         List<Path> paths = ImmutableList.of(filePath, directoryPath);
         List<LocatedFileStatus> files = ImmutableList.of(
                 locatedFileStatus(filePath),
-                locatedDirectoryStatus(directoryPath));
+                locatedFileStatus(directoryPath));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
                 files,
@@ -1400,23 +1400,6 @@ public class TestBackgroundHiveSplitLoader
         return new LocatedFileStatus(
                 0L,
                 false,
-                0,
-                0L,
-                0L,
-                0L,
-                null,
-                null,
-                null,
-                null,
-                path,
-                new BlockLocation[] {});
-    }
-
-    private static LocatedFileStatus locatedDirectoryStatus(Path path)
-    {
-        return new LocatedFileStatus(
-                0L,
-                true,
                 0,
                 0L,
                 0L,

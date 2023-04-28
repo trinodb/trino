@@ -101,17 +101,17 @@ public class TestTransactionScopeCachingDirectoryLister
         // due to Token being a key in segmented cache.
         TransactionScopeCachingDirectoryLister cachingLister = (TransactionScopeCachingDirectoryLister) new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(500), Optional.of(1)).get(countingLister);
 
-        assertFiles(cachingLister.list(null, TABLE, path2), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, (cachingLister.listFilesRecursively(null, TABLE, path2))), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // listing path2 again shouldn't increase listing count
         assertThat(cachingLister.isCached(path2)).isTrue();
-        assertFiles(cachingLister.list(null, TABLE, path2), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2)), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // start listing path1 concurrently
-        RemoteIterator<TrinoFileStatus> path1FilesA = cachingLister.list(null, TABLE, path1);
-        RemoteIterator<TrinoFileStatus> path1FilesB = cachingLister.list(null, TABLE, path1);
+        RemoteIterator<TrinoFileStatus> path1FilesA = new DirectoryListingFilter(path1, cachingLister.listFilesRecursively(null, TABLE, path1));
+        RemoteIterator<TrinoFileStatus> path1FilesB = new DirectoryListingFilter(path1, cachingLister.listFilesRecursively(null, TABLE, path1));
         assertThat(countingLister.getListCount()).isEqualTo(2);
 
         // list path1 files using both iterators concurrently
@@ -125,7 +125,7 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // listing path2 again should increase listing count because 2 files were cached for path1
         assertThat(cachingLister.isCached(path2)).isFalse();
-        assertFiles(cachingLister.list(null, TABLE, path2), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2)), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(3);
     }
 
@@ -141,8 +141,8 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // start listing path concurrently
         countingLister.setThrowException(true);
-        RemoteIterator<TrinoFileStatus> filesA = cachingLister.list(null, TABLE, path);
-        RemoteIterator<TrinoFileStatus> filesB = cachingLister.list(null, TABLE, path);
+        RemoteIterator<TrinoFileStatus> filesA = cachingLister.listFilesRecursively(null, TABLE, path);
+        RemoteIterator<TrinoFileStatus> filesB = cachingLister.listFilesRecursively(null, TABLE, path);
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // listing should throw an exception
@@ -150,7 +150,7 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // listing again should succeed
         countingLister.setThrowException(false);
-        assertFiles(cachingLister.list(null, TABLE, path), ImmutableList.of(file));
+        assertFiles(new DirectoryListingFilter(path, cachingLister.listFilesRecursively(null, TABLE, path)), ImmutableList.of(file));
         assertThat(countingLister.getListCount()).isEqualTo(2);
 
         // listing using second concurrently initialized DirectoryLister should fail
@@ -180,19 +180,12 @@ public class TestTransactionScopeCachingDirectoryLister
         }
 
         @Override
-        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
-                throws IOException
-        {
-            listCount++;
-            return throwingRemoteIterator(requireNonNull(fileStatuses.get(path)), throwException);
-        }
-
-        @Override
         public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
                 throws IOException
         {
             // No specific recursive files-only listing implementation
-            return list(fs, table, path);
+            listCount++;
+            return throwingRemoteIterator(requireNonNull(fileStatuses.get(path)), throwException);
         }
 
         public void setThrowException(boolean throwException)
