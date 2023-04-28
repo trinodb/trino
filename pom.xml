@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>415-SNAPSHOT</version>
+    <version>415</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -30,7 +30,7 @@
     <scm>
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
         <url>https://github.com/trinodb/trino</url>
-        <tag>HEAD</tag>
+        <tag>415</tag>
     </scm>
 
     <properties>
@@ -2036,7 +2036,7 @@
                                     <include>org.yaml:snakeyaml:*:jar:test</include>
                                 </includes>
                             </bannedDependencies>
-                            <requireProfileIdsExist/>
+                            <requireProfileIdsExist />
                         </rules>
                     </configuration>
                     <dependencies>
