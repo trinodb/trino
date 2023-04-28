@@ -15,6 +15,8 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -22,12 +24,13 @@ import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.HoodieFileFormat;
@@ -149,9 +152,9 @@ public final class HudiUtil
         return partitionKeys.build();
     }
 
-    public static HoodieTableMetaClient buildTableMetaClient(Configuration configuration, String basePath)
+    public static HoodieTableMetaClient buildTableMetaClient(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String basePath)
     {
-        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(configuration).setBasePath(basePath).build();
+        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath))).setBasePath(basePath).build();
         // Do not load the bootstrap index, will not read bootstrap base data or a mapping index defined
         client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
         return client;
