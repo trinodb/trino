@@ -96,10 +96,10 @@ public class TestSqlServerManagedStatistics
                 .addRoundTrip("DATETIME2(7)", "'2020-09-27 12:34:56.1234567'", new ColumnStatistics("null", "1.0", "0.0", "2020-09-27 12:34:56.123456"))
                 .addRoundTrip("DATETIME2(7)", "null", NULL_STATISTICS)
 
-                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 00:00:00.1234567+07:00'", UNSUPPORTED_STATISTICS)
-                .addRoundTrip("DATETIMEOFFSET", "null", UNSUPPORTED_STATISTICS)
-                .addRoundTrip("DATETIMEOFFSET(7)", "'2020-09-27 00:00:00.1234567+07:00'", UNSUPPORTED_STATISTICS)
-                .addRoundTrip("DATETIMEOFFSET(7)", "null", UNSUPPORTED_STATISTICS)
+                .addRoundTrip("DATETIMEOFFSET", "'2020-09-27 00:00:00.1234567+07:00'", new ColumnStatistics("null", "1.0", "0.0", "2020-09-26 17:00:00.123 UTC"))
+                .addRoundTrip("DATETIMEOFFSET", "null", NULL_STATISTICS)
+                .addRoundTrip("DATETIMEOFFSET(7)", "'2020-09-27 00:00:00.1234567+07:00'", new ColumnStatistics("null", "1.0", "0.0", "2020-09-26 17:00:00.123 UTC"))
+                .addRoundTrip("DATETIMEOFFSET(7)", "null", NULL_STATISTICS)
 
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_types"));
 
