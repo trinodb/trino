@@ -103,6 +103,7 @@ import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static io.trino.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
@@ -437,7 +438,7 @@ public class TestBackgroundHiveSplitLoader
     public void testCachedDirectoryLister()
             throws Exception
     {
-        CachingDirectoryLister cachingDirectoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of("test_dbname.test_table"));
+        CachingDirectoryLister cachingDirectoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), ImmutableList.of("test_dbname.test_table"));
         assertEquals(cachingDirectoryLister.getRequestCount(), 0);
 
         int totalCount = 100;
@@ -867,7 +868,7 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIterator()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), 0, ImmutableList.of());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
@@ -905,7 +906,7 @@ public class TestBackgroundHiveSplitLoader
     public void testBuildManifestFileIteratorNestedDirectory()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), 1000, ImmutableList.of());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), ImmutableList.of());
         Properties schema = new Properties();
         schema.setProperty(FILE_INPUT_FORMAT, SymlinkTextInputFormat.class.getName());
         schema.setProperty(SERIALIZATION_LIB, AVRO.getSerde());
@@ -939,7 +940,7 @@ public class TestBackgroundHiveSplitLoader
     public void testMaxPartitions()
             throws Exception
     {
-        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), 0, ImmutableList.of());
+        CachingDirectoryLister directoryLister = new CachingDirectoryLister(new Duration(0, TimeUnit.MINUTES), DataSize.ofBytes(0), ImmutableList.of());
         // zero partitions
         {
             BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(

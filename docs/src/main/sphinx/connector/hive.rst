@@ -247,12 +247,15 @@ Hive connector documentation.
               in schemas ``fruit`` and ``vegetable``
             * ``*`` to cache listings for all tables in all schemas
       -
-    * - ``hive.file-status-cache-size``
-      - Maximum total number of cached file status entries.
-      - 1,000,000
+    * - ``hive.file-status-cache.max-retained-size``
+      - Maximum retained size of cached file status entries.
+      - ``1GB``
     * - ``hive.file-status-cache-expire-time``
       - How long a cached directory listing is considered valid.
       - ``1m``
+    * - ``hive.per-transaction-file-status-cache.max-retained-size``
+      - Maximum retained size of cached file status entries per transaction
+      - ``100MB``
     * - ``hive.rcfile.time-zone``
       - Adjusts binary encoded timestamp values to a specific time zone. For
         Hive 3.1+, this must be set to UTC.

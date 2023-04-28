@@ -23,11 +23,15 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoFileStatus
         implements Comparable<TrinoFileStatus>
 {
+    private static final long INSTANCE_SIZE = instanceSize(TrinoFileStatus.class);
+
     private final List<BlockLocation> blockLocations;
     private final String path;
     private final boolean isDirectory;
@@ -88,6 +92,13 @@ public class TrinoFileStatus
     public long getModificationTime()
     {
         return modificationTime;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(blockLocations, BlockLocation::getRetainedSizeInBytes)
+                + estimatedSizeOf(path);
     }
 
     @Override

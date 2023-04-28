@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
@@ -52,7 +54,7 @@ public class TestHiveConfig
                 .setSplitLoaderConcurrency(64)
                 .setMaxSplitsPerSecond(null)
                 .setDomainCompactionThreshold(100)
-                .setTargetMaxFileSize(DataSize.of(1, Unit.GIGABYTE))
+                .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setForceLocalScheduling(false)
                 .setMaxConcurrentFileSystemOperations(20)
                 .setMaxConcurrentMetastoreDrops(20)
@@ -95,9 +97,9 @@ public class TestHiveConfig
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
                 .setDelegateTransactionalManagedTableLocationToMetastore(false)
                 .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
-                .setFileStatusCacheMaxSize(1000 * 1000)
+                .setFileStatusCacheMaxRetainedSize(DataSize.of(1, GIGABYTE))
                 .setFileStatusCacheTables("")
-                .setPerTransactionFileStatusCacheMaximumSize(1000 * 1000)
+                .setPerTransactionFileStatusCacheMaxRetainedSize(DataSize.of(100, MEGABYTE))
                 .setTranslateHiveViews(false)
                 .setLegacyHiveViewTranslation(false)
                 .setHiveViewsRunAsInvoker(false)
@@ -181,9 +183,9 @@ public class TestHiveConfig
                 .put("hive.temporary-staging-directory-path", "updated")
                 .put("hive.delegate-transactional-managed-table-location-to-metastore", "true")
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
-                .put("hive.file-status-cache-size", "1000")
+                .put("hive.file-status-cache.max-retained-size", "1000B")
                 .put("hive.file-status-cache-expire-time", "30m")
-                .put("hive.per-transaction-file-status-cache-maximum-size", "42")
+                .put("hive.per-transaction-file-status-cache.max-retained-size", "42B")
                 .put("hive.hive-views.enabled", "true")
                 .put("hive.hive-views.legacy-translation", "true")
                 .put("hive.hive-views.run-as-invoker", "true")
@@ -264,9 +266,9 @@ public class TestHiveConfig
                 .setTemporaryStagingDirectoryPath("updated")
                 .setDelegateTransactionalManagedTableLocationToMetastore(true)
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
-                .setFileStatusCacheMaxSize(1000)
+                .setFileStatusCacheMaxRetainedSize(DataSize.ofBytes(1000))
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
-                .setPerTransactionFileStatusCacheMaximumSize(42)
+                .setPerTransactionFileStatusCacheMaxRetainedSize(DataSize.ofBytes(42))
                 .setTranslateHiveViews(true)
                 .setLegacyHiveViewTranslation(true)
                 .setHiveViewsRunAsInvoker(true)
