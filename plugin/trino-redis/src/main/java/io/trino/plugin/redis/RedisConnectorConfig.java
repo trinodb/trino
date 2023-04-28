@@ -46,7 +46,7 @@ public class RedisConnectorConfig
     private char redisKeyDelimiter = ':';
     private String redisUser;
     private String redisPassword;
-    private boolean useSsl = false;
+    private boolean useSsl;
     private Duration redisConnectTimeout = new Duration(2000, MILLISECONDS);
     private String defaultSchema = "default";
     private Set<String> tableNames = ImmutableSet.of();
