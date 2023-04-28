@@ -16,6 +16,7 @@ package io.trino.plugin.hive.fs;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
@@ -24,22 +25,22 @@ public class TransactionDirectoryListingCacheKey
     private static final long INSTANCE_SIZE = instanceSize(TransactionDirectoryListingCacheKey.class);
 
     private final long transactionId;
-    private final DirectoryListingCacheKey key;
+    private final String path;
 
-    public TransactionDirectoryListingCacheKey(long transactionId, DirectoryListingCacheKey key)
+    public TransactionDirectoryListingCacheKey(long transactionId, String path)
     {
         this.transactionId = transactionId;
-        this.key = requireNonNull(key, "key is null");
+        this.path = requireNonNull(path, "path is null");
     }
 
-    public DirectoryListingCacheKey getKey()
+    public String getPath()
     {
-        return key;
+        return path;
     }
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + key.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + estimatedSizeOf(path);
     }
 
     @Override
@@ -52,13 +53,13 @@ public class TransactionDirectoryListingCacheKey
             return false;
         }
         TransactionDirectoryListingCacheKey that = (TransactionDirectoryListingCacheKey) o;
-        return transactionId == that.transactionId && key.equals(that.key);
+        return transactionId == that.transactionId && path.equals(that.path);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(transactionId, key);
+        return Objects.hash(transactionId, path);
     }
 
     @Override
@@ -66,7 +67,7 @@ public class TransactionDirectoryListingCacheKey
     {
         return toStringHelper(this)
                 .add("transactionId", transactionId)
-                .add("key", key)
+                .add("path", path)
                 .toString();
     }
 }

@@ -186,7 +186,7 @@ public class HiveFileIterator
                     this.fileStatusIterator = directoryLister.listFilesRecursively(fileSystem, table, path);
                 }
                 else {
-                    this.fileStatusIterator = directoryLister.list(fileSystem, table, path);
+                    this.fileStatusIterator = new DirectoryListingFilter(path, directoryLister.listFilesRecursively(fileSystem, table, path));
                 }
             }
             catch (IOException e) {

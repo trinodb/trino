@@ -6331,14 +6331,6 @@ public abstract class AbstractTestHive
         private final AtomicInteger listCount = new AtomicInteger();
 
         @Override
-        public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
-                throws IOException
-        {
-            listCount.incrementAndGet();
-            return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
-        }
-
-        @Override
         public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
                 throws IOException
         {

@@ -37,10 +37,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static io.trino.plugin.hive.fs.DirectoryListingCacheKey.allKeysWithPath;
 import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
 
@@ -67,17 +65,10 @@ public class TransactionScopeCachingDirectoryLister
     }
 
     @Override
-    public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
-            throws IOException
-    {
-        return listInternal(fs, table, new TransactionDirectoryListingCacheKey(transactionId, new DirectoryListingCacheKey(path.toString(), false)));
-    }
-
-    @Override
     public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
             throws IOException
     {
-        return listInternal(fs, table, new TransactionDirectoryListingCacheKey(transactionId, new DirectoryListingCacheKey(path.toString(), true)));
+        return listInternal(fs, table, new TransactionDirectoryListingCacheKey(transactionId, path.toString()));
     }
 
     private RemoteIterator<TrinoFileStatus> listInternal(FileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
@@ -91,7 +82,7 @@ public class TransactionScopeCachingDirectoryLister
             Throwable throwable = e.getCause();
             throwIfInstanceOf(throwable, IOException.class);
             throwIfUnchecked(throwable);
-            throw new RuntimeException("Failed to list directory: " + cacheKey.getKey().getPath(), throwable);
+            throw new RuntimeException("Failed to list directory: " + cacheKey.getPath(), throwable);
         }
 
         if (cachedValueHolder.isFullyCached()) {
@@ -104,10 +95,7 @@ public class TransactionScopeCachingDirectoryLister
     private RemoteIterator<TrinoFileStatus> createListingRemoteIterator(FileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
             throws IOException
     {
-        if (cacheKey.getKey().isRecursiveFilesOnly()) {
-            return delegate.listFilesRecursively(fs, table, new Path(cacheKey.getKey().getPath()));
-        }
-        return delegate.list(fs, table, new Path(cacheKey.getKey().getPath()));
+        return delegate.listFilesRecursively(fs, table, new Path(cacheKey.getPath()));
     }
 
     @Override
@@ -115,9 +103,7 @@ public class TransactionScopeCachingDirectoryLister
     {
         if (isLocationPresent(table.getStorage())) {
             if (table.getPartitionColumns().isEmpty()) {
-                cache.invalidateAll(allKeysWithPath(new Path(table.getStorage().getLocation())).stream()
-                        .map(key -> new TransactionDirectoryListingCacheKey(transactionId, key))
-                        .collect(toImmutableList()));
+                cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, table.getStorage().getLocation()));
             }
             else {
                 // a partitioned table can have multiple paths in cache
@@ -131,9 +117,7 @@ public class TransactionScopeCachingDirectoryLister
     public void invalidate(Partition partition)
     {
         if (isLocationPresent(partition.getStorage())) {
-            cache.invalidateAll(allKeysWithPath(new Path(partition.getStorage().getLocation())).stream()
-                    .map(key -> new TransactionDirectoryListingCacheKey(transactionId, key))
-                    .collect(toImmutableList()));
+            cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, partition.getStorage().getLocation()));
         }
         delegate.invalidate(partition);
     }
@@ -177,7 +161,7 @@ public class TransactionScopeCachingDirectoryLister
     @VisibleForTesting
     boolean isCached(Path path)
     {
-        return isCached(new TransactionDirectoryListingCacheKey(transactionId, new DirectoryListingCacheKey(path.toString(), false)));
+        return isCached(new TransactionDirectoryListingCacheKey(transactionId, path.toString()));
     }
 
     @VisibleForTesting
