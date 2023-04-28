@@ -30,7 +30,6 @@ import io.trino.json.ir.IrExistsPredicate;
 import io.trino.json.ir.IrFilter;
 import io.trino.json.ir.IrFloorMethod;
 import io.trino.json.ir.IrIsUnknownPredicate;
-import io.trino.json.ir.IrJsonNull;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
@@ -63,6 +62,7 @@ import static io.trino.json.ir.IrComparisonPredicate.Operator.GREATER_THAN_OR_EQ
 import static io.trino.json.ir.IrComparisonPredicate.Operator.LESS_THAN;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.json.ir.IrComparisonPredicate.Operator.NOT_EQUAL;
+import static io.trino.json.ir.IrJsonNull.JSON_NULL;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 
 public class PathNodes
@@ -162,7 +162,7 @@ public class PathNodes
 
     public static IrPathNode jsonNull()
     {
-        return new IrJsonNull();
+        return JSON_NULL;
     }
 
     public static IrPathNode keyValue(IrPathNode base)
@@ -177,7 +177,7 @@ public class PathNodes
 
     public static IrPathNode literal(Type type, Object value)
     {
-        return new IrLiteral(type, value);
+        return new IrLiteral(Optional.of(type), value);
     }
 
     public static IrPathNode wildcardMemberAccessor(IrPathNode base)

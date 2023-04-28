@@ -13,40 +13,20 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import static java.util.Objects.requireNonNull;
 
-public class IrStartsWithPredicate
-        extends IrPredicate
+public record IrStartsWithPredicate(IrPathNode value, IrPathNode prefix)
+        implements IrPredicate
 {
-    private final IrPathNode value;
-    private final IrPathNode prefix;
-
-    @JsonCreator
-    public IrStartsWithPredicate(@JsonProperty("value") IrPathNode value, @JsonProperty("prefix") IrPathNode prefix)
+    public IrStartsWithPredicate
     {
-        super();
-        this.value = requireNonNull(value, "value is null");
-        this.prefix = requireNonNull(prefix, "prefix is null");
+        requireNonNull(value, "value is null");
+        requireNonNull(prefix, "prefix is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrStartsWithPredicate(this, context);
-    }
-
-    @JsonProperty
-    public IrPathNode getValue()
-    {
-        return value;
-    }
-
-    @JsonProperty
-    public IrPathNode getPrefix()
-    {
-        return prefix;
     }
 }
