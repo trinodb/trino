@@ -23,8 +23,6 @@ import java.util.List;
 /**
  * Visitor to count number of tables scanned in the current fragment
  * (fragments separated by ExchangeNodes).
- * <p>
- * TODO: remove this class after we make colocated_join always true
  */
 public final class FragmentTableScanCounter
 {
