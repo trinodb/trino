@@ -13,43 +13,25 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IrDatetimeMethod
-        extends IrPathNode
+public record IrDatetimeMethod(IrPathNode base, Optional<String> format, Optional<Type> type)
+        implements IrPathNode
 {
-    private final IrPathNode base;
-    private final Optional<String> format; // this is a string literal
-
-    @JsonCreator
-    public IrDatetimeMethod(@JsonProperty("base") IrPathNode base, @JsonProperty("format") Optional<String> format, @JsonProperty("type") Optional<Type> type)
+    public IrDatetimeMethod
     {
-        super(type);
-        this.base = requireNonNull(base, "datetime() method base is null");
-        this.format = requireNonNull(format, "format is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(base, "datetime() method base is null");
+        requireNonNull(format, "format is null"); // this is a string literal
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrDatetimeMethod(this, context);
-    }
-
-    @JsonProperty
-    public IrPathNode getBase()
-    {
-        return base;
-    }
-
-    @JsonProperty
-    public Optional<String> getFormat()
-    {
-        return format;
     }
 }

@@ -13,32 +13,19 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import static java.util.Objects.requireNonNull;
 
-public class IrExistsPredicate
-        extends IrPredicate
+public record IrExistsPredicate(IrPathNode path)
+        implements IrPredicate
 {
-    private final IrPathNode path;
-
-    @JsonCreator
-    public IrExistsPredicate(@JsonProperty("path") IrPathNode path)
+    public IrExistsPredicate
     {
-        super();
-        this.path = requireNonNull(path, "path is null");
+        requireNonNull(path, "path is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrExistsPredicate(this, context);
-    }
-
-    @JsonProperty
-    public IrPathNode getPath()
-    {
-        return path;
     }
 }

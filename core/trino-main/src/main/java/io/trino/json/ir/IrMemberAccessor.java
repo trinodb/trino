@@ -13,45 +13,25 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IrMemberAccessor
-        extends IrPathNode
+public record IrMemberAccessor(IrPathNode base, Optional<String> key, Optional<Type> type)
+        implements IrPathNode
 {
-    private final IrPathNode base;
-
-    // object member key or Optional.empty for wildcard member accessor
-    private final Optional<String> key;
-
-    @JsonCreator
-    public IrMemberAccessor(@JsonProperty("base") IrPathNode base, @JsonProperty("key") Optional<String> key, @JsonProperty("type") Optional<Type> type)
+    public IrMemberAccessor
     {
-        super(type);
-        this.base = requireNonNull(base, "member accessor base is null");
-        this.key = requireNonNull(key, "key is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(base, "member accessor base is null");
+        requireNonNull(key, "key is null"); // object member key or Optional.empty for wildcard member accessor
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrMemberAccessor(this, context);
-    }
-
-    @JsonProperty
-    public IrPathNode getBase()
-    {
-        return base;
-    }
-
-    @JsonProperty
-    public Optional<String> getKey()
-    {
-        return key;
     }
 }

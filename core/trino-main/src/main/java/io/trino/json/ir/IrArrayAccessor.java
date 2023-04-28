@@ -13,8 +13,7 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -22,62 +21,28 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IrArrayAccessor
-        extends IrPathNode
+public record IrArrayAccessor(IrPathNode base, List<Subscript> subscripts, Optional<Type> type)
+        implements IrPathNode
 {
-    private final IrPathNode base;
-
-    // list of subscripts or empty list for wildcard array accessor
-    private final List<Subscript> subscripts;
-
-    @JsonCreator
-    public IrArrayAccessor(@JsonProperty("base") IrPathNode base, @JsonProperty("subscripts") List<Subscript> subscripts, @JsonProperty("type") Optional<Type> type)
+    public IrArrayAccessor(IrPathNode base, List<Subscript> subscripts, Optional<Type> type)
     {
-        super(type);
+        this.type = requireNonNull(type, "type is null");
         this.base = requireNonNull(base, "array accessor base is null");
-        this.subscripts = requireNonNull(subscripts, "subscripts is null");
+        this.subscripts = ImmutableList.copyOf(subscripts);
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrArrayAccessor(this, context);
     }
 
-    @JsonProperty
-    public IrPathNode getBase()
+    public record Subscript(IrPathNode from, Optional<IrPathNode> to)
     {
-        return base;
-    }
-
-    @JsonProperty
-    public List<Subscript> getSubscripts()
-    {
-        return subscripts;
-    }
-
-    public static class Subscript
-    {
-        private final IrPathNode from;
-        private final Optional<IrPathNode> to;
-
-        @JsonCreator
-        public Subscript(@JsonProperty("from") IrPathNode from, @JsonProperty("to") Optional<IrPathNode> to)
+        public Subscript
         {
-            this.from = requireNonNull(from, "from is null");
-            this.to = requireNonNull(to, "to is null");
-        }
-
-        @JsonProperty
-        public IrPathNode getFrom()
-        {
-            return from;
-        }
-
-        @JsonProperty
-        public Optional<IrPathNode> getTo()
-        {
-            return to;
+            requireNonNull(from, "from is null");
+            requireNonNull(to, "to is null");
         }
     }
 }

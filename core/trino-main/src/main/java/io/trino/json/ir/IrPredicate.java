@@ -13,21 +13,25 @@
  */
 package io.trino.json.ir;
 
+import io.trino.spi.type.Type;
+
 import java.util.Optional;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 
-public abstract class IrPredicate
+public sealed interface IrPredicate
         extends IrPathNode
+        permits IrComparisonPredicate, IrConjunctionPredicate, IrDisjunctionPredicate, IrExistsPredicate, IrIsUnknownPredicate, IrNegationPredicate, IrStartsWithPredicate
 {
-    IrPredicate()
+    @Override
+    default <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
-        super(Optional.of(BOOLEAN));
+        return visitor.visitIrPredicate(this, context);
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    default Optional<Type> type()
     {
-        return visitor.visitIrPredicate(this, context);
+        return Optional.of(BOOLEAN);
     }
 }
