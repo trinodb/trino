@@ -175,9 +175,11 @@ public class SplitSourceFactory
             }
 
             Constraint constraint = filterPredicate
-                    .map(predicate -> filterConjuncts(plannerContext.getMetadata(), predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
-                    .map(predicate -> new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate))
-                    .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here, so we set the summary to ALL.
+                    .map(predicate -> {
+                        predicate = filterConjuncts(plannerContext.getMetadata(), predicate, expression -> !DynamicFilters.isDynamicFilter(expression));
+                        LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate);
+                        return new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments());
+                    })
                     .orElse(alwaysTrue());
 
             // get dataSource for table
