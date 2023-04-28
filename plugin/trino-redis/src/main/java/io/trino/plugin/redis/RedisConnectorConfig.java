@@ -46,6 +46,7 @@ public class RedisConnectorConfig
     private char redisKeyDelimiter = ':';
     private String redisUser;
     private String redisPassword;
+    private boolean useSsl = false;
     private Duration redisConnectTimeout = new Duration(2000, MILLISECONDS);
     private String defaultSchema = "default";
     private Set<String> tableNames = ImmutableSet.of();
@@ -217,6 +218,20 @@ public class RedisConnectorConfig
     public RedisConnectorConfig setRedisPassword(String redisPassword)
     {
         this.redisPassword = redisPassword;
+        return this;
+    }
+
+    public boolean isUseSsl()
+    {
+        return useSsl;
+    }
+
+    @Config("redis.use-ssl")
+    @ConfigSecuritySensitive
+    @ConfigDescription("Whether or not SSL is enabled. Default is no")
+    public RedisConnectorConfig setUseSsl(boolean useSsl)
+    {
+        this.useSsl = useSsl;
         return this;
     }
 
