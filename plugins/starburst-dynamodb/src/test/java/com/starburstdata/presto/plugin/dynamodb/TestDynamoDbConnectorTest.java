@@ -59,6 +59,7 @@ public class TestDynamoDbConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_SET_COLUMN_TYPE:
             case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
             case SUPPORTS_DELETE:
             case SUPPORTS_ROW_LEVEL_DELETE:
             case SUPPORTS_CANCELLATION:
@@ -68,6 +69,8 @@ public class TestDynamoDbConnectorTest
             case SUPPORTS_TRUNCATE:
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_MERGE:
+            case SUPPORTS_UPDATE:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
