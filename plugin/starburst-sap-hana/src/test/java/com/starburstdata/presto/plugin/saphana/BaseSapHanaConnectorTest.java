@@ -43,6 +43,9 @@ public abstract class BaseSapHanaConnectorTest
             case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
                 return false;
 
