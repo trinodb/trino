@@ -24,13 +24,6 @@ public class FileSystemDirectoryLister
         implements DirectoryLister
 {
     @Override
-    public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
-            throws IOException
-    {
-        return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
-    }
-
-    @Override
     public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
             throws IOException
     {

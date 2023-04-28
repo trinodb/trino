@@ -56,7 +56,7 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
     @Override
     protected boolean isCached(CachingDirectoryLister directoryLister, Path path)
     {
-        return directoryLister.isCached(new DirectoryListingCacheKey(path.toString(), true));
+        return directoryLister.isCached(path);
     }
 
     @Test

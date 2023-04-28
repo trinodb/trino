@@ -23,9 +23,6 @@ import java.io.IOException;
 public interface DirectoryLister
         extends TableInvalidationCallback
 {
-    RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
-            throws IOException;
-
     RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
             throws IOException;
 }
