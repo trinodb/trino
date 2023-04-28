@@ -15,6 +15,7 @@ package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.Table;
@@ -25,6 +26,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.NoSuchElementException;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static java.lang.String.format;
@@ -39,7 +41,7 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
     @Override
     protected CachingDirectoryLister createDirectoryLister()
     {
-        return new CachingDirectoryLister(Duration.valueOf("5m"), 1_000_000L, List.of("tpch.*"));
+        return new CachingDirectoryLister(Duration.valueOf("5m"), DataSize.of(1, MEGABYTE), List.of("tpch.*"));
     }
 
     @Override

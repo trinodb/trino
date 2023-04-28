@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -32,6 +34,8 @@ import static java.util.Objects.requireNonNull;
  */
 final class DirectoryListingCacheKey
 {
+    private static final long INSTANCE_SIZE = instanceSize(DirectoryListingCacheKey.class);
+
     private final String path;
     private final int hashCode; // precomputed hashCode
     private final boolean recursiveFilesOnly;
@@ -51,6 +55,11 @@ final class DirectoryListingCacheKey
     public boolean isRecursiveFilesOnly()
     {
         return recursiveFilesOnly;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(path);
     }
 
     @Override

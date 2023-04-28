@@ -53,6 +53,7 @@ public final class EvictableCacheBuilder<K, V>
     private Optional<Duration> refreshAfterWrite = Optional.empty();
     private Optional<Long> maximumSize = Optional.empty();
     private Optional<Long> maximumWeight = Optional.empty();
+    private Optional<Integer> concurrencyLevel = Optional.empty();
     private Optional<Weigher<? super Token<K>, ? super V>> weigher = Optional.empty();
     private boolean recordStats;
     private Optional<DisabledCacheImplementation> disabledCacheImplementation = Optional.empty();
@@ -112,6 +113,14 @@ public final class EvictableCacheBuilder<K, V>
         checkState(!this.maximumWeight.isPresent(), "maximumWeight already set");
         checkState(!this.maximumSize.isPresent(), "maximumSize already set");
         this.maximumWeight = Optional.of(maximumWeight);
+        return this;
+    }
+
+    @CanIgnoreReturnValue
+    public EvictableCacheBuilder<K, V> concurrencyLevel(int concurrencyLevel)
+    {
+        checkState(!this.concurrencyLevel.isPresent(), "concurrencyLevel already set");
+        this.concurrencyLevel = Optional.of(concurrencyLevel);
         return this;
     }
 
@@ -205,6 +214,7 @@ public final class EvictableCacheBuilder<K, V>
         maximumSize.ifPresent(cacheBuilder::maximumSize);
         maximumWeight.ifPresent(cacheBuilder::maximumWeight);
         weigher.ifPresent(cacheBuilder::weigher);
+        concurrencyLevel.ifPresent(cacheBuilder::concurrencyLevel);
         if (recordStats) {
             cacheBuilder.recordStats();
         }

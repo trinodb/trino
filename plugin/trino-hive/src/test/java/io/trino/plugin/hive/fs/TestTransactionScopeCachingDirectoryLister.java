@@ -15,6 +15,7 @@ package io.trino.plugin.hive.fs;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,7 +73,7 @@ public class TestTransactionScopeCachingDirectoryLister
     @Override
     protected TransactionScopeCachingDirectoryLister createDirectoryLister()
     {
-        return new TransactionScopeCachingDirectoryLister(new FileSystemDirectoryLister(), 1_000_000L);
+        return new TransactionScopeCachingDirectoryLister(new FileSystemDirectoryLister(), DataSize.of(1, MEGABYTE));
     }
 
     @Override
@@ -96,7 +98,9 @@ public class TestTransactionScopeCachingDirectoryLister
                         path1, ImmutableList.of(firstFile, secondFile),
                         path2, ImmutableList.of(thirdFile)));
 
-        TransactionScopeCachingDirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, 2);
+        // Set concurrencyLevel to 1 as EvictableCache with higher concurrencyLimit is not deterministic
+        // due to Token being a key in segmented cache.
+        TransactionScopeCachingDirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, DataSize.ofBytes(500), Optional.of(1));
 
         assertFiles(cachingLister.list(null, TABLE, path2), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
@@ -134,7 +138,7 @@ public class TestTransactionScopeCachingDirectoryLister
         Path path = new Path("x");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(ImmutableMap.of(path, ImmutableList.of(file)));
-        DirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, 1);
+        DirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, DataSize.ofBytes(500));
 
         // start listing path concurrently
         countingLister.setThrowException(true);

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.HiveConfig;
@@ -40,7 +41,11 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class CachingDirectoryLister
@@ -54,14 +59,14 @@ public class CachingDirectoryLister
     @Inject
     public CachingDirectoryLister(HiveConfig hiveClientConfig)
     {
-        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxSize(), hiveClientConfig.getFileStatusCacheTables());
+        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxRetainedSize(), hiveClientConfig.getFileStatusCacheTables());
     }
 
-    public CachingDirectoryLister(Duration expireAfterWrite, long maxSize, List<String> tables)
+    public CachingDirectoryLister(Duration expireAfterWrite, DataSize maxSize, List<String> tables)
     {
         this.cache = EvictableCacheBuilder.newBuilder()
-                .maximumWeight(maxSize)
-                .weigher((Weigher<DirectoryListingCacheKey, ValueHolder>) (key, value) -> value.files.map(List::size).orElse(1))
+                .maximumWeight(maxSize.toBytes())
+                .weigher((Weigher<DirectoryListingCacheKey, ValueHolder>) (key, value) -> toIntExact(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .recordStats()
@@ -247,6 +252,8 @@ public class CachingDirectoryLister
      */
     private static class ValueHolder
     {
+        private static final long INSTANCE_SIZE = instanceSize(ValueHolder.class);
+
         private final Optional<List<TrinoFileStatus>> files;
 
         public ValueHolder()
@@ -262,6 +269,11 @@ public class CachingDirectoryLister
         public Optional<List<TrinoFileStatus>> getFiles()
         {
             return files;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(files, value -> estimatedSizeOf(value, TrinoFileStatus::getRetainedSizeInBytes));
         }
     }
 }
