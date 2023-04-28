@@ -19,7 +19,6 @@ import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.hadoop.PathWithBootstrapFileStatus;
 
@@ -75,15 +74,14 @@ public class HudiSplitFactory
             throw new IOException("Not a file: " + fileStatus.path());
         }
 
-        Path path = fileStatus.path();
         long length = fileStatus.length();
 
         if (length == 0) {
-            return ImmutableList.of(new FileSplit(path, 0, 0, new String[0]));
+            return ImmutableList.of(new FileSplit(fileStatus.path(), 0, 0, new String[0]));
         }
 
-        if (!isSplitable(path)) {
-            return ImmutableList.of(new FileSplit(path, 0, length, (String[]) null));
+        if (fileStatus.path() instanceof PathWithBootstrapFileStatus) {
+            return ImmutableList.of(new FileSplit(fileStatus.path(), 0, length, (String[]) null));
         }
 
         ImmutableList.Builder<FileSplit> splits = ImmutableList.builder();
@@ -91,17 +89,12 @@ public class HudiSplitFactory
 
         long bytesRemaining = length;
         while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
-            splits.add(new FileSplit(path, length - bytesRemaining, splitSize, (String[]) null));
+            splits.add(new FileSplit(fileStatus.path(), length - bytesRemaining, splitSize, (String[]) null));
             bytesRemaining -= splitSize;
         }
         if (bytesRemaining != 0) {
-            splits.add(new FileSplit(path, length - bytesRemaining, bytesRemaining, (String[]) null));
+            splits.add(new FileSplit(fileStatus.path(), length - bytesRemaining, bytesRemaining, (String[]) null));
         }
         return splits.build();
-    }
-
-    private static boolean isSplitable(Path filename)
-    {
-        return !(filename instanceof PathWithBootstrapFileStatus);
     }
 }

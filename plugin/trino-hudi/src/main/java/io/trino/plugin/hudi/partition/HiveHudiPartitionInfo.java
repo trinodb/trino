@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi.partition;
 
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.metastore.Column;
@@ -21,8 +22,6 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.exception.HoodieIOException;
 
 import java.util.Collections;
@@ -108,10 +107,33 @@ public class HiveHudiPartitionInfo
         if (partition.isEmpty()) {
             throw new HoodieIOException(format("Cannot find partition in Hive Metastore: %s", hivePartitionName));
         }
-        this.relativePartitionPath = FSUtils.getRelativePartitionPath(
-                new Path(table.getStorage().getLocation()),
-                new Path(partition.get().getStorage().getLocation()));
+        this.relativePartitionPath = getRelativePartitionPath(
+                Location.parse(table.getStorage().getLocation()),
+                Location.parse(partition.get().getStorage().getLocation()));
         this.hivePartitionKeys = buildPartitionKeys(partitionColumns, partition.get().getValues());
+    }
+
+    /*
+     * Given a base partition and a partition path, return relative path of partition path to the base path.
+     * This is equivalent to org.apache.hudi.common.fs.FSUtils#getRelativePartitionPath
+     */
+    private static String getRelativePartitionPath(Location baseLocation, Location fullPartitionLocation)
+    {
+        String basePath = baseLocation.path();
+        String fullPartitionPath = fullPartitionLocation.path();
+
+        if (!fullPartitionPath.startsWith(basePath)) {
+            throw new IllegalArgumentException("Partition path does not belong to base-path");
+        }
+
+        String baseLocationParent = baseLocation.parentDirectory().path();
+        String baseLocationName = baseLocation.fileName();
+        int partitionStartIndex = fullPartitionPath.indexOf(
+                baseLocationName,
+                baseLocationParent == null ? 0 : baseLocationParent.length());
+        // Partition-Path could be empty for non-partitioned tables
+        boolean isNonPartitionedTable = partitionStartIndex + baseLocationName.length() == fullPartitionPath.length();
+        return isNonPartitionedTable ? "" : fullPartitionPath.substring(partitionStartIndex + baseLocationName.length() + 1);
     }
 
     @Override
