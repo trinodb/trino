@@ -39,7 +39,6 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.model.HoodieTableType;
 
@@ -122,11 +121,11 @@ public class HudiMetadata
     @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        return getRawSystemTable(session, tableName)
+        return getRawSystemTable(tableName)
                 .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
     }
 
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
+    private Optional<SystemTable> getRawSystemTable(SchemaTableName tableName)
     {
         HudiTableName name = HudiTableName.from(tableName.getTableName());
         if (name.getTableType() == TableType.DATA) {
@@ -142,8 +141,7 @@ public class HudiMetadata
                 break;
             case TIMELINE:
                 SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
-                Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(tableOptional.get().getStorage().getLocation()));
-                return Optional.of(new TimelineTable(configuration, systemTableName, tableOptional.get()));
+                return Optional.of(new TimelineTable(hdfsEnvironment, systemTableName, tableOptional.get()));
         }
         return Optional.empty();
     }
