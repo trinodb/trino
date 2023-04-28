@@ -14,6 +14,7 @@
 package io.trino.spi.ptf;
 
 import io.trino.spi.Experimental;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -47,5 +48,5 @@ public interface ConnectorTableFunction
      *
      * @param arguments actual invocation arguments, mapped by argument names
      */
-    TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments);
+    TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments, ConnectorAccessControl accessControl);
 }
