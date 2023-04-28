@@ -16,6 +16,8 @@ package io.trino.plugin.hudi.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
@@ -35,6 +37,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.bootstrap.index.NoOpBootstrapIndex;
@@ -72,6 +75,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -91,6 +95,7 @@ public class TpchHudiTablesInitializer
             new Column("_hoodie_record_key", HIVE_STRING, Optional.empty()),
             new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty()),
             new Column("_hoodie_file_name", HIVE_STRING, Optional.empty()));
+    private static final HdfsContext CONTEXT = new HdfsContext(SESSION);
 
     private final HoodieTableType tableType;
     private final List<TpchTable<?>> tpchTables;
@@ -107,12 +112,12 @@ public class TpchHudiTablesInitializer
             HiveMetastore metastore,
             String schemaName,
             String dataDir,
-            Configuration conf)
+            HdfsEnvironment hdfsEnvironment)
     {
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog(TPCH_TINY.getCatalogName(), "tpch", ImmutableMap.of());
         for (TpchTable<?> table : tpchTables) {
-            load(table, queryRunner, metastore, schemaName, dataDir, conf);
+            load(table, queryRunner, metastore, schemaName, dataDir, hdfsEnvironment);
         }
     }
 
@@ -122,9 +127,9 @@ public class TpchHudiTablesInitializer
             HiveMetastore metastore,
             String schemaName,
             String basePath,
-            Configuration conf)
+            HdfsEnvironment hdfsEnvironment)
     {
-        try (HoodieJavaWriteClient<HoodieAvroPayload> writeClient = createWriteClient(tpchTables, basePath, conf)) {
+        try (HoodieJavaWriteClient<HoodieAvroPayload> writeClient = createWriteClient(tpchTables, basePath, hdfsEnvironment)) {
             RecordConverter recordConverter = createRecordConverter(tpchTables);
 
             @Language("SQL") String sql = generateScanSql(TPCH_TINY, tpchTables);
@@ -180,11 +185,12 @@ public class TpchHudiTablesInitializer
                 .build();
     }
 
-    private HoodieJavaWriteClient<HoodieAvroPayload> createWriteClient(TpchTable<?> table, String basePath, Configuration conf)
+    private HoodieJavaWriteClient<HoodieAvroPayload> createWriteClient(TpchTable<?> table, String basePath, HdfsEnvironment hdfsEnvironment)
     {
         String tableName = table.getTableName();
         String tablePath = getTablePath(table, basePath);
         Schema schema = createAvroSchema(table);
+        Configuration conf = hdfsEnvironment.getConfiguration(CONTEXT, new Path(tablePath));
 
         try {
             HoodieTableMetaClient.withPropertyBuilder()

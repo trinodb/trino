@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -25,7 +26,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 
@@ -43,10 +43,10 @@ public class TimelineTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final List<Type> types;
-    private final Configuration configuration;
+    private final HdfsEnvironment hdfsEnvironment;
     private final String location;
 
-    public TimelineTable(Configuration configuration, SchemaTableName tableName, Table hudiTable)
+    public TimelineTable(HdfsEnvironment hdfsEnvironment, SchemaTableName tableName, Table hudiTable)
     {
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
@@ -55,7 +55,7 @@ public class TimelineTable
                         .add(new ColumnMetadata("state", VARCHAR))
                         .build());
         this.types = tableMetadata.getColumns().stream().map(ColumnMetadata::getType).collect(toImmutableList());
-        this.configuration = requireNonNull(configuration, "configuration is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.location = requireNonNull(hudiTable.getStorage().getLocation(), "location is null");
     }
 
@@ -74,7 +74,7 @@ public class TimelineTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        HoodieTableMetaClient metaClient = buildTableMetaClient(configuration, location);
+        HoodieTableMetaClient metaClient = buildTableMetaClient(hdfsEnvironment, session, location);
         Iterable<List<Object>> records = () -> metaClient.getCommitsTimeline().getInstants().map(this::getRecord).iterator();
         return new InMemoryRecordSet(types, records).cursor();
     }
