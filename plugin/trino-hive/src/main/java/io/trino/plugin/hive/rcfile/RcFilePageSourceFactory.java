@@ -35,10 +35,10 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.MonitoredTrinoInputFile;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.fs.MonitoredInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -142,7 +142,7 @@ public class RcFilePageSourceFactory
         }
 
         TrinoFileSystem trinoFileSystem = new HdfsFileSystemFactory(hdfsEnvironment).create(session.getIdentity());
-        TrinoInputFile inputFile = new MonitoredTrinoInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
+        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
         try {
             length = min(inputFile.length() - start, length);
             if (!inputFile.exists()) {
