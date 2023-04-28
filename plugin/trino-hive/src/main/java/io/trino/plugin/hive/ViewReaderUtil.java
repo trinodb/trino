@@ -150,8 +150,14 @@ public final class ViewReaderUtil
         return tableType.equals(VIRTUAL_VIEW.name());
     }
 
+    public static boolean isTrinoMaterializedView(Table table)
+    {
+        return isTrinoMaterializedView(table.getTableType(), table.getParameters());
+    }
+
     public static boolean isTrinoMaterializedView(String tableType, Map<String, String> tableParameters)
     {
+        // TODO isHiveOrPrestoView should not return true for materialized views
         return isHiveOrPrestoView(tableType) && isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
     }
 
