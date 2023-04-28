@@ -59,8 +59,8 @@ Property name                              Description
 ``mongodb.connection-timeout``             The socket connect timeout
 ``mongodb.socket-timeout``                 The socket timeout
 ``mongodb.tls.enabled``                    Use TLS/SSL for connections to mongod/mongos
-``mongodb.tls.keystore-path``              Path to the PEM or JKS key store
-``mongodb.tls.truststore-path``            Path to the PEM or JKS trust store
+``mongodb.tls.keystore-path``              Path to the  or JKS key store
+``mongodb.tls.truststore-path``            Path to the  or JKS trust store
 ``mongodb.tls.keystore-password``          Password for the key store
 ``mongodb.tls.truststore-password``        Password for the trust store
 ``mongodb.read-preference``                The read preference
@@ -160,14 +160,16 @@ This property is optional; the default is ``false``.
 ``mongodb.tls.keystore-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The path to the PEM or JKS key store. This file must be readable by the operating system user running Trino.
+The path to the :doc:`PEM </security/inspect-pem>` or
+:doc:`JKS </security/inspect-jks>` key store.
 
 This property is optional.
 
 ``mongodb.tls.truststore-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The path to PEM or JKS trust store. This file must be readable by the operating system user running Trino.
+The path to :doc:`PEM </security/inspect-pem>` or
+:doc:`JKS </security/inspect-jks>` trust store.
 
 This property is optional.
 
