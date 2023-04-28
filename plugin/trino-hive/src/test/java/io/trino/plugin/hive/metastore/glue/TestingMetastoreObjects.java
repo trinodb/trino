@@ -32,6 +32,9 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
+import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static java.lang.String.format;
 
 public final class TestingMetastoreObjects
@@ -61,6 +64,20 @@ public final class TestingMetastoreObjects
                 .withTableType(TableType.EXTERNAL_TABLE.name())
                 .withViewOriginalText("originalText")
                 .withViewExpandedText("expandedText");
+    }
+
+    public static Table getGlueTestTrinoMaterializedView(String dbName)
+    {
+        return new Table()
+                .withDatabaseName(dbName)
+                .withName("test-mv" + generateRandom())
+                .withOwner("owner")
+                .withParameters(ImmutableMap.of(PRESTO_VIEW_FLAG, "true", TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT))
+                .withPartitionKeys()
+                .withStorageDescriptor(null)
+                .withTableType(TableType.VIRTUAL_VIEW.name())
+                .withViewOriginalText("/* %s: base64encodedquery */".formatted(ICEBERG_MATERIALIZED_VIEW_COMMENT))
+                .withViewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT);
     }
 
     public static Column getGlueTestColumn()

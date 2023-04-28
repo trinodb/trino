@@ -150,12 +150,6 @@ public final class ViewReaderUtil
         return isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
     }
 
-    public static boolean canDecodeView(Table table)
-    {
-        // we can decode Hive or Presto view
-        return table.getTableType().equals(VIRTUAL_VIEW.name());
-    }
-
     public static boolean isViewOrMaterializedView(Table table)
     {
         return isViewOrMaterializedView(table.getTableType());
