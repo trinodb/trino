@@ -1,8 +1,9 @@
-# Release 415 (26 Apr 2023)
+# Release 415 (28 Apr 2023)
 
 ## General
 
 * Improve performance of aggregations with variable file sizes. ({issue}`11361`)
+* Perform missing permission checks for table arguments to table functions. ({issue}`17279`)
 
 ## Web UI
 
