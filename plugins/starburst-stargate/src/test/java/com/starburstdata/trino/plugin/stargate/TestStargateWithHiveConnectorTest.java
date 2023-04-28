@@ -60,6 +60,12 @@ public class TestStargateWithHiveConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return true;
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_MERGE:
+            case SUPPORTS_UPDATE:
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_INSERT:

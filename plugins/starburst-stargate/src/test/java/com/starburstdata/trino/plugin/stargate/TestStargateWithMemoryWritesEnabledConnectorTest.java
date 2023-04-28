@@ -68,6 +68,8 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
 
             case SUPPORTS_TRUNCATE:
                 return false;
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);

@@ -305,6 +305,15 @@ public class StargateClient
     }
 
     @Override
+    public void truncateTable(ConnectorSession session, JdbcTableHandle handle)
+    {
+        if (!enableWrites) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support truncating tables");
+        }
+        super.truncateTable(session, handle);
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         if (!enableWrites) {
