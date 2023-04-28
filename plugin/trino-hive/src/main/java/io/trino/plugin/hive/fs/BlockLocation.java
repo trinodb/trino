@@ -27,11 +27,15 @@ import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 
 public class BlockLocation
 {
+    private static final long INSTANCE_SIZE = instanceSize(BlockLocation.class);
+
     /**
      * Number of hosts will be low compared to potential number of splits. Host
      * set will also be limited and slowly changing even in most extreme cases.
@@ -91,6 +95,12 @@ public class BlockLocation
     public long getLength()
     {
         return length;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        // host names are interned (shared)
+        return INSTANCE_SIZE + sizeOfObjectArray(hosts.size());
     }
 
     @Override

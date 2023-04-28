@@ -200,6 +200,7 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.parquet.reader.ParquetReader.PARQUET_CODEC_METRIC_PREFIX;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.COMMIT;
 import static io.trino.plugin.hive.AbstractTestHive.TransactionDeleteInsertTestTag.ROLLBACK_AFTER_APPEND_PAGE;
@@ -887,7 +888,7 @@ public abstract class AbstractTestHive
                 },
                 SqlStandardAccessControlMetadata::new,
                 countingDirectoryLister,
-                1000,
+                DataSize.of(1, MEGABYTE),
                 new PartitionProjectionService(hiveConfig, ImmutableMap.of(), new TestingTypeManager()),
                 true,
                 HiveTimestampPrecision.DEFAULT_PRECISION);

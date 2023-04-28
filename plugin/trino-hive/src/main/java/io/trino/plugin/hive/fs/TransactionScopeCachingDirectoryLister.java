@@ -16,6 +16,7 @@ package io.trino.plugin.hive.fs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.units.DataSize;
 import io.trino.collect.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Storage;
@@ -33,11 +34,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
 
@@ -55,11 +60,18 @@ public class TransactionScopeCachingDirectoryLister
     private final Cache<DirectoryListingCacheKey, FetchingValueHolder> cache;
     private final DirectoryLister delegate;
 
-    public TransactionScopeCachingDirectoryLister(DirectoryLister delegate, long maxFileStatuses)
+    public TransactionScopeCachingDirectoryLister(DirectoryLister delegate, DataSize maxSize)
+    {
+        this(delegate, maxSize, Optional.empty());
+    }
+
+    @VisibleForTesting
+    TransactionScopeCachingDirectoryLister(DirectoryLister delegate, DataSize maxSize, Optional<Integer> concurrencyLevel)
     {
         EvictableCacheBuilder<DirectoryListingCacheKey, FetchingValueHolder> cacheBuilder = EvictableCacheBuilder.newBuilder()
-                .maximumWeight(maxFileStatuses)
-                .weigher((key, value) -> value.getCachedFilesSize());
+                .maximumWeight(maxSize.toBytes())
+                .weigher((key, value) -> toIntExact(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()));
+        concurrencyLevel.ifPresent(cacheBuilder::concurrencyLevel);
         this.cache = cacheBuilder.build();
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
@@ -189,7 +201,11 @@ public class TransactionScopeCachingDirectoryLister
 
     private static class FetchingValueHolder
     {
+        private static final long ATOMIC_LONG_SIZE = instanceSize(AtomicLong.class);
+        private static final long INSTANCE_SIZE = instanceSize(FetchingValueHolder.class);
+
         private final List<TrinoFileStatus> cachedFiles = synchronizedList(new ArrayList<>());
+        private final AtomicLong cachedFilesSize = new AtomicLong();
         @GuardedBy("this")
         @Nullable
         private RemoteIterator<TrinoFileStatus> fileIterator;
@@ -207,9 +223,10 @@ public class TransactionScopeCachingDirectoryLister
             return fileIterator == null && exception == null;
         }
 
-        public int getCachedFilesSize()
+        public long getRetainedSizeInBytes()
         {
-            return cachedFiles.size();
+            // ignore fileIterator and exception as they are ephemeral
+            return INSTANCE_SIZE + ATOMIC_LONG_SIZE + sizeOfObjectArray(cachedFiles.size()) + cachedFilesSize.get();
         }
 
         public Iterator<TrinoFileStatus> getCachedFiles()
@@ -253,6 +270,7 @@ public class TransactionScopeCachingDirectoryLister
 
                 TrinoFileStatus fileStatus = fileIterator.next();
                 cachedFiles.add(fileStatus);
+                cachedFilesSize.addAndGet(fileStatus.getRetainedSizeInBytes());
                 return Optional.of(fileStatus);
             }
             catch (Exception exception) {
