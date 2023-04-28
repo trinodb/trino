@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.ptf.AbstractConnectorTableFunction;
@@ -86,7 +87,11 @@ public class ExcludeColumns
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             DescriptorArgument excludedColumns = (DescriptorArgument) arguments.get(DESCRIPTOR_ARGUMENT_NAME);
             if (excludedColumns.equals(NULL_DESCRIPTOR)) {

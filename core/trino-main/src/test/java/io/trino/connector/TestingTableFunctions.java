@@ -16,12 +16,14 @@ package io.trino.connector;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -119,13 +121,19 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument argument = (ScalarArgument) arguments.get("COLUMN");
             String columnName = ((Slice) argument.getValue()).toStringUtf8();
 
+            String schema = getSchema();
+
             return TableFunctionAnalysis.builder()
-                    .handle(new SimpleTableFunctionHandle(getSchema(), TABLE_NAME, columnName))
+                    .handle(new SimpleTableFunctionHandle(schema, TABLE_NAME, columnName))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(columnName, Optional.of(BOOLEAN)))))
                     .build();
         }
@@ -134,6 +142,7 @@ public class TestingTableFunctions
                 implements ConnectorTableFunctionHandle
         {
             private final MockConnectorTableHandle tableHandle;
+            private final String columnName;
 
             public SimpleTableFunctionHandle(String schema, String table, String column)
             {
@@ -141,12 +150,43 @@ public class TestingTableFunctions
                         new SchemaTableName(schema, table),
                         TupleDomain.all(),
                         Optional.of(ImmutableList.of(new MockConnectorColumnHandle(column, BOOLEAN))));
+                this.columnName = requireNonNull(column, "column is null");
             }
 
             public MockConnectorTableHandle getTableHandle()
             {
                 return tableHandle;
             }
+
+            public String getColumnName()
+            {
+                return columnName;
+            }
+        }
+    }
+
+    /**
+     * A table function returning a table with single empty column of type BOOLEAN.
+     * The argument `COLUMN` is the column name.
+     * The argument `IGNORED` is ignored.
+     * Both arguments are optional.
+     * Performs access control checks
+     */
+    public static class SimpleTableFunctionWithAccessControl
+            extends SimpleTableFunction
+    {
+        @Override
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
+        {
+            TableFunctionAnalysis analyzeResult = super.analyze(session, transaction, arguments, accessControl);
+            SimpleTableFunction.SimpleTableFunctionHandle handle = (SimpleTableFunction.SimpleTableFunctionHandle) analyzeResult.getHandle();
+            accessControl.checkCanSelectFromColumns(null, handle.getTableHandle().getTableName(), ImmutableSet.of(handle.getColumnName()));
+
+            return analyzeResult;
         }
     }
 
@@ -172,7 +212,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return ANALYSIS;
         }
@@ -197,7 +241,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -226,7 +274,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -253,7 +305,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return ANALYSIS;
         }
@@ -282,7 +338,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -311,7 +371,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -332,7 +396,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
@@ -358,7 +426,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -383,7 +455,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -425,7 +501,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -456,7 +536,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -506,7 +590,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             List<RowType.Field> inputColumns = ((TableArgument) arguments.get("INPUT")).getRowType().getFields();
             Descriptor returnedType = new Descriptor(inputColumns.stream()
@@ -556,7 +644,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -621,7 +713,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument count = (ScalarArgument) arguments.get("N");
             requireNonNull(count.getValue(), "count value for function repeat() is null");
@@ -737,7 +833,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -791,7 +891,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -860,7 +964,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -919,7 +1027,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -1015,7 +1127,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -1075,7 +1191,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
@@ -1127,7 +1247,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument count = (ScalarArgument) arguments.get("N");
             requireNonNull(count.getValue(), "count value for function repeat() is null");
@@ -1286,7 +1410,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))

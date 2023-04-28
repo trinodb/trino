@@ -24,6 +24,7 @@ import io.trino.plugin.bigquery.BigQueryClientFactory;
 import io.trino.plugin.bigquery.BigQueryColumnHandle;
 import io.trino.plugin.bigquery.BigQueryQueryRelationHandle;
 import io.trino.plugin.bigquery.BigQueryTableHandle;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -91,7 +92,11 @@ public class Query
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument argument = (ScalarArgument) getOnlyElement(arguments.values());
             String query = ((Slice) argument.getValue()).toStringUtf8();

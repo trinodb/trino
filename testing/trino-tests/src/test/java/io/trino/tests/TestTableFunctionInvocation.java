@@ -35,8 +35,8 @@ import io.trino.connector.TestingTableFunctions.PassThroughInputFunction.PassThr
 import io.trino.connector.TestingTableFunctions.RepeatFunction;
 import io.trino.connector.TestingTableFunctions.RepeatFunction.RepeatFunctionHandle;
 import io.trino.connector.TestingTableFunctions.RepeatFunction.RepeatFunctionProcessorProvider;
-import io.trino.connector.TestingTableFunctions.SimpleTableFunction;
 import io.trino.connector.TestingTableFunctions.SimpleTableFunction.SimpleTableFunctionHandle;
+import io.trino.connector.TestingTableFunctions.SimpleTableFunctionWithAccessControl;
 import io.trino.connector.TestingTableFunctions.TestInputFunction;
 import io.trino.connector.TestingTableFunctions.TestInputFunction.TestInputProcessorProvider;
 import io.trino.connector.TestingTableFunctions.TestInputsFunction;
@@ -61,6 +61,8 @@ import java.util.Optional;
 
 import static io.trino.connector.MockConnector.MockConnectorSplit.MOCK_CONNECTOR_SPLIT;
 import static io.trino.connector.TestingTableFunctions.ConstantFunction.getConstantFunctionSplitSource;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -89,7 +91,7 @@ public class TestTableFunctionInvocation
 
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(
-                        new SimpleTableFunction(),
+                        new SimpleTableFunctionWithAccessControl(),
                         new IdentityFunction(),
                         new IdentityPassThroughFunction(),
                         new RepeatFunction(),
@@ -162,6 +164,20 @@ public class TestTableFunctionInvocation
         // skip the `ignored` argument.
         assertThat(query("SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column'))"))
                 .matches("SELECT true WHERE false");
+    }
+
+    @Test
+    public void testAccessControl()
+    {
+        assertAccessDenied(
+                "SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column', ignored => 1))",
+                "Cannot select from columns .*",
+                privilege("simple_table.boolean_column", SELECT_COLUMN));
+
+        assertAccessDenied(
+                "SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column', ignored => 1))",
+                "Cannot select from columns .*",
+                privilege("simple_table", SELECT_COLUMN));
     }
 
     @Test
