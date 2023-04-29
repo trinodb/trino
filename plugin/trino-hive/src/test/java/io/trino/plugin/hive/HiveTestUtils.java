@@ -96,6 +96,7 @@ import java.util.UUID;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -321,16 +322,14 @@ public final class HiveTestUtils
             blockBuilder.closeEntry();
             return type.getObject(blockBuilder, 0);
         }
-        if (type instanceof RowType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            int field = 0;
-            for (Object subElement : (Iterable<?>) hiveValue) {
-                appendToBlockBuilder(type.getTypeParameters().get(field), subElement, subBlockBuilder);
-                field++;
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
+        if (type instanceof RowType rowType) {
+            return buildRowValue(rowType, fields -> {
+                int fieldIndex = 0;
+                for (Object subElement : (Iterable<?>) hiveValue) {
+                    appendToBlockBuilder(type.getTypeParameters().get(fieldIndex), subElement, fields.get(fieldIndex));
+                    fieldIndex++;
+                }
+            });
         }
         if (type instanceof MapType mapType) {
             Map<?, ?> hiveMap = (Map<?, ?>) hiveValue;

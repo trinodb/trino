@@ -31,7 +31,6 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.FunctionNullability;
@@ -133,6 +132,7 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -1444,13 +1444,11 @@ public class ExpressionInterpreter
             if (hasUnresolvedValue(values)) {
                 return new Row(toExpressions(values, parameterTypes));
             }
-            BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
-            BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-            for (int i = 0; i < cardinality; ++i) {
-                writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
-            }
-            blockBuilder.closeEntry();
-            return rowType.getObject(blockBuilder, 0);
+            return buildRowValue(rowType, fields -> {
+                for (int i = 0; i < cardinality; ++i) {
+                    writeNativeValue(parameterTypes.get(i), fields.get(i), values.get(i));
+                }
+            });
         }
 
         @Override
@@ -1483,17 +1481,15 @@ public class ExpressionInterpreter
                     .resolveFunction(session, QualifiedName.of(FormatFunction.NAME), TypeSignatureProvider.fromTypes(VARCHAR, rowType));
 
             // Construct a row with arguments [1..n] and invoke the underlying function
-            BlockBuilder rowBuilder = new RowBlockBuilder(argumentTypes, null, 1);
-            BlockBuilder singleRowBlockWriter = rowBuilder.beginBlockEntry();
-            for (int i = 0; i < arguments.size(); ++i) {
-                writeNativeValue(argumentTypes.get(i), singleRowBlockWriter, processedArguments.get(i));
-            }
-            rowBuilder.closeEntry();
-
+            Block row = buildRowValue(rowType, fields -> {
+                for (int i = 0; i < arguments.size(); ++i) {
+                    writeNativeValue(argumentTypes.get(i), fields.get(i), processedArguments.get(i));
+                }
+            });
             return functionInvoker.invoke(
                     function,
                     connectorSession,
-                    ImmutableList.of(format, rowType.getObject(rowBuilder, 0)));
+                    ImmutableList.of(format, row));
         }
 
         @Override
