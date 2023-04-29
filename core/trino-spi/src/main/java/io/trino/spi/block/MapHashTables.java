@@ -202,6 +202,57 @@ public final class MapHashTables
         this.hashTables = hashTables;
     }
 
+    /**
+     * This method checks whether {@code keyBlock} has duplicates based on type NOT DISTINCT FROM.
+     */
+    synchronized void buildDistinctHashTableStrict(Block keyBlock, int keyOffset, int keyCount)
+            throws DuplicateMapKeyException
+    {
+        int[] hashTables = this.hashTables;
+        if (hashTables == null) {
+            throw new IllegalStateException("hashTables not set");
+        }
+
+        int hashTableOffset = keyOffset * HASH_MULTIPLIER;
+        int hashTableSize = keyCount * HASH_MULTIPLIER;
+
+        for (int i = 0; i < keyCount; i++) {
+            int hash = getHashPosition(keyBlock, keyOffset + i, hashTableSize);
+            while (true) {
+                if (hashTables[hashTableOffset + hash] == -1) {
+                    hashTables[hashTableOffset + hash] = i;
+                    break;
+                }
+
+                if (keyBlock.isNull(keyOffset + i)) {
+                    throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+                }
+
+                boolean isDuplicateKey;
+                try {
+                    // assuming maps with indeterminate keys are not supported
+                    isDuplicateKey = (boolean) mapType.getKeyBlockNotDistinctFrom().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + hashTables[hashTableOffset + hash]);
+                }
+                catch (RuntimeException e) {
+                    throw e;
+                }
+                catch (Throwable throwable) {
+                    throw new RuntimeException(throwable);
+                }
+
+                if (isDuplicateKey) {
+                    throw new DuplicateMapKeyException(keyBlock, keyOffset + i);
+                }
+
+                hash++;
+                if (hash == hashTableSize) {
+                    hash = 0;
+                }
+            }
+        }
+        this.hashTables = hashTables;
+    }
+
     private int getHashPosition(Block keyBlock, int position, int hashTableSize)
     {
         if (keyBlock.isNull(position)) {
