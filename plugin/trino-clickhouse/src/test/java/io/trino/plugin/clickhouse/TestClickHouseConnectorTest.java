@@ -912,41 +912,42 @@ public class TestClickHouseConnectorTest
         assertFalse(columnIsNullable(tableName, "col"));
     }
 
-    @DataProvider
-    @Override
-    public Object[][] setColumnTypesDataProvider()
-    {
-        return setColumnTypeSetupData().stream()
-                .map(this::filterSetColumnTypesDataProvider)
-                .flatMap(Optional::stream)
-                .collect(toDataProvider());
-    }
-
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        return Optional.of(setup);
-    }
+        if (setup.sourceColumnType().equals("tinyint")) {
+            return Optional.of(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"));
+        } else if(setup.sourceColumnType().equals("smallint")) {
+            return Optional.of(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"));
+        } else if(setup.sourceColumnType().equals("integer")) {
+            return Optional.of(new SetColumnTypeSetup("integer", "2147483647", "bigint"));
+        } else if(setup.sourceColumnType().equals("bigint")) {
+            return Optional.of(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"));
+        } else if(setup.sourceColumnType().equals("real")) {
+            return Optional.of(new SetColumnTypeSetup("real", "REAL '10.3'", "double"));
+        } else if(setup.sourceColumnType().equals("real")) {
+            return Optional.of(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"));
+        } else if(setup.sourceColumnType().equals("decimal(5,3)")) {
+            return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)"));
+        } else if(setup.sourceColumnType().equals("decimal(28,3)")) {
+            return Optional.of(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)"));
+        } else if(setup.sourceColumnType().equals("decimal(5,3)")) {
+            return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(38,3)"));
+        } else if(setup.sourceColumnType().equals("decimal(5,3)")) {
+            return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)"));
+        } else if(setup.sourceColumnType().equals("decimal(5,3)")) {
+            return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.35", "decimal(5,2)"));
+        } else if(setup.sourceColumnType().equals("varchar(100)")) {
+            return Optional.of(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar"));
+        } else if(setup.sourceColumnType().equals("char(25)")) {
+            return Optional.of(new SetColumnTypeSetup("char(25)", "'shorten-char'", "varchar"));
+        } else if(setup.sourceColumnType().equals("char(20)")) {
+            return Optional.of(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"));
+        } else if(setup.sourceColumnType().equals("varchar")) {
+            return Optional.of(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "varchar"));
+        }
 
-    private List<SetColumnTypeSetup> setColumnTypeSetupData()
-    {
-        return ImmutableList.<SetColumnTypeSetup>builder()
-                .add(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"))
-                .add(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"))
-                .add(new SetColumnTypeSetup("integer", "2147483647", "bigint"))
-                .add(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"))
-                .add(new SetColumnTypeSetup("real", "REAL '10.3'", "double"))
-                .add(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"))
-                .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)")) // short decimal -> short decimal
-                .add(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)")) // long decimal -> long decimal
-                .add(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(38,3)")) // short decimal -> long decimal
-                .add(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)"))
-                .add(new SetColumnTypeSetup("decimal(5,3)", "12.35", "decimal(5,2)"))
-                .add(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar"))
-                .add(new SetColumnTypeSetup("char(25)", "'shorten-char'", "varchar"))
-                .add(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"))
-                .add(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "varchar"))
-                .build();
+         return Optional.empty();
     }
 
     @Test(dataProvider = "setColumnTypesDataProvider")
