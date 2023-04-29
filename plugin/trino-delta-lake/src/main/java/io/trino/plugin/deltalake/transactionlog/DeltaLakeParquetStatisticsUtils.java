@@ -18,9 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
-import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
@@ -60,6 +58,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -146,18 +145,15 @@ public class DeltaLakeParquetStatisticsUtils
         if (type instanceof RowType rowType) {
             Map<?, ?> values = (Map<?, ?>) jsonValue;
             List<Type> fieldTypes = rowType.getTypeParameters();
-            BlockBuilder blockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
-            BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-            for (int i = 0; i < values.size(); ++i) {
-                Type fieldType = fieldTypes.get(i);
-                String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
-                Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
-                writeNativeValue(fieldType, singleRowBlockWriter, fieldValue);
-            }
-            checkState(values.isEmpty(), "All fields must be converted into Trino value: %s", values);
-
-            blockBuilder.closeEntry();
-            return blockBuilder.build();
+            return buildRowValue(rowType, fields -> {
+                for (int i = 0; i < values.size(); ++i) {
+                    Type fieldType = fieldTypes.get(i);
+                    String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
+                    Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
+                    writeNativeValue(fieldType, fields.get(i), fieldValue);
+                }
+                checkState(values.isEmpty(), "All fields must be converted into Trino value: %s", values);
+            });
         }
 
         throw new UnsupportedOperationException("Unsupported type: " + type);

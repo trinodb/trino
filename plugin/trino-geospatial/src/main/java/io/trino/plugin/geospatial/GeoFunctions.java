@@ -48,7 +48,6 @@ import io.trino.geospatial.Rectangle;
 import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.geospatial.serde.GeometrySerializationType;
 import io.trino.geospatial.serde.JtsGeometrySerde;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -112,6 +111,7 @@ import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.StandardTypes.BIGINT;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
 import static io.trino.spi.type.StandardTypes.DOUBLE;
@@ -1201,18 +1201,13 @@ public final class GeoFunctions
         }
 
         RowType rowType = RowType.anonymous(ImmutableList.of(GEOMETRY, GEOMETRY));
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(rowType));
         GeometryFactory geometryFactory = leftGeometry.getFactory();
         Coordinate[] nearestCoordinates = DistanceOp.nearestPoints(leftGeometry, rightGeometry);
 
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder entryBlockBuilder = blockBuilder.beginBlockEntry();
-        GEOMETRY.writeSlice(entryBlockBuilder, JtsGeometrySerde.serialize(geometryFactory.createPoint(nearestCoordinates[0])));
-        GEOMETRY.writeSlice(entryBlockBuilder, JtsGeometrySerde.serialize(geometryFactory.createPoint(nearestCoordinates[1])));
-        blockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-
-        return rowType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+        return buildRowValue(rowType, fieldBuilders -> {
+            GEOMETRY.writeSlice(fieldBuilders.get(0), serialize(geometryFactory.createPoint(nearestCoordinates[0])));
+            GEOMETRY.writeSlice(fieldBuilders.get(1), serialize(geometryFactory.createPoint(nearestCoordinates[1])));
+        });
     }
 
     @SqlNullable
