@@ -32,6 +32,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 
@@ -118,14 +119,11 @@ public final class StructuralTestUtil
 
     public static Block rowBlockOf(List<Type> parameterTypes, Object... values)
     {
-        RowType rowType = RowType.anonymous(parameterTypes);
-        BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1);
-        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < values.length; i++) {
-            appendToBlockBuilder(parameterTypes.get(i), values[i], singleRowBlockWriter);
-        }
-        blockBuilder.closeEntry();
-        return rowType.getObject(blockBuilder, 0);
+        return buildRowValue(RowType.anonymous(parameterTypes), fields -> {
+            for (int i = 0; i < values.length; i++) {
+                appendToBlockBuilder(parameterTypes.get(i), values[i], fields.get(i));
+            }
+        });
     }
 
     public static Block decimalArrayBlockOf(DecimalType type, BigDecimal decimal)
