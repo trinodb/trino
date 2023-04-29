@@ -689,7 +689,6 @@ public class AddLocalExchanges
             return visitTableWriter(
                     node,
                     node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme(),
                     node.getSource(),
                     parentPreferences,
                     node.getTarget());
@@ -701,7 +700,6 @@ public class AddLocalExchanges
             return visitTableWriter(
                     node,
                     node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme(),
                     node.getSource(),
                     parentPreferences,
                     node.getTarget());
@@ -710,7 +708,6 @@ public class AddLocalExchanges
         private PlanWithProperties visitTableWriter(
                 PlanNode node,
                 Optional<PartitioningScheme> partitioningScheme,
-                Optional<PartitioningScheme> preferredPartitionScheme,
                 PlanNode source,
                 StreamPreferredProperties parentPreferences,
                 WriterTarget writerTarget)
@@ -718,8 +715,8 @@ public class AddLocalExchanges
             if (isTaskScaleWritersEnabled(session)
                     && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
                     && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)
-                    && (partitioningScheme.isPresent() || preferredPartitionScheme.isPresent())) {
-                return visitScalePartitionedWriter(node, partitioningScheme.orElseGet(preferredPartitionScheme::get), source);
+                    && partitioningScheme.isPresent()) {
+                return visitScalePartitionedWriter(node, partitioningScheme.get(), source);
             }
 
             return partitioningScheme
@@ -830,7 +827,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), Optional.empty(), node.getSource(), parentPreferences, node.getTarget());
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget());
         }
 
         //

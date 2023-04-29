@@ -36,6 +36,7 @@ booleanExpression
 // workaround for https://github.com/antlr/antlr4/issues/780
 predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression          #comparison
+    | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
     ;
 
 valueExpression
@@ -48,6 +49,7 @@ valueExpression
 primaryExpression
     : number                                            #numericLiteral
     | booleanValue                                      #booleanLiteral
+    | NULL                                              #nullLiteral
     | string                                            #stringLiteral
     | identifier                                        #columnReference
     ;
@@ -77,9 +79,11 @@ number
     ;
 
 AND: 'AND';
+BETWEEN: 'BETWEEN';
 OR: 'OR';
 FALSE: 'FALSE';
 TRUE: 'TRUE';
+NULL: 'NULL';
 
 EQ: '=';
 NEQ: '<>' | '!=';
@@ -87,6 +91,7 @@ LT: '<';
 LTE: '<=';
 GT: '>';
 GTE: '>=';
+NOT: 'NOT';
 
 PLUS: '+';
 MINUS: '-';

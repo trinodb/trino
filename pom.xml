@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>136</version>
+        <version>138</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>415-SNAPSHOT</version>
+    <version>416-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -49,7 +49,7 @@
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.11.1</dep.antlr.version>
-        <dep.airlift.version>229</dep.airlift.version>
+        <dep.airlift.version>230</dep.airlift.version>
         <dep.arrow.version>9.0.0</dep.arrow.version>
         <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
@@ -1068,7 +1068,7 @@
             <dependency>
                 <groupId>com.databricks</groupId>
                 <artifactId>databricks-jdbc</artifactId>
-                <version>2.6.29</version>
+                <version>2.6.32</version>
             </dependency>
 
             <dependency>
@@ -1165,7 +1165,7 @@
             <dependency>
                 <groupId>com.linkedin.calcite</groupId>
                 <artifactId>calcite-core</artifactId>
-                <version>1.21.0.160</version>
+                <version>1.21.0.259</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -2032,11 +2032,9 @@
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
                                     <include>org.yaml:snakeyaml:2.0</include>
-                                    <!-- allow in test scope (tempto and benchto are using old versions) -->
-                                    <include>org.yaml:snakeyaml:*:jar:test</include>
                                 </includes>
                             </bannedDependencies>
-                            <requireProfileIdsExist/>
+                            <requireProfileIdsExist />
                         </rules>
                     </configuration>
                     <dependencies>

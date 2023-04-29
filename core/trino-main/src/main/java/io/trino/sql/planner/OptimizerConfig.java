@@ -30,7 +30,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig("adaptive-partial-aggregation.min-rows")
+@DefunctConfig({"adaptive-partial-aggregation.min-rows", "preferred-write-partitioning-min-number-of-partitions"})
 public class OptimizerConfig
 {
     private double cpuCostWeight = 75;
@@ -57,7 +57,6 @@ public class OptimizerConfig
     private boolean distributedSort = true;
 
     private boolean usePreferredWritePartitioning = true;
-    private int preferredWritePartitioningMinNumberOfPartitions = 50;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -370,20 +369,6 @@ public class OptimizerConfig
     public OptimizerConfig setUsePreferredWritePartitioning(boolean usePreferredWritePartitioning)
     {
         this.usePreferredWritePartitioning = usePreferredWritePartitioning;
-        return this;
-    }
-
-    @Min(1)
-    public int getPreferredWritePartitioningMinNumberOfPartitions()
-    {
-        return preferredWritePartitioningMinNumberOfPartitions;
-    }
-
-    @Config("preferred-write-partitioning-min-number-of-partitions")
-    @ConfigDescription("Use preferred write partitioning when the number of written partitions exceeds the configured threshold")
-    public OptimizerConfig setPreferredWritePartitioningMinNumberOfPartitions(int preferredWritePartitioningMinNumberOfPartitions)
-    {
-        this.preferredWritePartitioningMinNumberOfPartitions = preferredWritePartitioningMinNumberOfPartitions;
         return this;
     }
 

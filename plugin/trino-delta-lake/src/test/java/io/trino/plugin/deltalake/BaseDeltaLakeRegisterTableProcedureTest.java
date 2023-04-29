@@ -231,7 +231,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         new File(getTransactionLogJsonEntryPath(transactionLogDir, 0)).createNewFile();
 
         assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
-                ".*Failed to access table location: (.*)");
+                ".*Metadata not found in transaction log for (.*)");
 
         deleteRecursively(Path.of(new URI(tableLocation).getPath()), ALLOW_INSECURE);
         metastore.dropTable(SCHEMA, tableName, false);

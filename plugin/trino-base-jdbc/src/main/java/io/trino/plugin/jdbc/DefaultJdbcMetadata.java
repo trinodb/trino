@@ -28,7 +28,6 @@ import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -649,13 +648,7 @@ public class DefaultJdbcMetadata
 
     private TableFunctionApplicationResult<ConnectorTableHandle> getTableFunctionApplicationResult(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
-        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
-        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
-                .map(ColumnSchema::getName)
-                .map(columnHandlesByName::get)
-                .collect(toImmutableList());
-
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return new TableFunctionApplicationResult<>(tableHandle, columnHandles);
     }
 
@@ -671,20 +664,25 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public SchemaTableName getTableName(ConnectorSession session, ConnectorTableHandle table)
+    {
+        if (table instanceof JdbcProcedureHandle) {
+            // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic JdbcProcedureHandle
+            return new SchemaTableName("_generated", "_generated_procedure");
+        }
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+        return handle.isNamedRelation()
+                ? handle.getRequiredNamedRelation().getSchemaTableName()
+                // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
+                : new SchemaTableName("_generated", "_generated_query");
+    }
+
+    @Override
     public ConnectorTableSchema getTableSchema(ConnectorSession session, ConnectorTableHandle table)
     {
-        if (table instanceof JdbcProcedureHandle procedureHandle) {
-            return new ConnectorTableSchema(
-                    getSchemaTableNameForProcedureHandle(),
-                    procedureHandle.getColumns().orElseThrow().stream()
-                            .map(JdbcColumnHandle::getColumnSchema)
-                            .collect(toImmutableList()));
-        }
-
         JdbcTableHandle handle = (JdbcTableHandle) table;
-
         return new ConnectorTableSchema(
-                getSchemaTableName(handle),
+                handle.getRequiredNamedRelation().getSchemaTableName(),
                 jdbcClient.getColumns(session, handle).stream()
                         .map(JdbcColumnHandle::getColumnSchema)
                         .collect(toImmutableList()));
@@ -693,37 +691,14 @@ public class DefaultJdbcMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        if (table instanceof JdbcProcedureHandle procedureHandle) {
-            return new ConnectorTableMetadata(
-                    getSchemaTableNameForProcedureHandle(),
-                    procedureHandle.getColumns().orElseThrow().stream()
-                            .map(JdbcColumnHandle::getColumnMetadata)
-                            .collect(toImmutableList()));
-        }
-
         JdbcTableHandle handle = (JdbcTableHandle) table;
-
         return new ConnectorTableMetadata(
-                getSchemaTableName(handle),
+                handle.getRequiredNamedRelation().getSchemaTableName(),
                 jdbcClient.getColumns(session, handle).stream()
                         .map(JdbcColumnHandle::getColumnMetadata)
                         .collect(toImmutableList()),
                 jdbcClient.getTableProperties(session, handle),
                 getTableComment(handle));
-    }
-
-    public static SchemaTableName getSchemaTableName(JdbcTableHandle handle)
-    {
-        return handle.isNamedRelation()
-                ? handle.getRequiredNamedRelation().getSchemaTableName()
-                // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
-                : new SchemaTableName("_generated", "_generated_query");
-    }
-
-    private static SchemaTableName getSchemaTableNameForProcedureHandle()
-    {
-        // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic JdbcProcedureHandle
-        return new SchemaTableName("_generated", "_generated_procedure");
     }
 
     public static Optional<String> getTableComment(JdbcTableHandle handle)

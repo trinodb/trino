@@ -11,37 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake.metastore;
+package io.trino.plugin.deltalake.statistics;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
-import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
-import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
-import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
-import io.trino.plugin.deltalake.statistics.MetaDirStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Storage;
-import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.security.PrincipalType;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -52,8 +40,7 @@ import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.nio.file.Files;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
@@ -61,12 +48,8 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
-import static io.trino.plugin.deltalake.DeltaLakeMetadata.PATH_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
-import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
-import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_VALUE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -79,17 +62,16 @@ import static java.lang.Double.POSITIVE_INFINITY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-public class TestDeltaLakeMetastoreStatistics
+public class TestDeltaLakeFileBasedTableStatisticsProvider
 {
     private static final ColumnHandle COLUMN_HANDLE = new DeltaLakeColumnHandle("val", DoubleType.DOUBLE, OptionalInt.empty(), "val", DoubleType.DOUBLE, REGULAR);
 
-    private DeltaLakeMetastore deltaLakeMetastore;
-    private HiveMetastore hiveMetastore;
+    private TransactionLogAccess transactionLogAccess;
     private CachingExtendedStatisticsAccess statistics;
+    private DeltaLakeTableStatisticsProvider tableStatisticsProvider;
 
     @BeforeClass
     public void setupMetastore()
-            throws Exception
     {
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
@@ -97,7 +79,7 @@ public class TestDeltaLakeMetastoreStatistics
 
         FileFormatDataSourceStats fileFormatDataSourceStats = new FileFormatDataSourceStats();
 
-        TransactionLogAccess transactionLogAccess = new TransactionLogAccess(
+        transactionLogAccess = new TransactionLogAccess(
                 typeManager,
                 checkpointSchemaManager,
                 new DeltaLakeConfig(),
@@ -105,19 +87,11 @@ public class TestDeltaLakeMetastoreStatistics
                 HDFS_FILE_SYSTEM_FACTORY,
                 new ParquetReaderConfig());
 
-        File tmpDir = Files.createTempDirectory(null).toFile();
-        File metastoreDir = new File(tmpDir, "metastore");
-        hiveMetastore = createTestingFileHiveMetastore(metastoreDir);
-
-        hiveMetastore.createDatabase(new Database("db_name", Optional.empty(), Optional.of("test"), Optional.of(PrincipalType.USER), Optional.empty(), ImmutableMap.of()));
-
         statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
-        deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(
-                hiveMetastore,
-                transactionLogAccess,
+        tableStatisticsProvider = new FileBasedTableStatisticsProvider(
                 typeManager,
-                statistics,
-                HDFS_FILE_SYSTEM_FACTORY);
+                transactionLogAccess,
+                statistics);
     }
 
     private DeltaLakeTableHandle registerTable(String tableName)
@@ -128,30 +102,21 @@ public class TestDeltaLakeMetastoreStatistics
     private DeltaLakeTableHandle registerTable(String tableName, String directoryName)
     {
         String tableLocation = Resources.getResource("statistics/" + directoryName).toExternalForm();
-
-        Storage tableStorage = new Storage(
-                StorageFormat.create("serde", "input", "output"), Optional.of(tableLocation), Optional.empty(), true, ImmutableMap.of(PATH_PROPERTY, tableLocation));
-
-        hiveMetastore.createTable(
-                new Table(
-                        "db_name",
-                        tableName,
-                        Optional.of("test"),
-                        "EXTERNAL_TABLE",
-                        tableStorage,
-                        ImmutableList.of(new Column("val", HiveType.HIVE_DOUBLE, Optional.empty())),
-                        ImmutableList.of(),
-                        ImmutableMap.of(TABLE_PROVIDER_PROPERTY, TABLE_PROVIDER_VALUE),
-                        Optional.empty(),
-                        Optional.empty(),
-                        OptionalLong.empty()),
-                PrincipalPrivileges.fromHivePrivilegeInfos(ImmutableSet.of()));
-
+        SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
+        TableSnapshot tableSnapshot;
+        try {
+            tableSnapshot = transactionLogAccess.loadSnapshot(schemaTableName, tableLocation, SESSION);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
         return new DeltaLakeTableHandle(
-                "db_name",
-                tableName,
-                "location",
-                new MetadataEntry("id", "test", "description", null, "", ImmutableList.of(), ImmutableMap.of(), 0),
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
+                false,
+                tableLocation,
+                metadataEntry,
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty(),
@@ -166,7 +131,7 @@ public class TestDeltaLakeMetastoreStatistics
     public void testStatisticsNaN()
     {
         DeltaLakeTableHandle tableHandle = registerTable("nan");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         assertEquals(stats.getRowCount(), Estimate.of(1));
         assertEquals(stats.getColumnStatistics().size(), 1);
 
@@ -178,7 +143,7 @@ public class TestDeltaLakeMetastoreStatistics
     public void testStatisticsInf()
     {
         DeltaLakeTableHandle tableHandle = registerTable("positive_infinity");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), POSITIVE_INFINITY);
         assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
@@ -188,7 +153,7 @@ public class TestDeltaLakeMetastoreStatistics
     public void testStatisticsNegInf()
     {
         DeltaLakeTableHandle tableHandle = registerTable("negative_infinity");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), NEGATIVE_INFINITY);
         assertEquals(columnStatistics.getRange().get().getMax(), NEGATIVE_INFINITY);
@@ -198,7 +163,7 @@ public class TestDeltaLakeMetastoreStatistics
     public void testStatisticsNegZero()
     {
         DeltaLakeTableHandle tableHandle = registerTable("negative_zero");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), -0.0d);
         assertEquals(columnStatistics.getRange().get().getMax(), -0.0d);
@@ -209,7 +174,7 @@ public class TestDeltaLakeMetastoreStatistics
     {
         // Stats with NaN values cannot be used
         DeltaLakeTableHandle tableHandle = registerTable("infinity_nan");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), POSITIVE_INFINITY);
         assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
@@ -220,7 +185,7 @@ public class TestDeltaLakeMetastoreStatistics
     {
         // Stats with NaN values cannot be used
         DeltaLakeTableHandle tableHandle = registerTable("negative_infinity_nan");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), NEGATIVE_INFINITY);
         assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
@@ -231,7 +196,7 @@ public class TestDeltaLakeMetastoreStatistics
     {
         // Stats with NaN values cannot be used
         DeltaLakeTableHandle tableHandle = registerTable("zero_nan");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), 0.0);
         assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
@@ -241,7 +206,7 @@ public class TestDeltaLakeMetastoreStatistics
     public void testStatisticsZeroAndInfinity()
     {
         DeltaLakeTableHandle tableHandle = registerTable("zero_infinity");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), 0.0);
         assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
@@ -251,7 +216,7 @@ public class TestDeltaLakeMetastoreStatistics
     public void testStatisticsZeroAndNegativeInfinity()
     {
         DeltaLakeTableHandle tableHandle = registerTable("zero_negative_infinity");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), NEGATIVE_INFINITY);
         assertEquals(columnStatistics.getRange().get().getMax(), 0.0);
@@ -262,7 +227,7 @@ public class TestDeltaLakeMetastoreStatistics
     {
         // Stats with NaN values cannot be used. This transaction combines a file with NaN min/max values with one with 0.0 min/max values
         DeltaLakeTableHandle tableHandle = registerTable("nan_multi_file");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange(), Optional.empty());
     }
@@ -271,7 +236,7 @@ public class TestDeltaLakeMetastoreStatistics
     public void testStatisticsMultipleFiles()
     {
         DeltaLakeTableHandle tableHandle = registerTable("basic_multi_file");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), -42.0);
         assertEquals(columnStatistics.getRange().get().getMax(), 42.0);
@@ -279,6 +244,7 @@ public class TestDeltaLakeMetastoreStatistics
         DeltaLakeTableHandle tableHandleWithUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
+                tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 TupleDomain.all(),
@@ -289,7 +255,7 @@ public class TestDeltaLakeMetastoreStatistics
                 tableHandle.getUpdateRowIdColumns(),
                 tableHandle.getAnalyzeHandle(),
                 0);
-        stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithUnenforcedConstraint);
+        stats = getTableStatistics(SESSION, tableHandleWithUnenforcedConstraint);
         columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
         assertEquals(columnStatistics.getRange().get().getMin(), 0.0);
         assertEquals(columnStatistics.getRange().get().getMax(), 42.0);
@@ -302,6 +268,7 @@ public class TestDeltaLakeMetastoreStatistics
         DeltaLakeTableHandle tableHandleWithNoneEnforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
+                tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 TupleDomain.none(),
@@ -315,6 +282,7 @@ public class TestDeltaLakeMetastoreStatistics
         DeltaLakeTableHandle tableHandleWithNoneUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
+                tableHandle.isManaged(),
                 tableHandle.getLocation(),
                 tableHandle.getMetadataEntry(),
                 TupleDomain.all(),
@@ -326,8 +294,8 @@ public class TestDeltaLakeMetastoreStatistics
                 tableHandle.getAnalyzeHandle(),
                 0);
         // If either the table handle's constraint or the provided Constraint are none, it will cause a 0 record count to be reported
-        assertEmptyStats(deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithNoneEnforcedConstraint));
-        assertEmptyStats(deltaLakeMetastore.getTableStatistics(SESSION, tableHandleWithNoneUnenforcedConstraint));
+        assertEmptyStats(getTableStatistics(SESSION, tableHandleWithNoneEnforcedConstraint));
+        assertEmptyStats(getTableStatistics(SESSION, tableHandleWithNoneUnenforcedConstraint));
     }
 
     private void assertEmptyStats(TableStatistics tableStatistics)
@@ -343,7 +311,7 @@ public class TestDeltaLakeMetastoreStatistics
     {
         // The transaction log for this table was created so that the checkpoints only write struct statistics, not json statistics
         DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         assertEquals(stats.getRowCount(), Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
@@ -399,7 +367,7 @@ public class TestDeltaLakeMetastoreStatistics
         // The transaction log for this table was created so that the checkpoints only write struct statistics, not json statistics
         // The table has a REAL and DOUBLE columns each with 9 values, one of them being NaN
         DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics_nan");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         assertEquals(stats.getRowCount(), Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
@@ -418,7 +386,7 @@ public class TestDeltaLakeMetastoreStatistics
         // The transaction log for this table was created so that the checkpoints only write struct statistics, not json statistics
         // The table has one INTEGER column 'i' where 3 of the 9 values are null
         DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics_null_count");
-        TableStatistics stats = deltaLakeMetastore.getTableStatistics(SESSION, tableHandle);
+        TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         assertEquals(stats.getRowCount(), Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
@@ -474,5 +442,17 @@ public class TestDeltaLakeMetastoreStatistics
         DeltaLakeColumnStatistics mergedComment = columnStatisticsWithoutDataSize.get("comment").update(columnStatisticsWithDataSize.get("comment"));
         assertEquals(mergedComment.getTotalSizeInBytes(), OptionalLong.empty());
         assertEquals(mergedComment.getNdvSummary().cardinality(), 5);
+    }
+
+    private TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
+    {
+        TableSnapshot tableSnapshot;
+        try {
+            tableSnapshot = transactionLogAccess.loadSnapshot(tableHandle.getSchemaTableName(), tableHandle.getLocation(), SESSION);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
     }
 }

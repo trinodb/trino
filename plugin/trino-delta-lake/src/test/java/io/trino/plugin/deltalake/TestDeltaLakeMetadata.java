@@ -29,9 +29,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
-import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -169,18 +167,9 @@ public class TestDeltaLakeMetadata
                 new AbstractModule()
                 {
                     @Provides
-                    public DeltaLakeMetastore getDeltaLakeMetastore(
-                            @RawHiveMetastoreFactory HiveMetastoreFactory hiveMetastoreFactory,
-                            TransactionLogAccess transactionLogAccess,
-                            TypeManager typeManager,
-                            CachingExtendedStatisticsAccess statistics)
+                    public DeltaLakeMetastore getDeltaLakeMetastore(@RawHiveMetastoreFactory HiveMetastoreFactory hiveMetastoreFactory)
                     {
-                        return new HiveMetastoreBackedDeltaLakeMetastore(
-                                hiveMetastoreFactory.createMetastore(Optional.empty()),
-                                transactionLogAccess,
-                                typeManager,
-                                statistics,
-                                new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
+                        return new HiveMetastoreBackedDeltaLakeMetastore(hiveMetastoreFactory.createMetastore(Optional.empty()));
                     }
                 });
 
@@ -446,6 +435,7 @@ public class TestDeltaLakeMetadata
         return new DeltaLakeTableHandle(
                 "test_schema_name",
                 "test_table_name",
+                true,
                 "test_location",
                 createMetadataEntry(),
                 createConstrainedColumnsTuple(constrainedColumns),

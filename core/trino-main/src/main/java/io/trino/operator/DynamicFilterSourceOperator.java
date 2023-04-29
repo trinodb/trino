@@ -58,6 +58,8 @@ import static java.util.stream.Collectors.toSet;
 public class DynamicFilterSourceOperator
         implements Operator
 {
+    private static final int EXPECTED_BLOCK_BUILDER_SIZE = 64;
+
     public static class Channel
     {
         private final DynamicFilterId filterId;
@@ -410,14 +412,13 @@ public class DynamicFilterSourceOperator
             if (collectMinMax) {
                 minMaxComparison = blockTypeOperators.getComparisonUnorderedLastOperator(type);
             }
-            int expectedSize = Math.min(maxDistinctValues, 8192) * 2;
-            blockBuilder = type.createBlockBuilder(null, expectedSize);
+            blockBuilder = type.createBlockBuilder(null, EXPECTED_BLOCK_BUILDER_SIZE);
             valueSet = createUnboundedEqualityTypedSet(
                     type,
                     blockTypeOperators.getEqualOperator(type),
                     blockTypeOperators.getHashCodeOperator(type),
                     blockBuilder,
-                    expectedSize,
+                    Math.min(maxDistinctValues, 2048),
                     format("DynamicFilterSourceOperator_%s_%d", planNodeId, channel.index));
         }
 

@@ -19,7 +19,7 @@ import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.filesystem.TrinoInputStream;
-import io.trino.filesystem.memory.MemoryTrinoInputStream;
+import io.trino.filesystem.memory.MemoryInputFile;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -588,9 +588,10 @@ public class TestTrinoDataInputStream
 
     @Test
     public void testRetainedSize()
+            throws IOException
     {
         int bufferSize = 1024;
-        TrinoInputStream inputStream = new MemoryTrinoInputStream(Slices.wrappedBuffer(new byte[] {0, 1}));
+        TrinoInputStream inputStream = new MemoryInputFile("test", Slices.wrappedBuffer(new byte[] {0, 1})).newStream();
         TrinoDataInputStream input = new TrinoDataInputStream(inputStream, bufferSize);
         assertEquals(input.getRetainedSize(), instanceSize(TrinoDataInputStream.class) + sizeOfByteArray(bufferSize));
     }
@@ -726,8 +727,9 @@ public class TestTrinoDataInputStream
     }
 
     private static TrinoDataInputStream createTrinoDataInputStream(byte[] bytes)
+            throws IOException
     {
-        TrinoInputStream inputStream = new MemoryTrinoInputStream(Slices.wrappedBuffer(bytes));
+        TrinoInputStream inputStream = new MemoryInputFile("test", Slices.wrappedBuffer(bytes)).newStream();
         return new TrinoDataInputStream(inputStream, 16 * 1024);
     }
 }

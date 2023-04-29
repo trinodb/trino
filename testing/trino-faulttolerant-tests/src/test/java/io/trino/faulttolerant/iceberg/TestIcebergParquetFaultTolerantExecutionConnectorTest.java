@@ -37,13 +37,12 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
-        IcebergQueryRunner.Builder builder = super.createQueryRunnerBuilder();
-        getExtraProperties().forEach(builder::addExtraProperty);
-        builder.setAdditionalSetup(runner -> {
-            runner.installPlugin(new FileSystemExchangePlugin());
-            runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-        });
-        return builder;
+        return super.createQueryRunnerBuilder()
+                .addExtraProperties(getExtraProperties())
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new FileSystemExchangePlugin());
+                    runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
+                });
     }
 
     @Override

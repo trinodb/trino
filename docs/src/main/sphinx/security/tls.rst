@@ -165,6 +165,8 @@ Keys and certificates
 
 Trino can read certificates and private keys encoded in PEM encoded PKCS #1, PEM
 encoded PKCS #8, PKCS #12, and the legacy Java KeyStore (JKS) format.
+Certificates and private keys encoded in a binary format such as DER must be
+converted.
 
 Make sure you obtain a certificate that is validated by a recognized
 :ref:`certificate authority <glossCA>`.

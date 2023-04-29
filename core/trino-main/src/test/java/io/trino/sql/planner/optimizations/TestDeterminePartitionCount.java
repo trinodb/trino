@@ -42,6 +42,7 @@ import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.spi.statistics.TableStatistics.empty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -49,6 +50,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -101,17 +105,53 @@ public class TestDeterminePartitionCount
     }
 
     @Test
-    public void testPlanWhenTableStatisticsArePresent()
+    public void testSimpleSelect()
     {
-        @Language("SQL") String query = """
-                SELECT count(column_a) FROM table_with_stats_a
-                """;
+        @Language("SQL") String query = "SELECT * FROM table_with_stats_a";
 
-        // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 5 for remote exchanges
+        // DeterminePartitionCount optimizer rule should not fire since no remote exchanges are present
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "10")
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "100")
+                        .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
+                        .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
+                        .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
+                        .build(),
+                output(
+                        node(TableScanNode.class)));
+    }
+
+    @Test
+    public void testSimpleFilter()
+    {
+        @Language("SQL") String query = "SELECT column_a FROM table_with_stats_a WHERE column_b IS NULL";
+
+        // DeterminePartitionCount optimizer rule should not fire since no remote exchanges are present
+        assertDistributedPlan(
+                query,
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "100")
+                        .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
+                        .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
+                        .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
+                        .build(),
+                output(
+                        project(
+                            filter("column_b IS NULL",
+                                    tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b", "column_b"))))));
+    }
+
+    @Test
+    public void testSimpleCount()
+    {
+        @Language("SQL") String query = "SELECT count(*) FROM table_with_stats_a";
+
+        // DeterminePartitionCount optimizer rule should not fire since no remote repartition exchanges are present
+        assertDistributedPlan(
+                query,
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "100")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
                         .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
@@ -119,9 +159,35 @@ public class TestDeterminePartitionCount
                 output(
                         node(AggregationNode.class,
                                 exchange(LOCAL,
-                                        exchange(REMOTE, Optional.of(5),
+                                        exchange(REMOTE, GATHER, Optional.empty(),
                                                 node(AggregationNode.class,
                                                         node(TableScanNode.class)))))));
+    }
+
+    @Test
+    public void testPlanWhenTableStatisticsArePresent()
+    {
+        @Language("SQL") String query = """
+                SELECT count(column_a) FROM table_with_stats_a group by column_b
+                """;
+
+        // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 10 for remote exchanges
+        assertDistributedPlan(
+                query,
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(MAX_HASH_PARTITION_COUNT, "20")
+                        .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
+                        .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
+                        .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
+                        .build(),
+                output(
+                        project(
+                                node(AggregationNode.class,
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION, Optional.of(10),
+                                                        node(AggregationNode.class,
+                                                                project(
+                                                                        node(TableScanNode.class)))))))));
     }
 
     @Test
@@ -184,7 +250,7 @@ public class TestDeterminePartitionCount
                 SELECT * FROM table_with_stats_a CROSS JOIN (select max(column_a) from table_with_stats_b) t(a)
                 """;
 
-        // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 1 for remote exchanges
+        // DeterminePartitionCount optimizer rule should not fire since no remote repartitioning exchanges are present
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
@@ -197,10 +263,10 @@ public class TestDeterminePartitionCount
                         join(INNER, builder -> builder
                                 .right(
                                         exchange(LOCAL,
-                                                exchange(REMOTE, Optional.of(15),
+                                                exchange(REMOTE, REPLICATE, Optional.empty(),
                                                         node(AggregationNode.class,
                                                                 exchange(LOCAL,
-                                                                        exchange(REMOTE, Optional.of(15),
+                                                                        exchange(REMOTE, GATHER, Optional.empty(),
                                                                                 node(AggregationNode.class,
                                                                                         node(TableScanNode.class))))))))
                                 .left(node(TableScanNode.class)))));
@@ -242,7 +308,7 @@ public class TestDeterminePartitionCount
                 SELECT a.column_a FROM table_with_stats_a as a JOIN table_with_stats_b as b ON a.column_a = b.column_a
                 """;
 
-        // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 20 for remote exchanges
+        // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 10 for remote exchanges
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
@@ -336,7 +402,7 @@ public class TestDeterminePartitionCount
                 FROM table_with_stats_b
                 """;
 
-        // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 10 for remote exchanges
+        // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 20 for remote exchanges
         assertDistributedPlan(
                 query,
                 Session.builder(getQueryRunner().getDefaultSession())
@@ -346,17 +412,16 @@ public class TestDeterminePartitionCount
                         .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "400")
                         .build(),
                 output(
-                        // partition count should be 15 with just join node but since we also have union, it should be 20
-                        exchange(REMOTE, Optional.of(20),
+                        exchange(REMOTE, GATHER,
                                 join(INNER, builder -> builder
                                         .equiCriteria("column_a", "column_a_1")
                                         .right(exchange(LOCAL,
                                                 // partition count should be 15 with just join node but since we also have union, it should be 20
-                                                exchange(REMOTE, Optional.of(20),
+                                                exchange(REMOTE, REPARTITION, Optional.of(20),
                                                         project(
                                                                 tableScan("table_with_stats_b", ImmutableMap.of("column_a_1", "column_a"))))))
                                         // partition count should be 15 with just join node but since we also have union, it should be 20
-                                        .left(exchange(REMOTE, Optional.of(20),
+                                        .left(exchange(REMOTE, REPARTITION, Optional.of(20),
                                                 project(
                                                         node(FilterNode.class,
                                                                 tableScan("table_with_stats_a", ImmutableMap.of("column_a", "column_a", "column_b_0", "column_b"))))))),
@@ -367,7 +432,7 @@ public class TestDeterminePartitionCount
     public void testPlanWhenEstimatedPartitionCountBasedOnRowsIsMoreThanOutputSize()
     {
         @Language("SQL") String query = """
-                SELECT count(column_a) FROM table_with_stats_a
+                SELECT count(column_a) FROM table_with_stats_a group by column_b
                 """;
 
         // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 10 for remote exchanges
@@ -381,10 +446,12 @@ public class TestDeterminePartitionCount
                         .setSystemProperty(MIN_INPUT_ROWS_PER_TASK, "20")
                         .build(),
                 output(
-                        node(AggregationNode.class,
-                                exchange(LOCAL,
-                                        exchange(REMOTE, Optional.of(10),
-                                                node(AggregationNode.class,
-                                                        node(TableScanNode.class)))))));
+                        project(
+                                node(AggregationNode.class,
+                                        exchange(LOCAL,
+                                                exchange(REMOTE, REPARTITION, Optional.of(10),
+                                                        node(AggregationNode.class,
+                                                                project(
+                                                                        node(TableScanNode.class)))))))));
     }
 }

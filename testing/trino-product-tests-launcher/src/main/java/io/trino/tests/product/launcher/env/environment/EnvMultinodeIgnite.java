@@ -69,7 +69,7 @@ public final class EnvMultinodeIgnite
 
     private DockerContainer createIgnite(int number)
     {
-        return new DockerContainer("apacheignite/ignite:2.8.0", logicalName(number))
+        return new DockerContainer("apacheignite/ignite:2.9.0", logicalName(number))
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .withStartupTimeout(Duration.ofMinutes(5));
     }

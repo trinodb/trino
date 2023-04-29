@@ -1658,6 +1658,9 @@ sections, the following functions are available:
         SELECT json_extract(json, '$.store[book]');
         SELECT json_extract(json, '$.store["book name"]');
 
+    The :ref:`json_query function<json_query>` provides a more powerful and
+    feature-rich alternative to parse and extract JSON data.
+
     .. _JSONPath: http://goessner.net/articles/JsonPath/
 
 .. function:: json_extract_scalar(json, json_path) -> varchar

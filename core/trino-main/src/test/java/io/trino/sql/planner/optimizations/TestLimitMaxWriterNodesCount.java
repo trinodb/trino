@@ -41,10 +41,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.SystemSessionProperties.MAX_WRITER_TASKS_COUNT;
-import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
+import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.spi.connector.TableProcedureExecutionMode.distributedWithFilteringAndRepartitioning;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -210,7 +210,7 @@ public class TestLimitMaxWriterNodesCount
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogName)
                 .build();
 
@@ -255,7 +255,7 @@ public class TestLimitMaxWriterNodesCount
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
                 .build();
 
@@ -279,7 +279,7 @@ public class TestLimitMaxWriterNodesCount
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(RETRY_POLICY, "TASK")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
                 .build();
@@ -368,7 +368,7 @@ public class TestLimitMaxWriterNodesCount
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogName)
                 .build();
 
@@ -392,7 +392,7 @@ public class TestLimitMaxWriterNodesCount
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
                 .build();
 
@@ -416,7 +416,7 @@ public class TestLimitMaxWriterNodesCount
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASKS_COUNT, "2")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(RETRY_POLICY, "TASK")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
                 .build();

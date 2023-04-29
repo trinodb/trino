@@ -239,7 +239,6 @@ public class TestValidateScaledWritersUsage
                                 ImmutableList.of(symbol),
                                 ImmutableList.of("column_a"),
                                 Optional.empty(),
-                                Optional.empty(),
                                 planBuilder.createTarget(catalogSupportingScaledWriters, schemaTableName, true, true),
                                 planBuilder.exchange(innerExchange ->
                                         innerExchange

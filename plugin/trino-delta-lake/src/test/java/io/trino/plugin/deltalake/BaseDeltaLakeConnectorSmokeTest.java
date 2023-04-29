@@ -1737,7 +1737,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setCatalog(getQueryRunner().getDefaultSession().getCatalog())
                 .setSchema(getQueryRunner().getDefaultSession().getSchema())
                 .setSystemProperty("use_preferred_write_partitioning", "true")
-                .setSystemProperty("preferred_write_partitioning_min_number_of_partitions", "1")
                 .build();
         String tableName = "test_optimize_partitioned_table_" + randomNameSuffix();
         String tableLocation = getLocationForTable(bucketName, tableName);
@@ -1965,7 +1964,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String schemaName = "test_unregister_table_not_existing_schema_" + randomNameSuffix();
         assertQueryFails(
                 "CALL system.unregister_table('" + schemaName + "', 'non_existent_table')",
-                "Schema " + schemaName + " not found");
+                "Table \\Q'" + schemaName + ".non_existent_table' not found");
     }
 
     @Test

@@ -14,19 +14,21 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 
 import static java.util.Objects.requireNonNull;
 
 public record CorruptedDeltaLakeTableHandle(
         SchemaTableName schemaTableName,
+        boolean managed,
+        String location,
         TrinoException originalException)
-        implements ConnectorTableHandle
+        implements LocatedTableHandle
 {
     public CorruptedDeltaLakeTableHandle
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(location, "location is null");
         requireNonNull(originalException, "originalException is null");
     }
 
