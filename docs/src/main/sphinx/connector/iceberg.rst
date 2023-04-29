@@ -1099,7 +1099,7 @@ The output of the query has the following columns:
     - The set of field IDs used for equality comparison in equality delete files
 
 ``$refs`` table
-^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~
 
 The ``$refs`` table provides information about Iceberg references including branches and tags.
 
