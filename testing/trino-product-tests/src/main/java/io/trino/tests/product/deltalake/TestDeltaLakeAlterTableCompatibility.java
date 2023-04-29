@@ -40,11 +40,11 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumn
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnTrino;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestDeltaLakeAlterTableCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -297,8 +297,8 @@ public class TestDeltaLakeAlterTableCompatibility
             onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_column INT");
 
-            List<?> properties = getOnlyElement(onDelta().executeQuery("SHOW TBLPROPERTIES " + tableName + "(delta.appendOnly)").rows());
-            assertTrue(Boolean.parseBoolean((String) properties.get(1)));
+            Assertions.assertThat(getTablePropertyOnDelta("default", tableName, "delta.appendOnly"))
+                    .isEqualTo("true");
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
