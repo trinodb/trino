@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -89,6 +90,12 @@ public final class DeltaLakeTestUtils
                 .filter(row -> row.get(0).equals("Comment"))
                 .map(row -> row.get(1))
                 .collect(onlyElement());
+    }
+
+    public static String getTablePropertyOnDelta(String schemaName, String tableName, String propertyName)
+    {
+        QueryResult result = onDelta().executeQuery("SHOW TBLPROPERTIES %s.%s(%s)".formatted(schemaName, tableName, propertyName));
+        return (String) getOnlyElement(result.rows()).get(1);
     }
 
     /**
