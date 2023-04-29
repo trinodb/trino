@@ -15,7 +15,6 @@ package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.testing.MaterializedResult;
@@ -48,8 +47,6 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTI
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
@@ -829,11 +826,11 @@ public class TestClickHouseConnectorTest
     @Override
     public void testSetColumnType()
     {
-        String tableName = "test_set_column_type";
+        String tableName = "test_set_column_type" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double NOT NULL, c varchar(50)) WITH (order_by=ARRAY['b'], engine = 'MergeTree')");
         assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN a SET DATA TYPE varchar(50)");
         assertEquals(getColumnType(tableName, "a"), "varchar");
-        assertThat((String) computeScalar("show create table " + tableName)).contains("CREATE TABLE clickhouse.tpch.test_set_column_type (\n" +
+        assertThat((String) computeScalar("show create table " + tableName)).contains("CREATE TABLE " + "clickhouse.tpch." + tableName +" (\n" +
                 "   a varchar NOT NULL,\n" +
                 "   b double NOT NULL,\n" +
                 "   c varchar\n" +
@@ -851,7 +848,7 @@ public class TestClickHouseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        String tableName = "test_set_column_incompatible_type";
+        String tableName = "test_set_column_incompatible_type" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
         assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE integer");
@@ -864,7 +861,7 @@ public class TestClickHouseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
 
-        String tableName = "test_set_column_out_of_range";
+        String tableName = "test_set_column_out_of_range" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
         query("insert into " + tableName + " values(9223372036854775807, 22)");
         assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE integer");
@@ -878,7 +875,7 @@ public class TestClickHouseConnectorTest
     public void testSetColumnTypeWithComment()
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
-        String tableName = "test_set_column_with_comment";
+        String tableName = "test_set_column_with_comment" + randomNameSuffix();;
 
         assertUpdate("CREATE TABLE " + tableName + " (col bigint COMMENT 'test comment', col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
         assertEquals(getColumnComment(tableName, "col"), "test comment");
@@ -906,7 +903,7 @@ public class TestClickHouseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
 
-        String tableName = "test_set_column_with_not_null";
+        String tableName = "test_set_column_with_not_null" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (col bigint not null, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
         assertFalse(columnIsNullable(tableName, "col"));
@@ -925,6 +922,7 @@ public class TestClickHouseConnectorTest
                 .collect(toDataProvider());
     }
 
+    @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
         return Optional.of(setup);
