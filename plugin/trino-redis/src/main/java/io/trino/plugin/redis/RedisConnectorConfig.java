@@ -46,7 +46,7 @@ public class RedisConnectorConfig
     private char redisKeyDelimiter = ':';
     private String redisUser;
     private String redisPassword;
-    private boolean useTls;
+    private boolean tlsEnabled;
     private Duration redisConnectTimeout = new Duration(2000, MILLISECONDS);
     private String defaultSchema = "default";
     private Set<String> tableNames = ImmutableSet.of();
@@ -221,16 +221,16 @@ public class RedisConnectorConfig
         return this;
     }
 
-    public boolean isUseTls()
+    public boolean isTlsEnabled()
     {
-        return useTls;
+        return tlsEnabled;
     }
 
     @Config("redis.tls.enabled")
     @ConfigDescription("Whether TLS is enabled or not")
-    public RedisConnectorConfig setUseTls(boolean useTls)
+    public RedisConnectorConfig setTlsEnabled(boolean tlsEnabled)
     {
-        this.useTls = useTls;
+        this.tlsEnabled = tlsEnabled;
         return this;
     }
 

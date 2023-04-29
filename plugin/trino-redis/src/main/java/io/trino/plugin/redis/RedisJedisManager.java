@@ -40,7 +40,7 @@ public class RedisJedisManager
 
     private final String redisUser;
     private final String redisPassword;
-    private final boolean useTls;
+    private final boolean tlsEnabled;
     private final Duration redisConnectTimeout;
     private final int redisDataBaseIndex;
     private final int redisMaxKeysPerFetch;
@@ -55,7 +55,7 @@ public class RedisJedisManager
         requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.redisUser = redisConnectorConfig.getRedisUser();
         this.redisPassword = redisConnectorConfig.getRedisPassword();
-        this.useTls = redisConnectorConfig.isUseTls();
+        this.tlsEnabled = redisConnectorConfig.isTlsEnabled();
         this.redisConnectTimeout = redisConnectorConfig.getRedisConnectTimeout();
         this.redisDataBaseIndex = redisConnectorConfig.getRedisDataBaseIndex();
         this.redisMaxKeysPerFetch = redisConnectorConfig.getRedisMaxKeysPerFetch();
@@ -114,6 +114,6 @@ public class RedisJedisManager
                 redisUser,
                 redisPassword,
                 redisDataBaseIndex,
-                useTls);
+                tlsEnabled);
     }
 }

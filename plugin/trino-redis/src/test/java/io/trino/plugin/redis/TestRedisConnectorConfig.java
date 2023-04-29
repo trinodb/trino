@@ -43,7 +43,7 @@ public class TestRedisConnectorConfig
                 .setRedisDataBaseIndex(0)
                 .setRedisUser(null)
                 .setRedisPassword(null)
-                .setUseTls(false)
+                .setTlsEnabled(false)
                 .setRedisScanCount(100)
                 .setRedisMaxKeysPerFetch(100)
                 .setHideInternalColumns(true));
@@ -83,7 +83,7 @@ public class TestRedisConnectorConfig
                 .setRedisDataBaseIndex(5)
                 .setRedisUser("test")
                 .setRedisPassword("secret")
-                .setUseTls(true)
+                .setTlsEnabled(true)
                 .setRedisKeyDelimiter(",")
                 .setKeyPrefixSchemaTable(true);
 
