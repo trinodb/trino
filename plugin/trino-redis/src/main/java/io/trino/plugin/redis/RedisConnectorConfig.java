@@ -228,7 +228,7 @@ public class RedisConnectorConfig
 
     @Config("redis.use-ssl")
     @ConfigSecuritySensitive
-    @ConfigDescription("Whether or not SSL is enabled. Default is no")
+    @ConfigDescription("Whether SSL is enabled or not. Default is no")
     public RedisConnectorConfig setUseSsl(boolean useSsl)
     {
         this.useSsl = useSsl;
@@ -241,7 +241,7 @@ public class RedisConnectorConfig
     }
 
     @Config("redis.hide-internal-columns")
-    @ConfigDescription("Whether internal columns are shown in table metadata or not. Default is no")
+    @ConfigDescription("Whether internal columns are shown in table metadata or not. Default is yes")
     public RedisConnectorConfig setHideInternalColumns(boolean hideInternalColumns)
     {
         this.hideInternalColumns = hideInternalColumns;
