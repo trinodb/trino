@@ -42,12 +42,14 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 
 public class MapType
         extends AbstractType
 {
+    private static final MethodHandle NOT;
     private static final InvocationConvention EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
     private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
@@ -63,6 +65,7 @@ public class MapType
     static {
         try {
             Lookup lookup = MethodHandles.lookup();
+            NOT = lookup.findStatic(MapType.class, "not", methodType(boolean.class, boolean.class));
             EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
             HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, Block.class));
             DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
@@ -81,6 +84,8 @@ public class MapType
     private final Type valueType;
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
+    private final MethodHandle keyBlockNativeNotDistinctFrom;
+    private final MethodHandle keyBlockNotDistinctFrom;
     private final MethodHandle keyNativeHashCode;
     private final MethodHandle keyBlockHashCode;
     private final MethodHandle keyBlockNativeEqual;
@@ -107,6 +112,11 @@ public class MapType
         keyBlockNativeEqual = typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, NEVER_NULL))
                 .asType(methodType(Boolean.class, Block.class, int.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
         keyBlockEqual = typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+
+        keyBlockNativeNotDistinctFrom = filterReturnValue(typeOperators.getDistinctFromOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, NEVER_NULL)), NOT)
+                .asType(methodType(boolean.class, Block.class, int.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
+        keyBlockNotDistinctFrom = filterReturnValue(typeOperators.getDistinctFromOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)), NOT);
+
         keyNativeHashCode = typeOperators.getHashCodeOperator(keyType, HASH_CODE_CONVENTION)
                 .asType(methodType(long.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
         keyBlockHashCode = typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
@@ -316,6 +326,22 @@ public class MapType
         return keyBlockEqual;
     }
 
+    /**
+     * Internal use by this package and io.trino.spi.block only.
+     */
+    public MethodHandle getKeyBlockNativeNotDistinctFrom()
+    {
+        return keyBlockNativeNotDistinctFrom;
+    }
+
+    /**
+     * Internal use by this package and io.trino.spi.block only.
+     */
+    public MethodHandle getKeyBlockNotDistinctFrom()
+    {
+        return keyBlockNotDistinctFrom;
+    }
+
     private static long hashOperator(MethodHandle keyOperator, MethodHandle valueOperator, Block block)
             throws Throwable
     {
@@ -429,5 +455,10 @@ public class MapType
             }
         }
         return false;
+    }
+
+    private static boolean not(boolean value)
+    {
+        return !value;
     }
 }

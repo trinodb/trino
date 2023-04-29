@@ -36,6 +36,11 @@ public class MapBlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(MapBlockBuilder.class);
 
+    private enum HashBuildMode
+    {
+        DUPLICATE_NOT_CHECKED, STRICT_EQUALS, STRICT_NOT_DISTINCT_FROM
+    }
+
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
 
@@ -48,7 +53,7 @@ public class MapBlockBuilder
     private final MapHashTables hashTables;
 
     private boolean currentEntryOpened;
-    private boolean strict;
+    private HashBuildMode hashBuildMode = HashBuildMode.DUPLICATE_NOT_CHECKED;
 
     public MapBlockBuilder(MapType mapType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -86,7 +91,13 @@ public class MapBlockBuilder
 
     public MapBlockBuilder strict()
     {
-        this.strict = true;
+        this.hashBuildMode = HashBuildMode.STRICT_EQUALS;
+        return this;
+    }
+
+    public MapBlockBuilder strictNotDistinctFrom()
+    {
+        this.hashBuildMode = HashBuildMode.STRICT_NOT_DISTINCT_FROM;
         return this;
     }
 
@@ -197,11 +208,10 @@ public class MapBlockBuilder
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        if (strict) {
-            hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
-        }
-        else {
-            hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+        switch (hashBuildMode) {
+            case DUPLICATE_NOT_CHECKED -> hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+            case STRICT_EQUALS -> hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+            case STRICT_NOT_DISTINCT_FROM -> hashTables.buildDistinctHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
         }
         return this;
     }
