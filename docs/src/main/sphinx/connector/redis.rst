@@ -66,7 +66,7 @@ Property name                           Description
 ``redis.database-index``                Redis database index
 ``redis.user``                          Redis server username
 ``redis.password``                      Redis server password
-``redis.use-ssl``                       Controls whether SSL is enabled or not
+``redis.tls.enabled``                   Controls whether TLS is enabled or not
 ======================================  ==============================================================
 
 ``redis.table-names``
@@ -188,7 +188,7 @@ The password for password-protected Redis server.
 
 This property is optional; the default is ``null``.
 
-``redis.use-ssl``
+``redis.tls.enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Starting with version 6, Redis supports TLS/SSL encrypted connections as an optional feature.

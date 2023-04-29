@@ -43,7 +43,7 @@ public class TestRedisConnectorConfig
                 .setRedisDataBaseIndex(0)
                 .setRedisUser(null)
                 .setRedisPassword(null)
-                .setUseSsl(false)
+                .setUseTls(false)
                 .setRedisScanCount(100)
                 .setRedisMaxKeysPerFetch(100)
                 .setHideInternalColumns(true));
@@ -67,7 +67,7 @@ public class TestRedisConnectorConfig
                 .put("redis.database-index", "5")
                 .put("redis.user", "test")
                 .put("redis.password", "secret")
-                .put("redis.use-ssl", "true")
+                .put("redis.tls.enabled", "true")
                 .buildOrThrow();
 
         RedisConnectorConfig expected = new RedisConnectorConfig()
@@ -83,7 +83,7 @@ public class TestRedisConnectorConfig
                 .setRedisDataBaseIndex(5)
                 .setRedisUser("test")
                 .setRedisPassword("secret")
-                .setUseSsl(true)
+                .setUseTls(true)
                 .setRedisKeyDelimiter(",")
                 .setKeyPrefixSchemaTable(true);
 

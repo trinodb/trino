@@ -46,7 +46,7 @@ public class RedisConnectorConfig
     private char redisKeyDelimiter = ':';
     private String redisUser;
     private String redisPassword;
-    private boolean useSsl;
+    private boolean useTls;
     private Duration redisConnectTimeout = new Duration(2000, MILLISECONDS);
     private String defaultSchema = "default";
     private Set<String> tableNames = ImmutableSet.of();
@@ -221,17 +221,16 @@ public class RedisConnectorConfig
         return this;
     }
 
-    public boolean isUseSsl()
+    public boolean isUseTls()
     {
-        return useSsl;
+        return useTls;
     }
 
-    @Config("redis.use-ssl")
-    @ConfigSecuritySensitive
-    @ConfigDescription("Whether SSL is enabled or not. Default is no")
-    public RedisConnectorConfig setUseSsl(boolean useSsl)
+    @Config("redis.tls.enabled")
+    @ConfigDescription("Whether TLS is enabled or not")
+    public RedisConnectorConfig setUseTls(boolean useTls)
     {
-        this.useSsl = useSsl;
+        this.useTls = useTls;
         return this;
     }
 
@@ -241,7 +240,7 @@ public class RedisConnectorConfig
     }
 
     @Config("redis.hide-internal-columns")
-    @ConfigDescription("Whether internal columns are shown in table metadata or not. Default is yes")
+    @ConfigDescription("Whether internal columns are shown in table metadata or not. Default is no")
     public RedisConnectorConfig setHideInternalColumns(boolean hideInternalColumns)
     {
         this.hideInternalColumns = hideInternalColumns;
