@@ -18,6 +18,7 @@ import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.spi.Page;
@@ -409,7 +410,7 @@ public class IcebergPageSink
     {
         IcebergFileWriter writer = fileWriterFactory.createDataFileWriter(
                 fileSystem,
-                outputPath,
+                Location.of(outputPath),
                 outputSchema,
                 session,
                 fileFormat,

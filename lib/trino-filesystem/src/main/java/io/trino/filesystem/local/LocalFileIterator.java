@@ -15,6 +15,7 @@ package io.trino.filesystem.local;
 
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,7 +35,7 @@ class LocalFileIterator
     private final Path rootPath;
     private final Iterator<Path> iterator;
 
-    public LocalFileIterator(String location, Path rootPath, Path path)
+    public LocalFileIterator(Location location, Path rootPath, Path path)
             throws IOException
     {
         this.rootPath = requireNonNull(rootPath, "rootPath is null");
@@ -75,7 +76,7 @@ class LocalFileIterator
         }
 
         return new FileEntry(
-                "local:///" + rootPath.relativize(path),
+                Location.of("local:///" + rootPath.relativize(path)),
                 Files.size(path),
                 Files.getLastModifiedTime(path).toInstant(),
                 Optional.empty());

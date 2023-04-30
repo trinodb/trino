@@ -14,6 +14,7 @@
 package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 
 import java.io.EOFException;
@@ -27,11 +28,11 @@ import static java.util.Objects.requireNonNull;
 class MemoryInput
         implements TrinoInput
 {
-    private final String location;
+    private final Location location;
     private final Slice data;
     private boolean closed;
 
-    public MemoryInput(String location, Slice data)
+    public MemoryInput(Location location, Slice data)
     {
         this.location = requireNonNull(location, "location is null");
         this.data = requireNonNull(data, "data is null");
@@ -82,6 +83,6 @@ class MemoryInput
     @Override
     public String toString()
     {
-        return location;
+        return location.toString();
     }
 }

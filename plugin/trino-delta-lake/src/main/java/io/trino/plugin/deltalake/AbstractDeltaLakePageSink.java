@@ -21,6 +21,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.parquet.writer.ParquetSchemaConverter;
@@ -95,8 +96,8 @@ public abstract class AbstractDeltaLakePageSink
 
     private final List<DeltaLakeWriter> writers = new ArrayList<>();
 
-    private final String tableLocation;
-    protected final String outputPathDirectory;
+    private final Location tableLocation;
+    protected final Location outputPathDirectory;
     private final ConnectorSession session;
     private final DeltaLakeWriterStats stats;
     private final String trinoVersion;
@@ -116,8 +117,8 @@ public abstract class AbstractDeltaLakePageSink
             TrinoFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
-            String tableLocation,
-            String outputPathDirectory,
+            Location tableLocation,
+            Location outputPathDirectory,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion)
@@ -350,18 +351,18 @@ public abstract class AbstractDeltaLakePageSink
                 closeWriter(writerIndex);
             }
 
-            String filePath = outputPathDirectory;
+            Location filePath = outputPathDirectory;
 
             List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
             Optional<String> partitionName = Optional.empty();
             if (!originalPartitionColumnNames.isEmpty()) {
                 String partName = makePartName(originalPartitionColumnNames, partitionValues);
-                filePath = appendPath(outputPathDirectory, partName);
+                filePath = filePath.appendPath(partName);
                 partitionName = Optional.of(partName);
             }
 
             String fileName = session.getQueryId() + "-" + randomUUID();
-            filePath = appendPath(filePath, fileName);
+            filePath = filePath.appendPath(fileName);
 
             FileWriter fileWriter = createParquetFileWriter(filePath);
 
@@ -440,7 +441,7 @@ public abstract class AbstractDeltaLakePageSink
                 .collect(toList());
     }
 
-    private FileWriter createParquetFileWriter(String path)
+    private FileWriter createParquetFileWriter(Location path)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))

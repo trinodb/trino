@@ -17,6 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetDataSource;
@@ -176,7 +177,8 @@ public class DeltaLakePageSourceProvider
                     split.getFileModifiedTime());
         }
 
-        TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(split.getPath(), split.getFileSize());
+        Location location = Location.of(split.getPath());
+        TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(location, split.getFileSize());
         ParquetReaderOptions options = parquetReaderOptions.withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                 .withUseColumnIndex(isParquetUseColumnIndex(session))

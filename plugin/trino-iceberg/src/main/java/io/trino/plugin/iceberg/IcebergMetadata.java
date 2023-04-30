@@ -29,6 +29,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
@@ -733,7 +734,7 @@ public class IcebergMetadata
             throw new SchemaNotFoundException(schemaName);
         }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
-        String location = transaction.table().location();
+        Location location = Location.of(transaction.table().location());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
             if (fileSystem.listFiles(location).hasNext()) {
@@ -945,11 +946,11 @@ public class IcebergMetadata
         Set<String> locations = getOutputFilesLocations(writtenFiles);
         Set<String> fileNames = getOutputFilesFileNames(writtenFiles);
         for (String location : locations) {
-            cleanExtraOutputFiles(fileSystem, session.getQueryId(), location, fileNames);
+            cleanExtraOutputFiles(fileSystem, session.getQueryId(), Location.of(location), fileNames);
         }
     }
 
-    private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, String location, Set<String> fileNamesToKeep)
+    private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Location location, Set<String> fileNamesToKeep)
     {
         checkArgument(!queryId.contains("-"), "query ID should not contain hyphens: %s", queryId);
 
@@ -960,7 +961,7 @@ public class IcebergMetadata
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
                 FileEntry entry = iterator.next();
-                String name = fileName(entry.location());
+                String name = entry.location().fileName();
                 if (name.startsWith(queryId + "-") && !fileNamesToKeep.contains(name)) {
                     filesToDelete.add(name);
                 }
@@ -972,14 +973,11 @@ public class IcebergMetadata
 
             log.info("Found %s files to delete and %s to retain in location %s for query %s", filesToDelete.size(), fileNamesToKeep.size(), location, queryId);
             ImmutableList.Builder<String> deletedFilesBuilder = ImmutableList.builder();
-            Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
-            List<String> deleteBatch = new ArrayList<>();
-            while (filesToDeleteIterator.hasNext()) {
-                String fileName = filesToDeleteIterator.next();
+            List<Location> deleteBatch = new ArrayList<>();
+            for (String fileName : filesToDelete) {
                 deletedFilesBuilder.add(fileName);
-                filesToDeleteIterator.remove();
 
-                deleteBatch.add(location + "/" + fileName);
+                deleteBatch.add(location.appendPath(fileName));
                 if (deleteBatch.size() >= DELETE_BATCH_SIZE) {
                     log.debug("Deleting failed attempt files %s for query %s", deleteBatch, queryId);
                     fileSystem.deleteFiles(deleteBatch);
@@ -1321,10 +1319,10 @@ public class IcebergMetadata
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        List<String> pathsToDelete = new ArrayList<>();
+        List<Location> pathsToDelete = new ArrayList<>();
         // deleteFunction is not accessed from multiple threads unless .executeDeleteWith() is used
         Consumer<String> deleteFunction = path -> {
-            pathsToDelete.add(path);
+            pathsToDelete.add(Location.of(path));
             if (pathsToDelete.size() == DELETE_BATCH_SIZE) {
                 try {
                     fileSystem.deleteFiles(pathsToDelete);
@@ -1461,12 +1459,12 @@ public class IcebergMetadata
     private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Set<String> validFiles, String subfolder)
     {
         try {
-            List<String> filesToDelete = new ArrayList<>();
+            List<Location> filesToDelete = new ArrayList<>();
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            FileIterator allFiles = fileSystem.listFiles(table.location() + "/" + subfolder);
+            FileIterator allFiles = fileSystem.listFiles(Location.of(table.location()).appendPath(subfolder));
             while (allFiles.hasNext()) {
                 FileEntry entry = allFiles.next();
-                if (entry.lastModified().isBefore(expiration) && !validFiles.contains(fileName(entry.location()))) {
+                if (entry.lastModified().isBefore(expiration) && !validFiles.contains(entry.location().fileName())) {
                     filesToDelete.add(entry.location());
                     if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
                         log.debug("Deleting files while removing orphan files for table %s [%s]", schemaTableName, filesToDelete);
@@ -2158,6 +2156,7 @@ public class IcebergMetadata
                 fileSystem.deleteFiles(fullyDeletedFiles.values().stream()
                         .flatMap(Collection::stream)
                         .map(CommitTaskData::getPath)
+                        .map(Location::of)
                         .collect(toImmutableSet()));
             }
             catch (IOException e) {

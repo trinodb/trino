@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -298,17 +299,16 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
         assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
 
-        String tableLocation = getTableLocation(tableName);
+        Location tableLocation = Location.of(getTableLocation(tableName));
         String tableNameNew = tableName + "_new";
-        String metadataDirectoryLocation = format("%s/%s", tableLocation, METADATA_FOLDER_NAME);
+        Location metadataDirectoryLocation = tableLocation.appendPath(METADATA_FOLDER_NAME);
         FileIterator fileIterator = fileSystem.listFiles(metadataDirectoryLocation);
         // Find one invalid metadata file inside metadata folder
         String invalidMetadataFileName = "invalid-default.avro";
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
-            if (fileEntry.location().endsWith(".avro")) {
-                String file = fileEntry.location();
-                invalidMetadataFileName = file.substring(file.lastIndexOf("/") + 1);
+            if (fileEntry.location().fileName().endsWith(".avro")) {
+                invalidMetadataFileName = fileEntry.location().fileName();
                 break;
             }
         }

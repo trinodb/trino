@@ -878,7 +878,7 @@ public class TestTransactionLogAccess
         return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
                 .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
-                        entry.getKey().getFilePath().replaceFirst(".*/_delta_log/", ""),
+                        entry.getKey().getLocation().toString().replaceFirst(".*/_delta_log/", ""),
                         entry.getKey().getOperationType())).stream())
                 .collect(toCollection(HashMultiset::create));
     }

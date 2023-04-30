@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -160,7 +161,7 @@ public class HudiPageSourceProvider
                 .filter(columnHandle -> !columnHandle.isPartitionKey() && !columnHandle.isHidden())
                 .collect(Collectors.toList());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = fileSystem.newInputFile(path, split.getFileSize());
+        TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path), split.getFileSize());
         ConnectorPageSource dataPageSource = createPageSource(session, regularColumns, split, inputFile, dataSourceStats, options, timeZone);
 
         return new HudiPageSource(

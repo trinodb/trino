@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -135,7 +136,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-            fileSystem.deleteDirectory(schemaPath());
+            fileSystem.deleteDirectory(Location.of(schemaPath()));
         }
         catch (IOException e) {
             // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
@@ -173,7 +174,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-            return fileSystem.newInputFile(location).exists();
+            return fileSystem.newInputFile(Location.of(location)).exists();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -218,7 +219,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-            fileSystem.deleteDirectory(location);
+            fileSystem.deleteDirectory(Location.of(location));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -226,7 +227,7 @@ public class TestIcebergGcsConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(String path, String sortColumnName)
+    protected boolean isFileSorted(Location path, String sortColumnName)
     {
         return checkOrcFileSorting(fileSystemFactory, path, sortColumnName);
     }

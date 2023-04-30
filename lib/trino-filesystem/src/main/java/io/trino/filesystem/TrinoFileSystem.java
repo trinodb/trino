@@ -54,7 +54,7 @@ public interface TrinoFileSystem
      *
      * @throws IllegalArgumentException if location is not valid for this file system
      */
-    TrinoInputFile newInputFile(String location);
+    TrinoInputFile newInputFile(Location location);
 
     /**
      * Creates a TrinoInputFile with a predeclared length which can be used to read the file data.
@@ -64,7 +64,7 @@ public interface TrinoFileSystem
      *
      * @throws IllegalArgumentException if location is not valid for this file system
      */
-    TrinoInputFile newInputFile(String location, long length);
+    TrinoInputFile newInputFile(Location location, long length);
 
     /**
      * Creates a TrinoOutputFile which can be used to create or overwrite the file. The file
@@ -72,7 +72,7 @@ public interface TrinoFileSystem
      *
      * @throws IllegalArgumentException if location is not valid for this file system
      */
-    TrinoOutputFile newOutputFile(String location);
+    TrinoOutputFile newOutputFile(Location location);
 
     /**
      * Deletes the specified file. The file location path cannot be empty, and must not end with
@@ -81,7 +81,7 @@ public interface TrinoFileSystem
      * @throws IllegalArgumentException if location is not valid for this file system
      * @throws IOException if the file does not exist or was not deleted.
      */
-    void deleteFile(String location)
+    void deleteFile(Location location)
             throws IOException;
 
     /**
@@ -92,10 +92,10 @@ public interface TrinoFileSystem
      * @throws IllegalArgumentException if location is not valid for this file system
      * @throws IOException if a file does not exist or was not deleted.
      */
-    default void deleteFiles(Collection<String> locations)
+    default void deleteFiles(Collection<Location> locations)
             throws IOException
     {
-        for (String location : locations) {
+        for (var location : locations) {
             deleteFile(location);
         }
     }
@@ -117,7 +117,7 @@ public interface TrinoFileSystem
      * @param location the directory to delete
      * @throws IllegalArgumentException if location is not valid for this file system
      */
-    void deleteDirectory(String location)
+    void deleteDirectory(Location location)
             throws IOException;
 
     /**
@@ -128,7 +128,7 @@ public interface TrinoFileSystem
      *
      * @throws IllegalArgumentException if either location is not valid for this file system
      */
-    void renameFile(String source, String target)
+    void renameFile(Location source, Location target)
             throws IOException;
 
     /**
@@ -148,6 +148,6 @@ public interface TrinoFileSystem
      * @param location the directory to list
      * @throws IllegalArgumentException if location is not valid for this file system
      */
-    FileIterator listFiles(String location)
+    FileIterator listFiles(Location location)
             throws IOException;
 }

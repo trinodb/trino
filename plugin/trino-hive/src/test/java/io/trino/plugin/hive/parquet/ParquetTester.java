@@ -22,8 +22,7 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
@@ -114,7 +113,6 @@ import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCurso
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -811,10 +809,8 @@ public class ParquetTester
         pageBuilder.declarePositions(size);
         writer.write(pageBuilder.build());
         writer.close();
-        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
         try {
-            TrinoInputFile inputFile = fileSystem.newInputFile(outputFile.getPath());
-            writer.validate(new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()));
+            writer.validate(new TrinoParquetDataSource(new LocalInputFile(outputFile), new ParquetReaderOptions(), new FileFormatDataSourceStats()));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);

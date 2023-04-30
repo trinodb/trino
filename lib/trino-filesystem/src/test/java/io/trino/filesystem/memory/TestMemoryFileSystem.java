@@ -14,6 +14,7 @@
 package io.trino.filesystem.memory;
 
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -50,9 +51,9 @@ public class TestMemoryFileSystem
     }
 
     @Override
-    protected String getRootLocation()
+    protected Location getRootLocation()
     {
-        return "memory://";
+        return Location.of("memory://");
     }
 
     @Override

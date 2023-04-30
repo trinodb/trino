@@ -17,15 +17,14 @@ import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileEntry.Block;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import org.apache.hadoop.fs.BlockLocation;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -38,14 +37,14 @@ import static java.util.Objects.requireNonNull;
 class HdfsFileIterator
         implements FileIterator
 {
-    private final String listingPath;
-    private final URI listingUri;
+    private final Location listingLocation;
+    private final Path listingPath;
     private final RemoteIterator<LocatedFileStatus> iterator;
 
-    public HdfsFileIterator(String listingPath, FileSystem fs, RemoteIterator<LocatedFileStatus> iterator)
+    public HdfsFileIterator(Location listingLocation, Path listingPath, RemoteIterator<LocatedFileStatus> iterator)
     {
+        this.listingLocation = requireNonNull(listingLocation, "listingPath is null");
         this.listingPath = requireNonNull(listingPath, "listingPath is null");
-        this.listingUri = new Path(listingPath).makeQualified(fs.getUri(), fs.getWorkingDirectory()).toUri();
         this.iterator = requireNonNull(iterator, "iterator is null");
     }
 
@@ -64,24 +63,23 @@ class HdfsFileIterator
 
         verify(status.isFile(), "iterator returned a non-file: %s", status);
 
-        URI pathUri = status.getPath().toUri();
-        URI relativeUri = listingUri.relativize(pathUri);
-        verify(!relativeUri.equals(pathUri), "cannot relativize [%s] against [%s]", pathUri, listingUri);
-
-        String path = listingPath;
-        if (!relativeUri.getPath().isEmpty()) {
-            if (!path.endsWith("/")) {
-                path += "/";
-            }
-            path += relativeUri.getPath();
+        if (status.getPath().equals(listingPath)) {
+            throw new IOException("Listing location is a file, not a directory: " + listingLocation);
         }
+
+        String root = listingPath.toUri().getPath();
+        String path = status.getPath().toUri().getPath();
+
+        verify(path.startsWith(root), "iterator path [%s] not a child of listing path [%s] for location [%s]", path, root, listingLocation);
+
+        Location location = listingLocation.appendPath(path.substring(root.length() + 1));
 
         List<Block> blocks = Stream.of(status.getBlockLocations())
                 .map(HdfsFileIterator::toTrinoBlock)
                 .collect(toImmutableList());
 
         return new FileEntry(
-                path,
+                location,
                 status.getLen(),
                 Instant.ofEpochMilli(status.getModificationTime()),
                 blocks.isEmpty() ? Optional.empty() : Optional.of(blocks));

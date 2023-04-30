@@ -21,6 +21,7 @@ import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hadoop.ConfigurationInstantiator;
@@ -106,7 +107,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     {
         if (fileSystem != null) {
             try {
-                fileSystem.deleteDirectory(bucketUrl());
+                fileSystem.deleteDirectory(Location.of(bucketUrl()));
             }
             catch (IOException e) {
                 // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
@@ -171,7 +172,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             for (ClassPath.ResourceInfo resourceInfo : resources) {
                 String fileName = resourceInfo.getResourceName().replaceFirst("^" + Pattern.quote(resourcePath), quoteReplacement(targetDirectory));
                 ByteSource byteSource = resourceInfo.asByteSource();
-                TrinoOutputFile trinoOutputFile = fileSystem.newOutputFile(fileName);
+                TrinoOutputFile trinoOutputFile = fileSystem.newOutputFile(Location.of(fileName));
                 try (OutputStream fileStream = trinoOutputFile.createOrOverwrite()) {
                     ByteStreams.copy(byteSource.openBufferedStream(), fileStream);
                 }
@@ -208,9 +209,9 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     {
         ImmutableList.Builder<String> locations = ImmutableList.builder();
         try {
-            FileIterator files = fileSystem.listFiles(bucketUrl() + directory);
+            FileIterator files = fileSystem.listFiles(Location.of(bucketUrl()).appendPath(directory));
             while (files.hasNext()) {
-                locations.add(files.next().location());
+                locations.add(files.next().location().toString());
             }
             return locations.build();
         }

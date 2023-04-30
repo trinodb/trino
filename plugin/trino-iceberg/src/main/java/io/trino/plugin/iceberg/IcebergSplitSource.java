@@ -21,6 +21,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.iceberg.delete.DeleteFile;
@@ -276,7 +277,7 @@ public class IcebergSplitSource
     private long getModificationTime(String path)
     {
         try {
-            TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(path);
+            TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(Location.of(path));
             return inputFile.lastModified().toEpochMilli();
         }
         catch (IOException e) {

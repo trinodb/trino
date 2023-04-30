@@ -16,9 +16,8 @@ package io.trino.plugin.deltalake.transactionlog.statistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -49,7 +48,6 @@ import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -93,8 +91,7 @@ public class TestDeltaLakeFileStatistics
         TypeManager typeManager = TESTING_TYPE_MANAGER;
         CheckpointSchemaManager checkpointSchemaManager = new CheckpointSchemaManager(typeManager);
 
-        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-        TrinoInputFile checkpointFile = fileSystem.newInputFile(statsFile.toURI().toString());
+        TrinoInputFile checkpointFile = new LocalInputFile(statsFile);
 
         CheckpointEntryIterator metadataEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,

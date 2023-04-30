@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -260,7 +261,7 @@ public class OrcPageSourceFactory
         boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
-            TrinoInputFile inputFile = fileSystem.newInputFile(path.toString());
+            TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path.toString()));
             orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(path.toString()),
                     estimatedFileSize,

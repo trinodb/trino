@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.event.client.EventClient;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
@@ -360,7 +361,7 @@ public class HiveWriterFactory
                     if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
                         // When target path is different from write path,
                         // verify that the target directory for the partition does not already exist
-                        String writeInfoTargetPath = writeInfo.getTargetPath().toString();
+                        Location writeInfoTargetPath = Location.of(writeInfo.getTargetPath().toString());
                         try {
                             if (fileSystem.newInputFile(writeInfoTargetPath).exists()) {
                                 throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(

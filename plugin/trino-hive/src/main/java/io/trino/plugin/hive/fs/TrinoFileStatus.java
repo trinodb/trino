@@ -42,7 +42,7 @@ public class TrinoFileStatus
                         .stream()
                         .map(BlockLocation::new)
                         .collect(toImmutableList()),
-                new Path(entry.location()),
+                new Path(entry.location().toString()),
                 false,
                 entry.length(),
                 entry.lastModified().toEpochMilli());

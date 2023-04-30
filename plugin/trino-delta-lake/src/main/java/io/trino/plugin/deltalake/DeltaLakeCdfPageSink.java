@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
@@ -37,8 +38,8 @@ public class DeltaLakeCdfPageSink
             TrinoFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
-            String outputPath,
-            String tableLocation,
+            Location tableLocation,
+            Location outputPath,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion)

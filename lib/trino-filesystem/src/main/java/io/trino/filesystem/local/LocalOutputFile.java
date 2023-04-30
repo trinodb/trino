@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.local;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 
@@ -29,10 +30,10 @@ import static java.util.Objects.requireNonNull;
 public class LocalOutputFile
         implements TrinoOutputFile
 {
-    private final String location;
+    private final Location location;
     private final Path path;
 
-    public LocalOutputFile(String location, Path path)
+    public LocalOutputFile(Location location, Path path)
     {
         this.location = requireNonNull(location, "location is null");
         this.path = requireNonNull(path, "path is null");
@@ -40,7 +41,7 @@ public class LocalOutputFile
 
     public LocalOutputFile(File file)
     {
-        this(file.getPath(), file.toPath());
+        this(Location.of(file.toURI().toString()), file.toPath());
     }
 
     @Override
@@ -72,8 +73,14 @@ public class LocalOutputFile
     }
 
     @Override
-    public String location()
+    public Location location()
     {
         return location;
+    }
+
+    @Override
+    public String toString()
+    {
+        return location.toString();
     }
 }

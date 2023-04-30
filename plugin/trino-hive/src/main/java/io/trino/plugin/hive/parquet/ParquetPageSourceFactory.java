@@ -16,6 +16,7 @@ package io.trino.plugin.hive.parquet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -181,8 +182,9 @@ public class ParquetPageSourceFactory
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
+        Location location = Location.of(path.toString());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = fileSystem.newInputFile(path.toString(), estimatedFileSize);
+        TrinoInputFile inputFile = fileSystem.newInputFile(location, estimatedFileSize);
 
         return Optional.of(createPageSource(
                 inputFile,

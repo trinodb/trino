@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.fs;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
@@ -71,7 +72,7 @@ public final class MonitoredInputFile
     }
 
     @Override
-    public String location()
+    public Location location()
     {
         return delegate.location();
     }

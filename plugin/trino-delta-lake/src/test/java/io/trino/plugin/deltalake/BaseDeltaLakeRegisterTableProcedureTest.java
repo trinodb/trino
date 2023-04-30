@@ -228,7 +228,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         // Delete files under transaction log directory and put an invalid log file to verify register_table call fails
         String transactionLogDir = new URI(getTransactionLogDir(tableLocation)).getPath();
         deleteDirectoryContents(Path.of(transactionLogDir), ALLOW_INSECURE);
-        new File(getTransactionLogJsonEntryPath(transactionLogDir, 0)).createNewFile();
+        new File("/" + getTransactionLogJsonEntryPath(transactionLogDir, 0).path()).createNewFile();
 
         assertQueryFails(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableNameNew, tableLocation),
                 ".*Metadata not found in transaction log for (.*)");

@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import io.trino.filesystem.Location;
 import org.apache.hadoop.fs.Path;
 
 import java.net.URI;
@@ -24,9 +25,10 @@ public final class HadoopPaths
 {
     private HadoopPaths() {}
 
-    public static Path hadoopPath(String path)
+    public static Path hadoopPath(Location location)
     {
         // hack to preserve the original path for S3 if necessary
+        String path = location.toString();
         Path hadoopPath = new Path(path);
         if ("s3".equals(hadoopPath.toUri().getScheme()) && !path.equals(hadoopPath.toString())) {
             if (hadoopPath.toUri().getFragment() != null) {
