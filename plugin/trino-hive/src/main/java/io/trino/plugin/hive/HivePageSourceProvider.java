@@ -248,10 +248,7 @@ public class HivePageSourceProvider
         }
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
-            // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
-            boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
-
-            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, doCoercion, typeManager);
+            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, false, typeManager);
             Optional<ReaderRecordCursorWithProjections> readerWithProjections = provider.createRecordCursor(
                     configuration,
                     session,
@@ -286,11 +283,6 @@ public class HivePageSourceProvider
                             bucketAdaptation.get().getBucketToKeep(),
                             typeManager,
                             delegate);
-                }
-
-                // Need to wrap RcText and RcBinary into a wrapper, which will do the coercion for mismatch columns
-                if (doCoercion) {
-                    delegate = new HiveCoercionRecordCursor(regularAndInterimColumnMappings, typeManager, delegate);
                 }
 
                 // bucket adaptation already validates that data is in the right bucket
