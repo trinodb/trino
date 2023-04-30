@@ -174,7 +174,7 @@ public class MemoryFileSystem
     private static Location parseMemoryLocation(String locationString)
     {
         Location location = parse(locationString);
-        checkArgument("memory".equals(location.scheme()), "Only 'memory' scheme is supported: %s", locationString);
+        checkArgument(location.scheme().equals(Optional.of("memory")), "Only 'memory' scheme is supported: %s", locationString);
         checkArgument(location.userInfo().isEmpty(), "Memory location cannot contain user info: %s", locationString);
         checkArgument(location.host().isEmpty(), "Memory location cannot contain a host: %s", locationString);
         return location;

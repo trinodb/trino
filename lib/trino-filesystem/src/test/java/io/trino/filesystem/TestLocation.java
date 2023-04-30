@@ -65,10 +65,22 @@ class TestLocation
         assertLocation("scheme://host//", "scheme", Optional.empty(), "host", "/");
         assertLocation("scheme:////", "scheme", Optional.empty(), "", "/");
 
+        // the location can be just a path
+        assertLocation("/", "");
+        assertLocation("/abc", "abc");
+        assertLocation("/abc/xyz", "abc/xyz");
+        assertLocation("/foo://host:port/path", "foo://host:port/path");
+
         assertThatThrownBy(() -> parse(null))
                 .isInstanceOf(NullPointerException.class);
 
         assertThatThrownBy(() -> parse(""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("location is empty");
+        assertThatThrownBy(() -> parse("  "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("location is blank");
+        assertThatThrownBy(() -> parse("x"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("scheme");
 
@@ -104,10 +116,17 @@ class TestLocation
     private static void assertLocation(String locationString, String scheme, Optional<String> userInfo, String host, String path)
     {
         Location location = parse(locationString);
-        assertLocation(location, locationString, scheme, userInfo, host, path);
+        Optional<String> expectedHost = host.isEmpty() ? Optional.empty() : Optional.of(host);
+        assertLocation(location, locationString, Optional.of(scheme), userInfo, expectedHost, path);
     }
 
-    private static void assertLocation(Location location, String locationString, String scheme, Optional<String> userInfo, String host, String path)
+    private static void assertLocation(String locationString, String path)
+    {
+        Location location = parse(locationString);
+        assertLocation(location, locationString, Optional.empty(), Optional.empty(), Optional.empty(), path);
+    }
+
+    private static void assertLocation(Location location, String locationString, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, String path)
     {
         assertThat(location.location()).isEqualTo(locationString);
         assertThat(location.scheme()).isEqualTo(scheme);
@@ -129,10 +148,17 @@ class TestLocation
         parse("scheme://userInfo@host/name").verifyValidFileLocation();
         parse("scheme://userInfo@host/path/name").verifyValidFileLocation();
 
+        parse("/name").verifyValidFileLocation();
+        parse("/path/name").verifyValidFileLocation();
+
         assertInvalidFileLocation("scheme://userInfo@host", "File location must contain a path");
         assertInvalidFileLocation("scheme://userInfo@host/", "File location must contain a path");
         assertInvalidFileLocation("scheme://userInfo@host/name/", "File location cannot end with '/'");
         assertInvalidFileLocation("scheme://userInfo@host/name ", "File location cannot end with whitespace");
+
+        assertInvalidFileLocation("/", "File location must contain a path");
+        assertInvalidFileLocation("/name/", "File location cannot end with '/'");
+        assertInvalidFileLocation("/name ", "File location cannot end with whitespace");
     }
 
     private static void assertInvalidFileLocation(String locationString, String expectedErrorMessage)
@@ -157,6 +183,10 @@ class TestLocation
     {
         assertFileName("scheme://userInfo@host/path/name", "name");
         assertFileName("scheme://userInfo@host/name", "name");
+
+        assertFileName("/path/name", "name");
+        assertFileName("/name", "name");
+
         // all valid file locations must have a path
         // invalid file locations are tested in testVerifyFileLocation
     }
@@ -178,6 +208,13 @@ class TestLocation
         assertParentDirectory("scheme://userInfo@host/path//name", parse("scheme://userInfo@host/path/"));
         assertParentDirectory("scheme://userInfo@host/path///name", parse("scheme://userInfo@host/path//"));
         assertParentDirectory("scheme://userInfo@host/path:/name", parse("scheme://userInfo@host/path:"));
+
+        assertParentDirectory("/path/name", parse("/path"));
+        assertParentDirectory("/name", parse("/"));
+
+        assertParentDirectory("/path//name", parse("/path/"));
+        assertParentDirectory("/path///name", parse("/path//"));
+        assertParentDirectory("/path:/name", parse("/path:"));
 
         // all valid file locations must have a parent directory
         // invalid file locations are tested in testVerifyFileLocation
@@ -209,6 +246,9 @@ class TestLocation
 
         assertAppendPath("scheme://userInfo@host/path//", "name", parse("scheme://userInfo@host/path//name"));
         assertAppendPath("scheme://userInfo@host/path:", "name", parse("scheme://userInfo@host/path:/name"));
+
+        assertAppendPath("/", "name", parse("/name"));
+        assertAppendPath("/path", "name", parse("/path/name"));
     }
 
     private static void assertAppendPath(String locationString, String newPathElement, Location expected)
