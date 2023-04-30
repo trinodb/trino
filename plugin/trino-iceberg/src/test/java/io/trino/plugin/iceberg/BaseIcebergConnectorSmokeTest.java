@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
@@ -459,7 +460,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                 "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertTrue(isFileSorted((String) filePath, "comment"));
+                assertTrue(isFileSorted(Location.of((String) filePath), "comment"));
             }
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
         }
@@ -479,7 +480,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
                     "VALUES 60175");
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertTrue(isFileSorted((String) filePath, "comment"));
+                assertTrue(isFileSorted(Location.of((String) filePath), "comment"));
             }
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
         }
@@ -492,8 +493,8 @@ public abstract class BaseIcebergConnectorSmokeTest
         String tableName = "test_drop_table_with_missing_metadata_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
-        String metadataLocation = getMetadataLocation(tableName);
-        String tableLocation = getTableLocation(tableName);
+        Location metadataLocation = Location.of(getMetadataLocation(tableName));
+        Location tableLocation = Location.of(getTableLocation(tableName));
 
         // Delete current metadata file
         trinoFileSystem.deleteFile(metadataLocation);
@@ -514,8 +515,8 @@ public abstract class BaseIcebergConnectorSmokeTest
 
         String metadataLocation = getMetadataLocation(tableName);
         TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(trinoFileSystem), metadataLocation);
-        String tableLocation = tableMetadata.location();
-        String currentSnapshotFile = tableMetadata.currentSnapshot().manifestListLocation();
+        Location tableLocation = Location.of(tableMetadata.location());
+        Location currentSnapshotFile = Location.of(tableMetadata.currentSnapshot().manifestListLocation());
 
         // Delete current snapshot file
         trinoFileSystem.deleteFile(currentSnapshotFile);
@@ -537,8 +538,8 @@ public abstract class BaseIcebergConnectorSmokeTest
         String metadataLocation = getMetadataLocation(tableName);
         FileIO fileIo = new ForwardingFileIo(trinoFileSystem);
         TableMetadata tableMetadata = TableMetadataParser.read(fileIo, metadataLocation);
-        String tableLocation = tableMetadata.location();
-        String manifestListFile = tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path();
+        Location tableLocation = Location.of(tableMetadata.location());
+        Location manifestListFile = Location.of(tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path());
 
         // Delete Manifest List file
         trinoFileSystem.deleteFile(manifestListFile);
@@ -558,11 +559,11 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'POLAND')", 1);
 
-        String tableLocation = getTableLocation(tableName);
-        String tableDataPath = String.format("%s/%s", tableLocation, "data");
+        Location tableLocation = Location.of(getTableLocation(tableName));
+        Location tableDataPath = tableLocation.appendPath("data");
         FileIterator fileIterator = trinoFileSystem.listFiles(tableDataPath);
         assertTrue(fileIterator.hasNext());
-        String dataFile = fileIterator.next().location();
+        Location dataFile = fileIterator.next().location();
 
         // Delete data file
         trinoFileSystem.deleteFile(dataFile);
@@ -582,7 +583,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'POLAND')", 1);
 
-        String tableLocation = getTableLocation(tableName);
+        Location tableLocation = Location.of(getTableLocation(tableName));
 
         // Delete table location
         trinoFileSystem.deleteDirectory(tableLocation);
@@ -593,7 +594,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
-    protected abstract boolean isFileSorted(String path, String sortColumnName);
+    protected abstract boolean isFileSorted(Location path, String sortColumnName);
 
     private String getTableLocation(String tableName)
     {

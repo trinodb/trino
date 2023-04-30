@@ -33,5 +33,5 @@ public interface TrinoInputFile
     boolean exists()
             throws IOException;
 
-    String location();
+    Location location();
 }

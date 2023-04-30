@@ -17,6 +17,7 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.http.ByteArr
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.Storage;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.model.StorageObject;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.gcsio.StorageResourceId;
+import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.GcsStorageFactory;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -45,11 +46,11 @@ public class GcsTransactionLogSynchronizer
     // in order to avoid leaked output streams in case of I/O exceptions occurring while uploading
     // the blob content.
     @Override
-    public void write(ConnectorSession session, String clusterId, String newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
-        Storage storage = gcsStorageFactory.create(session, newLogEntryPath);
+        Storage storage = gcsStorageFactory.create(session, newLogEntryPath.toString());
         try {
-            createStorageObjectExclusively(newLogEntryPath, entryContents, storage);
+            createStorageObjectExclusively(newLogEntryPath.toString(), entryContents, storage);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

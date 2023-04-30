@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -216,7 +217,7 @@ public class TestCheckpointEntryIterator
             throws IOException
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-        TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointUri.toString());
+        TrinoInputFile checkpointFile = fileSystem.newInputFile(Location.of(checkpointUri.toString()));
 
         return new CheckpointEntryIterator(
                 checkpointFile,

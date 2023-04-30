@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 
 import java.io.IOException;
@@ -31,10 +32,10 @@ final class TracingInput
 {
     private final Tracer tracer;
     private final TrinoInput delegate;
-    private final String location;
+    private final Location location;
     private final Optional<Long> fileLength;
 
-    public TracingInput(Tracer tracer, TrinoInput delegate, String location, Optional<Long> fileLength)
+    public TracingInput(Tracer tracer, TrinoInput delegate, Location location, Optional<Long> fileLength)
     {
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -87,10 +88,16 @@ final class TracingInput
         delegate.close();
     }
 
+    @Override
+    public String toString()
+    {
+        return location.toString();
+    }
+
     private SpanBuilder spanBuilder(String name, long readLength)
     {
         return tracer.spanBuilder(name)
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, location)
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .setAllAttributes(attribute(FileSystemAttributes.FILE_SIZE, fileLength))
                 .setAttribute(FileSystemAttributes.FILE_READ_SIZE, readLength);
     }

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.orc;
 
-import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.orc.OrcDataSource;
@@ -56,7 +56,9 @@ public final class OriginalFilesUtils
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
             Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
             if (path.compareTo(splitPath) < 0) {
-                rowCount += getRowsInFile(path.toString(), fileSystemFactory, identity, options, stats, originalFileInfo.getFileSize());
+                TrinoInputFile inputFile = fileSystemFactory.create(identity)
+                        .newInputFile(Location.of(path.toString()), originalFileInfo.getFileSize());
+                rowCount += getRowsInFile(inputFile, options, stats);
             }
         }
 
@@ -66,25 +68,17 @@ public final class OriginalFilesUtils
     /**
      * Returns number of rows present in the file, based on the ORC footer.
      */
-    private static Long getRowsInFile(
-            String splitPath,
-            TrinoFileSystemFactory fileSystemFactory,
-            ConnectorIdentity identity,
-            OrcReaderOptions options,
-            FileFormatDataSourceStats stats,
-            long fileSize)
+    private static Long getRowsInFile(TrinoInputFile inputFile, OrcReaderOptions options, FileFormatDataSourceStats stats)
     {
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(identity);
-            TrinoInputFile inputFile = fileSystem.newInputFile(splitPath);
             try (OrcDataSource orcDataSource = new HdfsOrcDataSource(
-                    new OrcDataSourceId(splitPath),
-                    fileSize,
+                    new OrcDataSourceId(inputFile.location().toString()),
+                    inputFile.length(),
                     options,
                     inputFile,
                     stats)) {
                 OrcReader reader = createOrcReader(orcDataSource, options)
-                        .orElseThrow(() -> new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from empty file: " + splitPath));
+                        .orElseThrow(() -> new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from empty file: " + inputFile.location()));
                 return reader.getFooter().getNumberOfRows();
             }
         }
@@ -92,7 +86,7 @@ public final class OriginalFilesUtils
             throw e;
         }
         catch (Exception e) {
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from file: " + splitPath, e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from file: " + inputFile.location(), e);
         }
     }
 }

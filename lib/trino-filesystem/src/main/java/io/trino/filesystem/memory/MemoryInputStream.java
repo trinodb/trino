@@ -15,6 +15,7 @@ package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputStream;
 
 import java.io.IOException;
@@ -24,12 +25,12 @@ import static java.util.Objects.requireNonNull;
 class MemoryInputStream
         extends TrinoInputStream
 {
-    private final String location;
+    private final Location location;
     private final SliceInput input;
     private final int length;
     private boolean closed;
 
-    public MemoryInputStream(String location, Slice data)
+    public MemoryInputStream(Location location, Slice data)
     {
         this.location = requireNonNull(location, "location is null");
         this.input = requireNonNull(data, "data is null").getInput();

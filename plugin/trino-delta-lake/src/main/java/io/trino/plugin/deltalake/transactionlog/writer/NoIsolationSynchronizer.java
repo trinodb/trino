@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
@@ -38,7 +39,7 @@ public class NoIsolationSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, String clusterId, String newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
             throws UncheckedIOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);

@@ -14,6 +14,7 @@
 package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 
@@ -36,10 +37,10 @@ class MemoryOutputFile
         void overwriteBlob(Slice data);
     }
 
-    private final String location;
+    private final Location location;
     private final OutputBlob outputBlob;
 
-    public MemoryOutputFile(String location, OutputBlob outputBlob)
+    public MemoryOutputFile(Location location, OutputBlob outputBlob)
     {
         this.location = requireNonNull(location, "location is null");
         this.outputBlob = requireNonNull(outputBlob, "outputBlob is null");
@@ -50,7 +51,7 @@ class MemoryOutputFile
             throws IOException
     {
         if (outputBlob.exists()) {
-            throw new FileAlreadyExistsException(location);
+            throw new FileAlreadyExistsException(toString());
         }
         return new MemoryOutputStream(location, outputBlob::createBlob);
     }
@@ -63,8 +64,14 @@ class MemoryOutputFile
     }
 
     @Override
-    public String location()
+    public Location location()
     {
         return location;
+    }
+
+    @Override
+    public String toString()
+    {
+        return location.toString();
     }
 }

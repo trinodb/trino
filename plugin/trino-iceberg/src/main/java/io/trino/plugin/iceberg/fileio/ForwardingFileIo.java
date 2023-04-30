@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.fileio;
 
 import com.google.common.collect.Iterables;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import org.apache.iceberg.io.BulkDeletionFailureException;
 import org.apache.iceberg.io.InputFile;
@@ -44,13 +45,13 @@ public class ForwardingFileIo
     @Override
     public InputFile newInputFile(String path)
     {
-        return new ForwardingInputFile(fileSystem.newInputFile(path));
+        return new ForwardingInputFile(fileSystem.newInputFile(Location.of(path)));
     }
 
     @Override
     public InputFile newInputFile(String path, long length)
     {
-        return new ForwardingInputFile(fileSystem.newInputFile(path, length));
+        return new ForwardingInputFile(fileSystem.newInputFile(Location.of(path), length));
     }
 
     @Override
@@ -63,7 +64,7 @@ public class ForwardingFileIo
     public void deleteFile(String path)
     {
         try {
-            fileSystem.deleteFile(path);
+            fileSystem.deleteFile(Location.of(path));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to delete file: " + path, e);
@@ -81,7 +82,7 @@ public class ForwardingFileIo
     private void deleteBatch(List<String> filesToDelete)
     {
         try {
-            fileSystem.deleteFiles(filesToDelete);
+            fileSystem.deleteFiles(filesToDelete.stream().map(Location::of).toList());
         }
         catch (IOException e) {
             throw new UncheckedIOException(

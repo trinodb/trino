@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
@@ -479,7 +480,7 @@ public class TestCheckpointWriter
             throws IOException
     {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-        TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath);
+        TrinoInputFile checkpointFile = fileSystem.newInputFile(Location.of(checkpointPath));
 
         Iterator<DeltaLakeTransactionLogEntry> checkpointEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
@@ -505,6 +506,6 @@ public class TestCheckpointWriter
 
     private static TrinoOutputFile createOutputFile(String path)
     {
-        return new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION).newOutputFile(path);
+        return new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION).newOutputFile(Location.of(path));
     }
 }

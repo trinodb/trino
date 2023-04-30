@@ -14,17 +14,13 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -57,8 +53,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.HiveTestUtils.toNativeContainerValue;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
@@ -313,9 +307,7 @@ public class TestBloomFilterStore
                 false,
                 DateTimeZone.getDefault());
 
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
-        TrinoFileSystem fileSystem = fileSystemFactory.create(getHiveSession(new HiveConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET)));
-        TrinoInputFile inputFile = fileSystem.newInputFile(tempFile.getFile().getPath());
+        TrinoInputFile inputFile = new LocalInputFile(tempFile.getFile());
         TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats());
 
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.memory.MemoryInputFile;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.spi.block.Block;
@@ -235,7 +236,7 @@ public class TestRcFileReaderManual
         }
 
         RcFileReader reader = new RcFileReader(
-                new MemoryInputFile("test", data),
+                new MemoryInputFile(Location.of("memory:///test"), data),
                 new BinaryColumnEncodingFactory(DateTimeZone.UTC),
                 ImmutableMap.of(0, SMALLINT),
                 offset,

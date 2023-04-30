@@ -74,10 +74,10 @@ public class OrcDeleteDeltaPageSource
             FileFormatDataSourceStats stats)
     {
         OrcDataSource orcDataSource;
-        String path = inputFile.location();
+        String path = inputFile.location().toString();
         try {
             orcDataSource = new HdfsOrcDataSource(
-                    new OrcDataSourceId(inputFile.location()),
+                    new OrcDataSourceId(path),
                     inputFile.length(),
                     options,
                     inputFile,

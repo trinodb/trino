@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -133,16 +134,17 @@ public class RcFileFileWriterFactory
                 .toArray();
 
         try {
+            Location location = Location.of(path.toString());
             TrinoFileSystem fileSystem = new HdfsFileSystemFactory(hdfsEnvironment).create(session.getIdentity());
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
-            OutputStream outputStream = fileSystem.newOutputFile(path.toString()).create(outputStreamMemoryContext);
+            OutputStream outputStream = fileSystem.newOutputFile(location).create(outputStreamMemoryContext);
 
             Optional<Supplier<TrinoInputFile>> validationInputFactory = Optional.empty();
             if (isRcfileOptimizedWriterValidate(session)) {
-                validationInputFactory = Optional.of(() -> fileSystem.newInputFile(path.toString()));
+                validationInputFactory = Optional.of(() -> fileSystem.newInputFile(location));
             }
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(path.toString());
+            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
             return Optional.of(new RcFileFileWriter(
                     outputStream,

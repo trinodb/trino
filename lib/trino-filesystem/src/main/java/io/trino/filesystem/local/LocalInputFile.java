@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.local;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
@@ -33,18 +34,18 @@ import static java.util.Objects.requireNonNull;
 public class LocalInputFile
         implements TrinoInputFile
 {
-    private final String location;
+    private final Location location;
     private final Path path;
     private OptionalLong length = OptionalLong.empty();
     private Optional<Instant> lastModified = Optional.empty();
 
-    public LocalInputFile(String location, Path path)
+    public LocalInputFile(Location location, Path path)
     {
         this.location = requireNonNull(location, "location is null");
         this.path = requireNonNull(path, "path is null");
     }
 
-    public LocalInputFile(String location, Path path, long length)
+    public LocalInputFile(Location location, Path path, long length)
     {
         this.location = requireNonNull(location, "location is null");
         this.path = requireNonNull(path, "path is null");
@@ -54,7 +55,7 @@ public class LocalInputFile
 
     public LocalInputFile(File file)
     {
-        this(file.getPath(), file.toPath());
+        this(Location.of(file.toURI().toString()), file.toPath());
     }
 
     @Override
@@ -65,7 +66,7 @@ public class LocalInputFile
             return new LocalInput(location, path.toFile());
         }
         catch (IOException e) {
-            throw new FileNotFoundException(location);
+            throw new FileNotFoundException(location.toString());
         }
     }
 
@@ -77,7 +78,7 @@ public class LocalInputFile
             return new LocalInputStream(location, path.toFile());
         }
         catch (FileNotFoundException e) {
-            throw new FileNotFoundException(location);
+            throw new FileNotFoundException(location.toString());
         }
     }
 
@@ -119,7 +120,7 @@ public class LocalInputFile
     }
 
     @Override
-    public String location()
+    public Location location()
     {
         return location;
     }
@@ -127,6 +128,6 @@ public class LocalInputFile
     @Override
     public String toString()
     {
-        return location();
+        return location.toString();
     }
 }

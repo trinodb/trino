@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.metadata.InternalFunctionBundle;
@@ -169,12 +170,12 @@ public class TestIcebergGlueCreateTableFailure
     protected void assertMetadataLocation(String tableName, boolean shouldMetadataFileExist)
             throws Exception
     {
-        FileIterator fileIterator = fileSystem.listFiles(dataDirectory.toString());
+        FileIterator fileIterator = fileSystem.listFiles(Location.of(dataDirectory.toString()));
         String tableLocationPrefix = Path.of(dataDirectory.toString(), tableName).toString();
         boolean metadataFileFound = false;
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
-            String location = fileEntry.location();
+            String location = fileEntry.location().toString();
             if (location.startsWith(tableLocationPrefix) && location.endsWith(".metadata.json")) {
                 metadataFileFound = true;
                 break;

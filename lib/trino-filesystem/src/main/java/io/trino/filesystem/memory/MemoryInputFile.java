@@ -14,6 +14,7 @@
 package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
@@ -30,17 +31,17 @@ import static java.util.Objects.requireNonNull;
 public class MemoryInputFile
         implements TrinoInputFile
 {
-    private final String location;
+    private final Location location;
     private final Supplier<MemoryBlob> dataSupplier;
     private OptionalLong length;
     private Optional<Instant> lastModified = Optional.empty();
 
-    public MemoryInputFile(String location, Slice data)
+    public MemoryInputFile(Location location, Slice data)
     {
         this(location, () -> new MemoryBlob(data), OptionalLong.of(data.length()));
     }
 
-    public MemoryInputFile(String location, Supplier<MemoryBlob> dataSupplier, OptionalLong length)
+    public MemoryInputFile(Location location, Supplier<MemoryBlob> dataSupplier, OptionalLong length)
     {
         this.location = requireNonNull(location, "location is null");
         this.dataSupplier = requireNonNull(dataSupplier, "dataSupplier is null");
@@ -89,7 +90,7 @@ public class MemoryInputFile
     }
 
     @Override
-    public String location()
+    public Location location()
     {
         return location;
     }
@@ -97,7 +98,7 @@ public class MemoryInputFile
     @Override
     public String toString()
     {
-        return location();
+        return location.toString();
     }
 
     private MemoryBlob getBlobRequired()
@@ -105,7 +106,7 @@ public class MemoryInputFile
     {
         MemoryBlob data = dataSupplier.get();
         if (data == null) {
-            throw new NoSuchFileException(location);
+            throw new NoSuchFileException(toString());
         }
         return data;
     }

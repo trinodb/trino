@@ -17,6 +17,7 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -141,8 +142,9 @@ public abstract class LinePageSourceFactory
         }
 
         // buffer file if small
+        Location location = Location.of(path.toString());
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
-        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
+        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(location));
         try {
             length = min(inputFile.length() - start, length);
             if (!inputFile.exists()) {
@@ -151,7 +153,7 @@ public abstract class LinePageSourceFactory
             if (estimatedFileSize < SMALL_FILE_SIZE.toBytes()) {
                 try (InputStream inputStream = inputFile.newStream()) {
                     byte[] data = inputStream.readAllBytes();
-                    inputFile = new MemoryInputFile(path.toString(), Slices.wrappedBuffer(data));
+                    inputFile = new MemoryInputFile(location, Slices.wrappedBuffer(data));
                 }
             }
         }

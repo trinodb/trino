@@ -15,6 +15,7 @@ package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -32,11 +33,11 @@ public class MemoryOutputStream
                 throws IOException;
     }
 
-    private final String location;
+    private final Location location;
     private final OnStreamClose onStreamClose;
     private ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
-    public MemoryOutputStream(String location, OnStreamClose onStreamClose)
+    public MemoryOutputStream(Location location, OnStreamClose onStreamClose)
     {
         this.location = requireNonNull(location, "location is null");
         this.onStreamClose = requireNonNull(onStreamClose, "onStreamClose is null");

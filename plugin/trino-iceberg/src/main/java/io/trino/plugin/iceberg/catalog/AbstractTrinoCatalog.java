@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog;
 import com.google.common.collect.ImmutableMap;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveMetadata;
@@ -212,7 +213,7 @@ public abstract class AbstractTrinoCatalog
     protected void deleteTableDirectory(TrinoFileSystem fileSystem, SchemaTableName schemaTableName, String tableLocation)
     {
         try {
-            fileSystem.deleteDirectory(tableLocation);
+            fileSystem.deleteDirectory(Location.of(tableLocation));
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", tableLocation, schemaTableName), e);

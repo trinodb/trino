@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Traverser;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -58,7 +59,7 @@ import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
 import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
 import io.trino.plugin.iceberg.delete.RowPredicate;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -291,12 +292,11 @@ public class IcebergPageSourceProvider
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputfile = isUseFileSizeFromMetadata(session)
-                ? fileSystem.newInputFile(split.getPath(), split.getFileSize())
-                : fileSystem.newInputFile(split.getPath());
+                ? fileSystem.newInputFile(Location.of(split.getPath()), split.getFileSize())
+                : fileSystem.newInputFile(Location.of(split.getPath()));
 
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,
-                fileSystem,
                 inputfile,
                 split.getStart(),
                 split.getLength(),
@@ -443,8 +443,7 @@ public class IcebergPageSourceProvider
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         return createDataPageSource(
                 session,
-                fileSystem,
-                fileSystem.newInputFile(delete.path(), delete.fileSizeInBytes()),
+                fileSystem.newInputFile(Location.of(delete.path()), delete.fileSizeInBytes()),
                 0,
                 delete.fileSizeInBytes(),
                 delete.recordCount(),
@@ -462,7 +461,6 @@ public class IcebergPageSourceProvider
 
     public ReaderPageSourceWithRowPositions createDataPageSource(
             ConnectorSession session,
-            TrinoFileSystem fileSystem,
             TrinoInputFile inputFile,
             long start,
             long length,
@@ -521,7 +519,6 @@ public class IcebergPageSourceProvider
                         partitionKeys);
             case AVRO:
                 return createAvroPageSource(
-                        fileSystem,
                         inputFile,
                         start,
                         length,
@@ -600,7 +597,7 @@ public class IcebergPageSourceProvider
                             deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName()))));
                 }
                 else if (column.isPathColumn()) {
-                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location()))));
+                    columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location().toString()))));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
                     columnAdaptations.add(ColumnAdaptation.constantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY))));
@@ -963,7 +960,7 @@ public class IcebergPageSourceProvider
                             deserializePartitionValue(trinoType, partitionKeys.get(column.getId()).orElse(null), column.getName())));
                 }
                 else if (column.isPathColumn()) {
-                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location())));
+                    pageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_PATH.getType(), utf8Slice(inputFile.location().toString())));
                 }
                 else if (column.isFileModifiedTimeColumn()) {
                     pageSourceBuilder.addConstantColumn(nativeValueToBlock(FILE_MODIFIED_TIME.getType(), packDateTimeWithZone(inputFile.lastModified().toEpochMilli(), UTC_KEY)));
@@ -1045,7 +1042,6 @@ public class IcebergPageSourceProvider
     }
 
     private static ReaderPageSourceWithRowPositions createAvroPageSource(
-            TrinoFileSystem fileSystem,
             TrinoInputFile inputFile,
             long start,
             long length,
@@ -1065,10 +1061,9 @@ public class IcebergPageSourceProvider
                 .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
                 .orElse(columns);
 
-        InputFile file;
+        InputFile file = new ForwardingInputFile(inputFile);
         OptionalLong fileModifiedTime = OptionalLong.empty();
         try {
-            file = new ForwardingFileIo(fileSystem).newInputFile(inputFile.location(), inputFile.length());
             if (readColumns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
                 fileModifiedTime = OptionalLong.of(inputFile.lastModified().toEpochMilli());
             }

@@ -15,11 +15,11 @@ package io.trino.plugin.iceberg;
 
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
-import io.trino.orc.FileOrcDataSource;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
@@ -35,7 +35,6 @@ import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -63,19 +62,7 @@ public final class IcebergTestUtils
                 .build();
     }
 
-    public static boolean checkOrcFileSorting(String path, String sortColumnName)
-    {
-        return checkOrcFileSorting(() -> {
-            try {
-                return new FileOrcDataSource(new File(path), new OrcReaderOptions());
-            }
-            catch (FileNotFoundException e) {
-                throw new UncheckedIOException(e);
-            }
-        }, sortColumnName);
-    }
-
-    public static boolean checkOrcFileSorting(TrinoFileSystemFactory fileSystemFactory, String path, String sortColumnName)
+    public static boolean checkOrcFileSorting(TrinoFileSystemFactory fileSystemFactory, Location path, String sortColumnName)
     {
         return checkOrcFileSorting(() -> {
             try {

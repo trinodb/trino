@@ -72,7 +72,7 @@ public class TrackingFileSystemFactory
         operationCounts.clear();
     }
 
-    private void increment(String path, int fileId, OperationType operationType)
+    private void increment(Location path, int fileId, OperationType operationType)
     {
         OperationContext context = new OperationContext(path, fileId, operationType);
         operationCounts.merge(context, 1, Math::addExact);    // merge is atomic for ConcurrentHashMap
@@ -86,7 +86,7 @@ public class TrackingFileSystemFactory
 
     private interface Tracker
     {
-        void track(String path, int fileId, OperationType operationType);
+        void track(Location path, int fileId, OperationType operationType);
     }
 
     private class TrackingFileSystem
@@ -102,7 +102,7 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public TrinoInputFile newInputFile(String location)
+        public TrinoInputFile newInputFile(Location location)
         {
             int nextId = fileId.incrementAndGet();
             return new TrackingInputFile(
@@ -111,7 +111,7 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public TrinoInputFile newInputFile(String location, long length)
+        public TrinoInputFile newInputFile(Location location, long length)
         {
             int nextId = fileId.incrementAndGet();
             return new TrackingInputFile(
@@ -120,7 +120,7 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public TrinoOutputFile newOutputFile(String location)
+        public TrinoOutputFile newOutputFile(Location location)
         {
             int nextId = fileId.incrementAndGet();
             return new TrackingOutputFile(
@@ -129,35 +129,35 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public void deleteFile(String location)
+        public void deleteFile(Location location)
                 throws IOException
         {
             delegate.deleteFile(location);
         }
 
         @Override
-        public void deleteFiles(Collection<String> locations)
+        public void deleteFiles(Collection<Location> locations)
                 throws IOException
         {
             delegate.deleteFiles(locations);
         }
 
         @Override
-        public void deleteDirectory(String location)
+        public void deleteDirectory(Location location)
                 throws IOException
         {
             delegate.deleteDirectory(location);
         }
 
         @Override
-        public void renameFile(String source, String target)
+        public void renameFile(Location source, Location target)
                 throws IOException
         {
             delegate.renameFile(source, target);
         }
 
         @Override
-        public FileIterator listFiles(String location)
+        public FileIterator listFiles(Location location)
                 throws IOException
         {
             return delegate.listFiles(location);
@@ -216,9 +216,15 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public String location()
+        public Location location()
         {
             return delegate.location();
+        }
+
+        @Override
+        public String toString()
+        {
+            return delegate.toString();
         }
     }
 
@@ -251,30 +257,36 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public String location()
+        public Location location()
         {
             tracker.accept(OUTPUT_FILE_LOCATION);
             return delegate.location();
+        }
+
+        @Override
+        public String toString()
+        {
+            return delegate.toString();
         }
     }
 
     @Immutable
     public static class OperationContext
     {
-        private final String filePath;
+        private final Location location;
         private final int fileId;
         private final OperationType operationType;
 
-        public OperationContext(String filePath, int fileId, OperationType operationType)
+        public OperationContext(Location location, int fileId, OperationType operationType)
         {
-            this.filePath = requireNonNull(filePath, "filePath is null");
+            this.location = requireNonNull(location, "location is null");
             this.fileId = fileId;
             this.operationType = requireNonNull(operationType, "operationType is null");
         }
 
-        public String getFilePath()
+        public Location getLocation()
         {
-            return filePath;
+            return location;
         }
 
         public int getFileId()
@@ -297,7 +309,7 @@ public class TrackingFileSystemFactory
                 return false;
             }
             OperationContext that = (OperationContext) o;
-            return Objects.equals(filePath, that.filePath)
+            return Objects.equals(location, that.location)
                     && fileId == that.fileId
                     && operationType == that.operationType;
         }
@@ -305,14 +317,14 @@ public class TrackingFileSystemFactory
         @Override
         public int hashCode()
         {
-            return Objects.hash(filePath, fileId, operationType);
+            return Objects.hash(location, fileId, operationType);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("path", filePath)
+                    .add("path", location)
                     .add("fileId", fileId)
                     .add("operation", operationType)
                     .toString();
