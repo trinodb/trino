@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.ConfigurationInitializer;
@@ -123,7 +124,7 @@ public class TestIcebergMinioOrcConnectorTest
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
     {
-        return checkOrcFileSorting(fileSystemFactory, path, sortColumnName);
+        return checkOrcFileSorting(fileSystemFactory, Location.of(path), sortColumnName);
     }
 
     @Test
@@ -147,10 +148,10 @@ public class TestIcebergMinioOrcConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_as_integer", "(\"_col0\") AS VALUES 0, NULL")) {
             String orcFilePath = (String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName()));
             TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-            try (OutputStream outputStream = fileSystem.newOutputFile(orcFilePath).createOrOverwrite()) {
+            try (OutputStream outputStream = fileSystem.newOutputFile(Location.of(orcFilePath)).createOrOverwrite()) {
                 Files.copy(new File(getResource(orcFileResourceName).toURI()).toPath(), outputStream);
             }
-            fileSystem.deleteFiles(List.of(orcFilePath.replaceAll("/([^/]*)$", ".$1.crc")));
+            fileSystem.deleteFiles(List.of(Location.of(orcFilePath.replaceAll("/([^/]*)$", ".$1.crc"))));
 
             Session ignoreFileSizeFromMetadata = Session.builder(getSession())
                     // The replaced and replacing file sizes may be different

@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
@@ -143,7 +144,7 @@ public class RegisterTableProcedure
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            String transactionLogDir = getTransactionLogDir(tableLocation);
+            Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
             if (!fileSystem.listFiles(transactionLogDir).hasNext()) {
                 throw new TrinoException(GENERIC_USER_ERROR, format("No transaction log found in location %s", transactionLogDir));
             }

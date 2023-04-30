@@ -20,6 +20,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.TrinoDataInputStream;
@@ -60,7 +61,7 @@ public final class SequenceFileReader
     private static final int MAX_METADATA_ENTRIES = 500_000;
     private static final int MAX_METADATA_STRING_LENGTH = 1024 * 1024;
 
-    private final String location;
+    private final Location location;
     private final TrinoDataInputStream input;
 
     private final String keyClassName;
@@ -170,7 +171,7 @@ public final class SequenceFileReader
         }
     }
 
-    public String getFileLocation()
+    public Location getFileLocation()
     {
         return location;
     }
@@ -280,7 +281,7 @@ public final class SequenceFileReader
     {
         private static final int INSTANCE_SIZE = instanceSize(SingleValueReader.class);
 
-        private final String location;
+        private final Location location;
         private final long fileSize;
         private final TrinoDataInputStream input;
         private final ValueDecompressor decompressor;
@@ -293,7 +294,7 @@ public final class SequenceFileReader
         private final DynamicSliceOutput uncompressedBuffer = new DynamicSliceOutput(0);
 
         public SingleValueReader(
-                String location,
+                Location location,
                 long fileSize,
                 TrinoDataInputStream input,
                 ValueDecompressor decompressor,
@@ -393,7 +394,7 @@ public final class SequenceFileReader
     {
         private static final int INSTANCE_SIZE = instanceSize(BlockCompressedValueReader.class);
 
-        private final String location;
+        private final Location location;
         private final long fileSize;
         private final TrinoDataInputStream input;
         private final long end;
@@ -407,7 +408,7 @@ public final class SequenceFileReader
         private ValuesBlock valuesBlock = ValuesBlock.EMPTY_VALUES_BLOCK;
 
         public BlockCompressedValueReader(
-                String location,
+                Location location,
                 long fileSize,
                 TrinoDataInputStream input,
                 ValueDecompressor decompressor,

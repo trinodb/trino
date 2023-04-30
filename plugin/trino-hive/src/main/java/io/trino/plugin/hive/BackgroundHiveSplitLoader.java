@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
@@ -678,15 +679,16 @@ public class BackgroundHiveSplitLoader
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         ValidWriteIdList writeIds = validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present"));
-        AcidState acidState = getAcidState(fileSystem, path.toString(), writeIds);
+        AcidState acidState = getAcidState(fileSystem, Location.of(path.toString()), writeIds);
 
         boolean fullAcid = isFullAcidTable(table.getParameters());
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
 
         if (fullAcid) {
             // From Hive version >= 3.0, delta/base files will always have file '_orc_acid_version' with value >= '2'.
-            Optional<String> baseOrDeltaPath = acidState.baseDirectory().or(() ->
-                    acidState.deltas().stream().findFirst().map(ParsedDelta::path));
+            Optional<Location> baseOrDeltaPath = acidState.baseDirectory()
+                    .or(() -> acidState.deltas().stream().findFirst()
+                            .map(delta -> Location.of(delta.path())));
 
             if (baseOrDeltaPath.isPresent() && readAcidVersionFile(fileSystem, baseOrDeltaPath.get()) >= 2) {
                 // Trino cannot read ORC ACID tables with version < 2 (written by Hive older than 3.0)
@@ -722,7 +724,7 @@ public class BackgroundHiveSplitLoader
 
         for (FileEntry entry : acidState.originalFiles()) {
             // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern, to match them with delete deltas.
-            acidInfoBuilder.addOriginalFile(new Path(entry.location()), entry.length(), getRequiredBucketNumber(entry.location()));
+            acidInfoBuilder.addOriginalFile(new Path(entry.location().toString()), entry.length(), getRequiredBucketNumber(entry.location()));
         }
 
         if (tableBucketInfo.isPresent()) {
@@ -768,9 +770,9 @@ public class BackgroundHiveSplitLoader
         return fullAcid ? builder.build() : Optional.empty();
     }
 
-    private static Optional<AcidInfo> acidInfoForOriginalFiles(boolean fullAcid, AcidInfo.Builder builder, String path)
+    private static Optional<AcidInfo> acidInfoForOriginalFiles(boolean fullAcid, AcidInfo.Builder builder, Location location)
     {
-        return fullAcid ? Optional.of(builder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(path))) : Optional.empty();
+        return fullAcid ? Optional.of(builder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(location))) : Optional.empty();
     }
 
     private ListenableFuture<Void> addSplitsToSource(InputSplit[] targetSplits, InternalHiveSplitFactory splitFactory)
@@ -931,10 +933,10 @@ public class BackgroundHiveSplitLoader
         }
     }
 
-    private static int getRequiredBucketNumber(String path)
+    private static int getRequiredBucketNumber(Location location)
     {
-        return getBucketNumber(path.substring(path.lastIndexOf('/') + 1))
-                .orElseThrow(() -> new IllegalStateException("Cannot get bucket number from path: " + path));
+        return getBucketNumber(location.fileName())
+                .orElseThrow(() -> new IllegalStateException("Cannot get bucket number from location: " + location));
     }
 
     @VisibleForTesting

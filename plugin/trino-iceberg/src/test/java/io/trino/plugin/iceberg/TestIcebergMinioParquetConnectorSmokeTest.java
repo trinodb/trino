@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
@@ -28,7 +29,7 @@ public class TestIcebergMinioParquetConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(String path, String sortColumnName)
+    protected boolean isFileSorted(Location path, String sortColumnName)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
         return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);

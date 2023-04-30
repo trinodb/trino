@@ -27,8 +27,8 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
@@ -164,7 +164,6 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.primitives.Ints.max;
 import static io.trino.filesystem.Locations.appendPath;
-import static io.trino.filesystem.Locations.getFileName;
 import static io.trino.filesystem.Locations.getParent;
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getColumnNames;
@@ -684,9 +683,9 @@ public class DeltaLakeMetadata
     {
         Optional<String> location = DeltaLakeSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
-                fileSystemFactory.create(session).newInputFile(locationUri).exists();
+                fileSystemFactory.create(session).newInputFile(Location.of(locationUri)).exists();
             }
-            catch (IOException e) {
+            catch (IOException | IllegalArgumentException e) {
                 throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
             }
             return locationUri;
@@ -733,7 +732,7 @@ public class DeltaLakeMetadata
         // If we see no files or can't see the location at all, use fallback.
         boolean deleteData = location.map(path -> {
             try {
-                return !fileSystemFactory.create(session).listFiles(path).hasNext();
+                return !fileSystemFactory.create(session).listFiles(Location.of(path)).hasNext();
             }
             catch (IOException | RuntimeException e) {
                 LOG.warn(e, "Could not check schema directory '%s'", path);
@@ -763,10 +762,10 @@ public class DeltaLakeMetadata
                 tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
             }
             location = appendPath(schemaLocation, tableNameForLocation);
-            checkPathContainsNoFiles(session, location);
+            checkPathContainsNoFiles(session, Location.of(location));
             external = false;
         }
-        String deltaLogDirectory = getTransactionLogDir(location);
+        Location deltaLogDirectory = Location.of(getTransactionLogDir(location));
         Optional<Long> checkpointInterval = getCheckpointInterval(tableMetadata.getProperties());
         Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(tableMetadata.getProperties());
 
@@ -897,9 +896,9 @@ public class DeltaLakeMetadata
             location = appendPath(schemaLocation, tableNameForLocation);
             external = false;
         }
-        checkPathContainsNoFiles(session, location);
 
-        String finalLocation = location;
+        Location finalLocation = Location.of(location);
+        checkPathContainsNoFiles(session, finalLocation);
         setRollback(() -> deleteRecursivelyIfExists(fileSystemFactory.create(session), finalLocation));
 
         return new DeltaLakeOutputTableHandle(
@@ -924,7 +923,7 @@ public class DeltaLakeMetadata
         return schemaLocation;
     }
 
-    private void checkPathContainsNoFiles(ConnectorSession session, String targetPath)
+    private void checkPathContainsNoFiles(ConnectorSession session, Location targetPath)
     {
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -971,7 +970,7 @@ public class DeltaLakeMetadata
         }
     }
 
-    private static void deleteRecursivelyIfExists(TrinoFileSystem fileSystem, String path)
+    private static void deleteRecursivelyIfExists(TrinoFileSystem fileSystem, Location path)
     {
         try {
             fileSystem.deleteDirectory(path);
@@ -1065,9 +1064,8 @@ public class DeltaLakeMetadata
         catch (Exception e) {
             // Remove the transaction log entry if the table creation fails
             try {
-                String transactionLogLocation = getTransactionLogDir(handle.getLocation());
-                TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-                fileSystem.deleteDirectory(transactionLogLocation);
+                Location transactionLogDir = Location.of(getTransactionLogDir(location));
+                fileSystemFactory.create(session).deleteDirectory(transactionLogDir);
             }
             catch (IOException ioException) {
                 // Nothing to do, the IOException is probably the same reason why the initial write failed
@@ -1911,8 +1909,10 @@ public class DeltaLakeMetadata
 
     private void cleanupFailedWrite(ConnectorSession session, String tableLocation, List<DataFileInfo> dataFiles)
     {
-        List<String> filesToDelete = dataFiles.stream()
-                .map(dataFile -> appendPath(tableLocation, dataFile.getPath()))
+        Location location = Location.of(tableLocation);
+        List<Location> filesToDelete = dataFiles.stream()
+                .map(DataFileInfo::getPath)
+                .map(location::appendPath)
                 .collect(toImmutableList());
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -1941,7 +1941,7 @@ public class DeltaLakeMetadata
         metastore.dropTable(session, handle.schemaTableName(), handle.location(), deleteData);
         if (deleteData) {
             try {
-                fileSystemFactory.create(session).deleteDirectory(handle.location());
+                fileSystemFactory.create(session).deleteDirectory(Location.of(handle.location()));
             }
             catch (IOException e) {
                 throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed to delete directory %s of the table %s", handle.location(), handle.schemaTableName()), e);
@@ -2572,13 +2572,13 @@ public class DeltaLakeMetadata
                 .collect(toImmutableSet());
 
         for (String location : fileLocations) {
-            cleanExtraOutputFiles(session, session.getQueryId(), location, validWrittenFilePaths);
+            cleanExtraOutputFiles(session, session.getQueryId(), Location.of(location), validWrittenFilePaths);
         }
     }
 
-    private void cleanExtraOutputFiles(ConnectorSession session, String queryId, String location, Set<String> filesToKeep)
+    private void cleanExtraOutputFiles(ConnectorSession session, String queryId, Location location, Set<String> filesToKeep)
     {
-        Deque<String> filesToDelete = new ArrayDeque<>();
+        Deque<Location> filesToDelete = new ArrayDeque<>();
         try {
             LOG.debug("Deleting failed attempt files from %s for query %s", location, queryId);
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -2590,10 +2590,9 @@ public class DeltaLakeMetadata
             // files within given partition are written flat into location; we need to list recursively
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
-                FileEntry file = iterator.next();
-                String fileName = getFileName(file.location());
-                if (isFileCreatedByQuery(fileName, queryId) && !filesToKeep.contains(location + "/" + fileName)) {
-                    filesToDelete.add(fileName);
+                Location file = iterator.next().location();
+                if (isFileCreatedByQuery(file, queryId) && !filesToKeep.contains(file.toString())) {
+                    filesToDelete.add(file);
                 }
             }
 
@@ -2602,31 +2601,17 @@ public class DeltaLakeMetadata
             }
 
             LOG.info("Found %s files to delete and %s to retain in location %s for query %s", filesToDelete.size(), filesToKeep.size(), location, queryId);
-            ImmutableList.Builder<String> filesToDeleteBuilder = ImmutableList.builder();
-            Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
-            while (filesToDeleteIterator.hasNext()) {
-                String fileName = filesToDeleteIterator.next();
-                LOG.debug("Going to delete failed attempt file %s/%s for query %s", location, fileName, queryId);
-                filesToDeleteBuilder.add(fileName);
-                filesToDeleteIterator.remove();
-            }
-
-            List<String> deletedFiles = filesToDeleteBuilder.build();
-            if (!deletedFiles.isEmpty()) {
-                fileSystem.deleteFiles(deletedFiles);
-                LOG.info("Deleted failed attempt files %s from %s for query %s", deletedFiles, location, queryId);
-            }
+            fileSystem.deleteFiles(filesToDelete);
         }
         catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR,
-                    format("Could not clean up extraneous output files; remaining files: %s", filesToDelete), e);
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to clean up extraneous output files", e);
         }
     }
 
-    private boolean isFileCreatedByQuery(String fileName, String queryId)
+    private static boolean isFileCreatedByQuery(Location file, String queryId)
     {
         verify(!queryId.contains("-"), "queryId(%s) should not contain hyphens", queryId);
-        return fileName.startsWith(queryId + "-");
+        return file.fileName().startsWith(queryId + "-");
     }
 
     @Override

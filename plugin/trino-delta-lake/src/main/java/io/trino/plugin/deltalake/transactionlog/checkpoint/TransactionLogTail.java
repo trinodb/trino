@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -80,7 +81,7 @@ public class TransactionLogTail
             }
             else {
                 if (endVersion.isPresent()) {
-                    throw new MissingTransactionLogException(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber));
+                    throw new MissingTransactionLogException(getTransactionLogJsonEntryPath(transactionLogDir, entryNumber).toString());
                 }
                 endOfTail = true;
             }
@@ -126,7 +127,7 @@ public class TransactionLogTail
     public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(long entryNumber, String transactionLogDir, TrinoFileSystem fileSystem)
             throws IOException
     {
-        String transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
+        Location transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, entryNumber);
         TrinoInputFile inputFile = fileSystem.newInputFile(transactionLogFilePath);
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(inputFile.newStream(), UTF_8),

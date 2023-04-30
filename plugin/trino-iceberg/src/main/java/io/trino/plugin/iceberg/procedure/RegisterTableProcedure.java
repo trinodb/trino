@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.procedure;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -143,7 +144,7 @@ public class RegisterTableProcedure
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(clientSession);
         String metadataLocation = getMetadataLocation(fileSystem, tableLocation, metadataFileName);
-        validateLocation(fileSystem, metadataLocation);
+        validateLocation(fileSystem, Location.of(metadataLocation));
         try {
             // Try to read the metadata file. Invalid metadata file will throw the exception.
             TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
@@ -179,20 +180,21 @@ public class RegisterTableProcedure
         String metadataDirectoryLocation = format("%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME);
         try {
             int latestMetadataVersion = -1;
-            FileIterator fileIterator = fileSystem.listFiles(metadataDirectoryLocation);
+            FileIterator fileIterator = fileSystem.listFiles(Location.of(metadataDirectoryLocation));
             while (fileIterator.hasNext()) {
                 FileEntry fileEntry = fileIterator.next();
-                if (fileEntry.location().contains(METADATA_FILE_EXTENSION)) {
-                    OptionalInt version = parseVersion(fileEntry.location());
+                String fileLocation = fileEntry.location().toString();
+                if (fileLocation.contains(METADATA_FILE_EXTENSION)) {
+                    OptionalInt version = parseVersion(fileLocation);
                     if (version.isPresent()) {
                         int versionNumber = version.getAsInt();
                         if (versionNumber > latestMetadataVersion) {
                             latestMetadataVersion = versionNumber;
                             latestMetadataLocations.clear();
-                            latestMetadataLocations.add(fileEntry.location());
+                            latestMetadataLocations.add(fileLocation);
                         }
                         else if (versionNumber == latestMetadataVersion) {
-                            latestMetadataLocations.add(fileEntry.location());
+                            latestMetadataLocations.add(fileLocation);
                         }
                     }
                 }
@@ -213,7 +215,7 @@ public class RegisterTableProcedure
         return getOnlyElement(latestMetadataLocations);
     }
 
-    private static void validateLocation(TrinoFileSystem fileSystem, String location)
+    private static void validateLocation(TrinoFileSystem fileSystem, Location location)
     {
         try {
             if (!fileSystem.newInputFile(location).exists()) {

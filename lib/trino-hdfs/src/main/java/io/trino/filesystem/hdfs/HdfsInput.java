@@ -46,7 +46,7 @@ class HdfsInput
     public int readTail(byte[] buffer, int bufferOffset, int bufferLength)
             throws IOException
     {
-        Slice tail = FSDataInputStreamTail.readTail(inputFile.location(), inputFile.length(), stream, bufferLength).getTailSlice();
+        Slice tail = FSDataInputStreamTail.readTail(toString(), inputFile.length(), stream, bufferLength).getTailSlice();
         tail.getBytes(0, buffer, bufferOffset, tail.length());
         return tail.length();
     }

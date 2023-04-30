@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.Location;
 import org.testng.SkipException;
 
 import static org.apache.iceberg.FileFormat.AVRO;
@@ -38,7 +39,7 @@ public class TestIcebergMinioAvroConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(String path, String sortColumnName)
+    protected boolean isFileSorted(Location path, String sortColumnName)
     {
         throw new IllegalStateException("File sorting tests should be skipped for Avro");
     }

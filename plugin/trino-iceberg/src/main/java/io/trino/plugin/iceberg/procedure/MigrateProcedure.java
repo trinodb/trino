@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -313,22 +315,23 @@ public class MigrateProcedure
     {
         // TODO: Introduce parallelism
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        FileIterator files = fileSystem.listFiles(location);
+        FileIterator files = fileSystem.listFiles(Location.of(location));
         ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
         while (files.hasNext()) {
             FileEntry file = files.next();
-            String relativePath = file.location().substring(location.length());
+            String fileLocation = file.location().toString();
+            String relativePath = fileLocation.substring(location.length());
             if (relativePath.contains("/_") || relativePath.contains("/.")) {
                 continue;
             }
-            if (recursive == RecursiveDirectory.FALSE && isRecursive(location, file.location())) {
+            if (recursive == RecursiveDirectory.FALSE && isRecursive(location, fileLocation)) {
                 continue;
             }
-            else if (recursive == RecursiveDirectory.FAIL && isRecursive(location, file.location())) {
+            if (recursive == RecursiveDirectory.FAIL && isRecursive(location, fileLocation)) {
                 throw new TrinoException(NOT_SUPPORTED, "Recursive directory must not exist when recursive_directory argument is 'fail': " + file.location());
             }
 
-            Metrics metrics = loadMetrics(fileSystem, format, file.location(), nameMapping);
+            Metrics metrics = loadMetrics(fileSystem.newInputFile(file.location()), format, nameMapping);
             DataFile dataFile = buildDataFile(file, partition, partitionSpec, format.name(), metrics);
             dataFilesBuilder.add(dataFile);
         }
@@ -344,9 +347,9 @@ public class MigrateProcedure
         return suffix.contains("/");
     }
 
-    private Metrics loadMetrics(TrinoFileSystem fileSystem, HiveStorageFormat storageFormat, String path, NameMapping nameMapping)
+    private static Metrics loadMetrics(TrinoInputFile file, HiveStorageFormat storageFormat, NameMapping nameMapping)
     {
-        InputFile inputFile = new ForwardingInputFile(fileSystem.newInputFile(path));
+        InputFile inputFile = new ForwardingInputFile(file);
         return switch (storageFormat) {
             case ORC -> OrcMetrics.fromInputFile(inputFile, METRICS_CONFIG, nameMapping);
             case PARQUET -> ParquetUtil.fileMetrics(inputFile, METRICS_CONFIG, nameMapping);
@@ -376,7 +379,7 @@ public class MigrateProcedure
     private static DataFile buildDataFile(FileEntry file, StructLike partition, PartitionSpec spec, String format, Metrics metrics)
     {
         return DataFiles.builder(spec)
-                .withPath(file.location())
+                .withPath(file.location().toString())
                 .withFormat(format)
                 .withFileSizeInBytes(file.length())
                 .withMetrics(metrics)

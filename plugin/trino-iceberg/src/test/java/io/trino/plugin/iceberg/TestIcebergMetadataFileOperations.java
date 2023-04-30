@@ -459,7 +459,7 @@ public class TestIcebergMetadataFileOperations
         return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
                 .flatMap(entry -> nCopies(entry.getValue(), new FileOperation(
-                        fromFilePath(entry.getKey().getFilePath()),
+                        fromFilePath(entry.getKey().getLocation().toString()),
                         entry.getKey().getOperationType())).stream())
                 .collect(toCollection(HashMultiset::create));
     }

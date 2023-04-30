@@ -14,6 +14,7 @@
 package io.trino.filesystem.hdfs;
 
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
@@ -51,25 +52,25 @@ class HdfsFileSystem
     }
 
     @Override
-    public TrinoInputFile newInputFile(String location)
+    public TrinoInputFile newInputFile(Location location)
     {
         return new HdfsInputFile(location, null, environment, context);
     }
 
     @Override
-    public TrinoInputFile newInputFile(String location, long length)
+    public TrinoInputFile newInputFile(Location location, long length)
     {
         return new HdfsInputFile(location, length, environment, context);
     }
 
     @Override
-    public TrinoOutputFile newOutputFile(String location)
+    public TrinoOutputFile newOutputFile(Location location)
     {
         return new HdfsOutputFile(location, environment, context);
     }
 
     @Override
-    public void deleteFile(String location)
+    public void deleteFile(Location location)
             throws IOException
     {
         Path file = hadoopPath(location);
@@ -83,12 +84,12 @@ class HdfsFileSystem
     }
 
     @Override
-    public void deleteFiles(Collection<String> locations)
+    public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
         Map<Path, List<Path>> pathsGroupedByDirectory = locations.stream().collect(
                 groupingBy(
-                        path -> hadoopPath(path.replaceFirst("/[^/]*$", "")),
+                        location -> hadoopPath(location.parentDirectory()),
                         mapping(HadoopPaths::hadoopPath, toList())));
         for (Entry<Path, List<Path>> directoryWithPaths : pathsGroupedByDirectory.entrySet()) {
             FileSystem rawFileSystem = getRawFileSystem(environment.getFileSystem(context, directoryWithPaths.getKey()));
@@ -107,7 +108,7 @@ class HdfsFileSystem
     }
 
     @Override
-    public void deleteDirectory(String location)
+    public void deleteDirectory(Location location)
             throws IOException
     {
         Path directory = hadoopPath(location);
@@ -121,7 +122,7 @@ class HdfsFileSystem
     }
 
     @Override
-    public void renameFile(String source, String target)
+    public void renameFile(Location source, Location target)
             throws IOException
     {
         Path sourcePath = hadoopPath(source);
@@ -136,14 +137,14 @@ class HdfsFileSystem
     }
 
     @Override
-    public FileIterator listFiles(String location)
+    public FileIterator listFiles(Location location)
             throws IOException
     {
         Path directory = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, directory);
         return environment.doAs(context.getIdentity(), () -> {
             try {
-                return new HdfsFileIterator(location, fileSystem, fileSystem.listFiles(directory, true));
+                return new HdfsFileIterator(location, directory, fileSystem.listFiles(directory, true));
             }
             catch (FileNotFoundException e) {
                 return FileIterator.empty();

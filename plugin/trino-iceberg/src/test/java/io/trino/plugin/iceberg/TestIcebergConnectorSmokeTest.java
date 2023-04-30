@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -26,6 +27,7 @@ import java.nio.file.Path;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static java.lang.String.format;
@@ -107,8 +109,8 @@ public class TestIcebergConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(String path, String sortColumnName)
+    protected boolean isFileSorted(Location path, String sortColumnName)
     {
-        return checkOrcFileSorting(path, sortColumnName);
+        return checkOrcFileSorting(HDFS_FILE_SYSTEM_FACTORY, path, sortColumnName);
     }
 }

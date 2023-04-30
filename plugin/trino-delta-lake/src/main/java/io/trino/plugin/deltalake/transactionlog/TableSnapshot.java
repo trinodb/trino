@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.transactionlog;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
@@ -36,7 +37,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.Streams.stream;
-import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
@@ -185,7 +185,7 @@ public class TableSnapshot
                 Optional.empty();
 
         Stream<DeltaLakeTransactionLogEntry> resultStream = Stream.empty();
-        for (String checkpointPath : getCheckpointPartPaths(checkpoint)) {
+        for (Location checkpointPath : getCheckpointPartPaths(checkpoint)) {
             TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath);
             resultStream = Stream.concat(
                     resultStream,
@@ -248,7 +248,7 @@ public class TableSnapshot
             LastCheckpoint checkpoint)
             throws IOException
     {
-        for (String checkpointPath : getCheckpointPartPaths(checkpoint)) {
+        for (Location checkpointPath : getCheckpointPartPaths(checkpoint)) {
             TrinoInputFile checkpointFile = fileSystem.newInputFile(checkpointPath);
             Stream<DeltaLakeTransactionLogEntry> metadataEntries = getCheckpointTransactionLogEntries(
                     session,
@@ -267,17 +267,17 @@ public class TableSnapshot
         throw new TrinoException(DELTA_LAKE_BAD_DATA, "Checkpoint found without metadata entry: " + checkpoint);
     }
 
-    private List<String> getCheckpointPartPaths(LastCheckpoint checkpoint)
+    private List<Location> getCheckpointPartPaths(LastCheckpoint checkpoint)
     {
-        String transactionLogDir = getTransactionLogDir(tableLocation);
-        ImmutableList.Builder<String> paths = ImmutableList.builder();
+        Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
+        ImmutableList.Builder<Location> paths = ImmutableList.builder();
         if (checkpoint.getParts().isEmpty()) {
-            paths.add(appendPath(transactionLogDir, format("%020d.checkpoint.parquet", checkpoint.getVersion())));
+            paths.add(transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(checkpoint.getVersion())));
         }
         else {
             int partsCount = checkpoint.getParts().get();
             for (int i = 1; i <= partsCount; i++) {
-                paths.add(appendPath(transactionLogDir, format("%020d.checkpoint.%010d.%010d.parquet", checkpoint.getVersion(), i, partsCount)));
+                paths.add(transactionLogDir.appendPath("%020d.checkpoint.%010d.%010d.parquet".formatted(checkpoint.getVersion(), i, partsCount)));
             }
         }
         return paths.build();

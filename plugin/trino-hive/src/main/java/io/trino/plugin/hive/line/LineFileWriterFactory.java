@@ -16,6 +16,7 @@ package io.trino.plugin.hive.line;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.compression.CompressionKind;
@@ -127,9 +128,10 @@ public abstract class LineFileWriterFactory
         LineSerializer lineSerializer = lineSerializerFactory.create(columns, fromProperties(schema));
 
         try {
+            Location location = Location.of(path.toString());
             TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
-            OutputStream outputStream = fileSystem.newOutputFile(path.toString()).create(outputStreamMemoryContext);
+            OutputStream outputStream = fileSystem.newOutputFile(location).create(outputStreamMemoryContext);
 
             LineWriter lineWriter = lineWriterFactory.createLineWriter(session, outputStream, compressionKind);
 
@@ -140,7 +142,7 @@ public abstract class LineFileWriterFactory
             return Optional.of(new LineFileWriter(
                     lineWriter,
                     lineSerializer,
-                    () -> fileSystem.deleteFile(path.toString()),
+                    () -> fileSystem.deleteFile(location),
                     fileInputColumnIndexes));
         }
         catch (TrinoException e) {

@@ -170,7 +170,7 @@ public class TestDeltaLakeFileOperations
         return trackingFileSystemFactory.getOperationCounts()
                 .entrySet().stream()
                 .flatMap(entry -> nCopies(entry.getValue(), FileOperation.create(
-                        entry.getKey().getFilePath(),
+                        entry.getKey().getLocation().path(),
                         entry.getKey().getOperationType())).stream())
                 .collect(toCollection(HashMultiset::create));
     }

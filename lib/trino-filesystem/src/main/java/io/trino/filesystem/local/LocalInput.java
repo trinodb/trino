@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.local;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 
 import java.io.EOFException;
@@ -28,12 +29,12 @@ import static java.util.Objects.requireNonNull;
 class LocalInput
         implements TrinoInput
 {
-    private final String location;
+    private final Location location;
     private final File file;
     private final RandomAccessFile input;
     private boolean closed;
 
-    public LocalInput(String location, File file)
+    public LocalInput(Location location, File file)
             throws IOException
     {
         this.location = requireNonNull(location, "location is null");
