@@ -28,6 +28,8 @@ import static java.util.Objects.requireNonNull;
  * Location of a file or directory in a blob or hierarchical file system.
  * The location uses the URI like format {@code scheme://[userInfo@]host[:port][/path]}, but does not
  * follow the format rules of a URI or URL which support escapes and other special characters.
+ * Alternatively, a location can be specified as {@code /path} for usage with legacy HDFS installations.
+ * <p>
  * The API of this class is very limited, so blob storage locations can be used as well. Specifically,
  * methods are provided to get the name of a file location, get the parent of a location, append a path
  * to a location, and parse a location. This allows for the operations needed for analysing data in an
@@ -42,17 +44,24 @@ public final class Location
     private static final Splitter HOST_AND_PORT_SPLITTER = Splitter.on(':').limit(2);
 
     private final String location;
-    private final String scheme;
+    private final Optional<String> scheme;
     private final Optional<String> userInfo;
-    private final String host;
+    private final Optional<String> host;
     private final String path;
 
     public static Location parse(String location)
     {
         requireNonNull(location, "location is null");
+        checkArgument(!location.isEmpty(), "location is empty");
+        checkArgument(!location.isBlank(), "location is blank");
 
         checkArgument(location.indexOf('#') < 0, "Fragment is not allowed in a file system location: %s", location);
         checkArgument(location.indexOf('?') < 0, "URI query component is not allowed in a file system location: %s", location);
+
+        // legacy HDFS location that is just a path
+        if (location.startsWith("/")) {
+            return new Location(location, Optional.empty(), Optional.empty(), Optional.empty(), location.substring(1));
+        }
 
         List<String> schemeSplit = SCHEME_SPLITTER.splitToList(location);
         checkArgument(schemeSplit.size() == 2, "No scheme for file system location: %s", location);
@@ -66,19 +75,22 @@ public final class Location
         List<String> authoritySplit = AUTHORITY_SPLITTER.splitToList(Iterables.getLast(userInfoSplit));
         String host = authoritySplit.get(0);
         checkArgument(HOST_AND_PORT_SPLITTER.splitToStream(host).count() == 1, "Port is not allowed in a file system location: %s", location);
+        Optional<String> locationHost = host.isEmpty() ? Optional.empty() : Optional.of(host);
 
         String path = (authoritySplit.size() == 2) ? authoritySplit.get(1) : "";
 
-        return new Location(location, scheme, userInfo, host, path);
+        return new Location(location, Optional.of(scheme), userInfo, locationHost, path);
     }
 
-    private Location(String location, String scheme, Optional<String> userInfo, String host, String path)
+    private Location(String location, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, String path)
     {
         this.location = requireNonNull(location, "location is null");
         this.scheme = requireNonNull(scheme, "scheme is null");
         this.userInfo = requireNonNull(userInfo, "userInfo is null");
         this.host = requireNonNull(host, "host is null");
         this.path = requireNonNull(path, "path is null");
+        checkArgument(scheme.isEmpty() || !scheme.get().isEmpty(), "scheme value is empty");
+        checkArgument(host.isEmpty() || !host.get().isEmpty(), "host value is empty");
     }
 
     public String location()
@@ -86,17 +98,31 @@ public final class Location
         return location;
     }
 
-    public String scheme()
+    /**
+     * Returns the scheme of the location, if present.
+     * If the scheme is present, the value will not be an empty string.
+     * Legacy HDFS paths do not have a scheme.
+     */
+    public Optional<String> scheme()
     {
         return scheme;
     }
 
+    /**
+     * Returns the user info of the location, if present.
+     * The user info will be present if the location authority contains an at sign,
+     * but the value may be an empty string.
+     */
     public Optional<String> userInfo()
     {
         return userInfo;
     }
 
-    public String host()
+    /**
+     * Returns the host of the location, if present.
+     * If the host is present, the value will not be an empty string.
+     */
+    public Optional<String> host()
     {
         return host;
     }
@@ -137,6 +163,9 @@ public final class Location
         int lastIndexOfSlash = path.lastIndexOf('/');
         if (lastIndexOfSlash < 0) {
             String newLocation = location.substring(0, location.length() - path.length() - 1);
+            if (newLocation.isEmpty()) {
+                newLocation = "/";
+            }
             return new Location(newLocation, scheme, userInfo, host, "");
         }
 
