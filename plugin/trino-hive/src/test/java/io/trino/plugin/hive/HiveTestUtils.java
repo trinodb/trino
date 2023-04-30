@@ -58,7 +58,6 @@ import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -87,6 +86,7 @@ import org.apache.hadoop.hive.common.type.Date;
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -95,6 +95,7 @@ import java.util.UUID;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.spi.block.ArrayValueBuilder.buildArrayValue;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
@@ -313,14 +314,13 @@ public final class HiveTestUtils
             return null;
         }
 
-        if (type instanceof ArrayType) {
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            BlockBuilder subBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Object subElement : (Iterable<?>) hiveValue) {
-                appendToBlockBuilder(type.getTypeParameters().get(0), subElement, subBlockBuilder);
-            }
-            blockBuilder.closeEntry();
-            return type.getObject(blockBuilder, 0);
+        if (type instanceof ArrayType arrayType) {
+            Collection<?> hiveArray = (Collection<?>) hiveValue;
+            return buildArrayValue(arrayType, hiveArray.size(), valueBuilder -> {
+                for (Object subElement : hiveArray) {
+                    appendToBlockBuilder(type.getTypeParameters().get(0), subElement, valueBuilder);
+                }
+            });
         }
         if (type instanceof RowType rowType) {
             return buildRowValue(rowType, fields -> {
