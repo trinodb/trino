@@ -187,8 +187,15 @@ public final class Location
 
         if (path.isEmpty()) {
             // empty path may or may not have a location that ends with a slash
+            boolean needSlash = !location.endsWith("/");
+
+            // slash is needed for locations with no host or user info that did not have a path
+            if (scheme.isPresent() && host.isEmpty() && userInfo.isEmpty() && !location.endsWith(":///")) {
+                needSlash = true;
+            }
+
             return new Location(
-                    location + (location.endsWith("/") ? "" : "/") + newPathElement,
+                    location + (needSlash ? "/" : "") + newPathElement,
                     scheme,
                     userInfo,
                     host,
