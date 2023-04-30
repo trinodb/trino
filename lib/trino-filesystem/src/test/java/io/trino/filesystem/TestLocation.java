@@ -247,6 +247,12 @@ class TestLocation
         assertAppendPath("scheme://userInfo@host/path//", "name", parse("scheme://userInfo@host/path//name"));
         assertAppendPath("scheme://userInfo@host/path:", "name", parse("scheme://userInfo@host/path:/name"));
 
+        assertAppendPath("scheme://", "name", parse("scheme:///name"));
+        assertAppendPath("scheme:///", "name", parse("scheme:///name"));
+
+        assertAppendPath("scheme:///path", "name", parse("scheme:///path/name"));
+        assertAppendPath("scheme:///path/", "name", parse("scheme:///path/name"));
+
         assertAppendPath("/", "name", parse("/name"));
         assertAppendPath("/path", "name", parse("/path/name"));
     }
