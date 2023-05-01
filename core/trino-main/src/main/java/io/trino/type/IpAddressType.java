@@ -130,9 +130,9 @@ public class IpAddressType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0));
-            blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
-            blockBuilder.closeEntry();
+            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
+                    block.getLong(position, 0),
+                    block.getLong(position, SIZE_OF_LONG));
         }
     }
 
@@ -148,9 +148,9 @@ public class IpAddressType
         if (length != INT128_BYTES) {
             throw new IllegalStateException("Expected entry size to be exactly " + INT128_BYTES + " but was " + length);
         }
-        blockBuilder.writeLong(value.getLong(offset));
-        blockBuilder.writeLong(value.getLong(offset + SIZE_OF_LONG));
-        blockBuilder.closeEntry();
+        ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
+                value.getLong(offset),
+                value.getLong(offset + SIZE_OF_LONG));
     }
 
     @Override

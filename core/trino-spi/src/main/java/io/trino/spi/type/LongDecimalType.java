@@ -102,9 +102,9 @@ final class LongDecimalType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0));
-            blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
-            blockBuilder.closeEntry();
+            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
+                    block.getLong(position, 0),
+                    block.getLong(position, SIZE_OF_LONG));
         }
     }
 
@@ -112,9 +112,7 @@ final class LongDecimalType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         Int128 decimal = (Int128) value;
-        blockBuilder.writeLong(decimal.getHigh());
-        blockBuilder.writeLong(decimal.getLow());
-        blockBuilder.closeEntry();
+        ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(decimal.getHigh(), decimal.getLow());
     }
 
     @Override
