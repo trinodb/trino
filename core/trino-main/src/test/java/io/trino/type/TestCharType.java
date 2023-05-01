@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
@@ -72,10 +73,9 @@ public class TestCharType
         CharType charType = createCharType(3);
 
         for (int codePoint : ImmutableList.of(0, 1, 10, 17, (int) ' ', 127, 1011, 11_000, 65_891, MIN_SUPPLEMENTARY_CODE_POINT, MAX_CODE_POINT)) {
-            BlockBuilder blockBuilder = charType.createBlockBuilder(null, 1);
+            VariableWidthBlockBuilder blockBuilder = charType.createBlockBuilder(null, 1);
             Slice slice = (codePoint != ' ') ? codePointToUtf8(codePoint) : EMPTY_SLICE;
-            blockBuilder.writeBytes(slice, 0, slice.length());
-            blockBuilder.closeEntry();
+            blockBuilder.writeEntry(slice);
             Block block = blockBuilder.build();
             int codePointLengthInUtf16 = isSupplementaryCodePoint(codePoint) ? 2 : 1;
 

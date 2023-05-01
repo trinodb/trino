@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.likematcher.LikeMatcher;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
@@ -78,18 +79,18 @@ public class LikePatternType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         LikeMatcher matcher = (LikeMatcher) value;
-
-        Slice pattern = utf8Slice(matcher.getPattern());
-        int length = pattern.length();
-        blockBuilder.writeInt(length);
-        blockBuilder.writeBytes(pattern, 0, length);
-        if (matcher.getEscape().isEmpty()) {
-            blockBuilder.writeByte(0);
-        }
-        else {
-            blockBuilder.writeByte(1);
-            blockBuilder.writeInt(matcher.getEscape().get());
-        }
-        blockBuilder.closeEntry();
+        ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueWriter -> {
+            Slice pattern = utf8Slice(matcher.getPattern());
+            int length = pattern.length();
+            valueWriter.writeInt(length);
+            valueWriter.writeBytes(pattern, 0, length);
+            if (matcher.getEscape().isEmpty()) {
+                valueWriter.writeByte(0);
+            }
+            else {
+                valueWriter.writeByte(1);
+                valueWriter.writeInt(matcher.getEscape().get());
+            }
+        });
     }
 }

@@ -102,8 +102,7 @@ public class TestSliceDictionaryColumnWriter
             testValues.add(value);
             base = (byte) (base + i);
             if (i % 9 == 0) {
-                blockBuilder.writeBytes(value, 0, value.length());
-                blockBuilder.closeEntry();
+                blockBuilder.writeEntry(value);
             }
         }
 

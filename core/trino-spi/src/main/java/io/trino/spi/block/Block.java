@@ -111,16 +111,6 @@ public interface Block
     }
 
     /**
-     * Appends the byte sequences at {@code offset} in the value at {@code position}
-     * to {@code blockBuilder}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Is the byte sequences at {@code offset} in the value at {@code position} equal
      * to the byte sequence at {@code otherOffset} in the value at {@code otherPosition}
      * in {@code otherBlock}.
