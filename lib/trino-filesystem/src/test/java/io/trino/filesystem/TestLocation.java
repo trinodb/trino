@@ -16,6 +16,7 @@ package io.trino.filesystem;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.trino.filesystem.Location.parse;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,6 +44,9 @@ class TestLocation
         assertLocation("scheme://user@/some/path", "scheme", Optional.of("user"), "", "some/path");
         // host and userInfo can both be empty
         assertLocation("scheme://@/some/path", "scheme", Optional.of(""), "", "some/path");
+
+        // port is allowed
+        assertLocation("hdfs://hadoop:9000/some/path", "hdfs", "hadoop", 9000, "some/path");
 
         // path can contain anything
         assertLocation("scheme://host/..", "scheme", Optional.empty(), "host", "..");
@@ -83,6 +87,9 @@ class TestLocation
         assertThatThrownBy(() -> parse("x"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("scheme");
+        assertThatThrownBy(() -> parse("scheme://host:invalid/path"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("port");
 
         // fragment is not allowed
         assertThatThrownBy(() -> parse("scheme://userInfo@host/some/path#fragement"))
@@ -117,21 +124,33 @@ class TestLocation
     {
         Location location = parse(locationString);
         Optional<String> expectedHost = host.isEmpty() ? Optional.empty() : Optional.of(host);
-        assertLocation(location, locationString, Optional.of(scheme), userInfo, expectedHost, path);
+        assertLocation(location, locationString, Optional.of(scheme), userInfo, expectedHost, OptionalInt.empty(), path);
+    }
+
+    private static void assertLocation(String locationString, String scheme, String host, int port, String path)
+    {
+        Location location = parse(locationString);
+        assertLocation(location, locationString, Optional.of(scheme), Optional.empty(), Optional.of(host), OptionalInt.of(port), path);
     }
 
     private static void assertLocation(String locationString, String path)
     {
         Location location = parse(locationString);
-        assertLocation(location, locationString, Optional.empty(), Optional.empty(), Optional.empty(), path);
+        assertLocation(location, locationString, Optional.empty(), Optional.empty(), Optional.empty(), OptionalInt.empty(), path);
     }
 
-    private static void assertLocation(Location location, String locationString, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, String path)
+    private static void assertLocation(Location actual, Location expected)
+    {
+        assertLocation(actual, expected.location(), expected.scheme(), expected.userInfo(), expected.host(), expected.port(), expected.path());
+    }
+
+    private static void assertLocation(Location location, String locationString, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, OptionalInt port, String path)
     {
         assertThat(location.location()).isEqualTo(locationString);
         assertThat(location.scheme()).isEqualTo(scheme);
         assertThat(location.userInfo()).isEqualTo(userInfo);
         assertThat(location.host()).isEqualTo(host);
+        assertThat(location.port()).isEqualTo(port);
         assertThat(location.path()).isEqualTo(path);
 
         assertThat(location).isEqualTo(location);
@@ -203,7 +222,7 @@ class TestLocation
     void testParentDirectory()
     {
         assertParentDirectory("scheme://userInfo@host/path/name", parse("scheme://userInfo@host/path"));
-        assertParentDirectory("scheme://userInfo@host/name", parse("scheme://userInfo@host"));
+        assertParentDirectory("scheme://userInfo@host:1234/name", parse("scheme://userInfo@host:1234"));
 
         assertParentDirectory("scheme://userInfo@host/path//name", parse("scheme://userInfo@host/path/"));
         assertParentDirectory("scheme://userInfo@host/path///name", parse("scheme://userInfo@host/path//"));
@@ -227,12 +246,7 @@ class TestLocation
         location.verifyValidFileLocation();
         Location parentDirectory = location.parentDirectory();
 
-        assertLocation(parentDirectory,
-                parentLocation.location(),
-                parentLocation.scheme(),
-                parentLocation.userInfo(),
-                parentLocation.host(),
-                parentLocation.path());
+        assertLocation(parentDirectory, parentLocation);
     }
 
     @Test
@@ -241,7 +255,7 @@ class TestLocation
         assertAppendPath("scheme://userInfo@host", "name", parse("scheme://userInfo@host/name"));
         assertAppendPath("scheme://userInfo@host/", "name", parse("scheme://userInfo@host/name"));
 
-        assertAppendPath("scheme://userInfo@host/path", "name", parse("scheme://userInfo@host/path/name"));
+        assertAppendPath("scheme://userInfo@host:1234/path", "name", parse("scheme://userInfo@host:1234/path/name"));
         assertAppendPath("scheme://userInfo@host/path/", "name", parse("scheme://userInfo@host/path/name"));
 
         assertAppendPath("scheme://userInfo@host/path//", "name", parse("scheme://userInfo@host/path//name"));
@@ -260,11 +274,6 @@ class TestLocation
     private static void assertAppendPath(String locationString, String newPathElement, Location expected)
     {
         Location location = parse(locationString).appendPath(newPathElement);
-        assertLocation(location,
-                expected.location(),
-                expected.scheme(),
-                expected.userInfo(),
-                expected.host(),
-                expected.path());
+        assertLocation(location, expected);
     }
 }
