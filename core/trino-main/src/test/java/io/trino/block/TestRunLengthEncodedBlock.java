@@ -52,8 +52,8 @@ public class TestRunLengthEncodedBlock
 
     private static Block createSingleValueBlock(Slice expectedValue)
     {
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, expectedValue.length());
-        blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, expectedValue.length());
+        blockBuilder.writeEntry(expectedValue);
         return blockBuilder.build();
     }
 

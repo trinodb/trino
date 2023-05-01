@@ -119,13 +119,6 @@ public abstract class AbstractSingleRowBlock
     }
 
     @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        checkFieldIndex(position);
-        getRawFieldBlock(position).writeBytesTo(getRowIndex(), offset, length, blockBuilder);
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         checkFieldIndex(position);
