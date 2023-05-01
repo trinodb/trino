@@ -222,6 +222,7 @@ public class TestScaledWriterScheduler
                 TaskState.RUNNING,
                 URI.create("fake://task/" + "taskId" + "/node/some_node"),
                 "some_node",
+                false,
                 ImmutableList.of(),
                 0,
                 0,

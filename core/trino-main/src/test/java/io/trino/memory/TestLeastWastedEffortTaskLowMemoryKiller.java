@@ -227,6 +227,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         state,
                         URI.create("fake://task/" + taskId + "/node/some_node"),
                         "some_node",
+                        false,
                         ImmutableList.of(),
                         0,
                         0,

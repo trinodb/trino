@@ -135,6 +135,7 @@ public final class HttpRemoteTask
     private final Session session;
     private final Span stageSpan;
     private final String nodeId;
+    private final AtomicBoolean speculative;
     private final PlanFragment planFragment;
 
     private final AtomicLong nextSplitId = new AtomicLong();
@@ -207,6 +208,7 @@ public final class HttpRemoteTask
             Span stageSpan,
             TaskId taskId,
             String nodeId,
+            boolean speculative,
             URI location,
             PlanFragment planFragment,
             Multimap<PlanNodeId, Split> initialSplits,
@@ -254,6 +256,7 @@ public final class HttpRemoteTask
             this.session = session;
             this.stageSpan = stageSpan;
             this.nodeId = nodeId;
+            this.speculative = new AtomicBoolean(speculative);
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
@@ -311,7 +314,7 @@ public final class HttpRemoteTask
                                 .collect(toImmutableList()));
             }
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, pipelinedBufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(DateTime.now(), null));
 
             this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
                     this::fatalUnacknowledgedFailure,
@@ -489,6 +492,16 @@ public final class HttpRemoteTask
         }).getVersion();
 
         if (newOutputBuffers.getVersion() > previousVersion) {
+            triggerUpdate();
+        }
+    }
+
+    @Override
+    public void setSpeculative(boolean speculative)
+    {
+        checkArgument(!speculative, "we can only move task from speculative to non-speculative");
+        if (this.speculative.compareAndSet(true, speculative)) {
+            // versioning should be not needed here as we can only migrate task from speculative to non-speculative; so out of order requests do not matter
             triggerUpdate();
         }
     }
@@ -734,7 +747,8 @@ public final class HttpRemoteTask
                 splitAssignments,
                 outputBuffers.get(),
                 dynamicFilterDomains.getDynamicFilterDomains(),
-                session.getExchangeEncryptionKey());
+                session.getExchangeEncryptionKey(),
+                speculative.get());
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toJsonBytes(updateRequest);
 
         // try to adjust batch size to meet expected request size

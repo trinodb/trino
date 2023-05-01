@@ -1403,7 +1403,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                     outputBuffers,
                     splits,
                     noMoreSplits,
-                    Optional.of(partition.getMemoryRequirements().getRequiredMemory()));
+                    Optional.of(partition.getMemoryRequirements().getRequiredMemory()),
+                    false);  // TODO pass correct value here
             task.ifPresent(remoteTask -> {
                 partition.addTask(remoteTask, outputBuffers);
                 runningPartitions.add(partitionId);
