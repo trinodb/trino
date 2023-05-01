@@ -49,9 +49,9 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testByteArrayBlock()
     {
-        BlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
-            blockBuilder.writeByte(i);
+            blockBuilder.writeByte((byte) i);
         }
         checkRetainedSize(blockBuilder.build(), false);
     }

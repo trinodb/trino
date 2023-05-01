@@ -58,14 +58,13 @@ public class ByteArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
-    public BlockBuilder writeByte(int value)
+    public BlockBuilder writeByte(byte value)
     {
         if (values.length <= positionCount) {
             growCapacity();
         }
 
-        values[positionCount] = (byte) value;
+        values[positionCount] = value;
 
         hasNonNullValue = true;
         positionCount++;
