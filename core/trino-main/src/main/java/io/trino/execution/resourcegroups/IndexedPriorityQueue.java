@@ -82,6 +82,24 @@ public final class IndexedPriorityQueue<E>
     @Override
     public E poll()
     {
+        Entry<E> entry = pollEntry();
+        if (entry == null) {
+            return null;
+        }
+        return entry.getValue();
+    }
+
+    public Prioritized<E> pollPrioritized()
+    {
+        Entry<E> entry = pollEntry();
+        if (entry == null) {
+            return null;
+        }
+        return new Prioritized<>(entry.getValue(), entry.getPriority());
+    }
+
+    private Entry<E> pollEntry()
+    {
         Iterator<Entry<E>> iterator = queue.iterator();
         if (!iterator.hasNext()) {
             return null;
@@ -89,7 +107,7 @@ public final class IndexedPriorityQueue<E>
         Entry<E> entry = iterator.next();
         iterator.remove();
         checkState(index.remove(entry.getValue()) != null, "Failed to remove entry from index");
-        return entry.getValue();
+        return entry;
     }
 
     @Override
@@ -147,6 +165,28 @@ public final class IndexedPriorityQueue<E>
         public long getGeneration()
         {
             return generation;
+        }
+    }
+
+    public static class Prioritized<V>
+    {
+        private final V value;
+        private final long priority;
+
+        public Prioritized(V value, long priority)
+        {
+            this.value = requireNonNull(value, "value is null");
+            this.priority = priority;
+        }
+
+        public V getValue()
+        {
+            return value;
+        }
+
+        public long getPriority()
+        {
+            return priority;
         }
     }
 }
