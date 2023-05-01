@@ -153,7 +153,7 @@ public final class TinyintType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeByte(block.getByte(position, 0));
+            writeByte(blockBuilder, block.getByte(position, 0));
         }
     }
 
@@ -172,7 +172,12 @@ public final class TinyintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         checkValueValid(value);
-        blockBuilder.writeByte((int) value);
+        writeByte(blockBuilder, (byte) value);
+    }
+
+    public void writeByte(BlockBuilder blockBuilder, byte value)
+    {
+        ((ByteArrayBlockBuilder) blockBuilder).writeByte(value);
     }
 
     private void checkValueValid(long value)
