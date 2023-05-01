@@ -16,11 +16,11 @@ package io.trino.plugin.hive.fs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -65,13 +65,13 @@ public class TransactionScopeCachingDirectoryLister
     }
 
     @Override
-    public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+    public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
             throws IOException
     {
-        return listInternal(fs, table, new TransactionDirectoryListingCacheKey(transactionId, path.toString()));
+        return listInternal(fs, table, new TransactionDirectoryListingCacheKey(transactionId, location));
     }
 
-    private RemoteIterator<TrinoFileStatus> listInternal(FileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
+    private RemoteIterator<TrinoFileStatus> listInternal(TrinoFileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
             throws IOException
     {
         FetchingValueHolder cachedValueHolder;
@@ -92,10 +92,10 @@ public class TransactionScopeCachingDirectoryLister
         return cachingRemoteIterator(cachedValueHolder, cacheKey);
     }
 
-    private RemoteIterator<TrinoFileStatus> createListingRemoteIterator(FileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
+    private RemoteIterator<TrinoFileStatus> createListingRemoteIterator(TrinoFileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
             throws IOException
     {
-        return delegate.listFilesRecursively(fs, table, new Path(cacheKey.getPath()));
+        return delegate.listFilesRecursively(fs, table, cacheKey.getPath());
     }
 
     @Override
@@ -103,7 +103,7 @@ public class TransactionScopeCachingDirectoryLister
     {
         if (isLocationPresent(table.getStorage())) {
             if (table.getPartitionColumns().isEmpty()) {
-                cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, table.getStorage().getLocation()));
+                cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, Location.of(table.getStorage().getLocation())));
             }
             else {
                 // a partitioned table can have multiple paths in cache
@@ -117,7 +117,7 @@ public class TransactionScopeCachingDirectoryLister
     public void invalidate(Partition partition)
     {
         if (isLocationPresent(partition.getStorage())) {
-            cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, partition.getStorage().getLocation()));
+            cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, Location.of(partition.getStorage().getLocation())));
         }
         delegate.invalidate(partition);
     }
@@ -159,9 +159,9 @@ public class TransactionScopeCachingDirectoryLister
     }
 
     @VisibleForTesting
-    boolean isCached(Path path)
+    boolean isCached(Location location)
     {
-        return isCached(new TransactionDirectoryListingCacheKey(transactionId, path.toString()));
+        return isCached(new TransactionDirectoryListingCacheKey(transactionId, location));
     }
 
     @VisibleForTesting

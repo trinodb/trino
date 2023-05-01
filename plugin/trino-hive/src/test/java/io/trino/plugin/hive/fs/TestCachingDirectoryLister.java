@@ -15,7 +15,7 @@ package io.trino.plugin.hive.fs;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.Location;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -34,9 +34,9 @@ public class TestCachingDirectoryLister
     }
 
     @Override
-    protected boolean isCached(CachingDirectoryLister directoryLister, Path path)
+    protected boolean isCached(CachingDirectoryLister directoryLister, Location location)
     {
-        return directoryLister.isCached(path);
+        return directoryLister.isCached(location);
     }
 
     @Test

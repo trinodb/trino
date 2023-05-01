@@ -26,6 +26,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsContext;
@@ -6331,11 +6332,11 @@ public abstract class AbstractTestHive
         private final AtomicInteger listCount = new AtomicInteger();
 
         @Override
-        public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+        public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
                 throws IOException
         {
             listCount.incrementAndGet();
-            return new TrinoFileStatusRemoteIterator(fs.listFiles(path, true));
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(location));
         }
 
         public int getListCount()

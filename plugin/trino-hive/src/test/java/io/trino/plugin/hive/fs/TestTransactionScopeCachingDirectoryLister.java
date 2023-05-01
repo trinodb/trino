@@ -16,6 +16,8 @@ package io.trino.plugin.hive.fs;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
@@ -24,8 +26,6 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -76,21 +76,21 @@ public class TestTransactionScopeCachingDirectoryLister
     }
 
     @Override
-    protected boolean isCached(TransactionScopeCachingDirectoryLister directoryLister, Path path)
+    protected boolean isCached(TransactionScopeCachingDirectoryLister directoryLister, Location location)
     {
-        return directoryLister.isCached(path);
+        return directoryLister.isCached(location);
     }
 
     @Test
     public void testConcurrentDirectoryListing()
             throws IOException
     {
-        TrinoFileStatus firstFile = new TrinoFileStatus(ImmutableList.of(), "x", false, 1, 1);
-        TrinoFileStatus secondFile = new TrinoFileStatus(ImmutableList.of(), "y", false, 1, 1);
-        TrinoFileStatus thirdFile = new TrinoFileStatus(ImmutableList.of(), "z", false, 1, 1);
+        TrinoFileStatus firstFile = new TrinoFileStatus(ImmutableList.of(), "file:/x/x", false, 1, 1);
+        TrinoFileStatus secondFile = new TrinoFileStatus(ImmutableList.of(), "file:/x/y", false, 1, 1);
+        TrinoFileStatus thirdFile = new TrinoFileStatus(ImmutableList.of(), "file:/y/z", false, 1, 1);
 
-        Path path1 = new Path("x");
-        Path path2 = new Path("y");
+        Location path1 = Location.of("file:/x");
+        Location path2 = Location.of("file:/y");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(
                 ImmutableMap.of(
@@ -101,17 +101,17 @@ public class TestTransactionScopeCachingDirectoryLister
         // due to Token being a key in segmented cache.
         TransactionScopeCachingDirectoryLister cachingLister = (TransactionScopeCachingDirectoryLister) new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(500), Optional.of(1)).get(countingLister);
 
-        assertFiles(new DirectoryListingFilter(path2, (cachingLister.listFilesRecursively(null, TABLE, path2))), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, (cachingLister.listFilesRecursively(null, TABLE, path2)), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // listing path2 again shouldn't increase listing count
         assertThat(cachingLister.isCached(path2)).isTrue();
-        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2)), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // start listing path1 concurrently
-        RemoteIterator<TrinoFileStatus> path1FilesA = new DirectoryListingFilter(path1, cachingLister.listFilesRecursively(null, TABLE, path1));
-        RemoteIterator<TrinoFileStatus> path1FilesB = new DirectoryListingFilter(path1, cachingLister.listFilesRecursively(null, TABLE, path1));
+        RemoteIterator<TrinoFileStatus> path1FilesA = new DirectoryListingFilter(path1, cachingLister.listFilesRecursively(null, TABLE, path1), true);
+        RemoteIterator<TrinoFileStatus> path1FilesB = new DirectoryListingFilter(path1, cachingLister.listFilesRecursively(null, TABLE, path1), true);
         assertThat(countingLister.getListCount()).isEqualTo(2);
 
         // list path1 files using both iterators concurrently
@@ -125,7 +125,7 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // listing path2 again should increase listing count because 2 files were cached for path1
         assertThat(cachingLister.isCached(path2)).isFalse();
-        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2)), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(3);
     }
 
@@ -133,8 +133,8 @@ public class TestTransactionScopeCachingDirectoryLister
     public void testConcurrentDirectoryListingException()
             throws IOException
     {
-        TrinoFileStatus file = new TrinoFileStatus(ImmutableList.of(), "x", false, 1, 1);
-        Path path = new Path("x");
+        TrinoFileStatus file = new TrinoFileStatus(ImmutableList.of(), "file:/x/x", false, 1, 1);
+        Location path = Location.of("file:/x");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(ImmutableMap.of(path, ImmutableList.of(file)));
         DirectoryLister cachingLister = new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(600), Optional.empty()).get(countingLister);
@@ -150,7 +150,7 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // listing again should succeed
         countingLister.setThrowException(false);
-        assertFiles(new DirectoryListingFilter(path, cachingLister.listFilesRecursively(null, TABLE, path)), ImmutableList.of(file));
+        assertFiles(new DirectoryListingFilter(path, cachingLister.listFilesRecursively(null, TABLE, path), true), ImmutableList.of(file));
         assertThat(countingLister.getListCount()).isEqualTo(2);
 
         // listing using second concurrently initialized DirectoryLister should fail
@@ -170,22 +170,21 @@ public class TestTransactionScopeCachingDirectoryLister
     private static class CountingDirectoryLister
             implements DirectoryLister
     {
-        private final Map<Path, List<TrinoFileStatus>> fileStatuses;
+        private final Map<Location, List<TrinoFileStatus>> fileStatuses;
         private int listCount;
         private boolean throwException;
 
-        public CountingDirectoryLister(Map<Path, List<TrinoFileStatus>> fileStatuses)
+        public CountingDirectoryLister(Map<Location, List<TrinoFileStatus>> fileStatuses)
         {
             this.fileStatuses = requireNonNull(fileStatuses, "fileStatuses is null");
         }
 
         @Override
-        public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
-                throws IOException
+        public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
         {
             // No specific recursive files-only listing implementation
             listCount++;
-            return throwingRemoteIterator(requireNonNull(fileStatuses.get(path)), throwException);
+            return throwingRemoteIterator(requireNonNull(fileStatuses.get(location)), throwException);
         }
 
         public void setThrowException(boolean throwException)
