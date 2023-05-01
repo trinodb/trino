@@ -211,21 +211,44 @@ public final class Location
         checkArgument(!newPathElement.startsWith("/"), "newPathElement starts with a slash: %s", newPathElement);
 
         if (path.isEmpty()) {
-            // empty path may or may not have a location that ends with a slash
-            boolean needSlash = !location.endsWith("/");
-
-            // slash is needed for locations with no host or user info that did not have a path
-            if (scheme.isPresent() && host.isEmpty() && userInfo.isEmpty() && !location.endsWith(":///")) {
-                needSlash = true;
-            }
-
-            return withPath(location + (needSlash ? "/" : "") + newPathElement, newPathElement);
+            return appendToEmptyPath(newPathElement);
         }
 
         if (!path.endsWith("/")) {
             newPathElement = "/" + newPathElement;
         }
         return withPath(location + newPathElement, path + newPathElement);
+    }
+
+    /**
+     * Creates a new location by appending the given suffix to the current path.
+     * Typical usage for this method is to append a file extension to a file name,
+     * but it may be used to append anything, including a slash.
+     * <p>
+     * Use {@link #appendPath(String)} instead of this method to append a path element.
+     */
+    public Location appendSuffix(String suffix)
+    {
+        if (path.isEmpty()) {
+            return appendToEmptyPath(suffix);
+        }
+
+        return withPath(location + suffix, path + suffix);
+    }
+
+    private Location appendToEmptyPath(String value)
+    {
+        checkState(path.isEmpty());
+
+        // empty path may or may not have a location that ends with a slash
+        boolean needSlash = !location.endsWith("/");
+
+        // slash is needed for locations with no host or user info that did not have a path
+        if (scheme.isPresent() && host.isEmpty() && userInfo.isEmpty() && !location.endsWith(":///")) {
+            needSlash = true;
+        }
+
+        return withPath(location + (needSlash ? "/" : "") + value, value);
     }
 
     /**
