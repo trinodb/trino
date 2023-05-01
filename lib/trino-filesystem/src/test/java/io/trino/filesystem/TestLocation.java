@@ -276,4 +276,35 @@ class TestLocation
         Location location = parse(locationString).appendPath(newPathElement);
         assertLocation(location, expected);
     }
+
+    @Test
+    void testAppendSuffix()
+    {
+        assertAppendSuffix("scheme://userInfo@host", ".ext", parse("scheme://userInfo@host/.ext"));
+        assertAppendSuffix("scheme://userInfo@host/", ".ext", parse("scheme://userInfo@host/.ext"));
+
+        assertAppendSuffix("scheme://userInfo@host:1234/path", ".ext", parse("scheme://userInfo@host:1234/path.ext"));
+        assertAppendSuffix("scheme://userInfo@host/path/", ".ext", parse("scheme://userInfo@host/path/.ext"));
+
+        assertAppendSuffix("scheme://userInfo@host/path//", ".ext", parse("scheme://userInfo@host/path//.ext"));
+        assertAppendSuffix("scheme://userInfo@host/path:", ".ext", parse("scheme://userInfo@host/path:.ext"));
+
+        assertAppendSuffix("scheme://", ".ext", parse("scheme:///.ext"));
+        assertAppendSuffix("scheme:///", ".ext", parse("scheme:///.ext"));
+
+        assertAppendSuffix("scheme:///path", ".ext", parse("scheme:///path.ext"));
+        assertAppendSuffix("scheme:///path/", ".ext", parse("scheme:///path/.ext"));
+
+        assertAppendSuffix("scheme:///path", "/foo", parse("scheme:///path/foo"));
+        assertAppendSuffix("scheme:///path/", "/foo", parse("scheme:///path//foo"));
+
+        assertAppendSuffix("/", ".ext", parse("/.ext"));
+        assertAppendSuffix("/path", ".ext", parse("/path.ext"));
+    }
+
+    private static void assertAppendSuffix(String locationString, String suffix, Location expected)
+    {
+        Location location = parse(locationString).appendSuffix(suffix);
+        assertLocation(location, expected);
+    }
 }
