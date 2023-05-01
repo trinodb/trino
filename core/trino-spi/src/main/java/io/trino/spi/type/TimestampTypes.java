@@ -14,6 +14,7 @@
 package io.trino.spi.type;
 
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.Fixed12BlockBuilder;
 
 public final class TimestampTypes
 {
@@ -26,8 +27,6 @@ public final class TimestampTypes
 
     public static void writeLongTimestamp(BlockBuilder blockBuilder, long epochMicros, int fraction)
     {
-        blockBuilder.writeLong(epochMicros);
-        blockBuilder.writeInt(fraction);
-        blockBuilder.closeEntry();
+        ((Fixed12BlockBuilder) blockBuilder).writeFixed12(epochMicros, fraction);
     }
 }
