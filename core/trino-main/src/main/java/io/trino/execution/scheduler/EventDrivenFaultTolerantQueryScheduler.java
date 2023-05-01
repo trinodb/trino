@@ -2014,7 +2014,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             return new PrioritizedScheduledTask(new ScheduledTask(stageId, partitionId), priority + SPECULATIVE_EXECUTION_PRIORITY);
         }
 
-        public boolean isNonSpeculative()
+        public boolean isSpeculative()
         {
             return priority < SPECULATIVE_EXECUTION_PRIORITY;
         }
@@ -2054,7 +2054,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void addOrUpdate(PrioritizedScheduledTask prioritizedTask)
         {
-            if (prioritizedTask.isNonSpeculative()) {
+            if (!prioritizedTask.isSpeculative()) {
                 nonSpeculativeTaskCount++;
             }
             // using negative priority here as will return entries with lowest pririty first and here we use bigger number for tasks with lower priority
