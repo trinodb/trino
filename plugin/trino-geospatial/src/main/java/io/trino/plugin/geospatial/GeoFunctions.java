@@ -1482,7 +1482,7 @@ public final class GeoFunctions
             for (Map.Entry<Integer, Rectangle> partition : partitions.entrySet()) {
                 if (envelope.getXMin() < partition.getValue().getXMax() && envelope.getYMin() < partition.getValue().getYMax()) {
                     BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(1);
-                    blockBuilder.writeInt(partition.getKey());
+                    IntegerType.INTEGER.writeInt(blockBuilder, partition.getKey());
                     return blockBuilder.build();
                 }
             }
@@ -1491,7 +1491,7 @@ public final class GeoFunctions
 
         BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(partitions.size());
         for (int id : partitions.keySet()) {
-            blockBuilder.writeInt(id);
+            IntegerType.INTEGER.writeInt(blockBuilder, id);
         }
 
         return blockBuilder.build();

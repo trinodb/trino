@@ -169,7 +169,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         INT(IntegerType.INTEGER, (blockBuilder, positionCount, seed) -> {
             Random r = new Random(seed);
             for (int i = 0; i < positionCount; i++) {
-                blockBuilder.writeInt(r.nextInt());
+                IntegerType.INTEGER.writeInt(blockBuilder, r.nextInt());
             }
         }),
         DOUBLE(DoubleType.DOUBLE, (blockBuilder, positionCount, seed) -> {

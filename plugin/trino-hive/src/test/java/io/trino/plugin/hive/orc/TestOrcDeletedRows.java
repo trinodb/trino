@@ -53,9 +53,10 @@ public class TestOrcDeletedRows
         rowIdBlock = BIGINT.createFixedSizeBlockBuilder(1)
                 .writeLong(0)
                 .build();
-        bucketBlock = INTEGER.createFixedSizeBlockBuilder(1)
-                .writeInt(536870912)
-                .build();
+
+        BlockBuilder bucketBlockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
+        INTEGER.writeInt(bucketBlockBuilder, 536870912);
+        bucketBlock = bucketBlockBuilder.build();
     }
 
     @Test
