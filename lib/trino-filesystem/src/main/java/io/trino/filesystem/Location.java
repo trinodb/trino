@@ -18,11 +18,14 @@ import com.google.common.collect.Iterables;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Character.isWhitespace;
+import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
 
 /**
  * Location of a file or directory in a blob or hierarchical file system.
@@ -47,6 +50,7 @@ public final class Location
     private final Optional<String> scheme;
     private final Optional<String> userInfo;
     private final Optional<String> host;
+    private final OptionalInt port;
     private final String path;
 
     public static Location parse(String location)
@@ -60,7 +64,7 @@ public final class Location
 
         // legacy HDFS location that is just a path
         if (location.startsWith("/")) {
-            return new Location(location, Optional.empty(), Optional.empty(), Optional.empty(), location.substring(1));
+            return new Location(location, Optional.empty(), Optional.empty(), Optional.empty(), OptionalInt.empty(), location.substring(1));
         }
 
         List<String> schemeSplit = SCHEME_SPLITTER.splitToList(location);
@@ -73,24 +77,40 @@ public final class Location
         Optional<String> userInfo = userInfoSplit.size() == 2 ? Optional.of(userInfoSplit.get(0)) : Optional.empty();
 
         List<String> authoritySplit = AUTHORITY_SPLITTER.splitToList(Iterables.getLast(userInfoSplit));
-        String host = authoritySplit.get(0);
-        checkArgument(HOST_AND_PORT_SPLITTER.splitToStream(host).count() == 1, "Port is not allowed in a file system location: %s", location);
-        Optional<String> locationHost = host.isEmpty() ? Optional.empty() : Optional.of(host);
+        List<String> hostAndPortSplit = HOST_AND_PORT_SPLITTER.splitToList(authoritySplit.get(0));
+
+        Optional<String> host = Optional.of(hostAndPortSplit.get(0)).filter(not(String::isEmpty));
+
+        OptionalInt port = OptionalInt.empty();
+        if (hostAndPortSplit.size() == 2) {
+            try {
+                port = OptionalInt.of(parseInt(hostAndPortSplit.get(1)));
+            }
+            catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid port in file system location: " + location, e);
+            }
+        }
 
         String path = (authoritySplit.size() == 2) ? authoritySplit.get(1) : "";
 
-        return new Location(location, Optional.of(scheme), userInfo, locationHost, path);
+        return new Location(location, Optional.of(scheme), userInfo, host, port, path);
     }
 
-    private Location(String location, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, String path)
+    private Location(String location, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, OptionalInt port, String path)
     {
         this.location = requireNonNull(location, "location is null");
         this.scheme = requireNonNull(scheme, "scheme is null");
         this.userInfo = requireNonNull(userInfo, "userInfo is null");
         this.host = requireNonNull(host, "host is null");
+        this.port = requireNonNull(port, "port is null");
         this.path = requireNonNull(path, "path is null");
         checkArgument(scheme.isEmpty() || !scheme.get().isEmpty(), "scheme value is empty");
         checkArgument(host.isEmpty() || !host.get().isEmpty(), "host value is empty");
+    }
+
+    private Location withPath(String location, String path)
+    {
+        return new Location(location, scheme, userInfo, host, port, path);
     }
 
     public String location()
@@ -125,6 +145,11 @@ public final class Location
     public Optional<String> host()
     {
         return host;
+    }
+
+    public OptionalInt port()
+    {
+        return port;
     }
 
     /**
@@ -166,12 +191,12 @@ public final class Location
             if (newLocation.isEmpty()) {
                 newLocation = "/";
             }
-            return new Location(newLocation, scheme, userInfo, host, "");
+            return withPath(newLocation, "");
         }
 
         String newPath = path.substring(0, lastIndexOfSlash);
         String newLocation = location.substring(0, location.length() - (path.length() - newPath.length()));
-        return new Location(newLocation, scheme, userInfo, host, newPath);
+        return withPath(newLocation, newPath);
     }
 
     /**
@@ -194,18 +219,13 @@ public final class Location
                 needSlash = true;
             }
 
-            return new Location(
-                    location + (needSlash ? "/" : "") + newPathElement,
-                    scheme,
-                    userInfo,
-                    host,
-                    newPathElement);
+            return withPath(location + (needSlash ? "/" : "") + newPathElement, newPathElement);
         }
 
         if (!path.endsWith("/")) {
             newPathElement = "/" + newPathElement;
         }
-        return new Location(location + newPathElement, scheme, userInfo, host, path + newPathElement);
+        return withPath(location + newPathElement, path + newPathElement);
     }
 
     /**
