@@ -440,7 +440,7 @@ public class HivePageSink
         Page bucketColumnsPage = extractColumns(page, bucketColumns);
         for (int position = 0; position < page.getPositionCount(); position++) {
             int bucket = bucketFunction.getBucket(bucketColumnsPage, position);
-            bucketColumnBuilder.writeInt(bucket);
+            INTEGER.writeInt(bucketColumnBuilder, bucket);
         }
         return bucketColumnBuilder.build();
     }
