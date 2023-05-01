@@ -42,6 +42,7 @@ import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static io.trino.plugin.pinot.decoders.VarbinaryDecoder.toBytes;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
@@ -307,7 +308,7 @@ public class PinotSegmentPageSource
                 long[] longArray = currentDataTable.getDataTable().getLongArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, longArray.length);
                 for (long element : longArray) {
-                    blockBuilder.writeLong(element);
+                    BIGINT.writeLong(blockBuilder, element);
                 }
                 break;
             case FLOAT_ARRAY:

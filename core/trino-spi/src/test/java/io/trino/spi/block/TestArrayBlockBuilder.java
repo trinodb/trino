@@ -68,7 +68,7 @@ public class TestArrayBlockBuilder
     {
         ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRY_COUNT);
         blockBuilder.buildEntry(elementBuilder -> {
-            elementBuilder.writeLong(45);
+            BIGINT.writeLong(elementBuilder, 45);
             assertThatThrownBy(() -> blockBuilder.buildEntry(ignore -> {}))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("Expected current entry to be closed but was opened");

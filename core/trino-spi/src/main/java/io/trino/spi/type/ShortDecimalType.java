@@ -122,7 +122,7 @@ final class ShortDecimalType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0));
+            writeLong(blockBuilder, block.getLong(position, 0));
         }
     }
 
@@ -135,7 +135,7 @@ final class ShortDecimalType
     @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value);
+        ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
