@@ -102,7 +102,7 @@ public class TestShortArrayBlock
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeShort(expectedValue.getShort(0)).closeEntry();
+                blockBuilder.writeShort(expectedValue.getShort(0));
             }
         }
     }
