@@ -107,9 +107,9 @@ final class LongTimestampWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(getPackedEpochMillis(block, position));
-            blockBuilder.writeInt(getPicosOfMilli(block, position));
-            blockBuilder.closeEntry();
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                    getPackedEpochMillis(block, position),
+                    getPicosOfMilli(block, position));
         }
     }
 
@@ -127,9 +127,9 @@ final class LongTimestampWithTimeZoneType
     {
         LongTimestampWithTimeZone timestamp = (LongTimestampWithTimeZone) value;
 
-        blockBuilder.writeLong(packDateTimeWithZone(timestamp.getEpochMillis(), timestamp.getTimeZoneKey()));
-        blockBuilder.writeInt(timestamp.getPicosOfMilli());
-        blockBuilder.closeEntry();
+        ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                packDateTimeWithZone(timestamp.getEpochMillis(), timestamp.getTimeZoneKey()),
+                timestamp.getPicosOfMilli());
     }
 
     @Override

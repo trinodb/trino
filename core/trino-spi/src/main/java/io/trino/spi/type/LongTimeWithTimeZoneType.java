@@ -96,9 +96,9 @@ final class LongTimeWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(getPicos(block, position));
-            blockBuilder.writeInt(getOffsetMinutes(block, position));
-            blockBuilder.closeEntry();
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                    getPicos(block, position),
+                    getOffsetMinutes(block, position));
         }
     }
 
@@ -112,9 +112,9 @@ final class LongTimeWithTimeZoneType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         LongTimeWithTimeZone timestamp = (LongTimeWithTimeZone) value;
-        blockBuilder.writeLong(timestamp.getPicoseconds());
-        blockBuilder.writeInt(timestamp.getOffsetMinutes());
-        blockBuilder.closeEntry();
+        ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                timestamp.getPicoseconds(),
+                timestamp.getOffsetMinutes());
     }
 
     @Override

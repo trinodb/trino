@@ -109,9 +109,9 @@ class LongTimestampType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(getEpochMicros(block, position));
-            blockBuilder.writeInt(getFraction(block, position));
-            blockBuilder.closeEntry();
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
+                    getEpochMicros(block, position),
+                    getFraction(block, position));
         }
     }
 
@@ -130,9 +130,7 @@ class LongTimestampType
 
     public void write(BlockBuilder blockBuilder, long epochMicros, int fraction)
     {
-        blockBuilder.writeLong(epochMicros);
-        blockBuilder.writeInt(fraction);
-        blockBuilder.closeEntry();
+        ((Fixed12BlockBuilder) blockBuilder).writeFixed12(epochMicros, fraction);
     }
 
     @Override
