@@ -16,6 +16,7 @@ package io.trino.filesystem;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 
+import java.io.File;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -31,7 +32,9 @@ import static java.util.function.Predicate.not;
  * Location of a file or directory in a blob or hierarchical file system.
  * The location uses the URI like format {@code scheme://[userInfo@]host[:port][/path]}, but does not
  * follow the format rules of a URI or URL which support escapes and other special characters.
- * Alternatively, a location can be specified as {@code /path} for usage with legacy HDFS installations.
+ * <p>
+ * Alternatively, a location can be specified as {@code /path} for usage with legacy HDFS installations,
+ * or as {@code file:/path} for local file systems as returned by {@link File#toURI()}.
  * <p>
  * The API of this class is very limited, so blob storage locations can be used as well. Specifically,
  * methods are provided to get the name of a file location, get the parent of a location, append a path
@@ -65,6 +68,11 @@ public final class Location
         // legacy HDFS location that is just a path
         if (location.startsWith("/")) {
             return new Location(location, Optional.empty(), Optional.empty(), Optional.empty(), OptionalInt.empty(), location.substring(1));
+        }
+
+        // local file system location
+        if (location.startsWith("file:/") && ((location.length() == 6) || (location.charAt(6) != '/'))) {
+            return new Location(location, Optional.of("file"), Optional.empty(), Optional.empty(), OptionalInt.empty(), location.substring(6));
         }
 
         List<String> schemeSplit = SCHEME_SPLITTER.splitToList(location);
