@@ -54,7 +54,7 @@ public class BenchmarkRowBlockBuilder
         for (int i = 0; i < data.rows; i++) {
             data.getBlockBuilder().buildEntry(fieldBuilders -> {
                 for (int fieldIndex = 0; fieldIndex < data.getTypes().size(); fieldIndex++) {
-                    fieldBuilders.get(fieldIndex).writeLong(data.getRandom().nextLong()).closeEntry();
+                    fieldBuilders.get(fieldIndex).writeLong(data.getRandom().nextLong());
                 }
             });
         }

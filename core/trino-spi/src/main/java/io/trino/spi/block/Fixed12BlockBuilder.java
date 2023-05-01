@@ -78,12 +78,6 @@ public class Fixed12BlockBuilder
     }
 
     @Override
-    public BlockBuilder closeEntry()
-    {
-        return this;
-    }
-
-    @Override
     public BlockBuilder appendNull()
     {
         if (valueIsNull.length <= positionCount) {

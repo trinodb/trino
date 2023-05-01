@@ -78,12 +78,6 @@ public class Int128ArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder closeEntry()
-    {
-        return this;
-    }
-
-    @Override
     public BlockBuilder appendNull()
     {
         if (valueIsNull.length <= positionCount) {

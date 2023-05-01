@@ -71,11 +71,6 @@ public interface BlockBuilder
     }
 
     /**
-     * Close the current entry.
-     */
-    BlockBuilder closeEntry();
-
-    /**
      * Appends a null value to the block.
      */
     BlockBuilder appendNull();

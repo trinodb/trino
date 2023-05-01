@@ -253,7 +253,7 @@ public final class Decimals
 
     public static void writeShortDecimal(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value).closeEntry();
+        blockBuilder.writeLong(value);
     }
 
     public static long rescale(long value, int fromScale, int toScale)

@@ -343,6 +343,50 @@
                                     <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.VarcharType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</old>
                                     <new>method io.trino.spi.block.VariableWidthBlockBuilder io.trino.spi.type.VarcharType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.ArrayBlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.BlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.ByteArrayBlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.Fixed12BlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.Int128ArrayBlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.IntArrayBlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.LongArrayBlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.MapBlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.RowBlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.ShortArrayBlockBuilder::closeEntry()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::closeEntry()</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
