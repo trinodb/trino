@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
@@ -53,8 +52,6 @@ public class Int128ArrayBlockBuilder
 
     private long retainedSizeInBytes;
 
-    private int entryPositionCount;
-
     public Int128ArrayBlockBuilder(@Nullable BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         this.blockBuilderStatus = blockBuilderStatus;
@@ -63,32 +60,26 @@ public class Int128ArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
-    public BlockBuilder writeLong(long value)
+    public void writeInt128(long high, long low)
     {
         if (valueIsNull.length <= positionCount) {
             growCapacity();
         }
 
-        values[(positionCount * 2) + entryPositionCount] = value;
-        entryPositionCount++;
+        int valueIndex = positionCount * 2;
+        values[valueIndex] = high;
+        values[valueIndex + 1] = low;
 
         hasNonNullValue = true;
-        return this;
+        positionCount++;
+        if (blockBuilderStatus != null) {
+            blockBuilderStatus.addBytes(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
+        }
     }
 
     @Override
     public BlockBuilder closeEntry()
     {
-        if (entryPositionCount != 2) {
-            throw new IllegalStateException("Expected entry size to be exactly " + INT128_BYTES + " bytes but was " + (entryPositionCount * SIZE_OF_LONG));
-        }
-
-        positionCount++;
-        entryPositionCount = 0;
-        if (blockBuilderStatus != null) {
-            blockBuilderStatus.addBytes(Int128ArrayBlock.SIZE_IN_BYTES_PER_POSITION);
-        }
         return this;
     }
 
@@ -97,9 +88,6 @@ public class Int128ArrayBlockBuilder
     {
         if (valueIsNull.length <= positionCount) {
             growCapacity();
-        }
-        if (entryPositionCount != 0) {
-            throw new IllegalStateException("Current entry must be closed before a null can be written");
         }
 
         valueIsNull[positionCount] = true;
