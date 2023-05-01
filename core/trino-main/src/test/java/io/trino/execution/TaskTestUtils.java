@@ -183,7 +183,7 @@ public final class TaskTestUtils
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<SplitAssignment> splitAssignments, OutputBuffers outputBuffers)
     {
-        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of());
+        return sqlTask.updateTask(TEST_SESSION, Span.getInvalid(), Optional.of(PLAN_FRAGMENT), splitAssignments, outputBuffers, ImmutableMap.of(), false);
     }
 
     public static SplitMonitor createTestSplitMonitor()

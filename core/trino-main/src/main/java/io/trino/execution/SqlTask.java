@@ -88,6 +88,7 @@ public class SqlTask
     private final String taskInstanceId;
     private final URI location;
     private final String nodeId;
+    private final AtomicBoolean speculative = new AtomicBoolean(false);
     private final TaskStateMachine taskStateMachine;
     private final OutputBuffer outputBuffer;
     private final QueryContext queryContext;
@@ -376,6 +377,7 @@ public class SqlTask
                 state,
                 location,
                 nodeId,
+                speculative.get(),
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
@@ -468,7 +470,8 @@ public class SqlTask
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            Map<DynamicFilterId, Domain> dynamicFilterDomains,
+            boolean speculative)
     {
         try {
             // trace token must be set first to make sure failure injection for getTaskResults requests works as expected
@@ -495,6 +498,9 @@ public class SqlTask
                 taskExecution.addSplitAssignments(splitAssignments);
                 taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
             }
+
+            // update speculative flag
+            this.speculative.set(speculative);
         }
         catch (Error e) {
             failed(e);
