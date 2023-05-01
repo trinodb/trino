@@ -291,6 +291,58 @@
                                     <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.RowType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
                                     <new>method io.trino.spi.block.RowBlockBuilder io.trino.spi.type.RowType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.AbstractSingleArrayBlock::writeBytesTo(int, int, int, io.trino.spi.block.BlockBuilder)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.AbstractSingleMapBlock::writeBytesTo(int, int, int, io.trino.spi.block.BlockBuilder)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.AbstractSingleRowBlock::writeBytesTo(int, int, int, io.trino.spi.block.BlockBuilder)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.AbstractVariableWidthBlock::writeBytesTo(int, int, int, io.trino.spi.block.BlockBuilder)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.Block::writeBytesTo(int, int, int, io.trino.spi.block.BlockBuilder)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.DictionaryBlock::writeBytesTo(int, int, int, io.trino.spi.block.BlockBuilder)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.LazyBlock::writeBytesTo(int, int, int, io.trino.spi.block.BlockBuilder)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method void io.trino.spi.block.RunLengthEncodedBlock::writeBytesTo(int, int, int, io.trino.spi.block.BlockBuilder)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.AbstractVariableWidthType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlockBuilder io.trino.spi.type.AbstractVariableWidthType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.AbstractVariableWidthType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlockBuilder io.trino.spi.type.AbstractVariableWidthType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.CharType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlockBuilder io.trino.spi.type.CharType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChangedCovariantly</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.type.VarcharType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlockBuilder io.trino.spi.type.VarcharType::createBlockBuilder(io.trino.spi.block.BlockBuilderStatus, int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

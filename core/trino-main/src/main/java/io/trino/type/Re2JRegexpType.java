@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
@@ -72,6 +73,6 @@ public class Re2JRegexpType
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
         Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
-        blockBuilder.writeBytes(pattern, 0, pattern.length()).closeEntry();
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(pattern);
     }
 }

@@ -24,8 +24,10 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.MapHashTables;
 import io.trino.spi.block.TestingBlockEncodingSerde;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -144,6 +146,9 @@ public abstract class AbstractTestBlock
                 }
                 else if (type == MapHashTables.class) {
                     retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();
+                }
+                else if (type.getEnclosingClass() == MapBlockBuilder.class) {
+                    // ignore nested enum
                 }
                 else if (type == MethodHandle.class) {
                     // MethodHandles are only used in MapBlock/MapBlockBuilder,
@@ -344,9 +349,8 @@ public abstract class AbstractTestBlock
             assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
             assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
 
-            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1);
-            block.writeBytesTo(position, offset, 3, blockBuilder);
-            blockBuilder.closeEntry();
+            VariableWidthBlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1);
+            blockBuilder.writeEntry(block.getSlice(position, offset, 3));
             Block segment = blockBuilder.build();
 
             assertTrue(block.equals(position, offset, segment, 0, 0, 3));

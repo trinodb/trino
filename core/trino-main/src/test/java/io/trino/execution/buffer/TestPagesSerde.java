@@ -283,11 +283,12 @@ public class TestPagesSerde
     private static Page createTestPage(int numberOfEntries)
     {
         VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 1000);
-        blockBuilder.writeInt(numberOfEntries);
-        for (int i = 0; i < numberOfEntries; i++) {
-            blockBuilder.writeLong(i);
-        }
-        blockBuilder.closeEntry();
+        blockBuilder.buildEntry(value -> {
+            value.writeInt(numberOfEntries);
+            for (int i = 0; i < numberOfEntries; i++) {
+                value.writeLong(i);
+            }
+        });
         return new Page(blockBuilder.build());
     }
 
@@ -299,12 +300,13 @@ public class TestPagesSerde
         {
             int numberOfEntries = input.readInt();
             VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 1000);
-            blockBuilder.writeInt(numberOfEntries);
-            for (int i = 0; i < numberOfEntries; ++i) {
-                // read 8 bytes at a time
-                blockBuilder.writeLong(input.readLong());
-            }
-            blockBuilder.closeEntry();
+            blockBuilder.buildEntry(value -> {
+                value.writeInt(numberOfEntries);
+                for (int i = 0; i < numberOfEntries; ++i) {
+                    // read 8 bytes at a time
+                    value.writeLong(input.readLong());
+                }
+            });
             return blockBuilder.build();
         }
 

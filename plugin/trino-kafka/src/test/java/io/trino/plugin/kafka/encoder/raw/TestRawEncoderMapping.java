@@ -61,8 +61,8 @@ public class TestRawEncoderMapping
 
         Block longArrayBlock = new LongArrayBlockBuilder(null, 1).writeLong(123456789).closeEntry().build();
         Block varArrayBlock = new VariableWidthBlockBuilder(null, 1, 6)
-                .writeBytes(Slices.wrappedBuffer("abcdef".getBytes(StandardCharsets.UTF_8)), 0, 6)
-                .closeEntry().build();
+                .writeEntry(Slices.wrappedBuffer("abcdef".getBytes(StandardCharsets.UTF_8)), 0, 6)
+                .build();
 
         rowEncoder.appendColumnValue(longArrayBlock, 0);
         rowEncoder.appendColumnValue(varArrayBlock, 0);

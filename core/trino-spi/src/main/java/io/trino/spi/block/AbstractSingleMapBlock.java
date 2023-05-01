@@ -158,18 +158,6 @@ public abstract class AbstractSingleMapBlock
     }
 
     @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        position = getAbsolutePosition(position);
-        if (position % 2 == 0) {
-            getRawKeyBlock().writeBytesTo(position / 2, offset, length, blockBuilder);
-        }
-        else {
-            getRawValueBlock().writeBytesTo(position / 2, offset, length, blockBuilder);
-        }
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         position = getAbsolutePosition(position);
