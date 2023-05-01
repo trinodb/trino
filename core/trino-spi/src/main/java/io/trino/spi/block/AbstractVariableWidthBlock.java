@@ -14,6 +14,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
@@ -68,6 +69,13 @@ public abstract class AbstractVariableWidthBlock
     {
         checkReadablePosition(this, position);
         return getRawSlice(position).slice(getPositionOffset(position) + offset, length);
+    }
+
+    @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        checkReadablePosition(this, position);
+        output.writeBytes(getRawSlice(position), getPositionOffset(position) + offset, length);
     }
 
     @Override
