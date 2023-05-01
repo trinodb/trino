@@ -75,6 +75,7 @@ public class TestingRemoteTaskFactory
             Span stageSpan,
             TaskId taskId,
             InternalNode node,
+            boolean speculative,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
@@ -176,6 +177,7 @@ public class TestingRemoteTaskFactory
                     state,
                     location,
                     nodeId,
+                    false,
                     failures,
                     0,
                     0,
@@ -230,6 +232,12 @@ public class TestingRemoteTaskFactory
         public synchronized void setOutputBuffers(OutputBuffers outputBuffers)
         {
             this.outputBuffers = outputBuffers;
+        }
+
+        @Override
+        public void setSpeculative(boolean speculative)
+        {
+           // ignore
         }
 
         public synchronized OutputBuffers getOutputBuffers()

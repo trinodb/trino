@@ -43,6 +43,7 @@ public class TaskUpdateRequest
     private final OutputBuffers outputIds;
     private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
     private final Optional<Slice> exchangeEncryptionKey;
+    private final boolean speculative;
 
     @JsonCreator
     public TaskUpdateRequest(
@@ -53,7 +54,8 @@ public class TaskUpdateRequest
             @JsonProperty("splitAssignments") List<SplitAssignment> splitAssignments,
             @JsonProperty("outputIds") OutputBuffers outputIds,
             @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains,
-            @JsonProperty("exchangeEncryptionKey") Optional<Slice> exchangeEncryptionKey)
+            @JsonProperty("exchangeEncryptionKey") Optional<Slice> exchangeEncryptionKey,
+            @JsonProperty("speculative") boolean speculative)
     {
         requireNonNull(session, "session is null");
         requireNonNull(extraCredentials, "extraCredentials is null");
@@ -72,6 +74,7 @@ public class TaskUpdateRequest
         this.outputIds = outputIds;
         this.dynamicFilterDomains = dynamicFilterDomains;
         this.exchangeEncryptionKey = exchangeEncryptionKey;
+        this.speculative = speculative;
     }
 
     @JsonProperty
@@ -120,6 +123,12 @@ public class TaskUpdateRequest
     public Optional<Slice> getExchangeEncryptionKey()
     {
         return exchangeEncryptionKey;
+    }
+
+    @JsonProperty
+    public boolean isSpeculative()
+    {
+        return speculative;
     }
 
     @Override

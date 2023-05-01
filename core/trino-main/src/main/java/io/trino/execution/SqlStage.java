@@ -246,7 +246,8 @@ public final class SqlStage
             OutputBuffers outputBuffers,
             Multimap<PlanNodeId, Split> splits,
             Set<PlanNodeId> noMoreSplits,
-            Optional<DataSize> estimatedMemory)
+            Optional<DataSize> estimatedMemory,
+            boolean speculative)
     {
         if (stateMachine.getState().isDone()) {
             return Optional.empty();
@@ -261,6 +262,7 @@ public final class SqlStage
                 stateMachine.getStageSpan(),
                 taskId,
                 node,
+                speculative,
                 stateMachine.getFragment().withBucketToPartition(bucketToPartition),
                 splits,
                 outputBuffers,

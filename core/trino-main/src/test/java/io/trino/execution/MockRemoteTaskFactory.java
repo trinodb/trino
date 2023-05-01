@@ -133,6 +133,7 @@ public class MockRemoteTaskFactory
                 Span.getInvalid(),
                 taskId,
                 newNode,
+                false,
                 testFragment,
                 initialSplits.build(),
                 PipelinedOutputBuffers.createInitial(BROADCAST),
@@ -148,6 +149,7 @@ public class MockRemoteTaskFactory
             Span stageSpan,
             TaskId taskId,
             InternalNode node,
+            boolean speculative,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
@@ -277,6 +279,7 @@ public class MockRemoteTaskFactory
                     state,
                     location,
                     nodeId,
+                    false,
                     failures,
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
@@ -397,6 +400,12 @@ public class MockRemoteTaskFactory
         public void setOutputBuffers(OutputBuffers outputBuffers)
         {
             outputBuffer.setOutputBuffers(outputBuffers);
+        }
+
+        @Override
+        public void setSpeculative(boolean speculative)
+        {
+            // ignore
         }
 
         @Override
