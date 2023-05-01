@@ -18,6 +18,7 @@ import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
 import io.trino.spi.type.TypeSignature;
@@ -51,8 +52,7 @@ public final class KdbTreeType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, block.getSliceLength(position), blockBuilder);
-            blockBuilder.closeEntry();
+            ((VariableWidthBlockBuilder) blockBuilder).buildEntry(valueBuilder -> block.writeSliceTo(position, 0, block.getSliceLength(position), valueBuilder));
         }
     }
 
@@ -61,7 +61,7 @@ public final class KdbTreeType
     {
         String json = KdbTreeUtils.toJson(((KdbTree) value));
         Slice bytes = utf8Slice(json);
-        blockBuilder.writeBytes(bytes, 0, bytes.length()).closeEntry();
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(bytes);
     }
 
     @Override

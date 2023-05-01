@@ -31,7 +31,7 @@ import io.trino.orc.stream.OrcChunkLoader;
 import io.trino.orc.stream.OrcInputStream;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -88,17 +88,16 @@ public class TestOrcWriter
             String[] data = new String[] {"a", "bbbbb", "ccc", "dd", "eeee"};
             Block[] blocks = new Block[data.length];
             int entries = 65536;
-            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
+            VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
             for (int i = 0; i < data.length; i++) {
                 byte[] bytes = data[i].getBytes(UTF_8);
                 for (int j = 0; j < entries; j++) {
                     // force to write different data
                     bytes[0] = (byte) ((bytes[0] + 1) % 128);
-                    blockBuilder.writeBytes(Slices.wrappedBuffer(bytes, 0, bytes.length), 0, bytes.length);
-                    blockBuilder.closeEntry();
+                    blockBuilder.writeEntry(Slices.wrappedBuffer(bytes, 0, bytes.length));
                 }
                 blocks[i] = blockBuilder.build();
-                blockBuilder = blockBuilder.newBlockBuilderLike(null);
+                blockBuilder = (VariableWidthBlockBuilder) blockBuilder.newBlockBuilderLike(null);
             }
 
             writer.write(new Page(blocks));

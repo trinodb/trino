@@ -20,7 +20,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -213,38 +213,36 @@ public final class ArrayJoin
             pageBuilder.reset();
         }
         int numElements = arrayBlock.getPositionCount();
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
-        boolean needsDelimiter = false;
-        for (int i = 0; i < numElements; i++) {
-            Slice value = null;
-            if (!arrayBlock.isNull(i)) {
-                try {
-                    value = (Slice) castFunction.invokeExact(session, arrayBlock, i);
+        VariableWidthBlockBuilder blockBuilder = (VariableWidthBlockBuilder) pageBuilder.getBlockBuilder(0);
+        blockBuilder.buildEntry(valueWriter -> {
+            boolean needsDelimiter = false;
+            for (int i = 0; i < numElements; i++) {
+                Slice value = null;
+                if (!arrayBlock.isNull(i)) {
+                    try {
+                        value = (Slice) castFunction.invokeExact(session, arrayBlock, i);
+                    }
+                    catch (Throwable throwable) {
+                        // Restore pageBuilder into a consistent state
+                        pageBuilder.declarePosition();
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error casting array element to VARCHAR", throwable);
+                    }
                 }
-                catch (Throwable throwable) {
-                    // Restore pageBuilder into a consistent state
-                    blockBuilder.closeEntry();
-                    pageBuilder.declarePosition();
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error casting array element to VARCHAR", throwable);
-                }
-            }
 
-            if (value == null) {
-                value = nullReplacement;
                 if (value == null) {
-                    continue;
+                    value = nullReplacement;
+                    if (value == null) {
+                        continue;
+                    }
                 }
-            }
 
-            if (needsDelimiter) {
-                blockBuilder.writeBytes(delimiter, 0, delimiter.length());
+                if (needsDelimiter) {
+                    valueWriter.writeBytes(delimiter, 0, delimiter.length());
+                }
+                valueWriter.writeBytes(value, 0, value.length());
+                needsDelimiter = true;
             }
-            blockBuilder.writeBytes(value, 0, value.length());
-            needsDelimiter = true;
-        }
-
-        blockBuilder.closeEntry();
+        });
         pageBuilder.declarePosition();
         return VARCHAR.getSlice(blockBuilder, blockBuilder.getPositionCount() - 1);
     }

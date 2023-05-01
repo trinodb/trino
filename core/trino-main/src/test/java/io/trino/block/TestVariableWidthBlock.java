@@ -154,7 +154,7 @@ public class TestVariableWidthBlock
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeBytes(expectedValue, 0, expectedValue.length()).closeEntry();
+                ((VariableWidthBlockBuilder) blockBuilder).writeEntry(expectedValue);
             }
         }
         return blockBuilder;

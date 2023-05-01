@@ -122,13 +122,6 @@ public abstract class AbstractVariableWidthBlock
     }
 
     @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(this, position);
-        blockBuilder.writeBytes(getRawSlice(position), getPositionOffset(position) + offset, length);
-    }
-
-    @Override
     public Block getSingleValueBlock(int position)
     {
         if (isNull(position)) {

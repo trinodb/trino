@@ -202,12 +202,6 @@ public class DictionaryBlock
     }
 
     @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        dictionary.writeBytesTo(getId(position), offset, length, blockBuilder);
-    }
-
-    @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
         return dictionary.equals(getId(position), offset, otherBlock, otherPosition, otherOffset, length);

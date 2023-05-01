@@ -45,14 +45,13 @@ public class TestVariableWidthBlockBuilder
     {
         int entries = 12345;
         double resetSkew = 1.25;
-        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, entries, entries);
+        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, entries, entries);
         for (int i = 0; i < entries; i++) {
-            blockBuilder.writeByte(i);
-            blockBuilder.closeEntry();
+            blockBuilder.writeEntry(Slices.wrappedBuffer((byte) i));
         }
-        blockBuilder = blockBuilder.newBlockBuilderLike(null);
+        blockBuilder = (VariableWidthBlockBuilder) blockBuilder.newBlockBuilderLike(null);
         // force to initialize capacity
-        blockBuilder.writeByte(1);
+        blockBuilder.writeEntry(Slices.wrappedBuffer((byte) 1));
 
         long actualArrayBytes = sizeOf(new int[(int) ceil(resetSkew * (entries + 1))]) + sizeOf(new boolean[(int) ceil(resetSkew * entries)]);
         long actualSliceBytes = SLICE_INSTANCE_SIZE + sizeOf(new byte[(int) ceil(resetSkew * entries)]);
