@@ -103,7 +103,7 @@ public class TestLongArrayBlock
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeLong(expectedValue.getLong(0)).closeEntry();
+                blockBuilder.writeLong(expectedValue.getLong(0));
             }
         }
     }

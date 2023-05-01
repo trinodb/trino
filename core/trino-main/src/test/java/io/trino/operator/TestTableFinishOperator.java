@@ -146,7 +146,6 @@ public class TestTableFinishOperator
         assertEquals(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().size(), 1);
         Block expectedStatisticsBlock = new LongArrayBlockBuilder(null, 1)
                 .writeLong(7)
-                .closeEntry()
                 .build();
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
 

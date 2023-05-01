@@ -102,7 +102,7 @@ public class TestByteArrayBlock
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeByte(expectedValue.getByte(0)).closeEntry();
+                blockBuilder.writeByte(expectedValue.getByte(0));
             }
         }
     }

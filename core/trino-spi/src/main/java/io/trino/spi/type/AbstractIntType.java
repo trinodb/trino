@@ -90,7 +90,7 @@ public abstract class AbstractIntType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         checkValueValid(value);
-        blockBuilder.writeInt((int) value).closeEntry();
+        blockBuilder.writeInt((int) value);
     }
 
     protected void checkValueValid(long value)
@@ -110,7 +110,7 @@ public abstract class AbstractIntType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
+            blockBuilder.writeInt(block.getInt(position, 0));
         }
     }
 

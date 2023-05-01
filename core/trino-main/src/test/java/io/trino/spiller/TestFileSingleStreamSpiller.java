@@ -168,9 +168,9 @@ public class TestFileSingleStreamSpiller
         BlockBuilder col2 = DOUBLE.createBlockBuilder(null, 1);
         BlockBuilder col3 = VARBINARY.createBlockBuilder(null, 1);
 
-        col1.writeLong(42).closeEntry();
-        col2.writeLong(doubleToLongBits(43.0)).closeEntry();
-        col3.writeLong(doubleToLongBits(43.0)).writeLong(1).closeEntry();
+        col1.writeLong(42);
+        col2.writeLong(doubleToLongBits(43.0));
+        col3.writeLong(doubleToLongBits(43.0)).writeLong(1);
 
         return new Page(col1.build(), col2.build(), col3.build());
     }
