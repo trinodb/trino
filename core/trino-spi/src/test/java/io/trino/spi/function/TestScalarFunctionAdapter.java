@@ -307,9 +307,9 @@ public class TestScalarFunctionAdapter
         if (argumentType.equals(ARRAY_TYPE)) {
             BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 4);
             blockBuilder.appendNull();
-            blockBuilder.writeLong(99);
+            BIGINT.writeLong(blockBuilder, 99);
             blockBuilder.appendNull();
-            blockBuilder.writeLong(100);
+            BIGINT.writeLong(blockBuilder, 100);
             return blockBuilder.build();
         }
         if (argumentType.equals(CHAR_TYPE)) {

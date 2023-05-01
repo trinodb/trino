@@ -19,14 +19,6 @@ public interface BlockBuilder
         extends Block
 {
     /**
-     * Write a long to the current entry;
-     */
-    default BlockBuilder writeLong(long value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Create a new block from the current materialized block by keeping the same elements
      * only with respect to {@code visiblePositions}.
      */

@@ -82,7 +82,7 @@ public abstract class AbstractLongType
     @Override
     public final void writeLong(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value);
+        ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
@@ -92,7 +92,7 @@ public abstract class AbstractLongType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0));
+            writeLong(blockBuilder, getLong(block, position));
         }
     }
 

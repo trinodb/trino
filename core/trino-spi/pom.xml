@@ -435,6 +435,22 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::writeInt(int)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.BlockBuilder::writeLong(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.Fixed12BlockBuilder::writeLong(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.Int128ArrayBlockBuilder::writeLong(long)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::writeLong(long)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
