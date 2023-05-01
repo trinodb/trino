@@ -137,9 +137,9 @@ public class TestAvroSymlinkInputFormat
                 "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
 
         String tableRoot = warehouseDirectory + '/' + table;
-        String dataDir = warehouseDirectory + "/data_test_avro_symlink_with_nested_directory";
+        String dataDir = warehouseDirectory + "/data_test_avro_symlink_with_nested_directory/nested_directory";
         saveResourceOnHdfs("avro/original_data.avro", dataDir + "/original_data.avro");
-        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs://%s/", dataDir));
+        hdfsClient.saveFile(tableRoot + "/symlink.txt", format("hdfs://%s/original_data.avro", dataDir));
         assertThat(onTrino().executeQuery("SELECT * FROM " + table)).containsExactlyInOrder(row("someValue", 1));
 
         onHive().executeQuery("DROP TABLE " + table);

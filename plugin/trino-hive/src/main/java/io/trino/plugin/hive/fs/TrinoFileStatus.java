@@ -79,11 +79,6 @@ public class TrinoFileStatus
         return path;
     }
 
-    public boolean isDirectory()
-    {
-        return isDirectory;
-    }
-
     public long getLength()
     {
         return length;
