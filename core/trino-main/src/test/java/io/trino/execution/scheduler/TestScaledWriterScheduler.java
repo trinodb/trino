@@ -216,27 +216,27 @@ public class TestScaledWriterScheduler
     private static TaskStatus buildTaskStatus(boolean isOutputBufferOverUtilized, long outputDataSize, Optional<Integer> maxWriterCount, DataSize physicalWrittenDataSize)
     {
         return new TaskStatus(
-                        TaskId.valueOf("taskId"),
-                        "task-instance-id",
-                        0,
-                        TaskState.RUNNING,
-                        URI.create("fake://task/" + "taskId" + "/node/some_node"),
-                        "some_node",
-                        ImmutableList.of(),
-                        0,
-                        0,
-                        new OutputBufferStatus(OptionalLong.empty(), isOutputBufferOverUtilized, false),
-                        DataSize.ofBytes(outputDataSize),
-                        physicalWrittenDataSize,
-                        maxWriterCount,
-                        DataSize.of(1, DataSize.Unit.MEGABYTE),
-                        DataSize.of(1, DataSize.Unit.MEGABYTE),
-                        DataSize.of(0, DataSize.Unit.MEGABYTE),
-                        0,
-                        Duration.valueOf("0s"),
-                        0,
-                        1,
-                        1);
+                TaskId.valueOf("taskId"),
+                "task-instance-id",
+                0,
+                TaskState.RUNNING,
+                URI.create("fake://task/" + "taskId" + "/node/some_node"),
+                "some_node",
+                ImmutableList.of(),
+                0,
+                0,
+                new OutputBufferStatus(OptionalLong.empty(), isOutputBufferOverUtilized, false),
+                DataSize.ofBytes(outputDataSize),
+                physicalWrittenDataSize,
+                maxWriterCount,
+                DataSize.of(1, DataSize.Unit.MEGABYTE),
+                DataSize.of(1, DataSize.Unit.MEGABYTE),
+                DataSize.of(0, DataSize.Unit.MEGABYTE),
+                0,
+                Duration.valueOf("0s"),
+                0,
+                1,
+                1);
     }
 
     private static class TestingStageExecution
