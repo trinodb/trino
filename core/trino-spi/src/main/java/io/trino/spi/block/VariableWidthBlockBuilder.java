@@ -224,12 +224,6 @@ public class VariableWidthBlockBuilder
     }
 
     @Override
-    public BlockBuilder closeEntry()
-    {
-        return this;
-    }
-
-    @Override
     public BlockBuilder appendNull()
     {
         hasNullValue = true;

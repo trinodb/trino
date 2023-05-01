@@ -86,7 +86,7 @@ class ShortTimestampType
     @Override
     public final void writeLong(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value).closeEntry();
+        blockBuilder.writeLong(value);
     }
 
     @Override
@@ -96,7 +96,7 @@ class ShortTimestampType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(getLong(block, position)).closeEntry();
+            blockBuilder.writeLong(getLong(block, position));
         }
     }
 

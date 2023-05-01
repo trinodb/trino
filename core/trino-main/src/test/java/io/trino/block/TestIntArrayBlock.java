@@ -102,7 +102,7 @@ public class TestIntArrayBlock
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeInt(expectedValue.getInt(0)).closeEntry();
+                blockBuilder.writeInt(expectedValue.getInt(0));
             }
         }
     }

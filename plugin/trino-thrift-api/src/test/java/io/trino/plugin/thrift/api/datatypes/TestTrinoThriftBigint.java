@@ -174,7 +174,7 @@ public class TestTrinoThriftBigint
                 blockBuilder.appendNull();
             }
             else {
-                blockBuilder.writeLong(value).closeEntry();
+                blockBuilder.writeLong(value);
             }
         }
         return blockBuilder.build();

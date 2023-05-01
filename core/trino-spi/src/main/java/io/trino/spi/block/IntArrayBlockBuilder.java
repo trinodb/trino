@@ -76,12 +76,6 @@ public class IntArrayBlockBuilder
     }
 
     @Override
-    public BlockBuilder closeEntry()
-    {
-        return this;
-    }
-
-    @Override
     public BlockBuilder appendNull()
     {
         if (values.length <= positionCount) {

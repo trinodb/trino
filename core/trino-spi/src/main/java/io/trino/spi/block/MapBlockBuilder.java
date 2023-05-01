@@ -208,12 +208,6 @@ public class MapBlockBuilder
     }
 
     @Override
-    public BlockBuilder closeEntry()
-    {
-        return this;
-    }
-
-    @Override
     public BlockBuilder appendNull()
     {
         if (currentEntryOpened) {
