@@ -17,10 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -54,9 +54,9 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
     }
 
     @Override
-    protected boolean isCached(CachingDirectoryLister directoryLister, Path path)
+    protected boolean isCached(CachingDirectoryLister directoryLister, Location location)
     {
-        return directoryLister.isCached(path);
+        return directoryLister.isCached(location);
     }
 
     @Test
@@ -80,7 +80,7 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
         // Execute a query on the new table to pull the listing into the cache
         assertQuery("SELECT sum(clicks) FROM recursive_directories", "VALUES (11000)");
 
-        Path tableLocation = getTableLocation(TPCH_SCHEMA, "recursive_directories");
+        String tableLocation = getTableLocation(TPCH_SCHEMA, "recursive_directories");
         assertTrue(isCached(tableLocation));
 
         // Insert should invalidate cache, even at the root directory path

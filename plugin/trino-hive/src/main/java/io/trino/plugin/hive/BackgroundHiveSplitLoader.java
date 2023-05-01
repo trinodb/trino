@@ -110,6 +110,7 @@ import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -546,21 +547,28 @@ public class BackgroundHiveSplitLoader
             return getTransactionalSplits(Location.of(path.toString()), splittable, bucketConversion, splitFactory);
         }
 
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
+        Location location = Location.of(path.toString());
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
-            List<TrinoFileStatus> files = listBucketFiles(path, fs, splitFactory.getPartitionName());
+            List<TrinoFileStatus> files = listBucketFiles(trinoFileSystem, location, splitFactory.getPartitionName());
             return hiveSplitSource.addToQueue(getBucketedSplits(files, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, Optional.empty()));
         }
 
-        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, Optional.empty()));
+        Iterator<InternalHiveSplit> splitIterator = createInternalHiveSplitIterator(trinoFileSystem, location, splitFactory, splittable, Optional.empty());
+        fileIterators.addLast(splitIterator);
 
         return COMPLETED_FUTURE;
     }
 
-    private List<TrinoFileStatus> listBucketFiles(Path path, FileSystem fs, String partitionName)
+    private List<TrinoFileStatus> listBucketFiles(TrinoFileSystem fs, Location location, String partitionName)
     {
+        if (!ignoreAbsentPartitions) {
+            checkPartitionLocationExists(fs, location);
+        }
+
         try {
-            return ImmutableList.copyOf(new HiveFileIterator(table, path, fs, directoryLister, hdfsNamenodeStats, FAIL, ignoreAbsentPartitions));
+            return ImmutableList.copyOf(new HiveFileIterator(table, location, fs, directoryLister, hdfsNamenodeStats, FAIL));
         }
         catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -640,9 +648,12 @@ public class BackgroundHiveSplitLoader
             throws IOException
     {
         FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, parent);
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
+        Location location = Location.of(parent.toString());
 
+        checkPartitionLocationExists(trinoFileSystem, location);
         Map<Path, TrinoFileStatus> fileStatuses = new HashMap<>();
-        HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, hdfsNamenodeStats, IGNORED, false);
+        HiveFileIterator fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, hdfsNamenodeStats, IGNORED);
         fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(new Path(status.getPath())), status));
 
         List<TrinoFileStatus> locatedFileStatuses = new ArrayList<>();
@@ -801,10 +812,26 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(TrinoFileSystem fileSystem, Location location, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
     {
-        Iterator<TrinoFileStatus> iterator = new HiveFileIterator(table, path, fileSystem, directoryLister, hdfsNamenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions);
+        if (!ignoreAbsentPartitions) {
+            checkPartitionLocationExists(fileSystem, location);
+        }
+
+        Iterator<TrinoFileStatus> iterator = new HiveFileIterator(table, location, fileSystem, directoryLister, hdfsNamenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED);
         return createInternalHiveSplitIterator(splitFactory, splittable, acidInfo, Streams.stream(iterator));
+    }
+
+    private static void checkPartitionLocationExists(TrinoFileSystem fileSystem, Location location)
+    {
+        try {
+            if (!fileSystem.directoryExists(location).orElse(true)) {
+                throw new TrinoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + location);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking directory path:" + location, e);
+        }
     }
 
     private static Iterator<InternalHiveSplit> createInternalHiveSplitIterator(InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo, Stream<TrinoFileStatus> fileStream)

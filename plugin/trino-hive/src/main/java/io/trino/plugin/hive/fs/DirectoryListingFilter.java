@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.fs;
 
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.Location;
 
 import javax.annotation.Nullable;
 
@@ -28,17 +28,19 @@ import static java.util.Objects.requireNonNull;
 public class DirectoryListingFilter
         implements RemoteIterator<TrinoFileStatus>
 {
-    private final Path prefix;
+    private final Location prefix;
     private final RemoteIterator<TrinoFileStatus> delegateIterator;
+    private final boolean failOnUnexpectedFiles;
 
     @Nullable private TrinoFileStatus nextElement;
 
-    public DirectoryListingFilter(Path prefix, RemoteIterator<TrinoFileStatus> delegateIterator)
+    public DirectoryListingFilter(Location prefix, RemoteIterator<TrinoFileStatus> delegateIterator, boolean failOnUnexpectedFiles)
             throws IOException
     {
         this.prefix = requireNonNull(prefix, "prefix is null");
         this.delegateIterator = requireNonNull(delegateIterator, "delegateIterator is null");
         this.nextElement = findNextElement();
+        this.failOnUnexpectedFiles = failOnUnexpectedFiles;
     }
 
     @Override
@@ -66,16 +68,30 @@ public class DirectoryListingFilter
     {
         while (delegateIterator.hasNext()) {
             TrinoFileStatus candidate = delegateIterator.next();
-            Path candidatePath = new Path(candidate.getPath());
-            Path parent = candidatePath.getParent();
-            boolean directChild = candidatePath.isAbsolute() ?
-                    (parent != null && parent.equals(prefix)) :
-                    (parent == null || parent.toString().isEmpty());
+            Location parent = Location.of(candidate.getPath()).parentDirectory();
+            boolean directChild = parent.equals(prefix);
+
+            if (!directChild && failOnUnexpectedFiles && !parentIsHidden(parent, prefix)) {
+                throw new HiveFileIterator.NestedDirectoryNotAllowedException(candidate.getPath());
+            }
 
             if (directChild) {
                 return candidate;
             }
         }
         return null;
+    }
+
+    private static boolean parentIsHidden(Location location, Location prefix)
+    {
+        if (location.equals(prefix)) {
+            return false;
+        }
+
+        if (location.fileName().startsWith(".") || location.fileName().startsWith("_")) {
+            return true;
+        }
+
+        return parentIsHidden(location.parentDirectory(), prefix);
     }
 }

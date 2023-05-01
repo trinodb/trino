@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.fs;
 
+import io.trino.filesystem.Location;
+
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -25,22 +27,22 @@ public class TransactionDirectoryListingCacheKey
     private static final long INSTANCE_SIZE = instanceSize(TransactionDirectoryListingCacheKey.class);
 
     private final long transactionId;
-    private final String path;
+    private final Location path;
 
-    public TransactionDirectoryListingCacheKey(long transactionId, String path)
+    public TransactionDirectoryListingCacheKey(long transactionId, Location path)
     {
         this.transactionId = transactionId;
         this.path = requireNonNull(path, "path is null");
     }
 
-    public String getPath()
+    public Location getPath()
     {
         return path;
     }
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + estimatedSizeOf(path);
+        return INSTANCE_SIZE + estimatedSizeOf(path.toString());
     }
 
     @Override
