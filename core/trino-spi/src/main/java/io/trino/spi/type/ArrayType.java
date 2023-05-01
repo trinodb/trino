@@ -13,7 +13,6 @@
  */
 package io.trino.spi.type;
 
-import io.airlift.slice.Slice;
 import io.trino.spi.block.AbstractArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -219,24 +218,6 @@ public class ArrayType
         else {
             writeObject(blockBuilder, getObject(block, position));
         }
-    }
-
-    @Override
-    public Slice getSlice(Block block, int position)
-    {
-        return block.getSlice(position, 0, block.getSliceLength(position));
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value)
-    {
-        writeSlice(blockBuilder, value, 0, value.length());
-    }
-
-    @Override
-    public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
-    {
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
 
     @Override
