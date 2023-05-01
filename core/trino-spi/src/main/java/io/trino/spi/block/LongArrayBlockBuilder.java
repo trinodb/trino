@@ -59,7 +59,6 @@ public class LongArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
     public BlockBuilder writeLong(long value)
     {
         if (values.length <= positionCount) {

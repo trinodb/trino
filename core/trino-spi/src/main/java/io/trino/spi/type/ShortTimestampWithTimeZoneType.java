@@ -81,7 +81,7 @@ final class ShortTimestampWithTimeZoneType
     @Override
     public final void writeLong(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value);
+        ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     @Override
@@ -91,7 +91,7 @@ final class ShortTimestampWithTimeZoneType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0));
+            writeLong(blockBuilder, block.getLong(position, 0));
         }
     }
 

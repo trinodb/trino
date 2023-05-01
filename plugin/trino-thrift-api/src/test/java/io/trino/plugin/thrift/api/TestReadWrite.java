@@ -249,7 +249,7 @@ public class TestReadWrite
                     elementBuilder.appendNull();
                 }
                 else {
-                    elementBuilder.writeLong(random.nextLong());
+                    BIGINT.writeLong(elementBuilder, random.nextLong());
                 }
             }
         });
