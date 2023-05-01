@@ -75,6 +75,13 @@ class TestLocation
         assertLocation("/abc/xyz", "abc/xyz");
         assertLocation("/foo://host:port/path", "foo://host:port/path");
 
+        // special handling for file URIs without hostnames
+        assertLocation("file:/", "file", "");
+        assertLocation("file:/hello.txt", "file", "hello.txt");
+        assertLocation("file:/some/path", "file", "some/path");
+        assertLocation("file:/some@what/path", "file", "some@what/path");
+
+        // invalid locations
         assertThatThrownBy(() -> parse(null))
                 .isInstanceOf(NullPointerException.class);
 
@@ -90,6 +97,9 @@ class TestLocation
         assertThatThrownBy(() -> parse("scheme://host:invalid/path"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("port");
+        assertThatThrownBy(() -> parse("scheme:/path"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scheme");
 
         // fragment is not allowed
         assertThatThrownBy(() -> parse("scheme://userInfo@host/some/path#fragement"))
@@ -125,6 +135,12 @@ class TestLocation
         Location location = parse(locationString);
         Optional<String> expectedHost = host.isEmpty() ? Optional.empty() : Optional.of(host);
         assertLocation(location, locationString, Optional.of(scheme), userInfo, expectedHost, OptionalInt.empty(), path);
+    }
+
+    private static void assertLocation(String locationString, String scheme, String path)
+    {
+        Location location = parse(locationString);
+        assertLocation(location, locationString, Optional.of(scheme), Optional.empty(), Optional.empty(), OptionalInt.empty(), path);
     }
 
     private static void assertLocation(String locationString, String scheme, String host, int port, String path)
