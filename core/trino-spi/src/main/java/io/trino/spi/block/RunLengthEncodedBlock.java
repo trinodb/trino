@@ -14,6 +14,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 import io.trino.spi.predicate.Utils;
 import io.trino.spi.type.Type;
 
@@ -245,6 +246,13 @@ public class RunLengthEncodedBlock
     {
         checkReadablePosition(this, position);
         return value.getSlice(0, offset, length);
+    }
+
+    @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        checkReadablePosition(this, position);
+        value.writeSliceTo(0, offset, length, output);
     }
 
     @Override

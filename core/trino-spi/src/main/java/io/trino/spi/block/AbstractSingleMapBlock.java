@@ -15,6 +15,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.List;
 
@@ -102,6 +103,18 @@ public abstract class AbstractSingleMapBlock
             return getRawKeyBlock().getSlice(position / 2, offset, length);
         }
         return getRawValueBlock().getSlice(position / 2, offset, length);
+    }
+
+    @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        position = getAbsolutePosition(position);
+        if (position % 2 == 0) {
+            getRawKeyBlock().writeSliceTo(position / 2, offset, length, output);
+        }
+        else {
+            getRawValueBlock().writeSliceTo(position / 2, offset, length, output);
+        }
     }
 
     @Override
