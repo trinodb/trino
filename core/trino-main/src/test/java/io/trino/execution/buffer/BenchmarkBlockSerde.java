@@ -259,7 +259,7 @@ public class BenchmarkBlockSerde
                 blockBuilder.writeShort((short) value);
             }
             else if (TINYINT.equals(type)) {
-                blockBuilder.writeByte((byte) value);
+                TINYINT.writeByte(blockBuilder, (byte) value);
             }
             else if (type instanceof RowType) {
                 List<?> values = (List<?>) value;
