@@ -58,7 +58,6 @@ public class IntArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
     public BlockBuilder writeInt(int value)
     {
         if (values.length <= positionCount) {

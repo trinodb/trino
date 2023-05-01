@@ -271,12 +271,11 @@ public class TestDynamicFilterSourceOperator
     @Test
     public void testCollectWithNulls()
     {
-        Block blockWithNulls = INTEGER
-                .createFixedSizeBlockBuilder(0)
-                .writeInt(3)
-                .appendNull()
-                .writeInt(4)
-                .build();
+        BlockBuilder blockBuilder = INTEGER.createFixedSizeBlockBuilder(3);
+        INTEGER.writeInt(blockBuilder, 3);
+        blockBuilder.appendNull();
+        INTEGER.writeInt(blockBuilder, 4);
+        Block blockWithNulls = blockBuilder.build();
 
         OperatorFactory operatorFactory = createOperatorFactory(channel(0, INTEGER));
         verifyPassthrough(createOperator(operatorFactory),

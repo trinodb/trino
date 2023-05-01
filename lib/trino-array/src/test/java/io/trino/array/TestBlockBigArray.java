@@ -14,7 +14,6 @@
 package io.trino.array;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import org.testng.annotations.Test;
 
@@ -27,7 +26,7 @@ public class TestBlockBigArray
     public void testRetainedSizeWithOverlappingBlocks()
     {
         int entries = 123;
-        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, entries);
+        IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, entries);
         for (int i = 0; i < entries; i++) {
             blockBuilder.writeInt(i);
         }
