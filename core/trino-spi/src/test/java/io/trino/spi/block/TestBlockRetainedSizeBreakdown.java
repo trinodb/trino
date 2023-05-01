@@ -94,9 +94,9 @@ public class TestBlockRetainedSizeBreakdown
     @Test
     public void testShortArrayBlock()
     {
-        BlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, EXPECTED_ENTRIES);
+        ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, EXPECTED_ENTRIES);
         for (int i = 0; i < EXPECTED_ENTRIES; i++) {
-            blockBuilder.writeShort(i);
+            blockBuilder.writeShort((short) i);
         }
         checkRetainedSize(blockBuilder.build(), false);
     }
