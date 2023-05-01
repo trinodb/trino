@@ -387,6 +387,28 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::closeEntry()</old>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.BlockBuilder::writeBytes(io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::writeBytes(io.airlift.slice.Slice, int, int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.BlockBuilder::writeByte(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter io.trino.spi.block.BlockBuilder io.trino.spi.block.ByteArrayBlockBuilder::writeByte(===int===)</old>
+                                    <new>parameter io.trino.spi.block.BlockBuilder io.trino.spi.block.ByteArrayBlockBuilder::writeByte(===byte===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::writeByte(int)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -13,21 +13,11 @@
  */
 package io.trino.spi.block;
 
-import io.airlift.slice.Slice;
-
 import static io.trino.spi.block.BlockUtil.calculateBlockResetSize;
 
 public interface BlockBuilder
         extends Block
 {
-    /**
-     * Write a byte to the current entry;
-     */
-    default BlockBuilder writeByte(int value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
     /**
      * Write a short to the current entry;
      */
@@ -48,14 +38,6 @@ public interface BlockBuilder
      * Write a long to the current entry;
      */
     default BlockBuilder writeLong(long value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Write a byte sequences to the current entry;
-     */
-    default BlockBuilder writeBytes(Slice source, int sourceIndex, int length)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }
