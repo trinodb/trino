@@ -23,7 +23,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -45,7 +44,6 @@ import static io.trino.plugin.clickhouse.ClickHouseTableProperties.SAMPLE_BY_PRO
 import static io.trino.plugin.clickhouse.TestingClickHouseServer.CLICKHOUSE_LATEST_IMAGE;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
@@ -830,7 +828,7 @@ public class TestClickHouseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double NOT NULL, c varchar(50)) WITH (order_by=ARRAY['b'], engine = 'MergeTree')");
         assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN a SET DATA TYPE varchar(50)");
         assertEquals(getColumnType(tableName, "a"), "varchar");
-        assertThat((String) computeScalar("show create table " + tableName)).contains("CREATE TABLE " + "clickhouse.tpch." + tableName +" (\n" +
+        assertThat((String) computeScalar("show create table " + tableName)).contains("CREATE TABLE " + "clickhouse.tpch." + tableName + " (\n" +
                 "   a varchar NOT NULL,\n" +
                 "   b double NOT NULL,\n" +
                 "   c varchar\n" +
@@ -865,7 +863,6 @@ public class TestClickHouseConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
         query("insert into " + tableName + " values(9223372036854775807, 22)");
         assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN col SET DATA TYPE integer");
-
         assertEquals(getColumnType(tableName, "col"), "integer");
         assertQuery("SELECT col FROM " + tableName, "VALUES -1");
     }
@@ -875,7 +872,7 @@ public class TestClickHouseConnectorTest
     public void testSetColumnTypeWithComment()
     {
         skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
-        String tableName = "test_set_column_with_comment" + randomNameSuffix();;
+        String tableName = "test_set_column_with_comment" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (col bigint COMMENT 'test comment', col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
         assertEquals(getColumnComment(tableName, "col"), "test comment");
@@ -917,37 +914,51 @@ public class TestClickHouseConnectorTest
     {
         if (setup.sourceColumnType().equals("tinyint")) {
             return Optional.of(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"));
-        } else if(setup.sourceColumnType().equals("smallint")) {
+        }
+        else if (setup.sourceColumnType().equals("smallint")) {
             return Optional.of(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"));
-        } else if(setup.sourceColumnType().equals("integer")) {
+        }
+        else if (setup.sourceColumnType().equals("integer")) {
             return Optional.of(new SetColumnTypeSetup("integer", "2147483647", "bigint"));
-        } else if(setup.sourceColumnType().equals("bigint")) {
+        }
+        else if (setup.sourceColumnType().equals("bigint")) {
             return Optional.of(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"));
-        } else if(setup.sourceColumnType().equals("real")) {
+        }
+        else if (setup.sourceColumnType().equals("real")) {
             return Optional.of(new SetColumnTypeSetup("real", "REAL '10.3'", "double"));
-        } else if(setup.sourceColumnType().equals("real")) {
+        }
+        else if (setup.sourceColumnType().equals("real")) {
             return Optional.of(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"));
-        } else if(setup.sourceColumnType().equals("decimal(5,3)")) {
+        }
+        else if (setup.sourceColumnType().equals("decimal(5,3)")) {
             return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)"));
-        } else if(setup.sourceColumnType().equals("decimal(28,3)")) {
+        }
+        else if (setup.sourceColumnType().equals("decimal(28,3)")) {
             return Optional.of(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)"));
-        } else if(setup.sourceColumnType().equals("decimal(5,3)")) {
+        }
+        else if (setup.sourceColumnType().equals("decimal(5,3)")) {
             return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(38,3)"));
-        } else if(setup.sourceColumnType().equals("decimal(5,3)")) {
+        }
+        else if (setup.sourceColumnType().equals("decimal(5,3)")) {
             return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)"));
-        } else if(setup.sourceColumnType().equals("decimal(5,3)")) {
+        }
+        else if (setup.sourceColumnType().equals("decimal(5,3)")) {
             return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.35", "decimal(5,2)"));
-        } else if(setup.sourceColumnType().equals("varchar(100)")) {
+        }
+        else if (setup.sourceColumnType().equals("varchar(100)")) {
             return Optional.of(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar"));
-        } else if(setup.sourceColumnType().equals("char(25)")) {
+        }
+        else if (setup.sourceColumnType().equals("char(25)")) {
             return Optional.of(new SetColumnTypeSetup("char(25)", "'shorten-char'", "varchar"));
-        } else if(setup.sourceColumnType().equals("char(20)")) {
+        }
+        else if (setup.sourceColumnType().equals("char(20)")) {
             return Optional.of(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"));
-        } else if(setup.sourceColumnType().equals("varchar")) {
+        }
+        else if (setup.sourceColumnType().equals("varchar")) {
             return Optional.of(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "varchar"));
         }
 
-         return Optional.empty();
+        return Optional.empty();
     }
 
     @Test(dataProvider = "setColumnTypesDataProvider")
