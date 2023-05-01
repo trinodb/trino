@@ -58,14 +58,13 @@ public class ShortArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
-    public BlockBuilder writeShort(int value)
+    public BlockBuilder writeShort(short value)
     {
         if (values.length <= positionCount) {
             growCapacity();
         }
 
-        values[positionCount] = (short) value;
+        values[positionCount] = value;
 
         hasNonNullValue = true;
         positionCount++;
