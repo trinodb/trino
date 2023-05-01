@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
@@ -572,7 +573,7 @@ public class HashAggregationOperator
 
             while (channel < groupByTypes.size()) {
                 if (channel == groupIdChannel.orElseThrow()) {
-                    output.getBlockBuilder(channel).writeLong(groupId);
+                    BIGINT.writeLong(output.getBlockBuilder(channel), groupId);
                 }
                 else {
                     output.getBlockBuilder(channel).appendNull();
@@ -582,7 +583,7 @@ public class HashAggregationOperator
 
             if (hashChannel.isPresent()) {
                 long hashValue = calculateDefaultOutputHash(groupByTypes, groupIdChannel.orElseThrow(), groupId);
-                output.getBlockBuilder(channel).writeLong(hashValue);
+                BIGINT.writeLong(output.getBlockBuilder(channel), hashValue);
                 channel++;
             }
 

@@ -211,7 +211,7 @@ public class TestReaderProjectionsAdapter
                 builder.appendNull();
             }
             else {
-                builder.writeLong(value);
+                BIGINT.writeLong(builder, value);
             }
         }
         return builder.build();

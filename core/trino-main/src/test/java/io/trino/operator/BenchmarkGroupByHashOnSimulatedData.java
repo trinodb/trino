@@ -20,6 +20,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlockBuilder;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DoubleType;
@@ -163,7 +164,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         BIGINT(BigintType.BIGINT, (blockBuilder, positionCount, seed) -> {
             Random r = new Random(seed);
             for (int i = 0; i < positionCount; i++) {
-                blockBuilder.writeLong((r.nextLong() >>> 1)); // Only positives
+                BigintType.BIGINT.writeLong(blockBuilder, r.nextLong() >>> 1); // Only positives
             }
         }),
         INT(IntegerType.INTEGER, (blockBuilder, positionCount, seed) -> {
@@ -175,7 +176,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         DOUBLE(DoubleType.DOUBLE, (blockBuilder, positionCount, seed) -> {
             Random r = new Random(seed);
             for (int i = 0; i < positionCount; i++) {
-                blockBuilder.writeLong((r.nextLong() >>> 1)); // Only positives
+                ((LongArrayBlockBuilder) blockBuilder).writeLong(r.nextLong() >>> 1); // Only positives
             }
         }),
         VARCHAR_25(VarcharType.VARCHAR, (blockBuilder, positionCount, seed) -> {
