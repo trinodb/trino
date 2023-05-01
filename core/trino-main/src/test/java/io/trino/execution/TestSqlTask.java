@@ -135,7 +135,8 @@ public class TestSqlTask
                 ImmutableList.of(),
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
 
@@ -149,7 +150,8 @@ public class TestSqlTask
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
@@ -169,7 +171,8 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
@@ -214,7 +217,8 @@ public class TestSqlTask
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
@@ -252,7 +256,8 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
@@ -357,7 +362,8 @@ public class TestSqlTask
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
 
@@ -385,7 +391,8 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT_WITH_DYNAMIC_FILTER_SOURCE),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), false)),
                 outputBuffers,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
 

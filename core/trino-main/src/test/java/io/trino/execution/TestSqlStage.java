@@ -150,7 +150,8 @@ public class TestSqlStage
                             PipelinedOutputBuffers.createInitial(ARBITRARY),
                             initialSplits,
                             ImmutableSet.of(),
-                            Optional.empty());
+                            Optional.empty(),
+                            false);
                     if (created.isPresent()) {
                         if (created.get() instanceof MockRemoteTaskFactory.MockRemoteTask mockTask) {
                             mockTask.start();
