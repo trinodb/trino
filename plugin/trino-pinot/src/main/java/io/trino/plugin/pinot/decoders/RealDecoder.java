@@ -17,7 +17,7 @@ import io.trino.spi.block.BlockBuilder;
 
 import java.util.function.Supplier;
 
-import static java.lang.Float.floatToIntBits;
+import static io.trino.spi.type.RealType.REAL;
 
 public class RealDecoder
         implements Decoder
@@ -31,10 +31,10 @@ public class RealDecoder
         }
         else if (value instanceof String) {
             // Pinot returns NEGATIVE_INFINITY, POSITIVE_INFINITY as a String
-            output.writeInt(floatToIntBits(Float.valueOf((String) value)));
+            REAL.writeFloat(output, Float.parseFloat((String) value));
         }
         else {
-            output.writeInt((floatToIntBits(((Number) value).floatValue())));
+            REAL.writeFloat(output, ((Number) value).floatValue());
         }
     }
 }

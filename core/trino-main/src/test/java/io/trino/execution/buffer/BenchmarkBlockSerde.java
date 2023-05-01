@@ -253,7 +253,7 @@ public class BenchmarkBlockSerde
                 TIMESTAMP_PICOS.writeObject(blockBuilder, value);
             }
             else if (INTEGER.equals(type)) {
-                blockBuilder.writeInt((int) value);
+                INTEGER.writeInt(blockBuilder, (int) value);
             }
             else if (SMALLINT.equals(type)) {
                 SMALLINT.writeShort(blockBuilder, (short) value);

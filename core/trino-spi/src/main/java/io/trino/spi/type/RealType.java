@@ -81,7 +81,12 @@ public final class RealType
         catch (ArithmeticException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
         }
-        blockBuilder.writeInt(floatValue);
+        writeInt(blockBuilder, floatValue);
+    }
+
+    public void writeFloat(BlockBuilder blockBuilder, float value)
+    {
+        writeInt(blockBuilder, floatToIntBits(value));
     }
 
     @Override

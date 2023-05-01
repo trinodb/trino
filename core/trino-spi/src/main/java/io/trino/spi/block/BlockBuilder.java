@@ -19,14 +19,6 @@ public interface BlockBuilder
         extends Block
 {
     /**
-     * Write a int to the current entry;
-     */
-    default BlockBuilder writeInt(int value)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
      * Write a long to the current entry;
      */
     default BlockBuilder writeLong(long value)
