@@ -32,7 +32,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.Location.parse;
 
 /**
  * A blob file system for testing.
@@ -173,7 +172,7 @@ public class MemoryFileSystem
 
     private static Location parseMemoryLocation(String locationString)
     {
-        Location location = parse(locationString);
+        Location location = Location.of(locationString);
         checkArgument(location.scheme().equals(Optional.of("memory")), "Only 'memory' scheme is supported: %s", locationString);
         checkArgument(location.userInfo().isEmpty(), "Memory location cannot contain user info: %s", locationString);
         checkArgument(location.host().isEmpty(), "Memory location cannot contain a host: %s", locationString);

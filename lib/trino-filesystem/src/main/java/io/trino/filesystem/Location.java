@@ -56,7 +56,7 @@ public final class Location
     private final OptionalInt port;
     private final String path;
 
-    public static Location parse(String location)
+    public static Location of(String location)
     {
         requireNonNull(location, "location is null");
         checkArgument(!location.isEmpty(), "location is empty");

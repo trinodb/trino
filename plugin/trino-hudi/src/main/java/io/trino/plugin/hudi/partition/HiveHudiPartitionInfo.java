@@ -108,8 +108,8 @@ public class HiveHudiPartitionInfo
             throw new HoodieIOException(format("Cannot find partition in Hive Metastore: %s", hivePartitionName));
         }
         this.relativePartitionPath = getRelativePartitionPath(
-                Location.parse(table.getStorage().getLocation()),
-                Location.parse(partition.get().getStorage().getLocation()));
+                Location.of(table.getStorage().getLocation()),
+                Location.of(partition.get().getStorage().getLocation()));
         this.hivePartitionKeys = buildPartitionKeys(partitionColumns, partition.get().getValues());
     }
 
