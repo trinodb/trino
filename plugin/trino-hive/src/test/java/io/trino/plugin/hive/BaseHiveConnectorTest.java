@@ -5087,6 +5087,30 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testAvroTimestampUpCasting()
+    {
+        @Language("SQL") String createTable = "CREATE TABLE test_avro_timestamp_upcasting WITH (format = 'AVRO') AS SELECT TIMESTAMP '1994-09-27 11:23:45.678' my_timestamp";
+
+        //avro only stores as millis
+        assertUpdate(createTable, 1);
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.MILLISECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678')");
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678000')");
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678000000')");
+    }
+
+    @Test
     public void testOrderByChar()
     {
         assertUpdate("CREATE TABLE char_order_by (c_char char(2))");
