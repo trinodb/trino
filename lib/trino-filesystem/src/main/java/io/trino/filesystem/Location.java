@@ -121,11 +121,6 @@ public final class Location
         return new Location(location, scheme, userInfo, host, port, path);
     }
 
-    public String location()
-    {
-        return location;
-    }
-
     /**
      * Returns the scheme of the location, if present.
      * If the scheme is present, the value will not be an empty string.
@@ -287,6 +282,9 @@ public final class Location
         return location.hashCode();
     }
 
+    /**
+     * Return the original location string.
+     */
     @Override
     public String toString()
     {
