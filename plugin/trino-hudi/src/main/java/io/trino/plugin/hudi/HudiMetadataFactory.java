@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -29,19 +30,21 @@ public class HudiMetadataFactory
 {
     private final HiveMetastoreFactory metastoreFactory;
     private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
 
     @Inject
-    public HudiMetadataFactory(HiveMetastoreFactory metastoreFactory, HdfsEnvironment hdfsEnvironment, TypeManager typeManager)
+    public HudiMetadataFactory(HiveMetastoreFactory metastoreFactory, HdfsEnvironment hdfsEnvironment, TrinoFileSystemFactory fileSystemFactory, TypeManager typeManager)
     {
         this.metastoreFactory = requireNonNull(metastoreFactory, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     public HudiMetadata create(ConnectorIdentity identity)
     {
         HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(identity));
-        return new HudiMetadata(metastore, hdfsEnvironment, typeManager);
+        return new HudiMetadata(metastore, hdfsEnvironment, fileSystemFactory, typeManager);
     }
 }
