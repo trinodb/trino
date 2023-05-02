@@ -406,6 +406,9 @@ this table:
   * - ``Double``
     - ``DOUBLE``
     -
+  * - ``Decimal128``
+    - ``DECIMAL(p, s)``
+    -
   * - ``Date``
     - ``TIMESTAMP(3)``
     -
@@ -448,6 +451,8 @@ this table:
     - ``Int64``
   * - ``DOUBLE``
     - ``Double``
+  * - ``DECIMAL(p, s)``
+    - ``Decimal128``
   * - ``TIMESTAMP(3)``
     - ``Date``
   * - ``VARCHAR``
