@@ -31,11 +31,9 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 
 import java.util.List;
 import java.util.Map;
@@ -49,11 +47,6 @@ import static java.util.stream.Collectors.toList;
 public final class HudiUtil
 {
     private HudiUtil() {}
-
-    public static boolean isHudiParquetInputFormat(InputFormat<?, ?> inputFormat)
-    {
-        return inputFormat instanceof HoodieParquetInputFormat;
-    }
 
     public static HoodieFileFormat getHudiFileFormat(String path)
     {
