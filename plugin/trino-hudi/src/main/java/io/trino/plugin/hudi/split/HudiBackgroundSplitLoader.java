@@ -93,7 +93,7 @@ public class HudiBackgroundSplitLoader
         List<HivePartitionKey> partitionKeys = partition.getHivePartitionKeys();
         List<HudiFileStatus> partitionFiles = hudiDirectoryLister.listStatus(partition);
         partitionFiles.stream()
-                .flatMap(fileStatus -> hudiSplitFactory.createSplits(partitionKeys, fileStatus))
+                .flatMap(fileStatus -> hudiSplitFactory.createSplits(partitionKeys, fileStatus).stream())
                 .map(asyncQueue::offer)
                 .forEachOrdered(MoreFutures::getFutureValue);
     }
