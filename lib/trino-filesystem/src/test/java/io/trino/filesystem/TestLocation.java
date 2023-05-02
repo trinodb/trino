@@ -156,12 +156,12 @@ class TestLocation
 
     private static void assertLocation(Location actual, Location expected)
     {
-        assertLocation(actual, expected.location(), expected.scheme(), expected.userInfo(), expected.host(), expected.port(), expected.path());
+        assertLocation(actual, expected.toString(), expected.scheme(), expected.userInfo(), expected.host(), expected.port(), expected.path());
     }
 
     private static void assertLocation(Location location, String locationString, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, OptionalInt port, String path)
     {
-        assertThat(location.location()).isEqualTo(locationString);
+        assertThat(location.toString()).isEqualTo(locationString);
         assertThat(location.scheme()).isEqualTo(scheme);
         assertThat(location.userInfo()).isEqualTo(userInfo);
         assertThat(location.host()).isEqualTo(host);
