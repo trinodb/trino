@@ -14,34 +14,15 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Properties;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
-import static io.trino.plugin.hudi.HudiUtil.isHudiParquetInputFormat;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestHudiUtil
 {
-    @Test
-    public void testIsHudiParquetInputFormat()
-    {
-        Properties schema = new Properties();
-        schema.setProperty(FILE_INPUT_FORMAT, HoodieParquetInputFormat.class.getName());
-        schema.setProperty(SERIALIZATION_LIB, PARQUET.getSerde());
-
-        assertTrue(isHudiParquetInputFormat(getInputFormat(newEmptyConfiguration(), schema, false)));
-    }
-
     @Test
     public void testBuildPartitionValues()
     {
