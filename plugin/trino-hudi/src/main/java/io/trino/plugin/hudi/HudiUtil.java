@@ -15,6 +15,7 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -31,7 +32,6 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 
@@ -50,7 +50,7 @@ public final class HudiUtil
 
     public static HoodieFileFormat getHudiFileFormat(String path)
     {
-        final String extension = FSUtils.getFileExtension(path);
+        String extension = getFileExtension(path);
         if (extension.equals(HoodieFileFormat.PARQUET.getFileExtension())) {
             return HoodieFileFormat.PARQUET;
         }
@@ -64,6 +64,13 @@ public final class HudiUtil
             return HoodieFileFormat.HFILE;
         }
         throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, "Hoodie InputFormat not implemented for base file of type " + extension);
+    }
+
+    private static String getFileExtension(String fullName)
+    {
+        String fileName = Location.of(fullName).fileName();
+        int dotIndex = fileName.lastIndexOf('.');
+        return dotIndex == -1 ? "" : fileName.substring(dotIndex);
     }
 
     public static boolean partitionMatchesPredicates(
