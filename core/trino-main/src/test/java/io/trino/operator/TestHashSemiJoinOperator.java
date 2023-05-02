@@ -220,7 +220,7 @@ public class TestHashSemiJoinOperator
         OperatorAssertion.assertOperatorEquals(joinOperatorFactory, driverContext, probeInput, expected, hashEnabled, ImmutableList.of(probeTypes.size()));
     }
 
-    @Test(dataProvider = "dataType")
+    @Test(dataProvider = "dataType", invocationCount = 200)
     public void testSemiJoinMemoryReservationYield(Type type)
     {
         // We only need the first column so we are creating the pages with hashEnabled false
