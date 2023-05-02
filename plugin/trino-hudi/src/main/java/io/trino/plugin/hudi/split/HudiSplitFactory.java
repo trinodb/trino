@@ -19,14 +19,12 @@ import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.hadoop.PathWithBootstrapFileStatus;
 
-import java.io.IOException;
 import java.util.List;
-import java.util.stream.Stream;
 
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HudiSplitFactory
@@ -44,56 +42,55 @@ public class HudiSplitFactory
         this.hudiSplitWeightProvider = requireNonNull(hudiSplitWeightProvider, "hudiSplitWeightProvider is null");
     }
 
-    public Stream<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, HudiFileStatus fileStatus)
-    {
-        List<FileSplit> splits;
-        try {
-            splits = createSplits(fileStatus);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, e);
-        }
-
-        return splits.stream()
-                .map(fileSplit -> new HudiSplit(
-                        fileSplit.getPath().toString(),
-                        fileSplit.getStart(),
-                        fileSplit.getLength(),
-                        fileStatus.length(),
-                        fileStatus.modificationTime(),
-                        ImmutableList.of(),
-                        hudiTableHandle.getRegularPredicates(),
-                        partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(fileSplit.getLength())));
-    }
-
-    private List<FileSplit> createSplits(HudiFileStatus fileStatus)
-            throws IOException
+    public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, HudiFileStatus fileStatus)
     {
         if (fileStatus.isDirectory()) {
-            throw new IOException("Not a file: " + fileStatus.path());
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid path: %s", fileStatus.path()));
         }
 
-        long length = fileStatus.length();
+        long fileSize = fileStatus.length();
 
-        if (length == 0) {
-            return ImmutableList.of(new FileSplit(fileStatus.path(), 0, 0, new String[0]));
+        if (fileSize == 0 || fileStatus.path() instanceof PathWithBootstrapFileStatus) {
+            return ImmutableList.of(new HudiSplit(
+                    fileStatus.path().toString(),
+                    0,
+                    fileSize,
+                    fileSize,
+                    fileStatus.modificationTime(),
+                    ImmutableList.of(),
+                    hudiTableHandle.getRegularPredicates(),
+                    partitionKeys,
+                    hudiSplitWeightProvider.calculateSplitWeight(fileSize)));
         }
 
-        if (fileStatus.path() instanceof PathWithBootstrapFileStatus) {
-            return ImmutableList.of(new FileSplit(fileStatus.path(), 0, length, (String[]) null));
-        }
-
-        ImmutableList.Builder<FileSplit> splits = ImmutableList.builder();
+        ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
         long splitSize = fileStatus.blockSize();
 
-        long bytesRemaining = length;
+        long bytesRemaining = fileSize;
         while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
-            splits.add(new FileSplit(fileStatus.path(), length - bytesRemaining, splitSize, (String[]) null));
+            splits.add(new HudiSplit(
+                    fileStatus.path().toString(),
+                    fileSize - bytesRemaining,
+                    splitSize,
+                    fileSize,
+                    fileStatus.modificationTime(),
+                    ImmutableList.of(),
+                    hudiTableHandle.getRegularPredicates(),
+                    partitionKeys,
+                    hudiSplitWeightProvider.calculateSplitWeight(splitSize)));
             bytesRemaining -= splitSize;
         }
-        if (bytesRemaining != 0) {
-            splits.add(new FileSplit(fileStatus.path(), length - bytesRemaining, bytesRemaining, (String[]) null));
+        if (bytesRemaining > 0) {
+            splits.add(new HudiSplit(
+                    fileStatus.path().toString(),
+                    fileSize - bytesRemaining,
+                    bytesRemaining,
+                    fileSize,
+                    fileStatus.modificationTime(),
+                    ImmutableList.of(),
+                    hudiTableHandle.getRegularPredicates(),
+                    partitionKeys,
+                    hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining)));
         }
         return splits.build();
     }
