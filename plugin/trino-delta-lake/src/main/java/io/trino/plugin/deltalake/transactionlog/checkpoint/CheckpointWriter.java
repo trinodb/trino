@@ -457,7 +457,7 @@ public class CheckpointWriter
                 mapBuilder.appendNull();
             }
             else {
-                mapType.getKeyType().writeSlice(mapBuilder, utf8Slice(entry.getValue()));
+                mapType.getValueType().writeSlice(mapBuilder, utf8Slice(entry.getValue()));
             }
         }
         blockBuilder.closeEntry();
