@@ -28,7 +28,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.Location.parse;
 import static io.trino.filesystem.local.LocalUtils.handleException;
 
 /**
@@ -173,7 +172,7 @@ public class LocalFileSystem
 
     private static Location parseLocalLocation(String locationString)
     {
-        Location location = parse(locationString);
+        Location location = Location.of(locationString);
         checkArgument(location.scheme().equals(Optional.of("local")), "Only 'local' scheme is supported: %s", locationString);
         checkArgument(location.userInfo().isEmpty(), "Local location cannot contain user info: %s", locationString);
         checkArgument(location.host().isEmpty(), "Local location cannot contain a host: %s", locationString);
