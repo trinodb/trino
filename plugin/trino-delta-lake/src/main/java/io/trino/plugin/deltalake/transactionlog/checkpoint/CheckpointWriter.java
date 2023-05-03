@@ -379,16 +379,16 @@ public class CheckpointWriter
     {
         return valuesOptional.map(
                 values ->
-                    values.entrySet().stream()
-                            .collect(toMap(
-                                    Map.Entry::getKey,
-                                    entry -> {
-                                        Object value = entry.getValue();
-                                        if (value instanceof Integer) {
-                                            return (long) (int) value;
-                                        }
-                                        return value;
-                                    })));
+                        values.entrySet().stream()
+                                .collect(toMap(
+                                        Map.Entry::getKey,
+                                        entry -> {
+                                            Object value = entry.getValue();
+                                            if (value instanceof Integer) {
+                                                return (long) (int) value;
+                                            }
+                                            return value;
+                                        })));
     }
 
     private void writeRemoveFileEntry(PageBuilder pageBuilder, RowType entryType, RemoveFileEntry removeFileEntry)
