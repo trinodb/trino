@@ -21,14 +21,15 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hudi.exception.HoodieIOException;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hudi.HudiUtil.buildPartitionKeys;
 import static io.trino.plugin.hudi.HudiUtil.partitionMatchesPredicates;
 import static java.lang.String.format;
@@ -105,7 +106,7 @@ public class HiveHudiPartitionInfo
     public void loadPartitionInfo(Optional<Partition> partition)
     {
         if (partition.isEmpty()) {
-            throw new HoodieIOException(format("Cannot find partition in Hive Metastore: %s", hivePartitionName));
+            throw new TrinoException(HUDI_PARTITION_NOT_FOUND, format("Cannot find partition in Hive Metastore: %s", hivePartitionName));
         }
         this.relativePartitionPath = getRelativePartitionPath(
                 Location.of(table.getStorage().getLocation()),

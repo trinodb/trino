@@ -15,8 +15,8 @@ package io.trino.plugin.hudi.partition;
 
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hudi.exception.HoodieIOException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxPartitionBatchSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMinPartitionBatchSize;
 
@@ -87,7 +88,7 @@ public class HudiPartitionInfoLoader
                     for (HudiPartitionInfo partitionInfo : partitionInfoBatch) {
                         String hivePartitionName = partitionInfo.getHivePartitionName();
                         if (!partitions.containsKey(hivePartitionName)) {
-                            throw new HoodieIOException("Partition does not exist: " + hivePartitionName);
+                            throw new TrinoException(HUDI_PARTITION_NOT_FOUND, "Partition does not exist: " + hivePartitionName);
                         }
                         partitionInfo.loadPartitionInfo(partitions.get(hivePartitionName));
                         partitionQueue.add(partitionInfo);
