@@ -23,6 +23,7 @@ import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hudi.model.HoodieFileFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -32,7 +33,6 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 
 import java.util.List;
