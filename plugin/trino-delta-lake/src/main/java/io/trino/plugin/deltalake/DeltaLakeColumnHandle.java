@@ -25,6 +25,7 @@ import java.util.OptionalInt;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.DeltaHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -142,7 +143,10 @@ public class DeltaLakeColumnHandle
     public long getRetainedSizeInBytes()
     {
         // type is not accounted for as the instances are cached (by TypeRegistry) and shared
-        return INSTANCE_SIZE + estimatedSizeOf(name);
+        return INSTANCE_SIZE
+                + estimatedSizeOf(name)
+                + sizeOf(fieldId)
+                + estimatedSizeOf(physicalName);
     }
 
     @Override
