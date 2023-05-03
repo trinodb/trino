@@ -139,6 +139,10 @@ values. Typical usage does not require you to configure them.
       - Enables :ref:`Table statistics <delta-lake-table-statistics>` for
         performance improvements.
       - ``true``
+    * - ``delta.extended-statistics.enabled``
+      - Enable statistics collection with :doc:`/sql/analyze` and
+        use of extended statistics.
+      - ``false``
     * - ``delta.per-transaction-metastore-cache-maximum-size``
       - Maximum number of metastore data objects per transaction in
         the Hive metastore cache.
@@ -159,6 +163,10 @@ values. Typical usage does not require you to configure them.
     * - ``delta.register-table-procedure.enabled``
       - Enable to allow users to call the ``register_table`` procedure.
       - ``false``
+    * - ``delta.vacuum.min-retention``
+      - Minimum retention threshold for the files taken into account
+        for removal by the :ref:`VACUUM<delta-lake-vacuum>` procedure.
+      - ``7 DAYS``
 
 Catalog session properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
