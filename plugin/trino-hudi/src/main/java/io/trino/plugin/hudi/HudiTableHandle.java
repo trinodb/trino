@@ -16,10 +16,10 @@ package io.trino.plugin.hudi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hudi.model.HoodieTableType;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hudi.common.model.HoodieTableType;
 
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
