@@ -104,6 +104,8 @@ values. Typical usage does not require you to configure them.
         * ``SNAPPY``
         * ``ZSTD``
         * ``GZIP``
+
+        The equivalent catalog session property is ``compression_codec``.
       - ``SNAPPY``
     * - ``delta.max-partitions-per-writer``
       - Maximum number of partitions per writer.
@@ -134,14 +136,18 @@ values. Typical usage does not require you to configure them.
     * - ``delta.dynamic-filtering.wait-timeout``
       - Duration to wait for completion of :doc:`dynamic filtering
         </admin/dynamic-filtering>` during split generation.
+        The equivalent catalog session property is
+        ``dynamic_filtering_wait_timeout``.
       -
     * - ``delta.table-statistics-enabled``
       - Enables :ref:`Table statistics <delta-lake-table-statistics>` for
-        performance improvements.
+        performance improvements. The equivalent catalog session property
+        is ``statistics_enabled``.
       - ``true``
     * - ``delta.extended-statistics.enabled``
       - Enable statistics collection with :doc:`/sql/analyze` and
-        use of extended statistics.
+        use of extended statistics. The equivalent catalog session property
+        is ``extended_statistics_enabled``.
       - ``true``
     * - ``delta.extended-statistics.collect-on-write``
       - Enable collection of extended statistics for write operations.
@@ -161,6 +167,7 @@ values. Typical usage does not require you to configure them.
       - JVM default
     * - ``delta.target-max-file-size``
       - Target maximum size of written files; the actual size could be larger.
+        The equivalent catalog session property is ``target_max_file_size``.
       - ``1GB``
     * - ``delta.unique-table-location``
       - Use randomized, unique table locations.
@@ -171,16 +178,17 @@ values. Typical usage does not require you to configure them.
     * - ``delta.vacuum.min-retention``
       - Minimum retention threshold for the files taken into account
         for removal by the :ref:`VACUUM<delta-lake-vacuum>` procedure.
+        The equivalent catalog session property is
+        ``vacuum_min_retention``.
       - ``7 DAYS``
 
 Catalog session properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following table describes :ref:`catalog session properties
-<session-properties-definition>` supported by the Delta Lake connector to
-configure processing of Parquet files.
+<session-properties-definition>` supported by the Delta Lake connector:
 
-.. list-table:: Parquet catalog session properties
+.. list-table:: Catalog session properties
     :widths: 40, 60, 20
     :header-rows: 1
 
@@ -1096,7 +1104,8 @@ connector.
         with highly skewed aggregations or joins.
       - ``0.05``
     * - ``parquet.max-read-block-row-count``
-      - Sets the maximum number of rows read in a batch.
+      - Sets the maximum number of rows read in a batch. The equivalent catalog
+        session property is ``parquet_max_read_block_row_count``.
       - ``8192``
     * - ``parquet.optimized-reader.enabled``
       - Specifies whether batched column readers are used when reading Parquet
