@@ -117,21 +117,21 @@ Date and time functions
         SELECT from_iso8601_date('2020-123');
         -- 2020-05-02
 
-.. function:: at_timezone(timestamp, zone) -> timestamp(p) with time zone
+.. function:: at_timezone(timestamp(p), zone) -> timestamp(p) with time zone
 
     Returns the timestamp specified in ``timestamp`` with the time zone
     converted from the session time zone to the time zone specified in ``zone``
-    with precision ``p``. In the example below, the session time zone is set to
-    ``America/New_York``, which is three hours ahead of
+    with precision ``p``. In the following example, the session time zone is set
+    to ``America/New_York``, which is three hours ahead of
     ``America/Los_Angeles``::
 
         SELECT current_timezone()
         -- America/New_York
 
-        SELECT at_timezone(TIMESTAMP '2022-11-01 09:00:00', 'America/Los_Angeles')
-        -- 2022-11-01 06:00:00 America/Los_Angeles
+        SELECT at_timezone(TIMESTAMP '2022-11-01 09:08:07.321', 'America/Los_Angeles')
+        -- 2022-11-01 06:08:07.321 America/Los_Angeles
 
-.. function:: with_timezone(timestamp, zone) -> timestamp(p) with time zone
+.. function:: with_timezone(timestamp(p), zone) -> timestamp(p) with time zone
 
     Returns the timestamp specified in ``timestamp`` with the time zone
     specified in ``zone`` with precision ``p``::
@@ -139,8 +139,8 @@ Date and time functions
         SELECT current_timezone()
         -- America/New_York
 
-        SELECT with_timezone(TIMESTAMP '2022-11-01 09:00:00', 'America/Los_Angeles')
-        -- 2022-11-01 09:00:00 America/Los_Angeles
+        SELECT with_timezone(TIMESTAMP '2022-11-01 09:08:07.321', 'America/Los_Angeles')
+        -- 2022-11-01 09:08:07.321 America/Los_Angeles
 
 .. function:: from_unixtime(unixtime) -> timestamp(3) with time zone
 
