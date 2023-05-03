@@ -202,7 +202,6 @@ public class NodeSchedulerConfig
 
     public enum NodeAllocatorType
     {
-        FIXED_COUNT,
         BIN_PACKING
     }
 
@@ -222,8 +221,6 @@ public class NodeSchedulerConfig
     private static NodeAllocatorType toNodeAllocatorType(String nodeAllocatorType)
     {
         switch (nodeAllocatorType.toLowerCase(ENGLISH)) {
-            case "fixed_count":
-                return NodeAllocatorType.FIXED_COUNT;
             case "bin_packing":
                 return NodeAllocatorType.BIN_PACKING;
         }
