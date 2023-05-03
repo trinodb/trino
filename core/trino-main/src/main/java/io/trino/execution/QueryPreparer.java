@@ -61,21 +61,21 @@ public class QueryPreparer
     {
         Statement statement = wrappedStatement;
         Optional<String> prepareSql = Optional.empty();
-        if (statement instanceof Execute) {
-            prepareSql = Optional.of(session.getPreparedStatementFromExecute((Execute) statement));
+        if (statement instanceof Execute executeStatement) {
+            prepareSql = Optional.of(session.getPreparedStatementFromExecute(executeStatement));
             statement = sqlParser.createStatement(prepareSql.get(), createParsingOptions(session));
         }
 
-        if (statement instanceof ExplainAnalyze) {
-            Statement innerStatement = ((ExplainAnalyze) statement).getStatement();
+        if (statement instanceof ExplainAnalyze explainAnalyzeStatement) {
+            Statement innerStatement = explainAnalyzeStatement.getStatement();
             Optional<QueryType> innerQueryType = getQueryType(innerStatement);
             if (innerQueryType.isEmpty() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
                 throw new TrinoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
             }
         }
         List<Expression> parameters = ImmutableList.of();
-        if (wrappedStatement instanceof Execute) {
-            parameters = ((Execute) wrappedStatement).getParameters();
+        if (wrappedStatement instanceof Execute executeStatement) {
+            parameters = executeStatement.getParameters();
         }
         validateParameters(statement, parameters);
         return new PreparedQuery(statement, parameters, prepareSql);
