@@ -62,9 +62,7 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.BinPackingNodeAllocatorService;
-import io.trino.execution.scheduler.ConstantPartitionMemoryEstimator;
 import io.trino.execution.scheduler.EventDrivenTaskSourceFactory;
-import io.trino.execution.scheduler.FixedCountNodeAllocatorService;
 import io.trino.execution.scheduler.NodeAllocatorService;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
@@ -133,7 +131,6 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.BIN_PACKING;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.FIXED_COUNT;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -223,13 +220,6 @@ public class CoordinatorModule
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
         // node allocator
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> FIXED_COUNT == config.getNodeAllocatorType(),
-                innerBinder -> {
-                    innerBinder.bind(NodeAllocatorService.class).to(FixedCountNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).toInstance(ConstantPartitionMemoryEstimator::new);
-                }));
         install(conditionalModule(
                 NodeSchedulerConfig.class,
                 config -> BIN_PACKING == config.getNodeAllocatorType(),
