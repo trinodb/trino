@@ -3,10 +3,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.starburstdata.presto</groupId>
-        <artifactId>starburst-enterprise-root</artifactId>
-        <version>414-e-SNAPSHOT</version>
-        <relativePath>../..</relativePath>
+        <groupId>com.starburstdata.trino.plugins</groupId>
+        <artifactId>starburst-trino-plugins</artifactId>
+        <version>417.2-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <artifactId>starburst-oracle</artifactId>
