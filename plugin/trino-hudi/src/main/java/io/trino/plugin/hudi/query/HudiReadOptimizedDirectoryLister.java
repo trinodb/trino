@@ -21,28 +21,21 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiTableHandle;
+import io.trino.plugin.hudi.files.HudiBaseFile;
 import io.trino.plugin.hudi.partition.HiveHudiPartitionInfo;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
-import io.trino.spi.TrinoException;
+import io.trino.plugin.hudi.table.HudiTableFileSystemView;
+import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hudi.common.config.HoodieMetadataConfig;
-import org.apache.hudi.common.engine.HoodieEngineContext;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.common.table.view.FileSystemViewManager;
-import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
-import static org.apache.hudi.hadoop.utils.HoodieInputFormatUtils.getFileStatus;
 
 public class HudiReadOptimizedDirectoryLister
         implements HudiDirectoryLister
@@ -52,17 +45,15 @@ public class HudiReadOptimizedDirectoryLister
     private final Table hiveTable;
     private final SchemaTableName tableName;
     private final List<HiveColumnHandle> partitionColumnHandles;
-    private final HoodieTableFileSystemView fileSystemView;
+    private final HudiTableFileSystemView fileSystemView;
     private final TupleDomain<String> partitionKeysFilter;
     private final List<Column> partitionColumns;
 
     private List<String> hivePartitionNames;
 
     public HudiReadOptimizedDirectoryLister(
-            HoodieMetadataConfig metadataConfig,
-            HoodieEngineContext engineContext,
             HudiTableHandle tableHandle,
-            HoodieTableMetaClient metaClient,
+            HudiTableMetaClient metaClient,
             HiveMetastore hiveMetastore,
             Table hiveTable,
             List<HiveColumnHandle> partitionColumnHandles)
@@ -72,7 +63,7 @@ public class HudiReadOptimizedDirectoryLister
         this.hiveMetastore = hiveMetastore;
         this.hiveTable = hiveTable;
         this.partitionColumnHandles = partitionColumnHandles;
-        this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(engineContext, metaClient, metadataConfig);
+        this.fileSystemView = new HudiTableFileSystemView(metaClient, metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
         this.partitionKeysFilter = MetastoreUtil.computePartitionKeyFilter(partitionColumnHandles, tableHandle.getPartitionPredicates());
         this.partitionColumns = hiveTable.getPartitionColumns();
     }
@@ -94,31 +85,24 @@ public class HudiReadOptimizedDirectoryLister
                         tableHandle.getPartitionPredicates(),
                         hiveTable,
                         hiveMetastore))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
         return allPartitionInfoList.stream()
                 .filter(partitionInfo -> partitionInfo.getHivePartitionKeys().isEmpty() || partitionInfo.doesMatchPredicates())
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
     }
 
     @Override
     public List<HudiFileStatus> listStatus(HudiPartitionInfo partitionInfo)
     {
         return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
-                .map(baseFile -> {
-                    try {
-                        return getFileStatus(baseFile);
-                    }
-                    catch (IOException e) {
-                        throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error getting file status of " + baseFile.getPath(), e);
-                    }
-                })
-                .map(status -> new HudiFileStatus(
-                        status.getPath(),
+                .map(HudiBaseFile::getFileEntry)
+                .map(fileEntry -> new HudiFileStatus(
+                        fileEntry.location(),
                         false,
-                        status.getLen(),
-                        status.getModificationTime(),
-                        status.getBlockSize()))
+                        fileEntry.length(),
+                        fileEntry.lastModified().toEpochMilli(),
+                        fileEntry.blocks().map(listOfBlocks -> (!listOfBlocks.isEmpty()) ? listOfBlocks.get(0).length() : 0).orElse(0L)))
                 .collect(toImmutableList());
     }
 
@@ -127,7 +111,7 @@ public class HudiReadOptimizedDirectoryLister
         return hiveMetastore.getPartitionNamesByFilter(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                partitionColumns.stream().map(Column::getName).collect(Collectors.toList()),
+                partitionColumns.stream().map(Column::getName).collect(toImmutableList()),
                 partitionKeysFilter).orElseThrow(() -> new TableNotFoundException(tableHandle.getSchemaTableName()));
     }
 
