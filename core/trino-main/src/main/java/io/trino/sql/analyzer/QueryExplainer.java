@@ -23,6 +23,7 @@ import io.trino.spi.TrinoException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlFormatter;
 import io.trino.sql.planner.LogicalPlanner;
+import io.trino.sql.planner.LogicalPlanner.PlanStats;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -176,7 +177,7 @@ public class QueryExplainer
                 costCalculator,
                 warningCollector,
                 planOptimizersStatsCollector);
-        return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true);
+        return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, PlanStats.EXISTING);
     }
 
     private Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)

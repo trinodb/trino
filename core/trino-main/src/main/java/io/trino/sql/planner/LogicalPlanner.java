@@ -172,6 +172,13 @@ public class LogicalPlanner
         CREATED, OPTIMIZED, OPTIMIZED_AND_VALIDATED
     }
 
+    public enum PlanStats
+    {
+        EXISTING,
+        ALL,
+        NONE,
+    }
+
     private final PlanNodeIdAllocator idAllocator;
 
     private final Session session;
@@ -236,10 +243,21 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis, Stage stage)
     {
-        return plan(analysis, stage, analysis.getStatement() instanceof ExplainAnalyze || isCollectPlanStatisticsForAllQueries(session));
+        return plan(analysis, stage, includePlanStats(analysis));
     }
 
-    public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
+    private PlanStats includePlanStats(Analysis analysis)
+    {
+        if (isCollectPlanStatisticsForAllQueries(session)) {
+            return PlanStats.ALL;
+        }
+        if (analysis.getStatement() instanceof ExplainAnalyze) {
+            return PlanStats.EXISTING;
+        }
+        return PlanStats.NONE;
+    }
+
+    public Plan plan(Analysis analysis, Stage stage, PlanStats planStats)
     {
         PlanNode root;
         try (var ignored = scopedSpan(plannerContext.getTracer(), "plan")) {
@@ -262,7 +280,7 @@ public class LogicalPlanner
             planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
         }
 
-        TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
+        CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             try (var ignored = scopedSpan(plannerContext.getTracer(), "optimizer")) {
@@ -282,8 +300,13 @@ public class LogicalPlanner
         TypeProvider types = symbolAllocator.getTypes();
 
         StatsAndCosts statsAndCosts = StatsAndCosts.empty();
-        if (collectPlanStatistics) {
-            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
+        if (planStats != PlanStats.NONE) {
+            TableStatsProvider planTableStatsProvider = switch (planStats) {
+                case EXISTING -> tableStatsProvider.offline();
+                case ALL -> tableStatsProvider;
+                case NONE -> throw new UnsupportedOperationException();
+            };
+            StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, planTableStatsProvider);
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
             try (var ignored = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
                 statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);

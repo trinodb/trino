@@ -47,4 +47,20 @@ public class CachingTableStatsProvider
         }
         return stats;
     }
+
+    /**
+     * Returns {@link TableStatsProvider} that serves state from the cache, but does not ask metadata.
+     * This is useful for EXPLAIN to shows stats if these were asked for during planning, but avoid
+     * getting stats if they were not needed for anything.
+     */
+    public TableStatsProvider offline()
+    {
+        return tableHandle -> {
+            TableStatistics stats = cache.get(tableHandle);
+            if (stats != null) {
+                return stats;
+            }
+            return TableStatistics.empty();
+        };
+    }
 }

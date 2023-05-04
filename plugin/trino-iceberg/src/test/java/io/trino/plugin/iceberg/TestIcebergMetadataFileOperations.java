@@ -200,10 +200,6 @@ public class TestIcebergMetadataFileOperations
         assertFileSystemAccesses("EXPLAIN SELECT * FROM test_select_with_limit LIMIT 3",
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
-                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), numberOfFiles)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), numberOfFiles)
                         .build());
 
         assertFileSystemAccesses("EXPLAIN ANALYZE SELECT * FROM test_select_with_limit LIMIT 3",
@@ -211,8 +207,8 @@ public class TestIcebergMetadataFileOperations
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), numberOfFiles + min(20, numberOfFiles))
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), numberOfFiles + min(20, numberOfFiles))
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), min(20, numberOfFiles))
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), min(20, numberOfFiles))
                         .build());
 
         assertUpdate("DROP TABLE test_select_with_limit");
@@ -370,10 +366,6 @@ public class TestIcebergMetadataFileOperations
         assertFileSystemAccesses("EXPLAIN SELECT * FROM test_explain",
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
-                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 1)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 1)
                         .build());
     }
 
