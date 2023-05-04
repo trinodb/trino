@@ -113,9 +113,9 @@ public class IcebergSplitSource
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
 
+    private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
     private CloseableIterable<FileScanTask> fileScanTaskIterable;
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
-    private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
 
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
