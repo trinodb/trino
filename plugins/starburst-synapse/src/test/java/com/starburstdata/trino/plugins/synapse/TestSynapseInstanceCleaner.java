@@ -88,9 +88,9 @@ public class TestSynapseInstanceCleaner
         // Azure Synapse does not support "DROP TABLE IF EXISTS"
         try {
             tablesToDrop.stream()
-                    .forEach(tableName -> synapseServer.execute(format("DROP TABLE %s.%s", TEST_SCHEMA, tableName)));
+                    .forEach(tableName -> synapseServer.execute(format("DROP TABLE %s.[%s]", TEST_SCHEMA, tableName)));
             viewsToDrop.stream()
-                    .forEach(viewName -> synapseServer.execute(format("DROP VIEW %s.%s", TEST_SCHEMA, viewName)));
+                    .forEach(viewName -> synapseServer.execute(format("DROP VIEW %s.[%s]", TEST_SCHEMA, viewName)));
         }
         catch (RuntimeException e) {
             if (e.getCause() instanceof SQLServerException && ((SQLServerException) e.getCause()).getErrorCode() != ERROR_OBJECT_NOT_FOUND) {
