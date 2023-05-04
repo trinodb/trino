@@ -14,8 +14,12 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hudi.model.HudiInstant;
+import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -26,15 +30,13 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.common.table.timeline.HoodieInstant;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
+import static io.trino.plugin.hudi.HudiUtil.buildTrinoHudiTableMetaClient;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -44,9 +46,10 @@ public class TimelineTable
     private final ConnectorTableMetadata tableMetadata;
     private final List<Type> types;
     private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystem fileSystem;
     private final String location;
 
-    public TimelineTable(HdfsEnvironment hdfsEnvironment, SchemaTableName tableName, Table hudiTable)
+    public TimelineTable(HdfsEnvironment hdfsEnvironment, TrinoFileSystem fileSystem, SchemaTableName tableName, Table hudiTable)
     {
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
@@ -56,6 +59,7 @@ public class TimelineTable
                         .build());
         this.types = tableMetadata.getColumns().stream().map(ColumnMetadata::getType).collect(toImmutableList());
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.location = requireNonNull(hudiTable.getStorage().getLocation(), "location is null");
     }
 
@@ -74,12 +78,12 @@ public class TimelineTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        HoodieTableMetaClient metaClient = buildTableMetaClient(hdfsEnvironment, session, location);
+        HudiTableMetaClient metaClient = buildTrinoHudiTableMetaClient(hdfsEnvironment, fileSystem, session, Location.of(location));
         Iterable<List<Object>> records = () -> metaClient.getCommitsTimeline().getInstants().map(this::getRecord).iterator();
         return new InMemoryRecordSet(types, records).cursor();
     }
 
-    private List<Object> getRecord(HoodieInstant hudiInstant)
+    private List<Object> getRecord(HudiInstant hudiInstant)
     {
         List<Object> columns = new ArrayList<>();
         columns.add(hudiInstant.getTimestamp());
