@@ -44,7 +44,7 @@ import static java.util.function.Predicate.not;
  */
 public final class Location
 {
-    private static final Splitter SCHEME_SPLITTER = Splitter.on("://").limit(2);
+    private static final Splitter SCHEME_SPLITTER = Splitter.on(":").limit(2);
     private static final Splitter USER_INFO_SPLITTER = Splitter.on('@').limit(2);
     private static final Splitter AUTHORITY_SPLITTER = Splitter.on('/').limit(2);
     private static final Splitter HOST_AND_PORT_SPLITTER = Splitter.on(':').limit(2);
@@ -70,38 +70,39 @@ public final class Location
             return new Location(location, Optional.empty(), Optional.empty(), Optional.empty(), OptionalInt.empty(), location.substring(1));
         }
 
-        // local file system location
-        if (location.startsWith("file:/") && ((location.length() == 6) || (location.charAt(6) != '/'))) {
-            return new Location(location, Optional.of("file"), Optional.empty(), Optional.empty(), OptionalInt.empty(), location.substring(6));
-        }
-
         List<String> schemeSplit = SCHEME_SPLITTER.splitToList(location);
         checkArgument(schemeSplit.size() == 2, "No scheme for file system location: %s", location);
         String scheme = schemeSplit.get(0);
 
         String afterScheme = schemeSplit.get(1);
+        if (afterScheme.startsWith("//")) {
+            // Locations with an authority must begin with a double slash
+            afterScheme = afterScheme.substring(2);
+            List<String> userInfoSplit = USER_INFO_SPLITTER.splitToList(afterScheme);
+            Optional<String> userInfo = userInfoSplit.size() == 2 ? Optional.of(userInfoSplit.get(0)) : Optional.empty();
 
-        List<String> userInfoSplit = USER_INFO_SPLITTER.splitToList(afterScheme);
-        Optional<String> userInfo = userInfoSplit.size() == 2 ? Optional.of(userInfoSplit.get(0)) : Optional.empty();
+            List<String> authoritySplit = AUTHORITY_SPLITTER.splitToList(Iterables.getLast(userInfoSplit));
+            List<String> hostAndPortSplit = HOST_AND_PORT_SPLITTER.splitToList(authoritySplit.get(0));
 
-        List<String> authoritySplit = AUTHORITY_SPLITTER.splitToList(Iterables.getLast(userInfoSplit));
-        List<String> hostAndPortSplit = HOST_AND_PORT_SPLITTER.splitToList(authoritySplit.get(0));
+            Optional<String> host = Optional.of(hostAndPortSplit.get(0)).filter(not(String::isEmpty));
 
-        Optional<String> host = Optional.of(hostAndPortSplit.get(0)).filter(not(String::isEmpty));
-
-        OptionalInt port = OptionalInt.empty();
-        if (hostAndPortSplit.size() == 2) {
-            try {
-                port = OptionalInt.of(parseInt(hostAndPortSplit.get(1)));
+            OptionalInt port = OptionalInt.empty();
+            if (hostAndPortSplit.size() == 2) {
+                try {
+                    port = OptionalInt.of(parseInt(hostAndPortSplit.get(1)));
+                }
+                catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("Invalid port in file system location: " + location, e);
+                }
             }
-            catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid port in file system location: " + location, e);
-            }
+
+            String path = (authoritySplit.size() == 2) ? authoritySplit.get(1) : "";
+
+            return new Location(location, Optional.of(scheme), userInfo, host, port, path);
         }
 
-        String path = (authoritySplit.size() == 2) ? authoritySplit.get(1) : "";
-
-        return new Location(location, Optional.of(scheme), userInfo, host, port, path);
+        checkArgument(afterScheme.startsWith("/"), "Path must begin with a '/' when no authority is present");
+        return new Location(location, Optional.of(scheme), Optional.empty(), Optional.empty(), OptionalInt.empty(), afterScheme.substring(1));
     }
 
     private Location(String location, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, OptionalInt port, String path)
