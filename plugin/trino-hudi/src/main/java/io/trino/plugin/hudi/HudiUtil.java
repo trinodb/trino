@@ -15,7 +15,10 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -24,6 +27,7 @@ import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hudi.model.HudiFileFormat;
+import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -33,15 +37,17 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
+import static io.trino.plugin.hudi.table.HudiTableMetaClient.METAFOLDER_NAME;
 import static java.util.stream.Collectors.toList;
 
 public final class HudiUtil
@@ -71,6 +77,22 @@ public final class HudiUtil
         String fileName = Location.of(fullName).fileName();
         int dotIndex = fileName.lastIndexOf('.');
         return dotIndex == -1 ? "" : fileName.substring(dotIndex);
+    }
+
+    public static boolean isHudiTable(TrinoFileSystem trinoFileSystem, Location baseLocation)
+    {
+        try {
+            Location metaLocation = baseLocation.appendPath(METAFOLDER_NAME);
+            FileIterator iterator = trinoFileSystem.listFiles(metaLocation);
+            // If there is at least one file in the .hoodie directory, it's a valid Hudi table
+            if (!iterator.hasNext()) {
+                return false;
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, "Failed to check for Hudi table at location: " + baseLocation, e);
+        }
+        return true;
     }
 
     public static boolean partitionMatchesPredicates(
@@ -149,11 +171,30 @@ public final class HudiUtil
         return partitionKeys.build();
     }
 
-    public static HoodieTableMetaClient buildTableMetaClient(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String basePath)
+    // TODO: replace with buildTrinoHudiTableMetaClient
+    public static HudiTableMetaClient buildTableMetaClient(
+            HdfsEnvironment hdfsEnvironment,
+            ConnectorSession session,
+            TrinoFileSystemFactory trinoFileSystemFactory,
+            String basePath)
     {
-        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath))).setBasePath(basePath).build();
-        // Do not load the bootstrap index, will not read bootstrap base data or a mapping index defined
-        client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
+        HudiTableMetaClient client = HudiTableMetaClient.builder()
+                .setConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath)))
+                .setTrinoFileSystem(trinoFileSystemFactory.create(session))
+                .setBasePath(Location.of(basePath))
+                .build();
         return client;
+    }
+
+    public static HudiTableMetaClient buildTrinoHudiTableMetaClient(
+            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystem trinoFileSystem,
+            ConnectorSession session,
+            Location basePath)
+    {
+        return HudiTableMetaClient.builder()
+                .setConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath.toString())))
+                .setTrinoFileSystem(trinoFileSystem)
+                .setBasePath(basePath).build();
     }
 }

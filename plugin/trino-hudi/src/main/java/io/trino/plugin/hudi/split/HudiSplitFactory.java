@@ -19,7 +19,6 @@ import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.spi.TrinoException;
-import org.apache.hudi.hadoop.PathWithBootstrapFileStatus;
 
 import java.util.List;
 
@@ -45,14 +44,14 @@ public class HudiSplitFactory
     public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, HudiFileStatus fileStatus)
     {
         if (fileStatus.isDirectory()) {
-            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid path: %s", fileStatus.path()));
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid location: %s", fileStatus.location()));
         }
 
         long fileSize = fileStatus.length();
 
-        if (fileSize == 0 || fileStatus.path() instanceof PathWithBootstrapFileStatus) {
+        if (fileSize == 0) {
             return ImmutableList.of(new HudiSplit(
-                    fileStatus.path().toString(),
+                    fileStatus.location().toString(),
                     0,
                     fileSize,
                     fileSize,
@@ -69,7 +68,7 @@ public class HudiSplitFactory
         long bytesRemaining = fileSize;
         while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
             splits.add(new HudiSplit(
-                    fileStatus.path().toString(),
+                    fileStatus.location().toString(),
                     fileSize - bytesRemaining,
                     splitSize,
                     fileSize,
@@ -82,7 +81,7 @@ public class HudiSplitFactory
         }
         if (bytesRemaining > 0) {
             splits.add(new HudiSplit(
-                    fileStatus.path().toString(),
+                    fileStatus.location().toString(),
                     fileSize - bytesRemaining,
                     bytesRemaining,
                     fileSize,

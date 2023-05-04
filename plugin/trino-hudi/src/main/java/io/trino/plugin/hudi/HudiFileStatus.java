@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.hudi;
 
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.Location;
 
 import static java.util.Objects.requireNonNull;
 
-public record HudiFileStatus(Path path, boolean isDirectory, long length, long modificationTime, long blockSize)
+public record HudiFileStatus(Location location, boolean isDirectory, long length, long modificationTime, long blockSize)
 {
     public HudiFileStatus
     {
-        requireNonNull(path, "path is null");
+        requireNonNull(location, "location is null");
     }
 }

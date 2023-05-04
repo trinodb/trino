@@ -146,7 +146,7 @@ public class HudiPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         HudiSplit split = (HudiSplit) connectorSplit;
-        String path = split.getPath();
+        String path = split.getLocation();
         HudiFileFormat hudiFileFormat = getHudiFileFormat(path);
         if (!HudiFileFormat.PARQUET.equals(hudiFileFormat)) {
             throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, format("File format %s not supported", hudiFileFormat));
@@ -193,7 +193,7 @@ public class HudiPageSourceProvider
     {
         ParquetDataSource dataSource = null;
         boolean useColumnNames = shouldUseParquetColumnNames(session);
-        String path = hudiSplit.getPath();
+        String path = hudiSplit.getLocation();
         long start = hudiSplit.getStart();
         long length = hudiSplit.getLength();
         try {

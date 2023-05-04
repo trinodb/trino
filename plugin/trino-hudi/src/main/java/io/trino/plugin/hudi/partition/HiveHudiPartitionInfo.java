@@ -114,17 +114,13 @@ public class HiveHudiPartitionInfo
         this.hivePartitionKeys = buildPartitionKeys(partitionColumns, partition.get().getValues());
     }
 
-    /*
-     * Given a base partition and a partition path, return relative path of partition path to the base path.
-     * This is equivalent to org.apache.hudi.common.fs.FSUtils#getRelativePartitionPath
-     */
     private static String getRelativePartitionPath(Location baseLocation, Location fullPartitionLocation)
     {
         String basePath = baseLocation.path();
         String fullPartitionPath = fullPartitionLocation.path();
 
         if (!fullPartitionPath.startsWith(basePath)) {
-            throw new IllegalArgumentException("Partition path does not belong to base-path");
+            throw new IllegalArgumentException("Partition location does not belong to base-location");
         }
 
         String baseLocationParent = baseLocation.parentDirectory().path();
