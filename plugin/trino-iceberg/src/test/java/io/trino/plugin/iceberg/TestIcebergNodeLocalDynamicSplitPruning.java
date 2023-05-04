@@ -57,6 +57,7 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -179,6 +180,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         2,
                         TupleDomain.withColumnDomains(ImmutableMap.of(KEY_ICEBERG_COLUMN_HANDLE, Domain.singleValue(INTEGER, (long) KEY_COLUMN_VALUE))),
                         TupleDomain.all(),
+                        OptionalLong.empty(),
                         ImmutableSet.of(KEY_ICEBERG_COLUMN_HANDLE),
                         Optional.empty(),
                         tablePath,
