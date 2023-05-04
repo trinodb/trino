@@ -1162,14 +1162,14 @@ public class TestEventListenerBasic
                         "6",
                         "Output",
                         ImmutableMap.of("columnNames", "[column_1]"),
-                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                        ImmutableList.of(typedSymbol("symbol_1", "decimal(12,2)")),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(new JsonRenderedNode(
                                 "98",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                ImmutableList.of(typedSymbol("symbol_1", "decimal(12,2)")),
                                 ImmutableList.of(),
                                 ImmutableList.of(),
                                 ImmutableList.of(new JsonRenderedNode(
@@ -1180,14 +1180,14 @@ public class TestEventListenerBasic
                                                 "isReplicateNullsAndAny", "",
                                                 "hashColumn", "[]",
                                                 "arguments", "[]"),
-                                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                        ImmutableList.of(typedSymbol("symbol_1", "decimal(12,2)")),
                                         ImmutableList.of(),
                                         ImmutableList.of(),
                                         ImmutableList.of(new JsonRenderedNode(
                                                 "138",
                                                 "RemoteSource",
                                                 ImmutableMap.of("sourceFragmentIds", "[1]"),
-                                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                                ImmutableList.of(typedSymbol("symbol_1", "decimal(12,2)")),
                                                 ImmutableList.of(),
                                                 ImmutableList.of(),
                                                 ImmutableList.of()))))))),
@@ -1198,7 +1198,7 @@ public class TestEventListenerBasic
                                 "count", "10",
                                 "withTies", "",
                                 "inputPreSortedBy", "[]"),
-                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                        ImmutableList.of(typedSymbol("symbol_1", "decimal(12,2)")),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(new JsonRenderedNode(
@@ -1206,7 +1206,7 @@ public class TestEventListenerBasic
                                 "TableScan",
                                 ImmutableMap.of(
                                         "table", "[table = catalog_1.schema_1.table_1, connector = tpch]"),
-                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                ImmutableList.of(typedSymbol("symbol_1", "decimal(12,2)")),
                                 ImmutableList.of("symbol_1 := column_2"),
                                 ImmutableList.of(),
                                 ImmutableList.of()))));

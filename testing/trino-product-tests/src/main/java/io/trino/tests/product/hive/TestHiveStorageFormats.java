@@ -333,10 +333,10 @@ public class TestHiveStorageFormats
                         "   partkey       BIGINT," +
                         "   suppkey       BIGINT," +
                         "   linenumber    INTEGER," +
-                        "   quantity      DOUBLE," +
-                        "   extendedprice DOUBLE," +
-                        "   discount      DOUBLE," +
-                        "   tax           DOUBLE," +
+                        "   quantity      DECIMAL(12,2)," +
+                        "   extendedprice DECIMAL(12,2)," +
+                        "   discount      DECIMAL(12,2)," +
+                        "   tax           DECIMAL(12,2)," +
                         "   linestatus    VARCHAR," +
                         "   shipinstruct  VARCHAR," +
                         "   shipmode      VARCHAR," +
@@ -404,10 +404,10 @@ public class TestHiveStorageFormats
                         "   partkey       BIGINT," +
                         "   suppkey       BIGINT," +
                         "   linenumber    INTEGER," +
-                        "   quantity      DOUBLE," +
-                        "   extendedprice DOUBLE," +
-                        "   discount      DOUBLE," +
-                        "   tax           DOUBLE," +
+                        "   quantity      DECIMAL(12,2)," +
+                        "   extendedprice DECIMAL(12,2)," +
+                        "   discount      DECIMAL(12,2)," +
+                        "   tax           DECIMAL(12,2)," +
                         "   linestatus    VARCHAR," +
                         "   shipinstruct  VARCHAR," +
                         "   shipmode      VARCHAR," +

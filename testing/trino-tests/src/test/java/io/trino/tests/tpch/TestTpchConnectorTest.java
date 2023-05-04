@@ -19,6 +19,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.Session;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.planprinter.IoPlanPrinter;
@@ -33,8 +34,10 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -46,7 +49,9 @@ public class TestTpchConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder().build();
+        return TpchQueryRunnerBuilder.builder()
+                .withTpchDecimalTypeMapping(DecimalTypeMapping.DECIMAL)
+                .build();
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -188,13 +193,36 @@ public class TestTpchConnectorTest
                         "   orderkey bigint NOT NULL,\n" +
                         "   custkey bigint NOT NULL,\n" +
                         "   orderstatus varchar(1) NOT NULL,\n" +
-                        "   totalprice double NOT NULL,\n" +
+                        "   totalprice decimal(12, 2) NOT NULL,\n" +
                         "   orderdate date NOT NULL,\n" +
                         "   orderpriority varchar(15) NOT NULL,\n" +
                         "   clerk varchar(15) NOT NULL,\n" +
                         "   shippriority integer NOT NULL,\n" +
                         "   comment varchar(79) NOT NULL\n" +
                         ")");
+    }
+
+    @Override
+    public void testShowColumns()
+    {
+        assertThat(computeActual("SHOW COLUMNS FROM orders"))
+                .isEqualTo(getDescribeOrdersResult());
+    }
+
+    @Override
+    protected MaterializedResult getDescribeOrdersResult()
+    {
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(1)", "", "")
+                .row("totalprice", "decimal(12,2)", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(15)", "", "")
+                .row("clerk", "varchar(15)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(79)", "", "")
+                .build();
     }
 
     @Override

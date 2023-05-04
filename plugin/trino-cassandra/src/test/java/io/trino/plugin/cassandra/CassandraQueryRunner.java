@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -25,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createKeyspace;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_DOUBLE_TYPE_MAPPING_PROPERTY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -51,7 +53,10 @@ public final class CassandraQueryRunner
                 .build();
 
         queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+        queryRunner.createCatalog(
+                "tpch",
+                "tpch",
+                ImmutableMap.of(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()));
 
         // note: additional copy via ImmutableList so that if fails on nulls
         connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));

@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -25,6 +26,7 @@ import java.util.Map;
 
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.copyTables;
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createSession;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_DOUBLE_TYPE_MAPPING_PROPERTY;
 import static java.lang.String.format;
 
 public class TestRaptorMySqlConnectorTest
@@ -62,7 +64,10 @@ public class TestRaptorMySqlConnectorTest
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch")).build();
 
         queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+        queryRunner.createCatalog(
+                "tpch",
+                "tpch",
+                ImmutableMap.of(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()));
 
         queryRunner.installPlugin(new RaptorPlugin());
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().toFile();

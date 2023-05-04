@@ -18,6 +18,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.jmx.JmxPlugin;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -32,6 +33,7 @@ import java.util.Map;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_DOUBLE_TYPE_MAPPING_PROPERTY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -80,7 +82,10 @@ public final class ElasticsearchQueryRunner
             queryRunner.createCatalog("jmx", "jmx");
 
             queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.createCatalog(
+                    "tpch",
+                    "tpch",
+                    ImmutableMap.of(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()));
 
             ElasticsearchConnectorFactory testFactory = new ElasticsearchConnectorFactory();
 

@@ -19,6 +19,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -29,6 +30,7 @@ import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.Session.SessionBuilder;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_DOUBLE_TYPE_MAPPING_PROPERTY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -100,7 +102,10 @@ public final class KuduQueryRunnerFactory
                     .build();
 
             runner.installPlugin(new TpchPlugin());
-            runner.createCatalog("tpch", "tpch");
+            runner.createCatalog(
+                    "tpch",
+                    "tpch",
+                    ImmutableMap.of(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()));
 
             installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, kuduSchemaEmulationPrefix);
 

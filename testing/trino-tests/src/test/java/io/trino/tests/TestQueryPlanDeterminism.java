@@ -15,6 +15,7 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestQueries;
@@ -66,7 +67,7 @@ public class TestQueryPlanDeterminism
         // local queries run directly against the generator
         localQueryRunner.createCatalog(
                 defaultSession.getCatalog().get(),
-                new TpchConnectorFactory(1),
+                new TpchConnectorFactory(1, true, DecimalTypeMapping.DOUBLE),
                 ImmutableMap.of());
 
         localQueryRunner.addFunctions(CUSTOM_FUNCTIONS);

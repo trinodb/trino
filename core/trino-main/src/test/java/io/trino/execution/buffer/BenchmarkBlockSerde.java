@@ -403,7 +403,7 @@ public class BenchmarkBlockSerde
             PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
             PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
 
-            List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
+            List<Page> pages = ImmutableList.copyOf(getTablePages("lineitem", 0.1, DecimalTypeMapping.DECIMAL));
             DynamicSliceOutput sliceOutput = new DynamicSliceOutput(0);
             writePages(serializer, new OutputStreamSliceOutput(sliceOutput), pages.listIterator());
             setup(sliceOutput.slice(), serializer, deserializer, pages);

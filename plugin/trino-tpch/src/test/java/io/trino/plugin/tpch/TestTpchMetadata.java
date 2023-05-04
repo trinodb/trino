@@ -423,15 +423,15 @@ public class TestTpchMetadata
         requireNonNull(column, "column is null");
         requireNonNull(value, "value is null");
         return TupleDomain.fromFixedValues(
-                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new NullableValue(getTrinoType(column, DecimalTypeMapping.DOUBLE), value)));
+                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new NullableValue(getTrinoType(column, DecimalTypeMapping.DECIMAL), value)));
     }
 
     private static TupleDomain<ColumnHandle> fixedValueTupleDomain(TpchMetadata tpchMetadata, TpchColumn<?> column1, Object value1, TpchColumn<?> column2, Object value2)
     {
         return TupleDomain.fromFixedValues(
                 ImmutableMap.of(
-                        tpchMetadata.toColumnHandle(column1), new NullableValue(getTrinoType(column1, DecimalTypeMapping.DOUBLE), value1),
-                        tpchMetadata.toColumnHandle(column2), new NullableValue(getTrinoType(column2, DecimalTypeMapping.DOUBLE), value2)));
+                        tpchMetadata.toColumnHandle(column1), new NullableValue(getTrinoType(column1, DecimalTypeMapping.DECIMAL), value1),
+                        tpchMetadata.toColumnHandle(column2), new NullableValue(getTrinoType(column2, DecimalTypeMapping.DECIMAL), value2)));
     }
 
     private ColumnStatistics noColumnStatistics()

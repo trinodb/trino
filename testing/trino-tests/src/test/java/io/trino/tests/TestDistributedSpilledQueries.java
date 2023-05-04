@@ -16,12 +16,14 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.nio.file.Paths;
 
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_DOUBLE_TYPE_MAPPING_PROPERTY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.UUID.randomUUID;
@@ -61,7 +63,10 @@ public class TestDistributedSpilledQueries
 
         try {
             queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
+            queryRunner.createCatalog(
+                    "tpch",
+                    "tpch",
+                    ImmutableMap.of(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()));
             return queryRunner;
         }
         catch (Exception e) {

@@ -90,14 +90,14 @@ public class TestJsonRepresentation
                         "6",
                         "Output",
                         ImmutableMap.of("columnNames", "[quantity]"),
-                        ImmutableList.of(typedSymbol("quantity", "double")),
+                        ImmutableList.of(typedSymbol("quantity", "decimal(12,2)")),
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 0, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
                                 "98",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                                ImmutableList.of(typedSymbol("quantity", "double")),
+                                ImmutableList.of(typedSymbol("quantity", "decimal(12,2)")),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                                 ImmutableList.of(new JsonRenderedNode(
@@ -108,18 +108,18 @@ public class TestJsonRepresentation
                                                 "isReplicateNullsAndAny", "",
                                                 "hashColumn", "[]",
                                                 "arguments", "[]"),
-                                        ImmutableList.of(typedSymbol("quantity", "double")),
+                                        ImmutableList.of(typedSymbol("quantity", "decimal(12,2)")),
                                         ImmutableList.of(),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 0, 0, 0)),
                                         ImmutableList.of(new JsonRenderedNode(
                                                 "0",
                                                 "TableScan",
                                                 ImmutableMap.of("table", "tpch:tiny:lineitem"),
-                                                ImmutableList.of(typedSymbol("quantity", "double")),
+                                                ImmutableList.of(typedSymbol("quantity", "decimal(12,2)")),
                                                 ImmutableList.of("quantity := tpch:quantity"),
                                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
                                                 ImmutableList.of()))))))));
-        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(2058))
+        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(2086))
                 .row(DISTRIBUTED_PLAN_JSON_CODEC.toJson(distributedPlan))
                 .build();
         assertThat(actualPlan).isEqualTo(expectedPlan);
@@ -133,14 +133,14 @@ public class TestJsonRepresentation
                 "6",
                 "Output",
                 ImmutableMap.of("columnNames", "[quantity]"),
-                ImmutableList.of(typedSymbol("quantity", "double")),
+                ImmutableList.of(typedSymbol("quantity", "decimal(12,2)")),
                 ImmutableList.of(),
                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 0, 0, 0)),
                 ImmutableList.of(new JsonRenderedNode(
                         "98",
                         "Limit",
                         ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                        ImmutableList.of(typedSymbol("quantity", "double")),
+                        ImmutableList.of(typedSymbol("quantity", "decimal(12,2)")),
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
@@ -151,18 +151,18 @@ public class TestJsonRepresentation
                                         "isReplicateNullsAndAny", "",
                                         "hashColumn", "[]",
                                         "arguments", "[]"),
-                                ImmutableList.of(typedSymbol("quantity", "double")),
+                                ImmutableList.of(typedSymbol("quantity", "decimal(12,2)")),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 0, 0, 0)),
                                 ImmutableList.of(new JsonRenderedNode(
                                         "0",
                                         "TableScan",
                                         ImmutableMap.of("table", "tpch:tiny:lineitem"),
-                                        ImmutableList.of(typedSymbol("quantity", "double")),
+                                        ImmutableList.of(typedSymbol("quantity", "decimal(12,2)")),
                                         ImmutableList.of("quantity := tpch:quantity"),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
                                         ImmutableList.of())))))));
-        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(1884))
+        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(1912))
                 .row(JSON_RENDERED_NODE_CODEC.toJson(expectedJsonNode))
                 .build();
         assertThat(actualPlan).isEqualTo(expectedPlan);

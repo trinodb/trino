@@ -34,6 +34,7 @@ import static io.trino.plugin.base.Versions.checkSpiVersion;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
@@ -50,6 +51,7 @@ public class TpchConnectorFactory
 
     private final int defaultSplitsPerNode;
     private final boolean predicatePushdownEnabled;
+    private final DecimalTypeMapping decimalTypeMapping;
 
     public TpchConnectorFactory()
     {
@@ -63,8 +65,14 @@ public class TpchConnectorFactory
 
     public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled)
     {
+        this(defaultSplitsPerNode, predicatePushdownEnabled, DecimalTypeMapping.DECIMAL);
+    }
+
+    public TpchConnectorFactory(int defaultSplitsPerNode, boolean predicatePushdownEnabled, DecimalTypeMapping decimalTypeMapping)
+    {
         this.defaultSplitsPerNode = defaultSplitsPerNode;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
+        this.decimalTypeMapping = requireNonNull(decimalTypeMapping, "decimalTypeMapping is null");
     }
 
     @Override
@@ -80,7 +88,7 @@ public class TpchConnectorFactory
 
         int splitsPerNode = getSplitsPerNode(properties);
         ColumnNaming columnNaming = ColumnNaming.valueOf(properties.getOrDefault(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.SIMPLIFIED.name()).toUpperCase(ENGLISH));
-        DecimalTypeMapping decimalTypeMapping = DecimalTypeMapping.valueOf(properties.getOrDefault(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()).toUpperCase(ENGLISH));
+        DecimalTypeMapping decimalTypeMapping = DecimalTypeMapping.valueOf(properties.getOrDefault(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, this.decimalTypeMapping.name()).toUpperCase(ENGLISH));
         boolean partitioningEnabled = Boolean.parseBoolean(properties.getOrDefault(TPCH_PARTITIONING_ENABLED, "true"));
         NodeManager nodeManager = context.getNodeManager();
 

@@ -725,7 +725,7 @@ public class TestAccessControl
                         // orderkey column is filtered
                         "('custkey', 'bigint', '', '')," +
                         "('orderstatus', 'varchar(1)', '', '')," +
-                        "('totalprice', 'double', '', '')," +
+                        "('totalprice', 'decimal(12,2)', '', '')," +
                         "('orderdate', 'date', '', '')," +
                         "('orderpriority', 'varchar(15)', '', '')," +
                         "('clerk', 'varchar(15)', '', '')," +
@@ -746,7 +746,7 @@ public class TestAccessControl
                         // orderkey column is filtered
                         "('custkey', 'bigint', '', '')," +
                         "('orderstatus', 'varchar(1)', '', '')," +
-                        "('totalprice', 'double', '', '')," +
+                        "('totalprice', 'decimal(12,2)', '', '')," +
                         "('orderdate', 'date', '', '')," +
                         "('orderpriority', 'varchar(15)', '', '')," +
                         "('clerk', 'varchar(15)', '', '')," +

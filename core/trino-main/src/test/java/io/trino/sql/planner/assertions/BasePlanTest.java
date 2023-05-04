@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.LogicalPlanner;
@@ -77,7 +78,7 @@ public class BasePlanTest
         LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
-                new TpchConnectorFactory(1),
+                new TpchConnectorFactory(1, true, DecimalTypeMapping.DOUBLE),
                 ImmutableMap.of());
         return queryRunner;
     }

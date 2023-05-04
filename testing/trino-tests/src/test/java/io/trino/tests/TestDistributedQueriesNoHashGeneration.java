@@ -14,6 +14,7 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
@@ -27,6 +28,7 @@ public class TestDistributedQueriesNoHashGeneration
     {
         return TpchQueryRunnerBuilder.builder()
                 .setCoordinatorProperties(ImmutableMap.of("optimizer.optimize-hash-generation", "false"))
+                .withTpchDecimalTypeMapping(DecimalTypeMapping.DOUBLE)
                 .build();
     }
 }

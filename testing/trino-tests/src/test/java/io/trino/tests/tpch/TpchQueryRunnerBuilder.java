@@ -15,18 +15,22 @@ package io.trino.tests.tpch;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.trino.plugin.tpch.DecimalTypeMapping.DOUBLE;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_DOUBLE_TYPE_MAPPING_PROPERTY;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_MAX_ROWS_PER_PAGE_PROPERTY;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_CATALOG;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_SCHEMA;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.Objects.requireNonNull;
 
 public final class TpchQueryRunnerBuilder
         extends DistributedQueryRunner.Builder<TpchQueryRunnerBuilder>
@@ -42,6 +46,7 @@ public final class TpchQueryRunnerBuilder
     private Optional<String> destinationCatalog = Optional.empty();
     private Optional<String> destinationSchema = Optional.empty();
     private OptionalInt splitsPerNode = OptionalInt.empty();
+    private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
 
     private TpchQueryRunnerBuilder()
     {
@@ -78,6 +83,12 @@ public final class TpchQueryRunnerBuilder
         return this;
     }
 
+    public TpchQueryRunnerBuilder withTpchDecimalTypeMapping(DecimalTypeMapping tpchDecimalTypeMapping)
+    {
+        this.tpchDecimalTypeMapping = requireNonNull(tpchDecimalTypeMapping, "tpchDecimalTypeMapping is null");
+        return this;
+    }
+
     public static TpchQueryRunnerBuilder builder()
     {
         return new TpchQueryRunnerBuilder();
@@ -95,6 +106,7 @@ public final class TpchQueryRunnerBuilder
             destinationCatalog.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_CATALOG, value));
             destinationSchema.ifPresent(value -> properties.put(TPCH_TABLE_SCAN_REDIRECTION_SCHEMA, value));
             splitsPerNode.ifPresent(value -> properties.put(TPCH_SPLITS_PER_NODE, Integer.toString(value)));
+            properties.put(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, tpchDecimalTypeMapping.name());
             queryRunner.createCatalog("tpch", "tpch", properties.buildOrThrow());
             return queryRunner;
         }

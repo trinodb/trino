@@ -13,6 +13,7 @@
  */
 package io.trino.tests;
 
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.testing.AbstractTestWindowQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
@@ -24,6 +25,8 @@ public class TestWindowQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TpchQueryRunnerBuilder.builder().build();
+        return TpchQueryRunnerBuilder.builder()
+                .withTpchDecimalTypeMapping(DecimalTypeMapping.DOUBLE)
+                .build();
     }
 }

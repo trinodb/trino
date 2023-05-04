@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.serializers.LexicoderRowSerializer;
+import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -30,6 +31,7 @@ import org.intellij.lang.annotations.Language;
 import java.util.Map;
 
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_DOUBLE_TYPE_MAPPING_PROPERTY;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -52,7 +54,10 @@ public final class AccumuloQueryRunner
                 .build();
 
         queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+        queryRunner.createCatalog(
+                "tpch",
+                "tpch",
+                ImmutableMap.of(TPCH_DOUBLE_TYPE_MAPPING_PROPERTY, DecimalTypeMapping.DOUBLE.name()));
 
         TestingAccumuloServer server = TestingAccumuloServer.getInstance();
         queryRunner.installPlugin(new AccumuloPlugin());

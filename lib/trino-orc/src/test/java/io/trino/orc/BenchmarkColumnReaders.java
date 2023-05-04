@@ -1208,8 +1208,8 @@ public class BenchmarkColumnReaders
                 throws Exception
         {
             setup(
-                    getTableColumns("lineitem", DecimalTypeMapping.DOUBLE),
-                    getTablePages("lineitem", 0.1, DecimalTypeMapping.DOUBLE));
+                    getTableColumns("lineitem", DecimalTypeMapping.DECIMAL),
+                    getTablePages("lineitem", 0.1, DecimalTypeMapping.DECIMAL));
         }
     }
 
