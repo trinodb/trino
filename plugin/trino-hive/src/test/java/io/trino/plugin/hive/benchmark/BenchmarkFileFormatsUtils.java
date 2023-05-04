@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchEntity;
@@ -36,7 +37,6 @@ import java.util.Random;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
@@ -73,28 +73,18 @@ public final class BenchmarkFileFormatsUtils
                 TpchColumn<E> column = columns.get(i);
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                 switch (column.getType().getBase()) {
-                    case IDENTIFIER:
-                        BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
-                        break;
-                    case INTEGER:
-                        INTEGER.writeLong(blockBuilder, column.getInteger(row));
-                        break;
-                    case DATE:
+                    case IDENTIFIER -> BIGINT.writeLong(blockBuilder, column.getIdentifier(row));
+                    case INTEGER -> INTEGER.writeLong(blockBuilder, column.getInteger(row));
+                    case DATE -> {
                         if (format.supportsDate()) {
                             DATE.writeLong(blockBuilder, column.getDate(row));
                         }
                         else {
-                            createUnboundedVarcharType().writeString(blockBuilder, column.getString(row));
+                            createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
                         }
-                        break;
-                    case DOUBLE:
-                        DOUBLE.writeDouble(blockBuilder, column.getDouble(row));
-                        break;
-                    case VARCHAR:
-                        createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unsupported type " + column.getType());
+                    }
+                    case DOUBLE -> DecimalType.createDecimalType(12, 2).writeLong(blockBuilder, column.getIdentifier(row));
+                    case VARCHAR -> createUnboundedVarcharType().writeSlice(blockBuilder, Slices.utf8Slice(column.getString(row)));
                 }
             }
             if (pageBuilder.isFull()) {
@@ -124,7 +114,7 @@ public final class BenchmarkFileFormatsUtils
             case DATE:
                 return DATE;
             case DOUBLE:
-                return DOUBLE;
+                return DecimalType.createDecimalType(12, 2);
             case VARCHAR:
                 return createUnboundedVarcharType();
         }
