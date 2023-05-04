@@ -111,16 +111,16 @@ public class TestTime
                 .hasMessage("line 1:12: TIME precision must be in range [0, 12]: 13");
 
         assertThatThrownBy(() -> assertions.expression("TIME '25:00:00'").evaluate())
-                .hasMessage("line 1:12: '25:00:00' is not a valid time literal");
+                .hasMessage("line 1:12: '25:00:00' is not a valid TIME literal");
 
         assertThatThrownBy(() -> assertions.expression("TIME '12:65:00'").evaluate())
-                .hasMessage("line 1:12: '12:65:00' is not a valid time literal");
+                .hasMessage("line 1:12: '12:65:00' is not a valid TIME literal");
 
         assertThatThrownBy(() -> assertions.expression("TIME '12:00:65'").evaluate())
-                .hasMessage("line 1:12: '12:00:65' is not a valid time literal");
+                .hasMessage("line 1:12: '12:00:65' is not a valid TIME literal");
 
         assertThatThrownBy(() -> assertions.expression("TIME 'xxx'").evaluate())
-                .hasMessage("line 1:12: 'xxx' is not a valid time literal");
+                .hasMessage("line 1:12: 'xxx' is not a valid TIME literal");
     }
 
     @Test

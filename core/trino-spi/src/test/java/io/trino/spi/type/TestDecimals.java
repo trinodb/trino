@@ -154,7 +154,7 @@ public class TestDecimals
             Decimals.parse(text);
         }
         catch (IllegalArgumentException e) {
-            String expectedMessage = format("Invalid decimal value '%s'", text);
+            String expectedMessage = format("Invalid DECIMAL value '%s'", text);
             if (!Objects.equals(e.getMessage(), expectedMessage)) {
                 fail(format("Unexpected exception, exception with message '%s' was expected", expectedMessage), e);
             }

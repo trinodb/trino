@@ -136,19 +136,19 @@ public class TestIntervalDayTime
                 .isEqualTo(interval(0, 0, 0, 32, 0));
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '12X' DAY").evaluate())
-                .hasMessage("line 1:12: '12X' is not a valid interval literal");
+                .hasMessage("line 1:12: '12X' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '12 10' DAY").evaluate())
-                .hasMessage("line 1:12: '12 10' is not a valid interval literal");
+                .hasMessage("line 1:12: '12 10' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '12 X' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '12 X' is not a valid interval literal");
+                .hasMessage("line 1:12: '12 X' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '12 -10' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '12 -10' is not a valid interval literal");
+                .hasMessage("line 1:12: '12 -10' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '--12 -10' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '--12 -10' is not a valid interval literal");
+                .hasMessage("line 1:12: '--12 -10' is not a valid INTERVAL literal");
     }
 
     private static SqlIntervalDayTime interval(int day, int hour, int minute, int second, int milliseconds)
