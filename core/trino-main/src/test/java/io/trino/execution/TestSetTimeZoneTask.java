@@ -200,7 +200,7 @@ public class TestSetTimeZoneTask
                                         "3601s")))));
         assertThatThrownBy(() -> executeSetTimeZone(setTimeZone, stateMachine))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Invalid time zone offset interval: interval contains seconds");
+                .hasMessage("Invalid TIME ZONE offset interval: interval contains seconds");
     }
 
     @Test

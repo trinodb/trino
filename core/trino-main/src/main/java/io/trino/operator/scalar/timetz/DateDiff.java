@@ -48,7 +48,6 @@ public class DateDiff
             @SqlType("time(p) with time zone") long right)
     {
         long nanos = normalize(right) - normalize(left);
-
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         switch (unitString) {
             case "millisecond":
@@ -60,7 +59,7 @@ public class DateDiff
             case "hour":
                 return nanos / NANOSECONDS_PER_HOUR;
             default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
         }
     }
 
@@ -72,7 +71,6 @@ public class DateDiff
             @SqlType("time(p) with time zone") LongTimeWithTimeZone right)
     {
         long picos = normalize(right) - normalize(left);
-
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         switch (unitString) {
             case "millisecond":
@@ -84,7 +82,7 @@ public class DateDiff
             case "hour":
                 return picos / PICOSECONDS_PER_HOUR;
             default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a TIME field");
         }
     }
 }
