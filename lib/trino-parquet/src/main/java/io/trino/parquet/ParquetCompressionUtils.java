@@ -13,6 +13,7 @@
  */
 package io.trino.parquet;
 
+import com.github.luben.zstd.Zstd;
 import com.google.common.io.ByteStreams;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
@@ -20,6 +21,7 @@ import io.airlift.compress.lzo.LzoDecompressor;
 import io.airlift.compress.snappy.SnappyDecompressor;
 import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import org.apache.parquet.format.CompressionCodec;
 
 import java.io.IOException;
@@ -30,17 +32,23 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class ParquetCompressionUtils
 {
     private static final int GZIP_BUFFER_SIZE = 8 * 1024;
+    // Parquet pages written by parquet-mr and trino writers should be typically around 1MB or smaller in uncompressed size.
+    // However, it's possible to encounter much larger pages than that from other writers or unusual configurations.
+    // We avoid using native decompressor for large pages to reduce chances of GCLocker being held for a long time by JNI code
+    private static final long NATIVE_DECOMPRESSION_THRESHOLD = DataSize.of(1536, KILOBYTE).toBytes(); // 1MB is typical page size + 0.5MB tolerance as page sizing in writer is not exact
 
     private ParquetCompressionUtils() {}
 
-    public static Slice decompress(ParquetDataSourceId dataSourceId, CompressionCodec codec, Slice input, int uncompressedSize)
+    public static Slice decompress(ParquetDataSourceId dataSourceId, CompressionCodec codec, Slice input, int uncompressedSize, boolean isNativeZstdDecompressorEnabled)
             throws IOException
     {
         requireNonNull(input, "input is null");
@@ -55,7 +63,9 @@ public final class ParquetCompressionUtils
             case SNAPPY -> decompressSnappy(input, uncompressedSize);
             case LZO -> decompressLZO(input, uncompressedSize);
             case LZ4 -> decompressLz4(input, uncompressedSize);
-            case ZSTD -> decompressZstd(input, uncompressedSize);
+            case ZSTD -> isNativeZstdDecompressorEnabled && !isLargeUncompressedPage(uncompressedSize)
+                    ? decompressNativeZstd(input, uncompressedSize)
+                    : decompressZstd(input, uncompressedSize);
             case BROTLI, LZ4_RAW -> throw new ParquetCorruptionException(dataSourceId, "Codec not supported in Parquet: %s", codec);
         };
     }
@@ -70,6 +80,20 @@ public final class ParquetCompressionUtils
             throw new IllegalArgumentException(format("Invalid uncompressedSize for SNAPPY input. Expected %s, actual: %s", uncompressedSize, actualUncompressedSize));
         }
         return wrappedBuffer(buffer, 0, uncompressedSize);
+    }
+
+    private static Slice decompressNativeZstd(Slice input, int uncompressedSize)
+    {
+        if (uncompressedSize == 0) {
+            return EMPTY_SLICE;
+        }
+
+        byte[] buffer = new byte[uncompressedSize];
+        int bytesRead = toIntExact(Zstd.decompressByteArray(buffer, 0, buffer.length, input.byteArray(), input.byteArrayOffset(), input.length()));
+        if (bytesRead != uncompressedSize) {
+            throw new IllegalArgumentException(format("Invalid uncompressedSize for ZSTD input. Expected %s, actual: %s", uncompressedSize, bytesRead));
+        }
+        return wrappedBuffer(buffer, 0, bytesRead);
     }
 
     private static Slice decompressZstd(Slice input, int uncompressedSize)
@@ -138,5 +162,10 @@ public final class ParquetCompressionUtils
         byte[] byteArray = input.byteArray();
         int byteArrayOffset = inputOffset + input.byteArrayOffset();
         return decompressor.decompress(byteArray, byteArrayOffset, inputLength, output, outputOffset, output.length - outputOffset);
+    }
+
+    private static boolean isLargeUncompressedPage(int uncompressedSize)
+    {
+        return uncompressedSize > NATIVE_DECOMPRESSION_THRESHOLD;
     }
 }

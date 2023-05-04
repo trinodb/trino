@@ -170,6 +170,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetSmallFileThreshold;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetNativeZstdDecompressorEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
@@ -586,7 +587,8 @@ public class IcebergPageSourceProvider
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
-                                .withBloomFilter(useParquetBloomFilter(session)),
+                                .withBloomFilter(useParquetBloomFilter(session))
+                                .withNativeZstdDecompressorEnabled(isParquetNativeZstdDecompressorEnabled(session)),
                         predicate,
                         fileFormatDataSourceStats,
                         nameMapping,
@@ -1033,7 +1035,17 @@ public class IcebergPageSourceProvider
                 Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
 
                 if (start <= firstDataPage && firstDataPage < start + length &&
-                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty(), bloomFilterStore, UTC, ICEBERG_DOMAIN_COMPACTION_THRESHOLD)) {
+                        predicateMatches(
+                                parquetPredicate,
+                                block,
+                                dataSource,
+                                descriptorsByPath,
+                                parquetTupleDomain,
+                                Optional.empty(),
+                                bloomFilterStore,
+                                UTC,
+                                ICEBERG_DOMAIN_COMPACTION_THRESHOLD,
+                                options.isNativeZstdDecompressorEnabled())) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     if (startRowPosition.isEmpty()) {

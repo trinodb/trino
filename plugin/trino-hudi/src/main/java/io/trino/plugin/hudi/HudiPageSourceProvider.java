@@ -89,6 +89,7 @@ import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
 import static io.trino.plugin.hudi.HudiSessionProperties.getParquetSmallFileThreshold;
+import static io.trino.plugin.hudi.HudiSessionProperties.isParquetNativeZstdDecompressorEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.shouldUseParquetColumnNames;
 import static io.trino.plugin.hudi.HudiUtil.getHudiFileFormat;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -221,8 +222,18 @@ public class HudiPageSourceProvider
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
-                if (start <= firstDataPage && firstDataPage < start + length
-                        && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndex, Optional.empty(), timeZone, DOMAIN_COMPACTION_THRESHOLD)) {
+                if (start <= firstDataPage && firstDataPage < start + length &&
+                        predicateMatches(
+                                parquetPredicate,
+                                block,
+                                dataSource,
+                                descriptorsByPath,
+                                parquetTupleDomain,
+                                columnIndex,
+                                Optional.empty(),
+                                timeZone,
+                                DOMAIN_COMPACTION_THRESHOLD,
+                                options.isNativeZstdDecompressorEnabled())) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     columnIndexes.add(columnIndex);
@@ -246,7 +257,7 @@ public class HudiPageSourceProvider
                     finalDataSource,
                     timeZone,
                     memoryContext,
-                    options,
+                    options.withNativeZstdDecompressorEnabled(isParquetNativeZstdDecompressorEnabled(session)),
                     exception -> handleException(dataSourceId, exception),
                     Optional.of(parquetPredicate),
                     columnIndexes.build(),

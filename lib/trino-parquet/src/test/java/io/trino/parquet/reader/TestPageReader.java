@@ -413,7 +413,8 @@ public class TestPageReader
                 columnChunkMetaData,
                 new ColumnDescriptor(new String[] {}, new PrimitiveType(REQUIRED, INT32, ""), 0, 0),
                 null,
-                Optional.empty());
+                Optional.empty(),
+                true);
     }
 
     private static void assertDataPageEquals(PageHeader pageHeader, byte[] dataPage, byte[] compressedDataPage, DataPage decompressedPage)

@@ -34,6 +34,7 @@ public class ParquetReaderOptions
     private final DataSize maxBufferSize;
     private final boolean useColumnIndex;
     private final boolean useBloomFilter;
+    private final boolean nativeZstdDecompressorEnabled;
     private final DataSize smallFileThreshold;
 
     public ParquetReaderOptions()
@@ -45,6 +46,7 @@ public class ParquetReaderOptions
         maxBufferSize = DEFAULT_MAX_BUFFER_SIZE;
         useColumnIndex = true;
         useBloomFilter = true;
+        nativeZstdDecompressorEnabled = false;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
     }
 
@@ -56,6 +58,7 @@ public class ParquetReaderOptions
             DataSize maxBufferSize,
             boolean useColumnIndex,
             boolean useBloomFilter,
+            boolean nativeZstdDecompressorEnabled,
             DataSize smallFileThreshold)
     {
         this.ignoreStatistics = ignoreStatistics;
@@ -66,6 +69,7 @@ public class ParquetReaderOptions
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         this.useColumnIndex = useColumnIndex;
         this.useBloomFilter = useBloomFilter;
+        this.nativeZstdDecompressorEnabled = nativeZstdDecompressorEnabled;
         this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
     }
 
@@ -94,6 +98,11 @@ public class ParquetReaderOptions
         return useBloomFilter;
     }
 
+    public boolean isNativeZstdDecompressorEnabled()
+    {
+        return nativeZstdDecompressorEnabled;
+    }
+
     public DataSize getMaxBufferSize()
     {
         return maxBufferSize;
@@ -119,6 +128,7 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
+                nativeZstdDecompressorEnabled,
                 smallFileThreshold);
     }
 
@@ -132,6 +142,7 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
+                nativeZstdDecompressorEnabled,
                 smallFileThreshold);
     }
 
@@ -145,6 +156,7 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
+                nativeZstdDecompressorEnabled,
                 smallFileThreshold);
     }
 
@@ -158,6 +170,7 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
+                nativeZstdDecompressorEnabled,
                 smallFileThreshold);
     }
 
@@ -171,6 +184,7 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
+                nativeZstdDecompressorEnabled,
                 smallFileThreshold);
     }
 
@@ -184,6 +198,7 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
+                nativeZstdDecompressorEnabled,
                 smallFileThreshold);
     }
 
@@ -197,6 +212,7 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
+                nativeZstdDecompressorEnabled,
                 smallFileThreshold);
     }
 
@@ -210,6 +226,21 @@ public class ParquetReaderOptions
                 maxBufferSize,
                 useColumnIndex,
                 useBloomFilter,
+                nativeZstdDecompressorEnabled,
+                smallFileThreshold);
+    }
+
+    public ParquetReaderOptions withNativeZstdDecompressorEnabled(boolean nativeZstdDecompressorEnabled)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                nativeZstdDecompressorEnabled,
                 smallFileThreshold);
     }
 }

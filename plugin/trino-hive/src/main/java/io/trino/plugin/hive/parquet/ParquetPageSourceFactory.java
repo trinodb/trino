@@ -93,6 +93,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockR
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetSmallFileThreshold;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetIgnoreStatistics;
+import static io.trino.plugin.hive.HiveSessionProperties.isParquetNativeZstdDecompressorEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.trino.plugin.hive.HiveSessionProperties.useParquetBloomFilter;
@@ -196,7 +197,8 @@ public class ParquetPageSourceFactory
                         .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                         .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                         .withUseColumnIndex(isParquetUseColumnIndex(session))
-                        .withBloomFilter(useParquetBloomFilter(session)),
+                        .withBloomFilter(useParquetBloomFilter(session))
+                        .withNativeZstdDecompressorEnabled(isParquetNativeZstdDecompressorEnabled(session)),
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(estimatedFileSize)));
@@ -276,7 +278,8 @@ public class ParquetPageSourceFactory
                             columnIndex,
                             bloomFilterStore,
                             timeZone,
-                            domainCompactionThreshold)) {
+                            domainCompactionThreshold,
+                            options.isNativeZstdDecompressorEnabled())) {
                         blocks.add(block);
                         blockStarts.add(nextStart);
                         columnIndexes.add(columnIndex);

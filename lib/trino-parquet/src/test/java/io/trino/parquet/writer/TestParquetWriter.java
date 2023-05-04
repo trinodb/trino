@@ -116,7 +116,8 @@ public class TestParquetWriter
                 chunkMetaData,
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
                 null,
-                Optional.empty());
+                Optional.empty(),
+                true);
 
         pageReader.readDictionaryPage();
         assertThat(pageReader.hasNext()).isTrue();
@@ -271,7 +272,8 @@ public class TestParquetWriter
                     new ParquetDataSourceId("test"),
                     chunkMetaData.getCodec().getParquetCompressionCodec(),
                     compressedData,
-                    pageHeader.getUncompressed_page_size());
+                    pageHeader.getUncompressed_page_size(),
+                    false);
             int[] ids = new int[100];
             uncompressedData.getInts(0, ids, 0, 100);
             for (int i = 0; i < 100; i++) {

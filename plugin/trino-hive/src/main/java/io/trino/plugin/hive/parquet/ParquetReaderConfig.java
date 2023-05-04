@@ -134,6 +134,19 @@ public class ParquetReaderConfig
         return options.useBloomFilter();
     }
 
+    @Config("parquet.native-zstd-decompressor.enabled")
+    @ConfigDescription("Enable using native zstd library for faster decompression of parquet files")
+    public ParquetReaderConfig setNativeZstdDecompressorEnabled(boolean nativeZstdDecompressorEnabled)
+    {
+        options = options.withNativeZstdDecompressorEnabled(nativeZstdDecompressorEnabled);
+        return this;
+    }
+
+    public boolean isNativeZstdDecompressorEnabled()
+    {
+        return options.isNativeZstdDecompressorEnabled();
+    }
+
     @Config("parquet.small-file-threshold")
     @ConfigDescription("Size below which a parquet file will be read entirely")
     public ParquetReaderConfig setSmallFileThreshold(DataSize smallFileThreshold)
