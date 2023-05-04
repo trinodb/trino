@@ -59,16 +59,19 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static com.google.common.math.LongMath.saturatedAdd;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
@@ -112,15 +115,18 @@ public class IcebergSplitSource
     private final TupleDomain<IcebergColumnHandle> dataColumnPredicate;
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
+    private final OptionalLong limit;
 
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
     private CloseableIterable<FileScanTask> fileScanIterable;
     private long targetSplitSize;
     private CloseableIterator<FileScanTask> fileScanIterator;
     private Iterator<FileScanTask> fileTasksIterator = emptyIterator();
+    private boolean fileHasAnyDeletions;
 
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
+    private long outputRowsLowerBound;
 
     public IcebergSplitSource(
             TrinoFileSystemFactory fileSystemFactory,
@@ -150,6 +156,12 @@ public class IcebergSplitSource
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
         this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
         this.pathDomain = getPathDomain(tableHandle.getEnforcedPredicate());
+        checkArgument(
+                tableHandle.getUnenforcedPredicate().isAll() || tableHandle.getLimit().isEmpty(),
+                "Cannot enforce LIMIT %s with unenforced predicate %s present",
+                tableHandle.getLimit(),
+                tableHandle.getUnenforcedPredicate());
+        this.limit = tableHandle.getLimit();
         this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
     }
 
@@ -210,10 +222,12 @@ public class IcebergSplitSource
             if (!fileTasksIterator.hasNext()) {
                 FileScanTask wholeFileTask = fileScanIterator.next();
                 fileTasksIterator = wholeFileTask.split(targetSplitSize).iterator();
+                fileHasAnyDeletions = false;
                 // In theory, .split() could produce empty iterator, so let's evaluate the outer loop condition again.
                 continue;
             }
             FileScanTask scanTask = fileTasksIterator.next();
+            fileHasAnyDeletions = fileHasAnyDeletions || !scanTask.deletes().isEmpty();
             if (scanTask.deletes().isEmpty() &&
                     maxScannedFileSizeInBytes.isPresent() &&
                     scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
@@ -275,6 +289,16 @@ public class IcebergSplitSource
                 // Equality deletes may apply to many files, and position deletes may be grouped together. This makes it difficult to know if they are obsolete.
                 List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = tableHandle.getEnforcedPredicate().isAll() ? scanTask.deletes() : ImmutableList.of();
                 scannedFiles.add(new DataFileWithDeleteFiles(scanTask.file(), fullyAppliedDeletes));
+            }
+            if (!fileTasksIterator.hasNext()) {
+                // This is the last task for this file
+                if (!fileHasAnyDeletions) {
+                    // There were no deletions, so we produced splits covering the whole file
+                    outputRowsLowerBound = saturatedAdd(outputRowsLowerBound, scanTask.file().recordCount());
+                    if (limit.isPresent() && limit.getAsLong() <= outputRowsLowerBound) {
+                        finish();
+                    }
+                }
             }
             splits.add(icebergSplit);
         }

@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -52,6 +53,9 @@ public class IcebergTableHandle
     // Filter guaranteed to be enforced by Iceberg connector
     private final TupleDomain<IcebergColumnHandle> enforcedPredicate;
 
+    // semantically limit is applied after enforcedPredicate
+    private final OptionalLong limit;
+
     private final Set<IcebergColumnHandle> projectedColumns;
     private final Optional<String> nameMappingJson;
 
@@ -70,6 +74,7 @@ public class IcebergTableHandle
             @JsonProperty("formatVersion") int formatVersion,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             @JsonProperty("enforcedPredicate") TupleDomain<IcebergColumnHandle> enforcedPredicate,
+            @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
@@ -85,6 +90,7 @@ public class IcebergTableHandle
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
+                limit,
                 projectedColumns,
                 nameMappingJson,
                 tableLocation,
@@ -103,6 +109,7 @@ public class IcebergTableHandle
             int formatVersion,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
             TupleDomain<IcebergColumnHandle> enforcedPredicate,
+            OptionalLong limit,
             Set<IcebergColumnHandle> projectedColumns,
             Optional<String> nameMappingJson,
             String tableLocation,
@@ -119,6 +126,7 @@ public class IcebergTableHandle
         this.formatVersion = formatVersion;
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
         this.enforcedPredicate = requireNonNull(enforcedPredicate, "enforcedPredicate is null");
+        this.limit = requireNonNull(limit, "limit is null");
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.nameMappingJson = requireNonNull(nameMappingJson, "nameMappingJson is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
@@ -183,6 +191,12 @@ public class IcebergTableHandle
     }
 
     @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
+    }
+
+    @JsonProperty
     public Set<IcebergColumnHandle> getProjectedColumns()
     {
         return projectedColumns;
@@ -240,6 +254,7 @@ public class IcebergTableHandle
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
+                limit,
                 projectedColumns,
                 nameMappingJson,
                 tableLocation,
@@ -260,6 +275,7 @@ public class IcebergTableHandle
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
+                limit,
                 projectedColumns,
                 nameMappingJson,
                 tableLocation,
@@ -289,6 +305,7 @@ public class IcebergTableHandle
                 formatVersion == that.formatVersion &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
                 Objects.equals(enforcedPredicate, that.enforcedPredicate) &&
+                Objects.equals(limit, that.limit) &&
                 Objects.equals(projectedColumns, that.projectedColumns) &&
                 Objects.equals(nameMappingJson, that.nameMappingJson) &&
                 Objects.equals(tableLocation, that.tableLocation) &&
@@ -309,6 +326,7 @@ public class IcebergTableHandle
                 formatVersion,
                 unenforcedPredicate,
                 enforcedPredicate,
+                limit,
                 projectedColumns,
                 nameMappingJson,
                 tableLocation,
@@ -331,6 +349,7 @@ public class IcebergTableHandle
                     .map(IcebergColumnHandle::getQualifiedName)
                     .collect(joining(", ", "[", "]")));
         }
+        limit.ifPresent(limit -> builder.append(" LIMIT ").append(limit));
         return builder.toString();
     }
 }
