@@ -117,7 +117,7 @@ public class TestTimestampWithTimeZone
                 .hasMessage("line 1:12: TIMESTAMP WITH TIME ZONE precision must be in range [0, 12]: 13");
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01 Asia/Kathmandu'").evaluate())
-                .hasMessage("line 1:12: '2020-13-01 Asia/Kathmandu' is not a valid timestamp literal");
+                .hasMessage("line 1:12: '2020-13-01 Asia/Kathmandu' is not a valid TIMESTAMP literal");
 
         // negative epoch
         assertThat(assertions.expression("TIMESTAMP '1500-05-01 12:34:56 Asia/Kathmandu'"))
@@ -425,15 +425,15 @@ public class TestTimestampWithTimeZone
         // Overflow
         assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+                .hasMessage("line 1:12: '123001-01-02 03:04:05.321 Europe/Berlin' is not a valid TIMESTAMP literal");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '+123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '+123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+                .hasMessage("line 1:12: '+123001-01-02 03:04:05.321 Europe/Berlin' is not a valid TIMESTAMP literal");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '-123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid timestamp literal");
+                .hasMessage("line 1:12: '-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid TIMESTAMP literal");
     }
 
     @Test
