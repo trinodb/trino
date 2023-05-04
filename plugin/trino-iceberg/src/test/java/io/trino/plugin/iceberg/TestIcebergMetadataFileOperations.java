@@ -27,6 +27,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -164,6 +165,58 @@ public class TestIcebergMetadataFileOperations
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), 1)
                         .build());
+    }
+
+    @Test(dataProvider = "testSelectWithLimitDataProvider")
+    public void testSelectWithLimit(int numberOfFiles)
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_select_with_limit"); // test is parameterized
+
+        // Create table with multiple files
+        assertUpdate("CREATE TABLE test_select_with_limit(k varchar, v integer) WITH (partitioning=ARRAY['truncate(k, 1)'])");
+        // 2 files per partition, numberOfFiles files in total, in numberOfFiles separate manifests (due to fastAppend)
+        for (int i = 0; i < numberOfFiles; i++) {
+            String k = Integer.toString(10 + i * 5);
+            assertUpdate("INSERT INTO test_select_with_limit VALUES ('" + k + "', " + i + ")", 1);
+        }
+
+        assertFileSystemAccesses("SELECT * FROM test_select_with_limit LIMIT 3",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), numberOfFiles)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), numberOfFiles)
+                        .build());
+
+        assertFileSystemAccesses("EXPLAIN SELECT * FROM test_select_with_limit LIMIT 3",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), numberOfFiles)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), numberOfFiles)
+                        .build());
+
+        assertFileSystemAccesses("EXPLAIN ANALYZE SELECT * FROM test_select_with_limit LIMIT 3",
+                ImmutableMultiset.<FileOperation>builder()
+                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
+                        .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), numberOfFiles * 2)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), numberOfFiles * 2)
+                        .build());
+
+        assertUpdate("DROP TABLE test_select_with_limit");
+    }
+
+    @DataProvider
+    public Object[][] testSelectWithLimitDataProvider()
+    {
+        return new Object[][] {
+                {10},
+                {50},
+        };
     }
 
     @Test
