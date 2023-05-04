@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -48,13 +47,13 @@ import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
-import org.apache.iceberg.util.TableScanUtil;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -85,6 +84,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -114,8 +114,10 @@ public class IcebergSplitSource
     private final Domain fileModifiedTimeDomain;
 
     private TupleDomain<IcebergColumnHandle> pushedDownDynamicFilterPredicate;
-    private CloseableIterable<FileScanTask> fileScanTaskIterable;
-    private CloseableIterator<FileScanTask> fileScanTaskIterator;
+    private CloseableIterable<FileScanTask> fileScanIterable;
+    private long targetSplitSize;
+    private CloseableIterator<FileScanTask> fileScanIterator;
+    private Iterator<FileScanTask> fileTasksIterator = emptyIterator();
 
     private final boolean recordScannedFiles;
     private final ImmutableSet.Builder<DataFileWithDeleteFiles> scannedFiles = ImmutableSet.builder();
@@ -161,7 +163,7 @@ public class IcebergSplitSource
                     .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
         }
 
-        if (fileScanTaskIterable == null) {
+        if (fileScanIterable == null) {
             // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
             boolean dynamicFilterIsComplete = dynamicFilter.isComplete();
             this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast);
@@ -190,10 +192,10 @@ public class IcebergSplitSource
             if (requiresColumnStats) {
                 scan = scan.includeColumnStats();
             }
-            this.fileScanTaskIterable = TableScanUtil.splitFiles(scan.planFiles(), tableScan.targetSplitSize());
-            closer.register(fileScanTaskIterable);
-            this.fileScanTaskIterator = fileScanTaskIterable.iterator();
-            closer.register(fileScanTaskIterator);
+            this.fileScanIterable = closer.register(scan.planFiles());
+            this.targetSplitSize = tableScan.targetSplitSize();
+            this.fileScanIterator = closer.register(fileScanIterable.iterator());
+            this.fileTasksIterator = emptyIterator();
         }
 
         TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
@@ -203,10 +205,15 @@ public class IcebergSplitSource
             return completedFuture(NO_MORE_SPLITS_BATCH);
         }
 
-        Iterator<FileScanTask> fileScanTasks = Iterators.limit(fileScanTaskIterator, maxSize);
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        while (fileScanTasks.hasNext()) {
-            FileScanTask scanTask = fileScanTasks.next();
+        List<ConnectorSplit> splits = new ArrayList<>(maxSize);
+        while (splits.size() < maxSize && (fileTasksIterator.hasNext() || fileScanIterator.hasNext())) {
+            if (!fileTasksIterator.hasNext()) {
+                FileScanTask wholeFileTask = fileScanIterator.next();
+                fileTasksIterator = wholeFileTask.split(targetSplitSize).iterator();
+                // In theory, .split() could produce empty iterator, so let's evaluate the outer loop condition again.
+                continue;
+            }
+            FileScanTask scanTask = fileTasksIterator.next();
             if (scanTask.deletes().isEmpty() &&
                     maxScannedFileSizeInBytes.isPresent() &&
                     scanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
@@ -271,7 +278,7 @@ public class IcebergSplitSource
             }
             splits.add(icebergSplit);
         }
-        return completedFuture(new ConnectorSplitBatch(splits.build(), isFinished()));
+        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
     }
 
     private long getModificationTime(String path)
@@ -288,14 +295,14 @@ public class IcebergSplitSource
     private void finish()
     {
         close();
-        this.fileScanTaskIterable = CloseableIterable.empty();
-        this.fileScanTaskIterator = CloseableIterator.empty();
+        this.fileScanIterable = CloseableIterable.empty();
+        this.fileScanIterator = CloseableIterator.empty();
     }
 
     @Override
     public boolean isFinished()
     {
-        return fileScanTaskIterator != null && !fileScanTaskIterator.hasNext();
+        return fileScanIterator != null && !fileScanIterator.hasNext() && !fileTasksIterator.hasNext();
     }
 
     @Override
