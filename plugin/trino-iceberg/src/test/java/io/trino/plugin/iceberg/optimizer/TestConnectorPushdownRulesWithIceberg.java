@@ -57,6 +57,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -163,6 +164,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
+                OptionalLong.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 "",
@@ -244,6 +246,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
+                OptionalLong.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 "",
@@ -292,6 +295,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
+                OptionalLong.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 "",
@@ -351,6 +355,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
+                OptionalLong.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 "",

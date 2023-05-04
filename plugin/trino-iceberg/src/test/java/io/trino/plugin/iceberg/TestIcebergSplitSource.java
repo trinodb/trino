@@ -50,6 +50,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -124,6 +125,7 @@ public class TestIcebergSplitSource
                 1,
                 TupleDomain.all(),
                 TupleDomain.all(),
+                OptionalLong.empty(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 nationTable.location(),

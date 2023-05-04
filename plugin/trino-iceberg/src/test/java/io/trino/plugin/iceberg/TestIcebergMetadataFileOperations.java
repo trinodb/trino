@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
+import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.filesystem.TrackingFileSystemFactory;
 import io.trino.filesystem.TrackingFileSystemFactory.OperationType;
@@ -34,7 +35,7 @@ import java.io.File;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_NEW_STREAM;
@@ -55,6 +56,7 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -94,7 +96,13 @@ public class TestIcebergMetadataFileOperations
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
 
         trackingFileSystemFactory = new TrackingFileSystemFactory(new HdfsFileSystemFactory(HDFS_ENVIRONMENT));
-        queryRunner.installPlugin(new TestingIcebergPlugin(Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)), Optional.of(trackingFileSystemFactory), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingIcebergPlugin(
+                Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)),
+                Optional.of(trackingFileSystemFactory),
+                binder -> {
+                    newOptionalBinder(binder, Key.get(boolean.class, AsyncIcebergSplitProducer.class))
+                            .setBinding().toInstance(false);
+                }));
         queryRunner.createCatalog("iceberg", "iceberg");
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -185,8 +193,8 @@ public class TestIcebergMetadataFileOperations
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), numberOfFiles)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), numberOfFiles)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), min(20, numberOfFiles))
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), min(20, numberOfFiles))
                         .build());
 
         assertFileSystemAccesses("EXPLAIN SELECT * FROM test_select_with_limit LIMIT 3",
@@ -203,8 +211,8 @@ public class TestIcebergMetadataFileOperations
                         .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(SNAPSHOT, INPUT_FILE_NEW_STREAM), 1)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), numberOfFiles * 2)
-                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), numberOfFiles * 2)
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_GET_LENGTH), numberOfFiles + min(20, numberOfFiles))
+                        .addCopies(new FileOperation(MANIFEST, INPUT_FILE_NEW_STREAM), numberOfFiles + min(20, numberOfFiles))
                         .build());
 
         assertUpdate("DROP TABLE test_select_with_limit");
@@ -215,6 +223,8 @@ public class TestIcebergMetadataFileOperations
     {
         return new Object[][] {
                 {10},
+                // 20 manifest is always read, so include two #files values over that
+                {30},
                 {50},
         };
     }
