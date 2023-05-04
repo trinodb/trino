@@ -70,6 +70,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -870,7 +871,7 @@ public class TestTransactionLogAccess
     {
         trackingFileSystemFactory.reset();
         callback.run();
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(expectedAccesses);
+        assertMultisetsEqual(getOperations(), expectedAccesses);
     }
 
     private Multiset<FileOperation> getOperations()

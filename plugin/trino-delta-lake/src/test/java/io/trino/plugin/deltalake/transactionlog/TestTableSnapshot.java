@@ -44,6 +44,7 @@ import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Collections.nCopies;
@@ -203,7 +204,7 @@ public class TestTableSnapshot
     {
         trackingFileSystemFactory.reset();
         callback.run();
-        assertThat(getOperations()).containsExactlyInAnyOrderElementsOf(expectedAccesses);
+        assertMultisetsEqual(getOperations(), expectedAccesses);
     }
 
     private Multiset<FileOperation> getOperations()

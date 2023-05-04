@@ -40,11 +40,11 @@ import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.LAS
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRANSACTION_LOG_JSON;
 import static io.trino.plugin.deltalake.TestDeltaLakeFileOperations.FileType.TRINO_EXTENDED_STATS_JSON;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
-import static org.assertj.core.api.Assertions.assertThat;
 
 // single-threaded AccessTrackingFileSystemFactory is shared mutable state
 @Test(singleThreaded = true)
@@ -161,8 +161,7 @@ public class TestDeltaLakeFileOperations
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         trackingFileSystemFactory.reset();
         queryRunner.executeWithQueryId(queryRunner.getDefaultSession(), query);
-        assertThat(getOperations())
-                .containsExactlyInAnyOrderElementsOf(expectedAccesses);
+        assertMultisetsEqual(getOperations(), expectedAccesses);
     }
 
     private Multiset<FileOperation> getOperations()
