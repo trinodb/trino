@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.INPUT_FILE_GET_LENGTH;
@@ -42,6 +43,7 @@ import static io.trino.filesystem.TrackingFileSystemFactory.OperationType.OUTPUT
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.DATA;
 import static io.trino.plugin.iceberg.TestIcebergMetadataFileOperations.FileType.MANIFEST;
@@ -57,7 +59,6 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
-import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true) // e.g. trackingFileSystemFactory is shared mutable state
 public class TestIcebergMetadataFileOperations
@@ -445,9 +446,11 @@ public class TestIcebergMetadataFileOperations
     {
         resetCounts();
         getDistributedQueryRunner().executeWithQueryId(session, query);
-        assertThat(getOperations())
-                .filteredOn(operation -> operation.fileType() != DATA)
-                .containsExactlyInAnyOrderElementsOf(expectedAccesses);
+        assertMultisetsEqual(
+                getOperations().stream()
+                        .filter(operation -> operation.fileType() != DATA)
+                        .collect(toImmutableMultiset()),
+                expectedAccesses);
     }
 
     private void resetCounts()
