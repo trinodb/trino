@@ -31,7 +31,7 @@ import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static java.lang.Math.toIntExact;
 
 @Description("Add the specified amount of time to the given timestamp")
-@ScalarFunction("date_add")
+@ScalarFunction(value = "date_add", alias = "dateadd")
 public class DateAdd
 {
     private DateAdd() {}

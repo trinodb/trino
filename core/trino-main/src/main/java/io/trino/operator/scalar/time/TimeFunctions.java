@@ -103,7 +103,7 @@ public class TimeFunctions
 
     @Description("Add the specified amount of time to the given time")
     @LiteralParameters({"x", "p"})
-    @ScalarFunction("date_add")
+    @ScalarFunction(value = "date_add", alias = "dateadd")
     @SqlType("time(p)")
     public static long dateAdd(
             @LiteralParameter("p") long precision,
@@ -141,7 +141,7 @@ public class TimeFunctions
     }
 
     @Description("Difference of the given times in the given unit")
-    @ScalarFunction("date_diff")
+    @ScalarFunction(value = "date_diff", alias = "datediff")
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.BIGINT)
     public static long dateDiff(@SqlType("varchar(x)") Slice unit, @SqlType("time(p)") long time1, @SqlType("time(p)") long time2)

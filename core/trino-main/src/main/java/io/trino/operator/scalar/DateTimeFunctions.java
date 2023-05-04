@@ -271,7 +271,7 @@ public final class DateTimeFunctions
 
     @Description("Add the specified amount of date to the given date")
     @LiteralParameters("x")
-    @ScalarFunction("date_add")
+    @ScalarFunction(value = "date_add", alias = "dateadd")
     @SqlType(StandardTypes.DATE)
     public static long addFieldValueDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DATE) long date)
     {
@@ -280,7 +280,7 @@ public final class DateTimeFunctions
     }
 
     @Description("Difference of the given dates in the given unit")
-    @ScalarFunction("date_diff")
+    @ScalarFunction(value = "date_diff", alias = "datediff")
     @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long diffDate(@SqlType("varchar(x)") Slice unit, @SqlType(StandardTypes.DATE) long date1, @SqlType(StandardTypes.DATE) long date2)

@@ -43,7 +43,7 @@ import static java.util.Locale.ENGLISH;
 import static org.joda.time.DateTimeConstants.MINUTES_PER_DAY;
 
 @Description("Add the specified amount of time to the given time")
-@ScalarFunction("date_add")
+@ScalarFunction(value = "date_add", alias = "dateadd")
 public class DateAdd
 {
     private DateAdd() {}

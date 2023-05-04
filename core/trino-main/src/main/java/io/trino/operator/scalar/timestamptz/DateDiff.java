@@ -27,7 +27,7 @@ import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Difference of the given times in the given unit")
-@ScalarFunction("date_diff")
+@ScalarFunction(value = "date_diff", alias = "datediff")
 public class DateDiff
 {
     private DateDiff() {}

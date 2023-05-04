@@ -35,7 +35,7 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static java.util.Locale.ENGLISH;
 
 @Description("Difference of the given times in the given unit")
-@ScalarFunction("date_diff")
+@ScalarFunction(value = "date_diff", alias = "datediff")
 public class DateDiff
 {
     private DateDiff() {}

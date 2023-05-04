@@ -26,7 +26,7 @@ import static io.trino.operator.scalar.DateTimeFunctions.getTimestampField;
 import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Difference of the given times in the given unit")
-@ScalarFunction("date_diff")
+@ScalarFunction(value = "date_diff", alias = "datediff")
 public class DateDiff
 {
     private DateDiff() {}
