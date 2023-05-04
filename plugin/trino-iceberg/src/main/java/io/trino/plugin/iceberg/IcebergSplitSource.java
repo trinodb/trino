@@ -88,6 +88,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.iceberg.FileFormat.METADATA;
 import static org.apache.iceberg.types.Conversions.fromByteBuffer;
 
 public class IcebergSplitSource
@@ -433,7 +434,7 @@ public class IcebergSplitSource
                 task.length(),
                 task.file().fileSizeInBytes(),
                 task.file().recordCount(),
-                IcebergFileFormat.fromIceberg(task.file().format()),
+                IcebergFileFormat.fromIceberg(task.isDataTask() ? METADATA : task.file().format()),
                 ImmutableList.of(),
                 PartitionSpecParser.toJson(task.spec()),
                 PartitionData.toJson(task.file().partition()),

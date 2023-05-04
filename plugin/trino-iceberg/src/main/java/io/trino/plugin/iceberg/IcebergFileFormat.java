@@ -24,6 +24,9 @@ public enum IcebergFileFormat
     ORC,
     PARQUET,
     AVRO,
+    // Ideally iceberg would define a format type for each of its metadata type, i.e. MANIFEST, MANIFEST_LIST, SNAPSHOT,
+    // Given it does not exist right now we will have to overload the METADATA type.
+    METADATA
     /**/;
 
     public FileFormat toIceberg()
@@ -35,6 +38,8 @@ public enum IcebergFileFormat
                 return FileFormat.PARQUET;
             case AVRO:
                 return FileFormat.AVRO;
+            case METADATA:
+                return FileFormat.METADATA;
         }
         throw new VerifyException("Unhandled type: " + this);
     }
@@ -48,6 +53,8 @@ public enum IcebergFileFormat
                 return PARQUET;
             case AVRO:
                 return AVRO;
+            case METADATA:
+                return METADATA;
             default:
                 throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + format);
         }

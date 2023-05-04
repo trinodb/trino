@@ -50,7 +50,7 @@ public class TestIcebergTableName
     {
         assertTrue(IcebergTableName.isDataTable("abc"));
 
-        assertFalse(IcebergTableName.isDataTable("abc$data")); // it's invalid
+        assertFalse(IcebergTableName.isDataTable("abc$data")); // it's invalid: TODO???
         assertFalse(IcebergTableName.isDataTable("abc$history"));
         assertFalse(IcebergTableName.isDataTable("abc$invalid"));
     }

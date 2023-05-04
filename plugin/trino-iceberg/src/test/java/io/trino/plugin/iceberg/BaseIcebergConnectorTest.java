@@ -3296,6 +3296,7 @@ public abstract class BaseIcebergConnectorTest
                     "  ('d', NULL, 7e0, 0e0, NULL, NULL, NULL), " +
                     "  ('b', NULL, 7e0, 0e0, NULL, NULL, NULL), " +
                     "  (NULL, NULL, NULL, NULL, 7e0, NULL, NULL)";
+            case METADATA -> null;
         };
         assertThat(query("SHOW STATS FOR test_apply_functional_constraint"))
                 .skippingTypesCheck()
@@ -5270,7 +5271,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimizeSystemTable()
     {
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE OPTIMIZE"))
-                .hasMessage("This connector does not support table procedures");
+                .hasMessage("Cannot execute table procedure OPTIMIZE on non-DATA table: FILES");
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE OPTIMIZE"))
                 .hasMessage("This connector does not support table procedures");
     }
@@ -5635,7 +5636,7 @@ public abstract class BaseIcebergConnectorTest
     public void testExpireSnapshotsSystemTable()
     {
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE EXPIRE_SNAPSHOTS"))
-                .hasMessage("This connector does not support table procedures");
+                .hasMessage("Cannot execute table procedure EXPIRE_SNAPSHOTS on non-DATA table: FILES");
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE EXPIRE_SNAPSHOTS"))
                 .hasMessage("This connector does not support table procedures");
     }
@@ -5827,7 +5828,7 @@ public abstract class BaseIcebergConnectorTest
     public void testRemoveOrphanFilesSystemTable()
     {
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE REMOVE_ORPHAN_FILES"))
-                .hasMessage("This connector does not support table procedures");
+                .hasMessage("Cannot execute table procedure REMOVE_ORPHAN_FILES on non-DATA table: FILES");
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE REMOVE_ORPHAN_FILES"))
                 .hasMessage("This connector does not support table procedures");
     }

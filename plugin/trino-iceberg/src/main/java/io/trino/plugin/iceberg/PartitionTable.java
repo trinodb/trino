@@ -94,7 +94,7 @@ public class PartitionTable
 
         ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
 
-        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema());
+        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema(), this.typeManager);
         partitionColumnType.ifPresent(icebergPartitionColumn ->
                 columnMetadataBuilder.add(new ColumnMetadata("partition", icebergPartitionColumn.rowType)));
 
@@ -170,7 +170,7 @@ public class PartitionTable
         return result;
     }
 
-    private Optional<IcebergPartitionColumn> getPartitionColumnType(List<PartitionField> fields, Schema schema)
+    static Optional<IcebergPartitionColumn> getPartitionColumnType(List<PartitionField> fields, Schema schema, TypeManager typeManager)
     {
         if (fields.isEmpty()) {
             return Optional.empty();
@@ -339,8 +339,8 @@ public class PartitionTable
     @VisibleForTesting
     static class StructLikeWrapperWithFieldIdToIndex
     {
-        private final StructLikeWrapper structLikeWrapper;
-        private final Map<Integer, Integer> fieldIdToIndex;
+        final StructLikeWrapper structLikeWrapper;
+        final Map<Integer, Integer> fieldIdToIndex;
 
         public StructLikeWrapperWithFieldIdToIndex(StructLikeWrapper structLikeWrapper, Types.StructType structType)
         {
@@ -373,7 +373,7 @@ public class PartitionTable
         }
     }
 
-    private static class IcebergPartitionColumn
+    static class IcebergPartitionColumn
     {
         private final RowType rowType;
         private final List<Integer> fieldIds;

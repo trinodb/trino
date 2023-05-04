@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.plugin.iceberg.IcebergFileFormat.METADATA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -77,6 +78,7 @@ public class TestIcebergMigrateProcedure
     public static Object[][] fileFormats()
     {
         return Stream.of(IcebergFileFormat.values())
+                .filter(format -> !METADATA.equals(format))
                 .map(fileFormat -> new Object[] {fileFormat})
                 .toArray(Object[][]::new);
     }

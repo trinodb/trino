@@ -82,6 +82,7 @@ public class TestIcebergRegisterTableProcedure
     {
         return Stream.of(IcebergFileFormat.values())
                 .map(icebergFileFormat -> new Object[] {icebergFileFormat})
+                .filter(format -> !format[0].equals(IcebergFileFormat.METADATA))
                 .toArray(Object[][]::new);
     }
 

@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg.util;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -120,75 +121,66 @@ public final class PageListBuilder
 
     public void appendVarchar(String value)
     {
-        VARCHAR.writeString(nextColumn(), value);
+        if (checkNonNull(value)) {
+            VARCHAR.writeString(nextColumn(), value);
+        }
     }
 
-    public void appendVarbinary(Slice value)
+    public void appendVarbinary(ByteBuffer value)
     {
-        VARBINARY.writeSlice(nextColumn(), value);
+        if (checkNonNull(value)) {
+            VARBINARY.writeSlice(nextColumn(), Slices.wrappedBuffer(value));
+        }
     }
 
     public void appendIntegerArray(Iterable<Integer> values)
     {
-        BlockBuilder column = nextColumn();
-        BlockBuilder array = column.beginBlockEntry();
-        for (Integer value : values) {
-            INTEGER.writeLong(array, value);
+        if (checkNonNull(values)) {
+            BlockBuilder column = nextColumn();
+            BlockBuilder array = column.beginBlockEntry();
+            for (Integer value : values) {
+                INTEGER.writeLong(array, value);
+            }
+            column.closeEntry();
         }
-        column.closeEntry();
     }
 
     public void appendBigintArray(Iterable<Long> values)
     {
-        BlockBuilder column = nextColumn();
-        BlockBuilder array = column.beginBlockEntry();
-        for (Long value : values) {
-            BIGINT.writeLong(array, value);
+        if (checkNonNull(values)) {
+            BlockBuilder column = nextColumn();
+            BlockBuilder array = column.beginBlockEntry();
+            for (Long value : values) {
+                BIGINT.writeLong(array, value);
+            }
+            column.closeEntry();
         }
-        column.closeEntry();
-    }
-
-    public void appendVarcharArray(Iterable<String> values)
-    {
-        BlockBuilder column = nextColumn();
-        BlockBuilder array = column.beginBlockEntry();
-        for (String value : values) {
-            VARCHAR.writeString(array, value);
-        }
-        column.closeEntry();
     }
 
     public void appendVarcharVarcharMap(Map<String, String> values)
     {
-        BlockBuilder column = nextColumn();
-        BlockBuilder map = column.beginBlockEntry();
-        values.forEach((key, value) -> {
-            VARCHAR.writeString(map, key);
-            VARCHAR.writeString(map, value);
-        });
-        column.closeEntry();
+        if (checkNonNull(values)) {
+            BlockBuilder column = nextColumn();
+            BlockBuilder map = column.beginBlockEntry();
+            values.forEach((key, value) -> {
+                VARCHAR.writeString(map, key);
+                VARCHAR.writeString(map, value);
+            });
+            column.closeEntry();
+        }
     }
 
     public void appendIntegerBigintMap(Map<Integer, Long> values)
     {
-        BlockBuilder column = nextColumn();
-        BlockBuilder map = column.beginBlockEntry();
-        values.forEach((key, value) -> {
-            INTEGER.writeLong(map, key);
-            BIGINT.writeLong(map, value);
-        });
-        column.closeEntry();
-    }
-
-    public void appendIntegerVarcharMap(Map<Integer, String> values)
-    {
-        BlockBuilder column = nextColumn();
-        BlockBuilder map = column.beginBlockEntry();
-        values.forEach((key, value) -> {
-            INTEGER.writeLong(map, key);
-            VARCHAR.writeString(map, value);
-        });
-        column.closeEntry();
+        if (checkNonNull(values)) {
+            BlockBuilder column = nextColumn();
+            BlockBuilder map = column.beginBlockEntry();
+            values.forEach((key, value) -> {
+                INTEGER.writeLong(map, key);
+                BIGINT.writeLong(map, value);
+            });
+            column.closeEntry();
+        }
     }
 
     public BlockBuilder nextColumn()

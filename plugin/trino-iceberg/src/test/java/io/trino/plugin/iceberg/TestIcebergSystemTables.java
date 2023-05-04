@@ -254,20 +254,23 @@ public class TestIcebergSystemTables
     public void testFilesTable()
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$files\"",
-                "VALUES ('content', 'integer', '', '')," +
-                        "('file_path', 'varchar', '', '')," +
-                        "('file_format', 'varchar', '', '')," +
-                        "('record_count', 'bigint', '', '')," +
-                        "('file_size_in_bytes', 'bigint', '', '')," +
-                        "('column_sizes', 'map(integer, bigint)', '', '')," +
-                        "('value_counts', 'map(integer, bigint)', '', '')," +
-                        "('null_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('nan_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
-                        "('key_metadata', 'varbinary', '', '')," +
-                        "('split_offsets', 'array(bigint)', '', '')," +
-                        "('equality_ids', 'array(integer)', '', '')");
+                "VALUES ('content', 'integer', '', 'Contents of the file: 0=data, 1=position deletes, 2=equality deletes')," +
+                "('file_path', 'varchar', '', 'Location URI with FS scheme')," +
+                "('file_format', 'varchar', '', 'File format name: avro, orc, or parquet')," +
+                "('spec_id', 'integer', '', 'Partition spec ID')," +
+                "('partition', 'row(_date date)', '', 'Partition data tuple, schema based on the partition spec')," +
+                "('record_count', 'bigint', '', 'Number of records in the file')," +
+                "('file_size_in_bytes', 'bigint', '', 'Total file size in bytes')," +
+                "('column_sizes', 'map(integer, bigint)', '', 'Map of column id to total size on disk')," +
+                "('value_counts', 'map(integer, bigint)', '', 'Map of column id to total count, including null and NaN')," +
+                "('null_value_counts', 'map(integer, bigint)', '', 'Map of column id to null value count')," +
+                "('nan_value_counts', 'map(integer, bigint)', '', 'Map of column id to number of NaN values in the column')," +
+                "('lower_bounds', 'map(varchar, varchar)', '', '')," +
+                "('upper_bounds', 'map(varchar, varchar)', '', '')," +
+                "('key_metadata', 'varbinary', '', 'Encryption key metadata blob')," +
+                "('split_offsets', 'array(bigint)', '', 'Splittable offsets')," +
+                "('equality_ids', 'array(integer)', '', 'Equality comparison field IDs')," +
+                "('sort_order_id', 'integer', '', 'Sort order ID')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
     }
 }

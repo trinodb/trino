@@ -20,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -79,5 +80,15 @@ public final class IcebergTableName
         }
         String typeString = match.group("type");
         return typeString == null;
+    }
+
+    public static boolean isFilesTable(String name)
+    {
+        return tableTypeFrom(name).stream().anyMatch(tableType -> tableType.equals(FILES));
+    }
+
+    public static boolean shouldDistributeReads(String name)
+    {
+        return isDataTable(name) || isFilesTable(name);
     }
 }

@@ -32,6 +32,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -47,6 +48,8 @@ import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.FilesMetadataTable;
+import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
@@ -176,14 +179,21 @@ public final class IcebergUtil
 
     public static Table loadIcebergTable(TrinoCatalog catalog, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
+        String tableName = IcebergTableName.tableNameFrom(table.getTableName());
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 catalog,
                 session,
                 table.getSchemaName(),
-                table.getTableName(),
+                tableName,
                 Optional.empty(),
                 Optional.empty());
-        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
+        Table baseTable = new BaseTable(operations, quotedTableName(new SchemaTableName(table.getSchemaName(), tableName)), TRINO_METRICS_REPORTER);
+        TableType tableType = IcebergTableName.tableTypeFrom(table.getTableName()).orElse(TableType.DATA);
+        return switch (tableType) {
+            case DATA -> baseTable;
+            case FILES -> new FilesMetadataTable(baseTable);
+            default -> throw new TableNotFoundException(table);
+        };
     }
 
     public static Table getIcebergTableWithMetadata(
@@ -201,7 +211,13 @@ public final class IcebergUtil
                 Optional.empty(),
                 Optional.empty());
         operations.initializeFromMetadata(tableMetadata);
-        return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
+        TableType tableType = IcebergTableName.tableTypeFrom(table.getTableName()).orElse(TableType.DATA);
+        BaseTable baseTable = new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
+        return switch (tableType) {
+            case DATA -> baseTable;
+            case FILES -> new FilesMetadataTable(baseTable);
+            default -> throw new TableNotFoundException(table);
+        };
     }
 
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
@@ -223,7 +239,7 @@ public final class IcebergUtil
             properties.put(LOCATION_PROPERTY, icebergTable.location());
         }
 
-        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        int formatVersion = ((HasTableOperations) icebergTable).operations().current().formatVersion();
         properties.put(FORMAT_VERSION_PROPERTY, formatVersion);
 
         // iceberg ORC format bloom filter properties

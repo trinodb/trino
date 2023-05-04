@@ -59,6 +59,7 @@ import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteFilter;
 import io.trino.plugin.iceberg.delete.PositionDeleteFilter;
 import io.trino.plugin.iceberg.delete.RowPredicate;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -294,6 +295,26 @@ public class IcebergPageSourceProvider
         TrinoInputFile inputfile = isUseFileSizeFromMetadata(session)
                 ? fileSystem.newInputFile(Location.of(split.getPath()), split.getFileSize())
                 : fileSystem.newInputFile(Location.of(split.getPath()));
+
+        if (split.getFileFormat() == IcebergFileFormat.METADATA) {
+            Schema baseTableSchema = table.getBaseTableSchema().map(SchemaParser::fromJson).orElseThrow(() -> new IllegalArgumentException("manifest reader must have a base schema"));
+            PartitionSpec baseTablePartitionSpec = table.getBaseTablePartitionSpec().map(spec -> PartitionSpecParser.fromJson(baseTableSchema, spec)).orElse(PartitionSpec.unpartitioned());
+            Optional<Map<Integer, PartitionSpec>> baseTablePartitionSpecs = table.getBaseTablePartitionSpecs().map(specs ->
+                    specs.entrySet().stream()
+                            .collect(toImmutableMap(
+                                    Map.Entry<Integer, String>::getKey,
+                                    entry -> PartitionSpecParser.fromJson(baseTableSchema, entry.getValue()))));
+            return new ManifestPageSource(
+                        table.getSchemaTableName(),
+                        baseTableSchema,
+                        baseTablePartitionSpec,
+                        baseTablePartitionSpecs,
+                        split.getLength(),
+                        icebergColumns,
+                        partitionSpec.specId(),
+                        new ForwardingFileIo(fileSystem),
+                        inputfile);
+        }
 
         ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions = createDataPageSource(
                 session,

@@ -21,6 +21,7 @@ import io.jsonwebtoken.jackson.io.JacksonSerializer;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
+import io.trino.plugin.iceberg.IcebergTableName;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.FilesMetadataTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
@@ -254,9 +256,16 @@ public class TrinoRestCatalog
             return tableCache.computeIfAbsent(
                     schemaTableName.toString(),
                     key -> {
-                        BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toIdentifier(schemaTableName));
+                        SchemaTableName tableName = new SchemaTableName(schemaTableName.getSchemaName(), IcebergTableName.tableNameFrom(schemaTableName.getTableName()));
+                        BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toIdentifier(tableName));
                         // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
-                        return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName));
+                        baseTable = new BaseTable(baseTable.operations(), quotedTableName(tableName));
+                        if (IcebergTableName.isFilesTable(schemaTableName.getTableName())) {
+                            return new FilesMetadataTable(baseTable);
+                        }
+                        else {
+                            return baseTable;
+                        }
                     });
         }
         catch (NoSuchTableException e) {

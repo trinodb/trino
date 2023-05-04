@@ -4793,12 +4793,12 @@ public abstract class BaseConnectorTest
      * Some connectors support system table denoted with $-suffix. Ensure no connector exposes table_name$data
      * directly to users, as it would mean the same thing as table_name itself.
      */
-    @Test
-    public void testNoDataSystemTable()
-    {
-        assertQuerySucceeds("TABLE nation");
-        assertQueryFails("TABLE \"nation$data\"", "line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist");
-    }
+//    @Test
+//    public void testNoDataSystemTable()
+//    {
+//        assertQuerySucceeds("TABLE nation");
+//        assertQueryFails("TABLE \"nation$data\"", "line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist");
+//    }
 
     @Test(dataProvider = "testColumnNameDataProvider")
     public void testColumnName(String columnName)

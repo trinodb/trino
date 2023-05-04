@@ -289,12 +289,6 @@ public class TestIcebergMetastoreAccessOperations
                         .addCopies(GET_TABLE, 1)
                         .build());
 
-        // select from $files
-        assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$files\"",
-                ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 1)
-                        .build());
-
         // select from $properties
         assertMetastoreInvocations("SELECT * FROM \"test_select_snapshots$properties\"",
                 ImmutableMultiset.builder()

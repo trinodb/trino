@@ -59,6 +59,12 @@ public class IcebergTableHandle
     private final boolean recordScannedFiles;
     private final Optional<DataSize> maxScannedFileSize;
 
+    private final Optional<String> baseTableSchema;
+
+    private final Optional<Map<Integer, String>> baseTablePartitionSpecs;
+
+    private final Optional<String> baseTablePartitionSpec;
+
     @JsonCreator
     public static IcebergTableHandle fromJsonForDeserializationOnly(
             @JsonProperty("schemaName") String schemaName,
@@ -73,7 +79,10 @@ public class IcebergTableHandle
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("baseTableSchema") Optional<String> baseTableSchema,
+            @JsonProperty("baseTablePartitionSpec") Optional<String> baseTablePartitionSpec,
+            @JsonProperty("baseTablePartitionSpecs") Optional<Map<Integer, String>> baseTablePartitionSpecs)
     {
         return new IcebergTableHandle(
                 schemaName,
@@ -90,7 +99,10 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 false,
-                Optional.empty());
+                Optional.empty(),
+                baseTableSchema,
+                baseTablePartitionSpec,
+                baseTablePartitionSpecs);
     }
 
     public IcebergTableHandle(
@@ -110,6 +122,47 @@ public class IcebergTableHandle
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize)
     {
+        this(
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                recordScannedFiles,
+                maxScannedFileSize,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    public IcebergTableHandle(
+            String schemaName,
+            String tableName,
+            TableType tableType,
+            Optional<Long> snapshotId,
+            String tableSchemaJson,
+            Optional<String> partitionSpecJson,
+            int formatVersion,
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate,
+            TupleDomain<IcebergColumnHandle> enforcedPredicate,
+            Set<IcebergColumnHandle> projectedColumns,
+            Optional<String> nameMappingJson,
+            String tableLocation,
+            Map<String, String> storageProperties,
+            boolean recordScannedFiles,
+            Optional<DataSize> maxScannedFileSize,
+            Optional<String> baseTableSchema,
+            Optional<String> baseTablePartitionSpec,
+            Optional<Map<Integer, String>> baseTablePartitionSpecs)
+    {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
@@ -125,6 +178,9 @@ public class IcebergTableHandle
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
+        this.baseTableSchema = requireNonNull(baseTableSchema, "baseTableSchema is null");
+        this.baseTablePartitionSpec = requireNonNull(baseTablePartitionSpec, "baseTablePartitionSpec is null");
+        this.baseTablePartitionSpecs = requireNonNull(baseTablePartitionSpecs, "basePartitionSpecs is null");
     }
 
     @JsonProperty
@@ -228,6 +284,24 @@ public class IcebergTableHandle
         return new SchemaTableName(schemaName, tableName + "$" + tableType.name().toLowerCase(Locale.ROOT));
     }
 
+    @JsonProperty
+    public Optional<String> getBaseTableSchema()
+    {
+        return baseTableSchema;
+    }
+
+    @JsonProperty
+    public Optional<Map<Integer, String>> getBaseTablePartitionSpecs()
+    {
+        return baseTablePartitionSpecs;
+    }
+
+    @JsonProperty
+    public Optional<String> getBaseTablePartitionSpec()
+    {
+        return baseTablePartitionSpec;
+    }
+
     public IcebergTableHandle withProjectedColumns(Set<IcebergColumnHandle> projectedColumns)
     {
         return new IcebergTableHandle(
@@ -245,7 +319,10 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 recordScannedFiles,
-                maxScannedFileSize);
+                maxScannedFileSize,
+                baseTableSchema,
+                baseTablePartitionSpec,
+                baseTablePartitionSpecs);
     }
 
     public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -265,7 +342,10 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 recordScannedFiles,
-                Optional.of(maxScannedFileSize));
+                Optional.of(maxScannedFileSize),
+                baseTableSchema,
+                baseTablePartitionSpec,
+                baseTablePartitionSpecs);
     }
 
     @Override
@@ -293,7 +373,10 @@ public class IcebergTableHandle
                 Objects.equals(nameMappingJson, that.nameMappingJson) &&
                 Objects.equals(tableLocation, that.tableLocation) &&
                 Objects.equals(storageProperties, that.storageProperties) &&
-                Objects.equals(maxScannedFileSize, that.maxScannedFileSize);
+                Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
+                Objects.equals(baseTableSchema, that.baseTableSchema) &&
+                Objects.equals(baseTablePartitionSpec, that.baseTablePartitionSpec) &&
+                Objects.equals(baseTablePartitionSpecs, that.baseTablePartitionSpecs);
     }
 
     @Override
@@ -314,7 +397,10 @@ public class IcebergTableHandle
                 tableLocation,
                 storageProperties,
                 recordScannedFiles,
-                maxScannedFileSize);
+                maxScannedFileSize,
+                baseTableSchema,
+                baseTablePartitionSpec,
+                baseTablePartitionSpecs);
     }
 
     @Override

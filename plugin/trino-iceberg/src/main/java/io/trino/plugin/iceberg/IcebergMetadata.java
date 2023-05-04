@@ -107,6 +107,7 @@ import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
@@ -128,6 +129,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.TrinoMetadataTable;
 import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.UpdateSchema;
@@ -210,6 +212,8 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatist
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
+import static io.trino.plugin.iceberg.IcebergTableName.shouldDistributeReads;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
@@ -360,14 +364,15 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
         }
 
-        if (!IcebergTableName.isDataTable(tableName.getTableName())) {
+        if (!shouldDistributeReads(tableName.getTableName())) {
             // Pretend the table does not exist to produce better error message in case of table redirects to Hive
             return null;
         }
 
-        BaseTable table;
+        Table table;
+//        tableName = isDataTable(tableName.getTableName()) ? new SchemaTableName(tableName.getSchemaName(), tableNameFrom(tableName.getTableName())) : tableName;
         try {
-            table = (BaseTable) catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), tableName.getTableName()));
+            table = catalog.loadTable(session, tableName);
         }
         catch (TableNotFoundException e) {
             return null;
@@ -396,14 +401,32 @@ public class IcebergMetadata
 
         Map<String, String> tableProperties = table.properties();
         String nameMappingJson = tableProperties.get(TableProperties.DEFAULT_NAME_MAPPING);
+
+        if (!(table instanceof HasTableOperations)) {
+            throw new VerifyException("table must have operations");
+        }
+
+        Optional<String> baseTableSchema = Optional.empty();
+        Optional<String> baseTablePartitionSpec = Optional.empty();
+        Optional<Map<Integer, String>> baseTablePartitionSpecs = Optional.empty();
+        if (table instanceof TrinoMetadataTable) {
+            TrinoMetadataTable metadataTable = (TrinoMetadataTable) table;
+            baseTableSchema = Optional.of(SchemaParser.toJson(metadataTable.baseTable().schema()));
+            baseTablePartitionSpec = Optional.of(PartitionSpecParser.toJson(metadataTable.baseTable().spec()));
+            baseTablePartitionSpecs = Optional.of(metadataTable.baseTable().specs()
+                    .entrySet()
+                    .stream()
+                    .collect(toImmutableMap(Map.Entry<Integer, PartitionSpec>::getKey, entry -> PartitionSpecParser.toJson(entry.getValue()))));
+        }
+
         return new IcebergTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                DATA,
+                IcebergTableName.tableTypeFrom(tableName.getTableName()).orElse(DATA),
                 tableSnapshotId,
                 SchemaParser.toJson(tableSchema),
                 partitionSpec.map(PartitionSpecParser::toJson),
-                table.operations().current().formatVersion(),
+                ((HasTableOperations) table).operations().current().formatVersion(),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 ImmutableSet.of(),
@@ -411,7 +434,10 @@ public class IcebergMetadata
                 table.location(),
                 table.properties(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                baseTableSchema,
+                baseTablePartitionSpec,
+                baseTablePartitionSpecs);
     }
 
     private static long getSnapshotIdFromVersion(Table table, ConnectorTableVersion version)
@@ -455,12 +481,12 @@ public class IcebergMetadata
 
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        if (IcebergTableName.isDataTable(tableName.getTableName())) {
+        if (shouldDistributeReads(tableName.getTableName())) {
             return Optional.empty();
         }
 
         // Only when dealing with an actual system table proceed to retrieve the base table for the system table
-        String name = IcebergTableName.tableNameFrom(tableName.getTableName());
+        String name = tableNameFrom(tableName.getTableName());
         Table table;
         try {
             table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name));
@@ -479,12 +505,11 @@ public class IcebergMetadata
         }
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), IcebergTableName.tableNameWithType(name, tableType.get()));
         return switch (tableType.get()) {
-            case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
+            case DATA, FILES -> throw new VerifyException("Unexpected " + tableType.get().name() + " table type"); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS -> Optional.of(new PartitionTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
             case MANIFESTS -> Optional.of(new ManifestsTable(systemTableName, table, getCurrentSnapshotId(table)));
-            case FILES -> Optional.of(new FilesTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
             case PROPERTIES -> Optional.of(new PropertiesTable(systemTableName, table));
             case REFS -> Optional.of(new RefsTable(systemTableName, table));
         };
@@ -605,6 +630,7 @@ public class IcebergMetadata
         }
         columnHandles.put(FILE_PATH.getColumnName(), pathColumnHandle());
         columnHandles.put(FILE_MODIFIED_TIME.getColumnName(), fileModifiedTimeColumnHandle());
+
         return columnHandles.buildOrThrow();
     }
 

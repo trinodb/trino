@@ -601,7 +601,7 @@ public class TestIcebergStatistics
     {
         assertThatThrownBy(() -> query("ANALYZE \"nation$files\""))
                 // The error message isn't clear to the user, but it doesn't matter
-                .hasMessage("Cannot record write for catalog not part of transaction");
+                .hasMessage("Cannot analyze non-DATA table: FILES");
         assertThatThrownBy(() -> query("ANALYZE \"nation$snapshots\""))
                 // The error message isn't clear to the user, but it doesn't matter
                 .hasMessage("Cannot record write for catalog not part of transaction");
@@ -698,7 +698,7 @@ public class TestIcebergStatistics
     public void testDropStatsSystemTable()
     {
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE DROP_EXTENDED_STATS"))
-                .hasMessage("This connector does not support table procedures");
+                .hasMessage("Cannot execute table procedure DROP_EXTENDED_STATS on non-DATA table: FILES");
         assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE DROP_EXTENDED_STATS"))
                 .hasMessage("This connector does not support table procedures");
     }
