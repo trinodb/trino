@@ -74,11 +74,12 @@ class TestLocation
         assertLocation("/abc/xyz", "abc/xyz");
         assertLocation("/foo://host:port/path", "foo://host:port/path");
 
-        // special handling for file URIs without hostnames
+        // special handling for Locations without hostnames
         assertLocation("file:/", "file", "");
         assertLocation("file:/hello.txt", "file", "hello.txt");
         assertLocation("file:/some/path", "file", "some/path");
         assertLocation("file:/some@what/path", "file", "some@what/path");
+        assertLocation("hdfs:/a/hadoop/path.csv", "hdfs", "a/hadoop/path.csv");
 
         // invalid locations
         assertThatThrownBy(() -> Location.of(null))
@@ -96,9 +97,6 @@ class TestLocation
         assertThatThrownBy(() -> Location.of("scheme://host:invalid/path"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("port");
-        assertThatThrownBy(() -> Location.of("scheme:/path"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("scheme");
 
         // fragment is not allowed
         assertThatThrownBy(() -> Location.of("scheme://userInfo@host/some/path#fragement"))
