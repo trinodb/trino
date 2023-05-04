@@ -20,14 +20,15 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Optional;
 
+import static io.trino.plugin.bigquery.CredentialsOptionsConfigurer.calculateBillingProjectId;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestBigQueryClientFactory
+public class TestCredentialsOptionsConfigurer
 {
     @Test
     public void testConfigurationOnly()
     {
-        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.of("pid"), Optional.empty());
+        String projectId = calculateBillingProjectId(Optional.of("pid"), Optional.empty());
         assertThat(projectId).isEqualTo("pid");
     }
 
@@ -35,7 +36,7 @@ public class TestBigQueryClientFactory
     public void testCredentialsOnly()
             throws Exception
     {
-        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.empty(), credentials());
+        String projectId = calculateBillingProjectId(Optional.empty(), credentials());
         assertThat(projectId).isEqualTo("presto-bq-credentials-test");
     }
 
@@ -43,7 +44,7 @@ public class TestBigQueryClientFactory
     public void testBothConfigurationAndCredentials()
             throws Exception
     {
-        String projectId = BigQueryClientFactory.calculateBillingProjectId(Optional.of("pid"), credentials());
+        String projectId = calculateBillingProjectId(Optional.of("pid"), credentials());
         assertThat(projectId).isEqualTo("pid");
     }
 
