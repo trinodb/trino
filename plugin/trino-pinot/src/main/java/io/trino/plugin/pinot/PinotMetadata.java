@@ -228,12 +228,6 @@ public class PinotMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableHandle table)
-    {
-        return Optional.empty();
-    }
-
-    @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         PinotTableHandle handle = (PinotTableHandle) table;
