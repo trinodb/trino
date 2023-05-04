@@ -23,7 +23,6 @@ import io.trino.plugin.base.logging.SessionInterpolatedValues;
 
 import javax.annotation.PostConstruct;
 import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -38,8 +37,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @DefunctConfig("bigquery.case-insensitive-name-matching.cache-ttl")
 public class BigQueryConfig
 {
-    private static final int MAX_RPC_CONNECTIONS = 1024;
-
     public static final int DEFAULT_MAX_READ_ROWS_RETRIES = 3;
     public static final String VIEWS_ENABLED = "bigquery.views-enabled";
     public static final String EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED = "bigquery.experimental.arrow-serialization.enabled";
@@ -59,15 +56,8 @@ public class BigQueryConfig
     private Duration serviceCacheTtl = new Duration(3, MINUTES);
     private Duration metadataCacheTtl = new Duration(0, MILLISECONDS);
     private boolean queryResultsCacheEnabled;
-
     private String queryLabelName;
     private String queryLabelFormat;
-
-    private int rpcInitialChannelCount = 1;
-    private int rpcMinChannelCount = 1;
-    private int rpcMaxChannelCount = 1;
-    private int minRpcPerChannel;
-    private int maxRpcPerChannel = Integer.MAX_VALUE;
 
     public Optional<String> getProjectId()
     {
@@ -301,79 +291,6 @@ public class BigQueryConfig
     public BigQueryConfig setQueryLabelName(String queryLabelName)
     {
         this.queryLabelName = queryLabelName;
-        return this;
-    }
-
-    @Min(1)
-    @Max(MAX_RPC_CONNECTIONS)
-    public int getRpcInitialChannelCount()
-    {
-        return rpcInitialChannelCount;
-    }
-
-    @ConfigHidden
-    @Config("bigquery.channel-pool.initial-size")
-    public BigQueryConfig setRpcInitialChannelCount(int rpcInitialChannelCount)
-    {
-        this.rpcInitialChannelCount = rpcInitialChannelCount;
-        return this;
-    }
-
-    @Min(1)
-    @Max(MAX_RPC_CONNECTIONS)
-    public int getRpcMinChannelCount()
-    {
-        return rpcMinChannelCount;
-    }
-
-    @ConfigHidden
-    @Config("bigquery.channel-pool.min-size")
-    public BigQueryConfig setRpcMinChannelCount(int rpcMinChannelCount)
-    {
-        this.rpcMinChannelCount = rpcMinChannelCount;
-        return this;
-    }
-
-    @Min(1)
-    @Max(MAX_RPC_CONNECTIONS)
-    public int getRpcMaxChannelCount()
-    {
-        return rpcMaxChannelCount;
-    }
-
-    @ConfigHidden
-    @Config("bigquery.channel-pool.max-size")
-    public BigQueryConfig setRpcMaxChannelCount(int rpcMaxChannelCount)
-    {
-        this.rpcMaxChannelCount = rpcMaxChannelCount;
-        return this;
-    }
-
-    @Min(0)
-    public int getMinRpcPerChannel()
-    {
-        return minRpcPerChannel;
-    }
-
-    @ConfigHidden
-    @Config("bigquery.channel-pool.min-rpc-per-channel")
-    public BigQueryConfig setMinRpcPerChannel(int minRpcPerChannel)
-    {
-        this.minRpcPerChannel = minRpcPerChannel;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxRpcPerChannel()
-    {
-        return maxRpcPerChannel;
-    }
-
-    @ConfigHidden
-    @Config("bigquery.channel-pool.max-rpc-per-channel")
-    public BigQueryConfig setMaxRpcPerChannel(int maxRpcPerChannel)
-    {
-        this.maxRpcPerChannel = maxRpcPerChannel;
         return this;
     }
 

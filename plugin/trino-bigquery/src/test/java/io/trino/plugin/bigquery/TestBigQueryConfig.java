@@ -50,12 +50,7 @@ public class TestBigQueryConfig
                 .setArrowSerializationEnabled(false)
                 .setQueryResultsCacheEnabled(false)
                 .setQueryLabelName(null)
-                .setQueryLabelFormat(null)
-                .setRpcInitialChannelCount(1)
-                .setMinRpcPerChannel(0)
-                .setMaxRpcPerChannel(Integer.MAX_VALUE)
-                .setRpcMinChannelCount(1)
-                .setRpcMaxChannelCount(1));
+                .setQueryLabelFormat(null));
     }
 
     @Test
@@ -79,11 +74,6 @@ public class TestBigQueryConfig
                 .put("bigquery.query-results-cache.enabled", "true")
                 .put("bigquery.job.label-name", "trino_job_name")
                 .put("bigquery.job.label-format", "$TRACE_TOKEN")
-                .put("bigquery.channel-pool.initial-size", "11")
-                .put("bigquery.channel-pool.min-size", "12")
-                .put("bigquery.channel-pool.max-size", "13")
-                .put("bigquery.channel-pool.min-rpc-per-channel", "14")
-                .put("bigquery.channel-pool.max-rpc-per-channel", "15")
                 .buildOrThrow();
 
         BigQueryConfig expected = new BigQueryConfig()
@@ -103,12 +93,7 @@ public class TestBigQueryConfig
                 .setMetadataCacheTtl(new Duration(5, DAYS))
                 .setQueryResultsCacheEnabled(true)
                 .setQueryLabelName("trino_job_name")
-                .setQueryLabelFormat("$TRACE_TOKEN")
-                .setRpcInitialChannelCount(11)
-                .setRpcMinChannelCount(12)
-                .setRpcMaxChannelCount(13)
-                .setMinRpcPerChannel(14)
-                .setMaxRpcPerChannel(15);
+                .setQueryLabelFormat("$TRACE_TOKEN");
 
         assertFullMapping(properties, expected);
     }

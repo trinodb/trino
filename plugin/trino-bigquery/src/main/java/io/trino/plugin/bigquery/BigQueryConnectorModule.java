@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.logging.FormatInterpolator;
 import io.trino.plugin.base.logging.SessionInterpolatedValues;
@@ -68,12 +69,17 @@ public class BigQueryConnectorModule
             binder.bind(BigQueryPageSinkProvider.class).in(Scopes.SINGLETON);
             binder.bind(ViewMaterializationCache.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(BigQueryConfig.class);
+            configBinder(binder).bindConfig(BigQueryRpcConfig.class);
             install(conditionalModule(
                     BigQueryConfig.class,
                     BigQueryConfig::isArrowSerializationEnabled,
                     ClientModule::verifyPackageAccessAllowed));
             newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
             newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(BigQuerySessionProperties.class).in(Scopes.SINGLETON);
+
+            Multibinder<BigQueryOptionsConfigurer> optionsConfigurers = newSetBinder(binder, BigQueryOptionsConfigurer.class);
+            optionsConfigurers.addBinding().to(CredentialsOptionsConfigurer.class).in(Scopes.SINGLETON);
+            optionsConfigurers.addBinding().to(HeaderOptionsConfigurer.class).in(Scopes.SINGLETON);
         }
 
         @Provides
