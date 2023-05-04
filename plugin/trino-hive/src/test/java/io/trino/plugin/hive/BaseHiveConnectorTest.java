@@ -8012,6 +8012,11 @@ public abstract class BaseHiveConnectorTest
         for (boolean enabled : ImmutableList.of(true, false)) {
             formats.add(new TestingHiveStorageFormat(
                     Session.builder(session)
+                            .setCatalogSessionProperty(catalog, "orc_native_zstd_decompressor_enabled", Boolean.toString(enabled))
+                            .build(),
+                    HiveStorageFormat.ORC));
+            formats.add(new TestingHiveStorageFormat(
+                    Session.builder(session)
                             .setCatalogSessionProperty(catalog, "parquet_native_zstd_decompressor_enabled", Boolean.toString(enabled))
                             .build(),
                     HiveStorageFormat.PARQUET));

@@ -32,6 +32,7 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
 {
     static final int COMPRESSION_BLOCK_SIZE = 256 * 1024;
     static final OrcDataSourceId ORC_DATA_SOURCE_ID = new OrcDataSourceId("test");
+    static final boolean NATIVE_ZSTD_DECOMPRESSOR_ENABLED = true;
 
     protected void testWriteValue(List<List<T>> groups)
             throws IOException

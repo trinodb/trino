@@ -152,6 +152,19 @@ public class OrcReaderConfig
         return this;
     }
 
+    @Config("hive.orc.native-zstd-decompressor.enabled")
+    @ConfigDescription("Enable using native zstd library for faster decompression of ORC files")
+    public OrcReaderConfig setNativeZstdDecompressorEnabled(boolean nativeZstdDecompressorEnabled)
+    {
+        options = options.withNativeZstdDecompressorEnabled(nativeZstdDecompressorEnabled);
+        return this;
+    }
+
+    public boolean isNativeZstdDecompressorEnabled()
+    {
+        return options.isNativeZstdDecompressorEnabled();
+    }
+
     public boolean isReadLegacyShortZoneId()
     {
         return options.isReadLegacyShortZoneId();

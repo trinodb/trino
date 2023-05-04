@@ -26,7 +26,7 @@ public interface OrcDecompressor
 {
     int MAX_BUFFER_SIZE = toIntExact(DataSize.of(4, MEGABYTE).toBytes());
 
-    static Optional<OrcDecompressor> createOrcDecompressor(OrcDataSourceId orcDataSourceId, CompressionKind compression, int bufferSize)
+    static Optional<OrcDecompressor> createOrcDecompressor(OrcDataSourceId orcDataSourceId, CompressionKind compression, int bufferSize, boolean isNativeZstdDecompressorEnabled)
             throws OrcCorruptionException
     {
         if ((compression != NONE) && ((bufferSize <= 0) || (bufferSize > MAX_BUFFER_SIZE))) {
@@ -42,7 +42,7 @@ public interface OrcDecompressor
             case LZ4:
                 return Optional.of(new OrcLz4Decompressor(orcDataSourceId, bufferSize));
             case ZSTD:
-                return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize));
+                return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize, isNativeZstdDecompressorEnabled));
         }
         throw new OrcCorruptionException(orcDataSourceId, "Unknown compression type: " + compression);
     }

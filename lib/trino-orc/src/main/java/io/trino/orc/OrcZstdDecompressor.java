@@ -13,6 +13,7 @@
  */
 package io.trino.orc;
 
+import com.github.luben.zstd.Zstd;
 import io.airlift.compress.MalformedInputException;
 import io.airlift.compress.zstd.ZstdDecompressor;
 
@@ -24,16 +25,26 @@ class OrcZstdDecompressor
 {
     private final OrcDataSourceId orcDataSourceId;
     private final int maxBufferSize;
+    private final boolean isNativeZstdDecompressorEnabled;
     private final ZstdDecompressor decompressor = new ZstdDecompressor();
 
-    public OrcZstdDecompressor(OrcDataSourceId orcDataSourceId, int maxBufferSize)
+    public OrcZstdDecompressor(OrcDataSourceId orcDataSourceId, int maxBufferSize, boolean isNativeZstdDecompressorEnabled)
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
         this.maxBufferSize = maxBufferSize;
+        this.isNativeZstdDecompressorEnabled = isNativeZstdDecompressorEnabled;
     }
 
     @Override
     public int decompress(byte[] input, int offset, int length, OutputBuffer output)
+            throws OrcCorruptionException
+    {
+        return isNativeZstdDecompressorEnabled
+                ? decompressNativeZstd(input, offset, length, output)
+                : decompressAirlift(input, offset, length, output);
+    }
+
+    private int decompressAirlift(byte[] input, int offset, int length, OutputBuffer output)
             throws OrcCorruptionException
     {
         try {
@@ -44,6 +55,23 @@ class OrcZstdDecompressor
 
             byte[] buffer = output.initialize(toIntExact(uncompressedLength));
             return decompressor.decompress(input, offset, length, buffer, 0, buffer.length);
+        }
+        catch (MalformedInputException e) {
+            throw new OrcCorruptionException(e, orcDataSourceId, "Invalid compressed stream");
+        }
+    }
+
+    private int decompressNativeZstd(byte[] input, int offset, int length, OutputBuffer output)
+            throws OrcCorruptionException
+    {
+        try {
+            long uncompressedLength = Zstd.decompressedSize(input, offset, length);
+            if (uncompressedLength > maxBufferSize) {
+                throw new OrcCorruptionException(orcDataSourceId, "Zstd requires buffer (%s) larger than max size (%s)", uncompressedLength, maxBufferSize);
+            }
+
+            byte[] buffer = output.initialize(toIntExact(uncompressedLength));
+            return toIntExact(Zstd.decompressByteArray(buffer, 0, buffer.length, input, offset, length));
         }
         catch (MalformedInputException e) {
             throw new OrcCorruptionException(e, orcDataSourceId, "Invalid compressed stream");
