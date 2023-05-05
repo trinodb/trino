@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -230,26 +229,6 @@ public class IcebergTableHandle
     }
 
     public IcebergTableHandle withProjectedColumns(Set<IcebergColumnHandle> projectedColumns)
-    {
-        return new IcebergTableHandle(
-                schemaName,
-                tableName,
-                tableType,
-                snapshotId,
-                tableSchemaJson,
-                partitionSpecJson,
-                formatVersion,
-                unenforcedPredicate,
-                enforcedPredicate,
-                projectedColumns,
-                nameMappingJson,
-                tableLocation,
-                storageProperties,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
-    public IcebergTableHandle withRetryMode(RetryMode retryMode)
     {
         return new IcebergTableHandle(
                 schemaName,
