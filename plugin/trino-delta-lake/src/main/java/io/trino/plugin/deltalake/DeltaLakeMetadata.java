@@ -567,9 +567,7 @@ public class DeltaLakeMetadata
     {
         DeltaLakeTableHandle table = checkValidTableHandle(tableHandle);
         return table.getProjectedColumns()
-                .map(projectedColumns -> (List<DeltaLakeColumnHandle>) projectedColumns.stream()
-                        .map(DeltaLakeColumnHandle.class::cast) // TODO DeltaLakeTableHandle.projectedColumns should be a collection of DeltaLakeColumnHandle
-                        .collect(toImmutableList()))
+                .map(projectColumns -> (Collection<DeltaLakeColumnHandle>) projectColumns)
                 .orElseGet(() -> getColumns(table.getMetadataEntry())).stream()
                 // This method does not calculate column name for the projected columns
                 .peek(handle -> checkArgument(handle.isBaseColumn(), "Unsupported projected column: %s", handle))
@@ -2283,7 +2281,9 @@ public class DeltaLakeMetadata
         // all references are simple variables
         if (!isProjectionPushdownEnabled(session)
                 || columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
-            Set<ColumnHandle> projectedColumns = ImmutableSet.copyOf(assignments.values());
+            Set<DeltaLakeColumnHandle> projectedColumns = assignments.values().stream()
+                    .map(DeltaLakeColumnHandle.class::cast)
+                    .collect(toImmutableSet());
             // Check if column was projected already in previous call
             if (deltaLakeTableHandle.getProjectedColumns().isPresent()
                     && deltaLakeTableHandle.getProjectedColumns().get().equals(projectedColumns)) {
@@ -2306,7 +2306,7 @@ public class DeltaLakeMetadata
 
         Map<String, Assignment> newAssignments = new HashMap<>();
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
-        ImmutableSet.Builder<ColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<DeltaLakeColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
         for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
