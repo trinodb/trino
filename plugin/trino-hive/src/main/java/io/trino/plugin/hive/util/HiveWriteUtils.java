@@ -97,7 +97,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
@@ -516,11 +515,10 @@ public final class HiveWriteUtils
         return fileName.startsWith(queryId) || fileName.endsWith(queryId);
     }
 
-    public static Location createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
+    public static Location createTemporaryPath(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath, String temporaryStagingDirectoryPath)
     {
         // use a per-user temporary directory to avoid permission problems
-        String temporaryPrefix = getTemporaryStagingDirectoryPath(session)
-                .replace("${USER}", context.getIdentity().getUser());
+        String temporaryPrefix = temporaryStagingDirectoryPath.replace("${USER}", context.getIdentity().getUser());
 
         // use relative temporary directory on ViewFS
         if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {

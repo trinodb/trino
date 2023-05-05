@@ -88,9 +88,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
-import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
-import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
@@ -199,7 +197,9 @@ public class HiveWriterFactory
             NodeManager nodeManager,
             EventClient eventClient,
             HiveSessionProperties hiveSessionProperties,
-            HiveWriterStats hiveWriterStats)
+            HiveWriterStats hiveWriterStats,
+            boolean sortedWritingTempStagingPathEnabled,
+            String sortedWritingTempStagingPath)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.fileSystem = fileSystemFactory.create(session);
@@ -221,8 +221,8 @@ public class HiveWriterFactory
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.sortBufferSize = requireNonNull(sortBufferSize, "sortBufferSize is null");
         this.maxOpenSortFiles = maxOpenSortFiles;
-        this.sortedWritingTempStagingPathEnabled = isTemporaryStagingDirectoryEnabled(session);
-        this.sortedWritingTempStagingPath = getTemporaryStagingDirectoryPath(session);
+        this.sortedWritingTempStagingPathEnabled = sortedWritingTempStagingPathEnabled;
+        this.sortedWritingTempStagingPath = requireNonNull(sortedWritingTempStagingPath, "sortedWritingTempStagingPath is null");
         this.insertExistingPartitionsBehavior = getInsertExistingPartitionsBehavior(session);
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
 
