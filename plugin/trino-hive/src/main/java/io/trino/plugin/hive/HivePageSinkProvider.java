@@ -78,6 +78,8 @@ public class HivePageSinkProvider
     private final HiveWriterStats hiveWriterStats;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final DateTimeZone parquetTimeZone;
+    private final boolean temporaryStagingDirectoryDirectoryEnabled;
+    private final String temporaryStagingDirectoryPath;
 
     @Inject
     public HivePageSinkProvider(
@@ -116,6 +118,8 @@ public class HivePageSinkProvider
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
         this.parquetTimeZone = config.getParquetDateTimeZone();
+        this.temporaryStagingDirectoryDirectoryEnabled = config.isTemporaryStagingDirectoryEnabled();
+        this.temporaryStagingDirectoryPath = config.getTemporaryStagingDirectoryPath();
     }
 
     @Override
@@ -187,7 +191,9 @@ public class HivePageSinkProvider
                 nodeManager,
                 eventClient,
                 hiveSessionProperties,
-                hiveWriterStats);
+                hiveWriterStats,
+                temporaryStagingDirectoryDirectoryEnabled,
+                temporaryStagingDirectoryPath);
 
         return new HivePageSink(
                 handle,
