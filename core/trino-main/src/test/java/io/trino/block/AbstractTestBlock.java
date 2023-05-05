@@ -27,7 +27,6 @@ import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
 import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.block.TestingBlockEncodingSerde;
-import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -56,7 +55,6 @@ import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public abstract class AbstractTestBlock
 {
     private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);

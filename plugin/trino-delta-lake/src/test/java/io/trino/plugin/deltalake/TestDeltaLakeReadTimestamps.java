@@ -49,7 +49,6 @@ import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
 import static java.time.temporal.ChronoField.YEAR;
 import static java.util.stream.Collectors.joining;
 
-@Test
 public class TestDeltaLakeReadTimestamps
         extends AbstractTestQueryFramework
 {
