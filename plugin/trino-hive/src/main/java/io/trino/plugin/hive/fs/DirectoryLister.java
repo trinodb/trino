@@ -17,7 +17,6 @@ import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.metastore.Table;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.IOException;
 

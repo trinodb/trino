@@ -21,7 +21,6 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
