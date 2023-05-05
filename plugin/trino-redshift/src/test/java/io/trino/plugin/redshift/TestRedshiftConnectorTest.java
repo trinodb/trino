@@ -66,11 +66,15 @@ public class TestRedshiftConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return true;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
 
+            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
@@ -82,10 +86,10 @@ public class TestRedshiftConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-                return true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+                return false;
 
             case SUPPORTS_JOIN_PUSHDOWN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
