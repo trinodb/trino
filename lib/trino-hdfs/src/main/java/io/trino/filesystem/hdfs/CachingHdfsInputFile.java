@@ -59,7 +59,7 @@ public class CachingHdfsInputFile
                     .setPath(file.toString())
                     .setFolder(false)
                     .setLength(lazyStatus().getLen());
-            String cacheIdentifier = md5().hashString(file.toString(), UTF_8).toString();
+            String cacheIdentifier = md5().hashString(file.toString() + lazyStatus().getModificationTime(), UTF_8).toString();
             URIStatus uriStatus = new URIStatus(info, CacheContext.defaults().setCacheIdentifier(cacheIdentifier));
             return new FSDataInputStream(new HdfsFileInputStream(
                     new LocalCacheFileInStream(uriStatus, (uri) -> new AlluxioHdfsInputStream(fileSystem.open(file)), cacheManager, alluxioConf),
