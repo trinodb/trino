@@ -242,7 +242,7 @@ public class DeltaLakeSplitManager
             return true;
         }
         return tableHandle.getProjectedColumns().get().stream()
-                .map(columnHandle -> ((DeltaLakeColumnHandle) columnHandle).getColumnType())
+                .map(DeltaLakeColumnHandle::getColumnType)
                 .anyMatch(DeltaLakeColumnType.REGULAR::equals);
     }
 
