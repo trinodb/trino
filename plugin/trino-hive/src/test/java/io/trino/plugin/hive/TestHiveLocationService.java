@@ -81,7 +81,7 @@ public class TestHiveLocationService
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
             HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(ImmutableList.of());
-            LocationService service = new HiveLocationService(hdfsEnvironment);
+            LocationService service = new HiveLocationService(hdfsEnvironment, new HiveConfig());
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
 

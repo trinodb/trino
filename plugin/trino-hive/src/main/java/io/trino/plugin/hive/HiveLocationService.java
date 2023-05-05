@@ -29,7 +29,6 @@ import javax.inject.Inject;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
-import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
@@ -47,11 +46,15 @@ public class HiveLocationService
         implements LocationService
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final boolean temporaryStagingDirectoryEnabled;
+    private final String temporaryStagingDirectoryPath;
 
     @Inject
-    public HiveLocationService(HdfsEnvironment hdfsEnvironment)
+    public HiveLocationService(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.temporaryStagingDirectoryEnabled = hiveConfig.isTemporaryStagingDirectoryEnabled();
+        this.temporaryStagingDirectoryPath = hiveConfig.getTemporaryStagingDirectoryPath();
     }
 
     @Override
@@ -79,8 +82,8 @@ public class HiveLocationService
         }
 
         // TODO detect when existing table's location is a on a different file system than the temporary directory
-        if (shouldUseTemporaryDirectory(session, context, new Path(targetPath.toString()), externalLocation.isPresent())) {
-            Location writePath = createTemporaryPath(session, context, hdfsEnvironment, new Path(targetPath.toString()));
+        if (shouldUseTemporaryDirectory(context, new Path(targetPath.toString()), externalLocation.isPresent())) {
+            Location writePath = createTemporaryPath(context, hdfsEnvironment, new Path(targetPath.toString()), temporaryStagingDirectoryPath);
             return new LocationHandle(targetPath, writePath, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_NEW_DIRECTORY);
@@ -92,8 +95,8 @@ public class HiveLocationService
         HdfsContext context = new HdfsContext(session);
         Location targetPath = Location.of(table.getStorage().getLocation());
 
-        if (shouldUseTemporaryDirectory(session, context, new Path(targetPath.toString()), false) && !isTransactionalTable(table.getParameters())) {
-            Location writePath = createTemporaryPath(session, context, hdfsEnvironment, new Path(targetPath.toString()));
+        if (shouldUseTemporaryDirectory(context, new Path(targetPath.toString()), false) && !isTransactionalTable(table.getParameters())) {
+            Location writePath = createTemporaryPath(context, hdfsEnvironment, new Path(targetPath.toString()), temporaryStagingDirectoryPath);
             return new LocationHandle(targetPath, writePath, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
@@ -107,9 +110,9 @@ public class HiveLocationService
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
     }
 
-    private boolean shouldUseTemporaryDirectory(ConnectorSession session, HdfsContext context, Path path, boolean hasExternalLocation)
+    private boolean shouldUseTemporaryDirectory(HdfsContext context, Path path, boolean hasExternalLocation)
     {
-        return isTemporaryStagingDirectoryEnabled(session)
+        return temporaryStagingDirectoryEnabled
                 // skip using temporary directory for S3
                 && !isS3FileSystem(context, hdfsEnvironment, path)
                 // skip using temporary directory if destination is encrypted; it's not possible to move a file between encryption zones

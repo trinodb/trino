@@ -221,8 +221,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
-import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
-import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
 import static io.trino.plugin.hive.HiveStorageFormat.JSON;
@@ -825,7 +823,7 @@ public abstract class AbstractTestHive
         metastoreClient = hiveMetastore;
         hdfsEnvironment = hdfsConfiguration;
         HivePartitionManager partitionManager = new HivePartitionManager(hiveConfig);
-        locationService = new HiveLocationService(hdfsEnvironment);
+        locationService = new HiveLocationService(hdfsEnvironment, hiveConfig);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         countingDirectoryLister = new CountingDirectoryLister();
         metadataFactory = new HiveMetadataFactory(
@@ -945,7 +943,7 @@ public abstract class AbstractTestHive
     protected HiveConfig getHiveConfig()
     {
         return new HiveConfig()
-                .setTemporaryStagingDirectoryPath(temporaryStagingDirectory.toAbsolutePath().toString());
+                .setTemporaryStagingDirectoryPath(temporaryStagingDirectory.resolve("temp_path_").toAbsolutePath().toString());
     }
 
     protected SortingFileWriterConfig getSortingFileWriterConfig()
@@ -2857,16 +2855,16 @@ public abstract class AbstractTestHive
             }
 
             HdfsContext context = new HdfsContext(session);
+            HiveConfig config = getHiveConfig();
             // verify we have enough temporary files per bucket to require multiple passes
             Location stagingPathRoot;
-            if (isTemporaryStagingDirectoryEnabled(session)) {
-                stagingPathRoot = Location.of(getTemporaryStagingDirectoryPath(session)
+            if (config.isTemporaryStagingDirectoryEnabled()) {
+                stagingPathRoot = Location.of(config.getTemporaryStagingDirectoryPath()
                         .replace("${USER}", context.getIdentity().getUser()));
             }
             else {
                 stagingPathRoot = getStagingPathRoot(outputHandle);
             }
-
             assertThat(listAllDataFiles(context, stagingPathRoot))
                     .filteredOn(file -> file.contains(".tmp-sort."))
                     .size().isGreaterThan(bucketCount * getSortingFileWriterConfig().getMaxOpenSortFiles() * 2);
@@ -3075,12 +3073,15 @@ public abstract class AbstractTestHive
             try {
                 List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
                 try (Transaction transaction = newTransaction()) {
-                    final String temporaryStagingPrefix = "hive-temporary-staging-prefix-" + UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
-                    ConnectorSession session = newSession(ImmutableMap.of("hive.temporary_staging_directory_path", temporaryStagingPrefix));
+                    String temporaryStagingPrefix = "hive-temporary-staging-prefix-" + UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
+                    ConnectorSession session = newSession();
                     String tableOwner = session.getUser();
                     String schemaName = temporaryCreateEmptyTable.getSchemaName();
                     String tableName = temporaryCreateEmptyTable.getTableName();
-                    LocationService locationService = getLocationService();
+                    HiveConfig hiveConfig = getHiveConfig()
+                            .setTemporaryStagingDirectoryPath(temporaryStagingPrefix)
+                            .setTemporaryStagingDirectoryEnabled(true);
+                    LocationService locationService = new HiveLocationService(hdfsEnvironment, hiveConfig);
                     Location targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
                     Table.Builder tableBuilder = Table.builder()
                             .setDatabaseName(schemaName)

@@ -128,7 +128,7 @@ public class S3SelectTestHelper
         HivePartitionManager hivePartitionManager = new HivePartitionManager(this.hiveConfig);
 
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
-        locationService = new HiveLocationService(hdfsEnvironment);
+        locationService = new HiveLocationService(hdfsEnvironment, hiveConfig);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
 
         metastoreClient = new TestingHiveMetastore(
