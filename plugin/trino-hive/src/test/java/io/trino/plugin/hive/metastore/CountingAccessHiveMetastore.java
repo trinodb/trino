@@ -33,9 +33,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES_FROM_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS_FROM_DATABASE;
-
 @ThreadSafe
 public class CountingAccessHiveMetastore
         implements HiveMetastore
@@ -118,7 +115,7 @@ public class CountingAccessHiveMetastore
     @Override
     public List<String> getAllViews(String databaseName)
     {
-        methodInvocations.add(GET_ALL_VIEWS_FROM_DATABASE);
+        methodInvocations.add(Method.GET_ALL_VIEWS_FROM_DATABASE);
         return delegate.getAllViews(databaseName);
     }
 
@@ -347,7 +344,7 @@ public class CountingAccessHiveMetastore
     @Override
     public List<String> getAllTables(String databaseName)
     {
-        methodInvocations.add(GET_ALL_TABLES_FROM_DATABASE);
+        methodInvocations.add(Method.GET_ALL_TABLES_FROM_DATABASE);
         return delegate.getAllTables(databaseName);
     }
 }
