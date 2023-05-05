@@ -438,11 +438,11 @@ public class TestDeltaLakeMetadata
 
     @Test(dataProvider = "testApplyProjectionProvider")
     public void testApplyProjection(
-            Set<ColumnHandle> inputProjectedColumns,
+            Set<DeltaLakeColumnHandle> inputProjectedColumns,
             Map<String, ColumnHandle> inputAssignments,
             List<ConnectorExpression> inputProjections,
             List<ConnectorExpression> expectedProjections,
-            Set<ColumnHandle> expectedProjectedColumns,
+            Set<DeltaLakeColumnHandle> expectedProjectedColumns,
             Map<String, ColumnHandle> expectedAssignments)
     {
         DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
@@ -455,8 +455,7 @@ public class TestDeltaLakeMetadata
                         inputAssignments)
                 .get();
 
-        assertThat(((DeltaLakeTableHandle) projection.getHandle())
-                .getProjectedColumns())
+        assertThat(((DeltaLakeTableHandle) projection.getHandle()).getProjectedColumns())
                 .isEqualTo(Optional.of(expectedProjectedColumns));
 
         assertThat(projection.getProjections())
@@ -519,7 +518,7 @@ public class TestDeltaLakeMetadata
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false)));
     }
 
-    private static DeltaLakeTableHandle createDeltaLakeTableHandle(Set<ColumnHandle> projectedColumns, Set<DeltaLakeColumnHandle> constrainedColumns)
+    private static DeltaLakeTableHandle createDeltaLakeTableHandle(Set<DeltaLakeColumnHandle> projectedColumns, Set<DeltaLakeColumnHandle> constrainedColumns)
     {
         return new DeltaLakeTableHandle(
                 "test_schema_name",

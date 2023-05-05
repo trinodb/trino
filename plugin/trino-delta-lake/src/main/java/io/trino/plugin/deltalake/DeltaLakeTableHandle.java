@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
@@ -51,7 +50,7 @@ public class DeltaLakeTableHandle
     private final Optional<WriteType> writeType;
     private final long readVersion;
 
-    private final Optional<Set<ColumnHandle>> projectedColumns;
+    private final Optional<Set<DeltaLakeColumnHandle>> projectedColumns;
     // UPDATE only: The list of columns being updated
     private final Optional<List<DeltaLakeColumnHandle>> updatedColumns;
     // UPDATE only: The list of columns which need to be copied when applying updates to the new Parquet file
@@ -74,7 +73,7 @@ public class DeltaLakeTableHandle
             @JsonProperty("enforcedPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             @JsonProperty("nonPartitionConstraint") TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             @JsonProperty("writeType") Optional<WriteType> writeType,
-            @JsonProperty("projectedColumns") Optional<Set<ColumnHandle>> projectedColumns,
+            @JsonProperty("projectedColumns") Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
             @JsonProperty("updatedColumns") Optional<List<DeltaLakeColumnHandle>> updatedColumns,
             @JsonProperty("updateRowIdColumns") Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             @JsonProperty("analyzeHandle") Optional<AnalyzeHandle> analyzeHandle,
@@ -107,7 +106,7 @@ public class DeltaLakeTableHandle
             TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint,
             TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             Optional<WriteType> writeType,
-            Optional<Set<ColumnHandle>> projectedColumns,
+            Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
             Optional<List<DeltaLakeColumnHandle>> updatedColumns,
             Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             Optional<AnalyzeHandle> analyzeHandle,
@@ -134,7 +133,7 @@ public class DeltaLakeTableHandle
         this.readVersion = readVersion;
     }
 
-    public DeltaLakeTableHandle withProjectedColumns(Set<ColumnHandle> projectedColumns)
+    public DeltaLakeTableHandle withProjectedColumns(Set<DeltaLakeColumnHandle> projectedColumns)
     {
         return new DeltaLakeTableHandle(
                 schemaName,
@@ -245,7 +244,7 @@ public class DeltaLakeTableHandle
 
     // Projected columns are not needed on workers
     @JsonIgnore
-    public Optional<Set<ColumnHandle>> getProjectedColumns()
+    public Optional<Set<DeltaLakeColumnHandle>> getProjectedColumns()
     {
         return projectedColumns;
     }
