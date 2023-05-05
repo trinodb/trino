@@ -22,8 +22,6 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
@@ -41,7 +39,7 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName, HIVE3_IMAGE);
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
         hiveMinioDataLake.start();
         metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
@@ -58,7 +56,6 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws IOException
     {
         metastore = null;
     }
