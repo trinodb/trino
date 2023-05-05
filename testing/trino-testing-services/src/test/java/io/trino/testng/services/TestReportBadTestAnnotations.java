@@ -22,13 +22,14 @@ import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
 
-import static io.trino.testng.services.ReportUnannotatedMethods.findUnannotatedTestMethods;
-import static io.trino.testng.services.ReportUnannotatedMethods.isTemptoClass;
+import static io.trino.testng.services.ReportBadTestAnnotations.classWithMeaninglessTestAnnotation;
+import static io.trino.testng.services.ReportBadTestAnnotations.findUnannotatedTestMethods;
+import static io.trino.testng.services.ReportBadTestAnnotations.isTemptoClass;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestReportUnannotatedMethods
+public class TestReportBadTestAnnotations
 {
     @Test
     public void testTest()
@@ -73,6 +74,17 @@ public class TestReportUnannotatedMethods
                 .isEmpty();
         assertThat(findUnannotatedTestMethods(TestingTestWithSuppressedPublicMethodInInterface.class))
                 .isEmpty();
+    }
+
+    @Test
+    public void testClassLevelTestAnnotation()
+    {
+        assertThat(classWithMeaninglessTestAnnotation(TestingTestWithClassLevelTrivialAnnotation.class))
+                .contains(TestingTestWithClassLevelTrivialAnnotation.class);
+        assertThat(classWithMeaninglessTestAnnotation(TestingTestWithClassLevelUsefulAnnotation.class))
+                .isEmpty();
+        assertThat(classWithMeaninglessTestAnnotation(TestingTestInheritingFromBaseWithClassLevelTrivialAnnotation.class))
+                .contains(BaseClassWithClassLevelTrivialAnnotation.class);
     }
 
     private static class TestingTest
@@ -150,7 +162,7 @@ public class TestReportUnannotatedMethods
         @Test
         public void test() {}
 
-        @ReportUnannotatedMethods.Suppress
+        @ReportBadTestAnnotations.Suppress
         public void method() {}
     }
 
@@ -163,7 +175,34 @@ public class TestReportUnannotatedMethods
 
     private interface InterfaceWithSuppressedPublicMethod
     {
-        @ReportUnannotatedMethods.Suppress
+        @ReportBadTestAnnotations.Suppress
         default void method() {}
     }
+
+    @Test
+    @ReportBadTestAnnotations.Suppress
+    private static class TestingTestWithClassLevelTrivialAnnotation
+    {
+        @Test
+        public void test() {}
+    }
+
+    @Test(singleThreaded = true)
+    @ReportBadTestAnnotations.Suppress
+    private static class TestingTestWithClassLevelUsefulAnnotation
+    {
+        @Test
+        public void test() {}
+    }
+
+    @Test
+    private abstract static class BaseClassWithClassLevelTrivialAnnotation
+    {
+        @Test
+        public void test() {}
+    }
+
+    @ReportBadTestAnnotations.Suppress
+    private static class TestingTestInheritingFromBaseWithClassLevelTrivialAnnotation
+            extends BaseClassWithClassLevelTrivialAnnotation {}
 }
