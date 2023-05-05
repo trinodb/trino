@@ -61,15 +61,6 @@ import static java.util.stream.Collectors.toCollection;
 public class TestIcebergMetadataFileOperations
         extends AbstractTestQueryFramework
 {
-    private static final Session TEST_SESSION = testSessionBuilder()
-            .setCatalog("iceberg")
-            .setSchema("test_schema")
-            // It is essential to disable DeterminePartitionCount rule since all queries in this test scans small
-            // amount of data which makes them run with single hash partition count. However, this test requires them
-            // to run over multiple nodes.
-            .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "0MB")
-            .build();
-
     private TrackingFileSystemFactory trackingFileSystemFactory;
 
     @Override
@@ -79,6 +70,10 @@ public class TestIcebergMetadataFileOperations
         Session session = testSessionBuilder()
                 .setCatalog("iceberg")
                 .setSchema("test_schema")
+                // It is essential to disable DeterminePartitionCount rule since all queries in this test scans small
+                // amount of data which makes them run with single hash partition count. However, this test requires them
+                // to run over multiple nodes.
+                .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "0MB")
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
@@ -435,7 +430,7 @@ public class TestIcebergMetadataFileOperations
 
     private void assertFileSystemAccesses(@Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
     {
-        assertFileSystemAccesses(TEST_SESSION, query, expectedAccesses);
+        assertFileSystemAccesses(getSession(), query, expectedAccesses);
     }
 
     private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<FileOperation> expectedAccesses)
