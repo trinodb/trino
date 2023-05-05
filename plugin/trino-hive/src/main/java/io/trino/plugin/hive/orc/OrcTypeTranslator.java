@@ -24,6 +24,7 @@ import io.trino.spi.type.VarcharType;
 
 import java.util.Optional;
 
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 
 public final class OrcTypeTranslator
@@ -32,7 +33,7 @@ public final class OrcTypeTranslator
 
     public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(OrcTypeKind fromOrcType, Type toTrinoType, HiveTimestampPrecision timestampPrecision)
     {
-        if (fromOrcType.equals(OrcTypeKind.TIMESTAMP) && toTrinoType instanceof VarcharType varcharType) {
+        if (fromOrcType == TIMESTAMP && toTrinoType instanceof VarcharType varcharType) {
             TimestampType timestampType = createTimestampType(timestampPrecision.getPrecision());
             if (timestampType.isShort()) {
                 return Optional.of(new ShortTimestampToVarcharCoercer(timestampType, varcharType));
