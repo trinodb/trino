@@ -15,6 +15,9 @@ package io.trino.plugin.bigquery;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigHidden;
+import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -28,6 +31,9 @@ public class BigQueryRpcConfig
     private int rpcMaxChannelCount = 1;
     private int minRpcPerChannel;
     private int maxRpcPerChannel = Integer.MAX_VALUE;
+    private int retries;
+    private Duration timeout = Duration.valueOf("0s");
+    private Duration retryDelay = Duration.valueOf("0s");
 
     @Min(1)
     @Max(MAX_RPC_CONNECTIONS)
@@ -99,6 +105,51 @@ public class BigQueryRpcConfig
     public BigQueryRpcConfig setMaxRpcPerChannel(int maxRpcPerChannel)
     {
         this.maxRpcPerChannel = maxRpcPerChannel;
+        return this;
+    }
+
+    @Min(0)
+    @Max(16)
+    public int getRetries()
+    {
+        return retries;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.rpc-retries")
+    public BigQueryRpcConfig setRetries(int maxRetries)
+    {
+        this.retries = maxRetries;
+        return this;
+    }
+
+    @MinDuration("0s")
+    @MaxDuration("1m")
+    public Duration getTimeout()
+    {
+        return timeout;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.rpc-timeout")
+    public BigQueryRpcConfig setTimeout(Duration timeout)
+    {
+        this.timeout = timeout;
+        return this;
+    }
+
+    @MinDuration("0s")
+    @MaxDuration("30s")
+    public Duration getRetryDelay()
+    {
+        return retryDelay;
+    }
+
+    @ConfigHidden
+    @Config("bigquery.rpc-retry-delay")
+    public BigQueryRpcConfig setRetryDelay(Duration retryDelay)
+    {
+        this.retryDelay = retryDelay;
         return this;
     }
 }

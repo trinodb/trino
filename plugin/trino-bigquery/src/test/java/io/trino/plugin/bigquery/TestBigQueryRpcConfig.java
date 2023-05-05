@@ -14,6 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -32,7 +33,10 @@ public class TestBigQueryRpcConfig
                 .setMinRpcPerChannel(0)
                 .setMaxRpcPerChannel(Integer.MAX_VALUE)
                 .setRpcMinChannelCount(1)
-                .setRpcMaxChannelCount(1));
+                .setRpcMaxChannelCount(1)
+                .setRetries(0)
+                .setTimeout(Duration.valueOf("0s"))
+                .setRetryDelay(Duration.valueOf("0s")));
     }
 
     @Test
@@ -44,6 +48,9 @@ public class TestBigQueryRpcConfig
                 .put("bigquery.channel-pool.max-size", "13")
                 .put("bigquery.channel-pool.min-rpc-per-channel", "14")
                 .put("bigquery.channel-pool.max-rpc-per-channel", "15")
+                .put("bigquery.rpc-retries", "5")
+                .put("bigquery.rpc-timeout", "17s")
+                .put("bigquery.rpc-retry-delay", "10s")
                 .buildOrThrow();
 
         BigQueryRpcConfig expected = new BigQueryRpcConfig()
@@ -51,7 +58,10 @@ public class TestBigQueryRpcConfig
                 .setRpcMinChannelCount(12)
                 .setRpcMaxChannelCount(13)
                 .setMinRpcPerChannel(14)
-                .setMaxRpcPerChannel(15);
+                .setMaxRpcPerChannel(15)
+                .setRetries(5)
+                .setTimeout(Duration.valueOf("17s"))
+                .setRetryDelay(Duration.valueOf("10s"));
 
         assertFullMapping(properties, expected);
     }
