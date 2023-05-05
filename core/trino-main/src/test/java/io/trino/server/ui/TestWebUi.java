@@ -212,7 +212,8 @@ public class TestWebUi
         try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
-                        .put("http-server.authentication.type", "password")
+                        // using mixed case to test uppercase and lowercase
+                        .put("http-server.authentication.type", "PaSSworD")
                         .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .buildOrThrow())
