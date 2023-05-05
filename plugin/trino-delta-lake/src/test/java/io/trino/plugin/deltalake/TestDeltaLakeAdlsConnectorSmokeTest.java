@@ -93,7 +93,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
                 ImmutableMap.of("/etc/hadoop/conf/core-site.xml", hadoopCoreSiteXmlTempFile.normalize().toAbsolutePath().toString()),
                 HiveHadoop.HIVE3_IMAGE);
         hiveMinioDataLake.start();
-        return hiveMinioDataLake;
+        return hiveMinioDataLake;  // closed by superclass
     }
 
     @Override

@@ -131,7 +131,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
                         "/etc/hadoop/conf/gcp-credentials.json", gcpCredentialsFile.toAbsolutePath().toString()),
                 HIVE3_IMAGE);
         dataLake.start();
-        return dataLake;
+        return dataLake; // closed by superclass
     }
 
     @Override
