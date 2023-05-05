@@ -358,7 +358,7 @@ public final class IcebergUtil
 
     private static boolean canEnforceConstraintWithPartitionField(TypeOperators typeOperators, PartitionField field, IcebergColumnHandle column, Domain domain)
     {
-        if (field.transform().toString().equals("void")) {
+        if (field.transform().isVoid()) {
             // Useless for filtering.
             return false;
         }
