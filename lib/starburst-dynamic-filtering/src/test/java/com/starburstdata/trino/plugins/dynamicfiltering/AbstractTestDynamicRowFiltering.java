@@ -152,7 +152,7 @@ public abstract class AbstractTestDynamicRowFiltering
         assertThat(((Count<?>) metrics.get(DynamicRowFilteringPageSource.ROW_FILTERING_TIME_MILLIS)).getTotal()).isGreaterThanOrEqualTo(0);
     }
 
-    private void assertRowFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType)
+    protected void assertRowFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType)
     {
         assertRowFiltering(sql, joinDistributionType, "customer");
     }
@@ -186,7 +186,7 @@ public abstract class AbstractTestDynamicRowFiltering
         assertNoRowFiltering(sql, joinDistributionType, "customer");
     }
 
-    private OperatorStats getScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
+    protected OperatorStats getScanFilterAndProjectOperatorStats(QueryId queryId, String tableName)
     {
         Plan plan = getDistributedQueryRunner().getQueryPlan(queryId);
         PlanNodeId nodeId = PlanNodeSearcher.searchFrom(plan.getRoot())
