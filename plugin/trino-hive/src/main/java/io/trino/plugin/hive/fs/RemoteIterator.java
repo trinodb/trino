@@ -14,31 +14,12 @@
 package io.trino.plugin.hive.fs;
 
 import java.io.IOException;
-import java.util.Iterator;
 
-import static java.util.Objects.requireNonNull;
-
-class SimpleRemoteIterator
-        implements RemoteIterator<TrinoFileStatus>
+public interface RemoteIterator<T>
 {
-    private final Iterator<TrinoFileStatus> iterator;
+    boolean hasNext()
+            throws IOException;
 
-    public SimpleRemoteIterator(Iterator<TrinoFileStatus> iterator)
-    {
-        this.iterator = requireNonNull(iterator, "iterator is null");
-    }
-
-    @Override
-    public boolean hasNext()
-            throws IOException
-    {
-        return iterator.hasNext();
-    }
-
-    @Override
-    public TrinoFileStatus next()
-            throws IOException
-    {
-        return iterator.next();
-    }
+    T next()
+            throws IOException;
 }
