@@ -26,6 +26,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.EXPIRE_SNAPSHOTS_MIN_RETENTION;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.EXECUTE_TABLE_PROCEDURE;
@@ -860,6 +861,117 @@ public class TestIcebergStatistics
                           (null,  null, null, null, 4, null, null)""");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testShowStatsAsOf()
+    {
+        Session writeSession = withStatsOnWrite(getSession(), false);
+        assertUpdate(writeSession, "CREATE TABLE show_stats_as_of(key integer)");
+
+        assertUpdate(writeSession, "INSERT INTO show_stats_as_of VALUES 3", 1);
+        long beforeAnalyzedSnapshot = getCurrentSnapshotId("show_stats_as_of");
+
+        assertUpdate(writeSession, "INSERT INTO show_stats_as_of VALUES 4", 1);
+        assertUpdate("ANALYZE show_stats_as_of");
+        long analyzedSnapshot = getCurrentSnapshotId("show_stats_as_of");
+
+        assertUpdate(writeSession, "INSERT INTO show_stats_as_of VALUES 5", 1);
+        long laterSnapshot = getCurrentSnapshotId("show_stats_as_of");
+
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM show_stats_as_of FOR VERSION AS OF " + beforeAnalyzedSnapshot + ")",
+                """
+                        VALUES
+                          ('key', null, null, 0, null, '3', '3'), -- NDV not present, as ANALYZE was run on a later snapshot
+                          (null,  null, null, null, 1, null, null)""");
+
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM show_stats_as_of FOR VERSION AS OF " + analyzedSnapshot + ")",
+                """
+                        VALUES
+                          ('key', null, 2, 0, null, '3', '4'), -- NDV present, this is the snapshot ANALYZE was run for
+                          (null,  null, null, null, 2, null, null)""");
+
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM show_stats_as_of FOR VERSION AS OF " + laterSnapshot + ")",
+                """
+                        VALUES
+                          ('key', null, 2, 0, null, '3', '5'), -- NDV present, stats "inherited" from previous snapshot
+                          (null,  null, null, null, 3, null, null)""");
+
+        assertUpdate("DROP TABLE show_stats_as_of");
+    }
+
+    @Test
+    public void testShowStatsAfterExpiration()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session writeSession = withStatsOnWrite(getSession(), false);
+
+        assertUpdate(writeSession, "CREATE TABLE show_stats_after_expiration(key integer)");
+        // create several snapshots
+        assertUpdate(writeSession, "INSERT INTO show_stats_after_expiration VALUES 1", 1);
+        assertUpdate(writeSession, "INSERT INTO show_stats_after_expiration VALUES 2", 1);
+        assertUpdate(writeSession, "INSERT INTO show_stats_after_expiration VALUES 3", 1);
+
+        long beforeAnalyzedSnapshot = getCurrentSnapshotId("show_stats_after_expiration");
+
+        assertUpdate(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(catalog, EXPIRE_SNAPSHOTS_MIN_RETENTION, "0s")
+                        .build(),
+                "ALTER TABLE show_stats_after_expiration EXECUTE expire_snapshots(retention_threshold => '0d')");
+        assertThat(query("SELECT count(*) FROM \"show_stats_after_expiration$snapshots\""))
+                .matches("VALUES BIGINT '1'");
+
+        assertUpdate(writeSession, "INSERT INTO show_stats_after_expiration VALUES 4", 1);
+        assertUpdate("ANALYZE show_stats_after_expiration");
+        long analyzedSnapshot = getCurrentSnapshotId("show_stats_after_expiration");
+
+        assertUpdate(writeSession, "INSERT INTO show_stats_after_expiration VALUES 5", 1);
+        long laterSnapshot = getCurrentSnapshotId("show_stats_after_expiration");
+
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM show_stats_after_expiration FOR VERSION AS OF " + beforeAnalyzedSnapshot + ")",
+                """
+                        VALUES
+                          ('key', null, null, 0, null, '1', '3'), -- NDV not present, as ANALYZE was run on a later snapshot
+                          (null,  null, null, null, 3, null, null)""");
+
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM show_stats_after_expiration FOR VERSION AS OF " + analyzedSnapshot + ")",
+                """
+                        VALUES
+                          ('key', null, 4, 0, null, '1', '4'), -- NDV present, this is the snapshot ANALYZE was run for
+                          (null,  null, null, null, 4, null, null)""");
+
+        assertQuery(
+                "SHOW STATS FOR (SELECT * FROM show_stats_after_expiration FOR VERSION AS OF " + laterSnapshot + ")",
+                """
+                        VALUES
+                          ('key', null, 4, 0, null, '1', '5'), -- NDV present, stats "inherited" from previous snapshot
+                          (null,  null, null, null, 5, null, null)""");
+
+        // Same as laterSnapshot but implicitly
+        assertQuery(
+                "SHOW STATS FOR show_stats_after_expiration",
+                """
+                        VALUES
+                          ('key', null, 4, 0, null, '1', '5'), -- NDV present, stats "inherited" from previous snapshot
+                          (null,  null, null, null, 5, null, null)""");
+
+        // Re-analyzing after snapshot expired
+        assertUpdate("ANALYZE show_stats_after_expiration");
+
+        assertQuery(
+                "SHOW STATS FOR show_stats_after_expiration",
+                """
+                        VALUES
+                          ('key', null, 5, 0, null, '1', '5'), -- NDV present, stats "inherited" from previous snapshot
+                          (null,  null, null, null, 5, null, null)""");
+
+        assertUpdate("DROP TABLE show_stats_after_expiration");
     }
 
     private long getCurrentSnapshotId(String tableName)

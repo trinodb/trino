@@ -31,6 +31,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BlobMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -54,6 +55,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -325,8 +327,16 @@ public final class TableStatisticsReader
             {
                 requireNonNull(previous, "previous is null");
                 @Nullable
-                Long parentId = icebergTable.snapshot(previous).parentId();
-                return parentId;
+                Snapshot snapshot = icebergTable.snapshot(previous);
+                if (snapshot == null) {
+                    // Snapshot referenced by `previous` is expired from table history
+                    return null;
+                }
+                if (snapshot.parentId() == null) {
+                    // Snapshot referenced by `previous` had no parent.
+                    return null;
+                }
+                return verifyNotNull(snapshot.parentId(), "snapshot.parentId()");
             }
         };
     }
