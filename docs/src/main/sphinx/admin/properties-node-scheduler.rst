@@ -2,6 +2,18 @@
 Node scheduler properties
 =========================
 
+``node-scheduler.include-coordinator``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``false``
+
+Allows scheduling work on the coordinator so that a single machine can function
+as both coordinator and worker. For large clusters, processing work on the
+coordinator can negatively impact query performance because the machine's
+resources are not available for the critical coordinator tasks of scheduling,
+managing, and monitoring query execution.
+
 Splits
 ------
 
