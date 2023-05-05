@@ -58,7 +58,6 @@ import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -90,7 +89,6 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
-@Test
 public abstract class BaseDataDefinitionTaskTest
 {
     public static final String SCHEMA = "schema";
