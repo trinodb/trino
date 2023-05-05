@@ -81,6 +81,11 @@ public class StructEncoding
                     // no need to process the remaining bytes as they are all assigned to the last column
                     break;
                 }
+                if (fieldIndex == structFields.size()) {
+                    // this was the last field, so there is no more data to process
+                    builder.closeEntry();
+                    return;
+                }
             }
             else if (isEscapeByte(currentByte)) {
                 // ignore the char after escape_char
