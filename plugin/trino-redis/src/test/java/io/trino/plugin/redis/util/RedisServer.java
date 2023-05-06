@@ -61,7 +61,7 @@ public class RedisServer
         switch (feature) {
             case USER_PASSWORD -> {
                 container = new GenericContainer<>("redis:" + version)
-                        .withCommand("redis-server", "--require-pass", PASSWORD)
+                        .withCommand("redis-server", "--requirepass", PASSWORD)
                         .withExposedPorts(PORT);
                 container.start();
                 jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT), null, PASSWORD);
