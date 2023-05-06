@@ -172,28 +172,28 @@ show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 This property is optional; the default is ``true``.
 
 ``redis.database-index``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Redis database to query.
 
 This property is optional; the default is ``0``.
 
 ``redis.user``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
 
 The username for Redis server.
 
 This property is optional; the default is ``null``.
 
 ``redis.password``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 
 The password for password-protected Redis server.
 
 This property is optional; the default is ``null``.
 
 ``redis.tls.enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 Starting with version 6, Redis supports TLS/SSL encrypted connections as an optional feature.
 In case the Redis server you want to connect to requires TLS/SSL, enabling this property will allow you to connect.
@@ -201,22 +201,23 @@ In case the Redis server you want to connect to requires TLS/SSL, enabling this 
 This property is optional; the default is ``false``.
 
 ``redis.tls.keystore-path``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Path to the key store.
 
 ``redis.tls.keystore-password``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+
 Password for the key store.
 
 ``redis.tls.truststore-path``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Path to the trust store.
 
 ``redis.tls.truststore-password``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Password for the trust store.
 
