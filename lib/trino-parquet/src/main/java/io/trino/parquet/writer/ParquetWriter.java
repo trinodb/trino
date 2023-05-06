@@ -298,7 +298,9 @@ public class ParquetWriter
         if (rows == 0) {
             // Avoid writing empty row groups as these are ignored by the reader
             verify(
-                    bufferDataList.stream().allMatch(buffer -> buffer.getData().size() == 0),
+                    bufferDataList.stream()
+                            .flatMap(bufferData -> bufferData.getData().stream())
+                            .allMatch(dataOutput -> dataOutput.size() == 0),
                     "Buffer should be empty when there are no rows");
             return;
         }

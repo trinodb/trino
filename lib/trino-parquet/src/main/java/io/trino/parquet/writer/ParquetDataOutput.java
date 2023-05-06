@@ -15,6 +15,7 @@ package io.trino.parquet.writer;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.trino.plugin.base.io.ChunkedSliceOutput;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -38,6 +39,25 @@ public interface ParquetDataOutput
             public void writeData(SliceOutput sliceOutput)
             {
                 sliceOutput.writeBytes(slice);
+            }
+        };
+    }
+
+    static ParquetDataOutput createDataOutput(ChunkedSliceOutput chunkedSliceOutput)
+    {
+        requireNonNull(chunkedSliceOutput, "chunkedSliceOutput is null");
+        return new ParquetDataOutput()
+        {
+            @Override
+            public int size()
+            {
+                return chunkedSliceOutput.size();
+            }
+
+            @Override
+            public void writeData(SliceOutput sliceOutput)
+            {
+                chunkedSliceOutput.getSlices().forEach(sliceOutput::writeBytes);
             }
         };
     }
