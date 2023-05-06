@@ -14,10 +14,25 @@
 package io.trino.plugin.redis.util;
 
 import com.google.common.net.HostAndPort;
+import org.assertj.core.util.Files;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.images.builder.ImageFromDockerfile;
 import redis.clients.jedis.JedisPool;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+
 import java.io.Closeable;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 
 public class RedisServer
         implements Closeable
@@ -30,27 +45,75 @@ public class RedisServer
     public static final String PASSWORD = "password";
 
     private final GenericContainer<?> container;
+    private final File containerFilesDir;
     private final JedisPool jedisPool;
 
-    public RedisServer()
+    public RedisServer() throws UnrecoverableKeyException, KeyStoreException, NoSuchAlgorithmException, KeyManagementException, CertificateException, IOException
     {
-        this(DEFAULT_VERSION, false);
+        this(DEFAULT_VERSION, RedisSecurityFeature.NONE);
     }
 
-    public RedisServer(String version, boolean setAccessControl)
+    public RedisServer(String version, RedisSecurityFeature feature) throws KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, KeyManagementException, IOException, CertificateException
     {
-        container = new GenericContainer<>("redis:" + version)
-                .withExposedPorts(PORT);
-        if (setAccessControl) {
-            container.withCommand("redis-server", "--requirepass", PASSWORD);
-            container.start();
-            jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT), null, PASSWORD);
-            jedisPool.getResource().aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
+        containerFilesDir = Files.newTemporaryFolder();
+        containerFilesDir.deleteOnExit();
+
+        switch (feature) {
+            case USER_PASSWORD -> {
+                container = new GenericContainer<>("redis:" + version)
+                        .withCommand("redis-server", "--require-pass", PASSWORD)
+                        .withExposedPorts(PORT);
+                container.start();
+                jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT), null, PASSWORD);
+                jedisPool.getResource().aclSetUser(USER, "on", ">" + PASSWORD, "~*:*", "+@all");
+            }
+            case TLS -> {
+                container = new GenericContainer(
+                        new ImageFromDockerfile("redistls", false)
+                            .withFileFromClasspath("./gen-test-certs.sh", "docker/gen-test-certs.sh")
+                            .withFileFromClasspath("Dockerfile", "docker/Dockerfile"))
+                        .withExposedPorts(PORT)
+                        .withCommand(
+                                "redis-server",
+                                "--tls-port", Integer.toString(PORT),
+                                "--port", "0",
+                                "--tls-cert-file", "/tests/tls/redis.crt",
+                                "--tls-key-file", "/tests/tls/redis.key",
+                                "--tls-ca-cert-file", "/tests/tls/ca.crt");
+                container.start();
+
+                var keyStore = KeyStore.getInstance("pkcs12");
+                var keyStoreFile = containerFilesDir.toPath().resolve("redis.p12");
+                container.copyFileFromContainer("/tests/tls/redis.p12", keyStoreFile.toString());
+                keyStore.load(new FileInputStream(keyStoreFile.toString()), "secret".toCharArray());
+
+                var keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+                keyManagerFactory.init(keyStore, "secret".toCharArray());
+
+                var trustStore = KeyStore.getInstance("pkcs12");
+                var trustStoreFile = containerFilesDir.toPath().resolve("ca.p12");
+                container.copyFileFromContainer("/tests/tls/ca.p12", trustStoreFile.toString());
+                trustStore.load(new FileInputStream(trustStoreFile.toString()), "secret".toCharArray());
+
+                var trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                trustManagerFactory.init(trustStore);
+
+                var sslContext = SSLContext.getInstance("TLS");
+                sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
+
+                jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT), true, sslContext.getSocketFactory(), sslContext.getDefaultSSLParameters(), null);
+            }
+            default -> {
+                container = new GenericContainer<>("redis:" + version).withExposedPorts(PORT);
+                container.start();
+                jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT));
+            }
         }
-        else {
-            container.start();
-            jedisPool = new JedisPool(container.getHost(), container.getMappedPort(PORT));
-        }
+    }
+
+    public File getContainerFilesDir()
+    {
+        return containerFilesDir;
     }
 
     public JedisPool getJedisPool()

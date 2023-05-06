@@ -64,10 +64,7 @@ public final class SslUtils
             catch (IOException | GeneralSecurityException ignored) {
                 keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
-                keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-                try (InputStream in = new FileInputStream(keyStorePath.get())) {
-                    keyStore.load(in, keyManagerPassword);
-                }
+                keyStore = KeyStore.getInstance(keyStorePath.get(), keyManagerPassword);
             }
             validateCertificates(keyStore);
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
@@ -99,9 +96,10 @@ public final class SslUtils
     private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
             throws IOException, GeneralSecurityException
     {
-        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        KeyStore trustStore = null;
         try {
             // attempt to read the trust store as a PEM file
+            trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
             List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
             if (!certificateChain.isEmpty()) {
                 trustStore.load(null, null);
@@ -115,9 +113,7 @@ public final class SslUtils
         catch (IOException | GeneralSecurityException ignored) {
         }
 
-        try (InputStream in = new FileInputStream(trustStorePath)) {
-            trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
-        }
+        trustStore = KeyStore.getInstance(trustStorePath, trustStorePassword.map(String::toCharArray).orElse(null));
         return trustStore;
     }
 

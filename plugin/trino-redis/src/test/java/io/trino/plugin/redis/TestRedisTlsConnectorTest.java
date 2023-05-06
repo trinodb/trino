@@ -20,21 +20,21 @@ import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 import static io.trino.plugin.redis.util.RedisServer.LATEST_VERSION;
-import static io.trino.plugin.redis.util.RedisServer.PASSWORD;
-import static io.trino.plugin.redis.util.RedisServer.USER;
 
-public class TestRedisLatestConnectorTest
+public class TestRedisTlsConnectorTest
         extends BaseRedisConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        RedisServer redisServer = closeAfterClass(new RedisServer(LATEST_VERSION, RedisSecurityFeature.USER_PASSWORD));
+        RedisServer redisServer = closeAfterClass(new RedisServer(LATEST_VERSION, RedisSecurityFeature.TLS));
+        var keyStorePath = redisServer.getContainerFilesDir().toPath().resolve("redis.p12").toString();
+        var trustStorePath = redisServer.getContainerFilesDir().toPath().resolve("ca.p12").toString();
         return createRedisQueryRunner(
                 redisServer,
                 ImmutableMap.of(),
-                ImmutableMap.of("redis.user", USER, "redis.password", PASSWORD),
+                ImmutableMap.of("redis.tls.enabled", "true", "redis.tls.keystore-path", keyStorePath, "redis.tls.keystore-password", "secret", "redis.tls.truststore-path", trustStorePath, "redis.tls.truststore-password", "secret"),
                 "string",
                 REQUIRED_TPCH_TABLES);
     }

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.spi.HostAddress;
@@ -28,6 +29,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
 import java.io.File;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -46,7 +48,6 @@ public class RedisConnectorConfig
     private char redisKeyDelimiter = ':';
     private String redisUser;
     private String redisPassword;
-    private boolean tlsEnabled;
     private Duration redisConnectTimeout = new Duration(2000, MILLISECONDS);
     private String defaultSchema = "default";
     private Set<String> tableNames = ImmutableSet.of();
@@ -54,6 +55,11 @@ public class RedisConnectorConfig
     private Duration tableDescriptionCacheDuration = new Duration(5, MINUTES);
     private boolean hideInternalColumns = true;
     private boolean keyPrefixSchemaTable;
+    private boolean tlsEnabled;
+    private File keystorePath;
+    private String keystorePassword;
+    private File truststorePath;
+    private String truststorePassword;
 
     @NotNull
     public File getTableDescriptionDir()
@@ -221,19 +227,6 @@ public class RedisConnectorConfig
         return this;
     }
 
-    public boolean isTlsEnabled()
-    {
-        return tlsEnabled;
-    }
-
-    @Config("redis.tls.enabled")
-    @ConfigDescription("Whether TLS is enabled or not")
-    public RedisConnectorConfig setTlsEnabled(boolean tlsEnabled)
-    {
-        this.tlsEnabled = tlsEnabled;
-        return this;
-    }
-
     public boolean isHideInternalColumns()
     {
         return hideInternalColumns;
@@ -257,6 +250,73 @@ public class RedisConnectorConfig
     public RedisConnectorConfig setKeyPrefixSchemaTable(boolean keyPrefixSchemaTable)
     {
         this.keyPrefixSchemaTable = keyPrefixSchemaTable;
+        return this;
+    }
+
+    public boolean isTlsEnabled()
+    {
+        return tlsEnabled;
+    }
+
+    @Config("redis.tls.enabled")
+    @ConfigDescription("Whether TLS security is enabled")
+    public RedisConnectorConfig setTlsEnabled(boolean tlsEnabled)
+    {
+        this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public Optional<@FileExists File> getKeystorePath()
+    {
+        return Optional.ofNullable(keystorePath);
+    }
+
+    @Config("redis.tls.keystore-path")
+    @ConfigDescription("Path to the key store")
+    public RedisConnectorConfig setKeystorePath(File keystorePath)
+    {
+        this.keystorePath = keystorePath;
+        return this;
+    }
+
+    public Optional<String> getKeystorePassword()
+    {
+        return Optional.ofNullable(keystorePassword);
+    }
+
+    @Config("redis.tls.keystore-password")
+    @ConfigSecuritySensitive
+    @ConfigDescription("Password for the key store")
+    public RedisConnectorConfig setKeystorePassword(String keystorePassword)
+    {
+        this.keystorePassword = keystorePassword;
+        return this;
+    }
+
+    public Optional<@FileExists File> getTruststorePath()
+    {
+        return Optional.ofNullable(truststorePath);
+    }
+
+    @Config("redis.tls.truststore-path")
+    @ConfigDescription("Path to the trust store")
+    public RedisConnectorConfig setTruststorePath(File truststorePath)
+    {
+        this.truststorePath = truststorePath;
+        return this;
+    }
+
+    public Optional<String> getTruststorePassword()
+    {
+        return Optional.ofNullable(truststorePassword);
+    }
+
+    @Config("redis.tls.truststore-password")
+    @ConfigSecuritySensitive
+    @ConfigDescription("Password for the trust store")
+    public RedisConnectorConfig setTruststorePassword(String truststorePassword)
+    {
+        this.truststorePassword = truststorePassword;
         return this;
     }
 

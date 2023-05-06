@@ -18,6 +18,9 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -43,15 +46,22 @@ public class TestRedisConnectorConfig
                 .setRedisDataBaseIndex(0)
                 .setRedisUser(null)
                 .setRedisPassword(null)
-                .setTlsEnabled(false)
                 .setRedisScanCount(100)
                 .setRedisMaxKeysPerFetch(100)
-                .setHideInternalColumns(true));
+                .setHideInternalColumns(true)
+                .setTlsEnabled(false)
+                .setKeystorePath(null)
+                .setKeystorePassword(null)
+                .setTruststorePath(null)
+                .setTruststorePassword(null));
     }
 
     @Test
-    public void testExplicitPropertyMappings()
+    public void testExplicitPropertyMappings() throws IOException
     {
+        Path keystoreFile = Files.createTempFile(null, null);
+        Path truststoreFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("redis.table-description-dir", "/var/lib/redis")
                 .put("redis.table-description-cache-ttl", "30s")
@@ -68,6 +78,10 @@ public class TestRedisConnectorConfig
                 .put("redis.user", "test")
                 .put("redis.password", "secret")
                 .put("redis.tls.enabled", "true")
+                .put("redis.tls.keystore-path", keystoreFile.toString())
+                .put("redis.tls.keystore-password", "keystore-password")
+                .put("redis.tls.truststore-path", truststoreFile.toString())
+                .put("redis.tls.truststore-password", "truststore-password")
                 .buildOrThrow();
 
         RedisConnectorConfig expected = new RedisConnectorConfig()
@@ -83,9 +97,13 @@ public class TestRedisConnectorConfig
                 .setRedisDataBaseIndex(5)
                 .setRedisUser("test")
                 .setRedisPassword("secret")
-                .setTlsEnabled(true)
                 .setRedisKeyDelimiter(",")
-                .setKeyPrefixSchemaTable(true);
+                .setKeyPrefixSchemaTable(true)
+                .setTlsEnabled(true)
+                .setKeystorePath(keystoreFile.toFile())
+                .setKeystorePassword("keystore-password")
+                .setTruststorePath(truststoreFile.toFile())
+                .setTruststorePassword("truststore-password");
 
         assertFullMapping(properties, expected);
     }

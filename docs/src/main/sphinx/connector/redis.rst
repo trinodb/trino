@@ -66,7 +66,11 @@ Property name                           Description
 ``redis.database-index``                Redis database index
 ``redis.user``                          Redis server username
 ``redis.password``                      Redis server password
-``redis.tls.enabled``                   Controls whether TLS is enabled or not
+``redis.tls.enabled``                   Whether TLS security is enabled, defaults to ``false``.
+``redis.tls.keystore-path``             Path to the key store.
+``redis.tls.keystore-password``         Password for the key store.
+``redis.tls.truststore-path``           Path to the trust store.
+``redis.tls.truststore-password``       Password for the trust store.
 ======================================  ==============================================================
 
 ``redis.table-names``
@@ -195,6 +199,26 @@ Starting with version 6, Redis supports TLS/SSL encrypted connections as an opti
 In case the Redis server you want to connect to requires TLS/SSL, enabling this property will allow you to connect.
 
 This property is optional; the default is ``false``.
+
+``redis.tls.keystore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Path to the key store.
+
+``redis.tls.keystore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the key store.
+
+``redis.tls.truststore-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Path to the trust store.
+
+``redis.tls.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for the trust store.
 
 Internal columns
 ----------------

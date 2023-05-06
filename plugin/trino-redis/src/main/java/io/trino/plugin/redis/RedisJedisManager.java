@@ -15,13 +15,17 @@ package io.trino.plugin.redis;
 
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.ssl.SslUtils;
 import io.trino.spi.HostAddress;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.net.ssl.SSLContext;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -48,9 +52,10 @@ public class RedisJedisManager
     private final boolean keyPrefixSchemaTable;
     private final int redisScanCount;
     private final JedisPoolConfig jedisPoolConfig;
+    private final SSLContext sslContext;
 
     @Inject
-    RedisJedisManager(RedisConnectorConfig redisConnectorConfig)
+    RedisJedisManager(RedisConnectorConfig redisConnectorConfig) throws GeneralSecurityException, IOException
     {
         requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.redisUser = redisConnectorConfig.getRedisUser();
@@ -63,6 +68,11 @@ public class RedisJedisManager
         this.keyPrefixSchemaTable = redisConnectorConfig.isKeyPrefixSchemaTable();
         this.redisScanCount = redisConnectorConfig.getRedisScanCount();
         this.jedisPoolConfig = new JedisPoolConfig();
+        this.sslContext = SslUtils.createSSLContext(
+                redisConnectorConfig.getKeystorePath(),
+                redisConnectorConfig.getKeystorePassword(),
+                redisConnectorConfig.getTruststorePath(),
+                redisConnectorConfig.getTruststorePassword());
     }
 
     @PreDestroy
@@ -107,13 +117,19 @@ public class RedisJedisManager
     private JedisPool createConsumer(HostAddress host)
     {
         log.info("Creating new JedisPool for %s", host);
+        var timeout = toIntExact(redisConnectTimeout.toMillis());
         return new JedisPool(jedisPoolConfig,
                 host.getHostText(),
                 host.getPort(),
-                toIntExact(redisConnectTimeout.toMillis()),
+                timeout,
+                timeout,
                 redisUser,
                 redisPassword,
                 redisDataBaseIndex,
-                tlsEnabled);
+                null,
+                tlsEnabled,
+                sslContext.getSocketFactory(),
+                sslContext.getDefaultSSLParameters(),
+                null);
     }
 }
