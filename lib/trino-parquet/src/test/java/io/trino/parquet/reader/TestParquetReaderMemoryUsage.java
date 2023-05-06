@@ -120,8 +120,7 @@ public class TestParquetReaderMemoryUsage
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
                 ParquetWriterOptions.builder()
-                        .setMaxPageSize(DataSize.ofBytes(100))
-                        .setMaxBlockSize(DataSize.ofBytes(1))
+                        .setMaxBlockSize(DataSize.ofBytes(1000))
                         .build(),
                 CompressionCodec.SNAPPY,
                 "test-version",

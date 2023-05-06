@@ -19,7 +19,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
@@ -59,7 +58,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
@@ -68,7 +66,6 @@ import static io.trino.parquet.ParquetWriteValidation.ParquetWriteValidationBuil
 import static io.trino.parquet.writer.ParquetDataOutput.createDataOutput;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -79,8 +76,6 @@ public class ParquetWriter
         implements Closeable
 {
     private static final int INSTANCE_SIZE = instanceSize(ParquetWriter.class);
-
-    private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.of(128, MEGABYTE).toBytes());
 
     private final OutputStreamSliceOutput outputStream;
     private final ParquetWriterOptions writerOption;
@@ -128,7 +123,7 @@ public class ParquetWriter
         recordValidation(validation -> validation.setColumns(messageType.getColumns()));
         recordValidation(validation -> validation.setCreatedBy(createdBy));
         initColumnWriters();
-        this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
+        this.chunkMaxLogicalBytes = max(1, writerOption.getMaxRowGroupSize() / 2);
     }
 
     public long getWrittenBytes()
