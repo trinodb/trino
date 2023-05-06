@@ -93,6 +93,8 @@ public class PrimitiveColumnWriter
 
     private final int pageSizeThreshold;
 
+    // Total size of compressed parquet pages and the current uncompressed page buffered in memory
+    // Used by ParquetWriter to decide when a row group is big enough to flush
     private long bufferedBytes;
     private long pageBufferedBytes;
 
@@ -139,9 +141,12 @@ public class PrimitiveColumnWriter
             }
         }
 
-        updateBufferedBytes();
-        if (bufferedBytes >= pageSizeThreshold) {
+        long currentPageBufferedBytes = getCurrentPageBufferedBytes();
+        if (currentPageBufferedBytes >= pageSizeThreshold) {
             flushCurrentPageToBuffer();
+        }
+        else {
+            updateBufferedBytes(currentPageBufferedBytes);
         }
     }
 
@@ -241,7 +246,7 @@ public class PrimitiveColumnWriter
         repetitionLevelWriter.reset();
         definitionLevelWriter.reset();
         primitiveValueWriter.reset();
-        updateBufferedBytes();
+        updateBufferedBytes(getCurrentPageBufferedBytes());
     }
 
     private List<ParquetDataOutput> getDataStreams()
@@ -276,7 +281,6 @@ public class PrimitiveColumnWriter
             dictionaryPagesWithEncoding.merge(new ParquetMetadataConverter().getEncoding(dictionaryPage.getEncoding()), 1, Integer::sum);
 
             primitiveValueWriter.resetDictionary();
-            updateBufferedBytes();
         }
         getDataStreamsCalled = true;
 
@@ -301,10 +305,14 @@ public class PrimitiveColumnWriter
                 repetitionLevelWriter.getAllocatedSize();
     }
 
-    private void updateBufferedBytes()
+    private void updateBufferedBytes(long currentPageBufferedBytes)
     {
-        bufferedBytes = pageBufferedBytes +
-                definitionLevelWriter.getBufferedSize() +
+        bufferedBytes = pageBufferedBytes + currentPageBufferedBytes;
+    }
+
+    private long getCurrentPageBufferedBytes()
+    {
+        return definitionLevelWriter.getBufferedSize() +
                 repetitionLevelWriter.getBufferedSize() +
                 primitiveValueWriter.getBufferedSize();
     }
