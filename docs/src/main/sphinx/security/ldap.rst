@@ -97,7 +97,7 @@ Property                           Description
                                    or :doc:`JKS </security/inspect-jks>` keystore file.
 ``ldap.ssl.keystore.password``     Password for the key store.
 ``ldap.ssl.truststore.path``       The path to the :doc:`PEM </security/inspect-pem>`
-                                   or :doc:`JKS </security/inspect-jks>` keystore file.
+                                   or :doc:`JKS </security/inspect-jks>` truststore file.
 ``ldap.ssl.truststore.password``   Password for the truststore.
 ``ldap.user-bind-pattern``         This property can be used to specify the LDAP user
                                    bind string for password authentication. This property
