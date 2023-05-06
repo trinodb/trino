@@ -160,7 +160,10 @@ public class ParquetWriter
 
         while (page != null) {
             int chunkRows = min(page.getPositionCount(), writerOption.getBatchSize());
-            Page chunk = page.getRegion(0, chunkRows);
+            Page chunk = page;
+            if (chunkRows < page.getPositionCount()) {
+                chunk = chunk.getRegion(0, chunkRows);
+            }
 
             // avoid chunk with huge logical size
             while (chunkRows > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
