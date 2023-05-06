@@ -40,7 +40,7 @@ public class ParquetWriterOptions
         this.batchSize = batchSize;
     }
 
-    public long getMaxRowGroupSize()
+    public int getMaxRowGroupSize()
     {
         return maxRowGroupSize;
     }
