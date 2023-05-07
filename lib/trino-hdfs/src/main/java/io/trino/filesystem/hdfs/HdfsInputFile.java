@@ -18,9 +18,9 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
+import io.trino.hdfs.CallStats;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -42,9 +42,9 @@ class HdfsInputFile
     private final Path file;
     private Long length;
     private FileStatus status;
-    private TrinoHdfsFileSystemStats.CallStats openFileCallStat;
+    private CallStats openFileCallStat;
 
-    public HdfsInputFile(Location location, Long length, HdfsEnvironment environment, HdfsContext context, TrinoHdfsFileSystemStats.CallStats openFileCallStat)
+    public HdfsInputFile(Location location, Long length, HdfsEnvironment environment, HdfsContext context, CallStats openFileCallStat)
     {
         this.location = requireNonNull(location, "location is null");
         this.environment = requireNonNull(environment, "environment is null");
