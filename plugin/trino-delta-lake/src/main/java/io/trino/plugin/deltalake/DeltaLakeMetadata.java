@@ -1640,7 +1640,7 @@ public class DeltaLakeMetadata
         List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
 
         if (mergeHandle.getInsertTableHandle().isRetriesEnabled()) {
-            cleanExtraOutputFilesForUpdate(session, Location.of(handle.getLocation()), allFiles);
+            cleanExtraOutputFiles(session, Location.of(handle.getLocation()), allFiles);
         }
 
         Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
@@ -2810,15 +2810,6 @@ public class DeltaLakeMetadata
     private void cleanExtraOutputFiles(ConnectorSession session, Location baseLocation, List<DataFileInfo> validDataFiles)
     {
         Set<Location> writtenFilePaths = validDataFiles.stream()
-                .map(dataFileInfo -> baseLocation.appendPath(dataFileInfo.getPath()))
-                .collect(toImmutableSet());
-
-        cleanExtraOutputFiles(session, writtenFilePaths);
-    }
-
-    private void cleanExtraOutputFilesForUpdate(ConnectorSession session, Location baseLocation, List<DataFileInfo> newFiles)
-    {
-        Set<Location> writtenFilePaths = newFiles.stream()
                 .map(dataFileInfo -> baseLocation.appendPath(dataFileInfo.getPath()))
                 .collect(toImmutableSet());
 
