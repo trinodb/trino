@@ -42,7 +42,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import org.apache.hadoop.fs.Path;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
@@ -70,6 +69,7 @@ import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_WRITE;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.relativePath;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getCompressionCodec;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
@@ -322,16 +322,16 @@ public class DeltaLakeMergeSink
     }
 
     // In spite of the name "Delta" Lake, we must rewrite the entire file to delete rows.
-    private List<Slice> rewriteFile(String sourceLocationPath, FileDeletion deletion)
+    private List<Slice> rewriteFile(String sourcePath, FileDeletion deletion)
     {
         try {
-            Path sourcePath = new Path(sourceLocationPath);
-            Path rootTablePath = new Path(rootTableLocation.toString());
-            String sourceRelativePath = rootTablePath.toUri().relativize(sourcePath.toUri()).toString();
+            String tablePath = rootTableLocation.toString();
+            Location sourceLocation = Location.of(sourcePath);
+            String sourceRelativePath = relativePath(tablePath, sourcePath);
 
-            Path targetPath = new Path(sourcePath.getParent(), session.getQueryId() + "_" + randomUUID());
-            String targetRelativePath = rootTablePath.toUri().relativize(targetPath.toUri()).toString();
-            FileWriter fileWriter = createParquetFileWriter(Location.of(targetPath.toString()), dataColumns);
+            Location targetLocation = sourceLocation.parentDirectory().appendPath(session.getQueryId() + "_" + randomUUID());
+            String targetRelativePath = relativePath(tablePath, targetLocation.toString());
+            FileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
 
             DeltaLakeWriter writer = new DeltaLakeWriter(
                     fileSystem,
@@ -343,7 +343,7 @@ public class DeltaLakeMergeSink
                     dataColumns,
                     DATA);
 
-            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(Location.of(sourcePath.toString()), deletion, writer);
+            Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
 
             DeltaLakeMergeResult result = new DeltaLakeMergeResult(Optional.of(sourceRelativePath), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
