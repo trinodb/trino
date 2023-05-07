@@ -18,7 +18,7 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicConfigurationProvider;
-import io.trino.plugin.hive.rubix.RubixEnabledConfig;
+import io.trino.hdfs.rubix.RubixEnabledConfig;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
