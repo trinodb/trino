@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.gcs;
+package io.trino.hdfs.gcs;
 
 import io.trino.hdfs.DynamicConfigurationProvider;
 import io.trino.hdfs.HdfsContext;
@@ -21,7 +21,7 @@ import java.net.URI;
 
 import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem.SCHEME;
 import static io.trino.hdfs.DynamicConfigurationProvider.setCacheKey;
-import static io.trino.plugin.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
+import static io.trino.hdfs.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
 
 public class GcsConfigurationProvider
         implements DynamicConfigurationProvider
