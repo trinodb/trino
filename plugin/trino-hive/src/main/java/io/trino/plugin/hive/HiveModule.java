@@ -20,7 +20,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
-import io.trino.hdfs.NamenodeStats;
+import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.TrinoFileSystemCache;
 import io.trino.hdfs.TrinoFileSystemCacheStats;
 import io.trino.plugin.base.CatalogName;
@@ -91,9 +91,6 @@ public class HiveModule
         binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();
 
-        binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(NamenodeStats.class).withGeneratedName();
-
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).withGeneratedName();
 
@@ -124,6 +121,10 @@ public class HiveModule
         binder.bind(TrinoFileSystemCacheStats.class).toInstance(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats());
         newExporter(binder).export(TrinoFileSystemCacheStats.class)
                 .as(generator -> generator.generatedNameOf(io.trino.plugin.hive.fs.TrinoFileSystemCache.class));
+
+        binder.bind(HdfsNamenodeStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(HdfsNamenodeStats.class)
+                .as(generator -> generator.generatedNameOf(io.trino.plugin.hive.NamenodeStats.class));
 
         configBinder(binder).bindConfig(HiveFormatsConfig.class);
 

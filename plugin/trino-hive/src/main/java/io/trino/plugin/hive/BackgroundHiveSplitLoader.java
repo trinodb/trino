@@ -30,7 +30,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.NamenodeStats;
+import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.fs.DirectoryLister;
@@ -168,7 +168,7 @@ public class BackgroundHiveSplitLoader
     private final Optional<BucketSplitInfo> tableBucketInfo;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
-    private final NamenodeStats namenodeStats;
+    private final HdfsNamenodeStats hdfsNamenodeStats;
     private final DirectoryLister directoryLister;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final int loaderConcurrency;
@@ -217,7 +217,7 @@ public class BackgroundHiveSplitLoader
             ConnectorSession session,
             TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
-            NamenodeStats namenodeStats,
+            HdfsNamenodeStats hdfsNamenodeStats,
             DirectoryLister directoryLister,
             Executor executor,
             int loaderConcurrency,
@@ -239,7 +239,7 @@ public class BackgroundHiveSplitLoader
         this.session = session;
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = hdfsEnvironment;
-        this.namenodeStats = namenodeStats;
+        this.hdfsNamenodeStats = hdfsNamenodeStats;
         this.directoryLister = directoryLister;
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.ignoreAbsentPartitions = ignoreAbsentPartitions;
@@ -560,7 +560,7 @@ public class BackgroundHiveSplitLoader
     private List<TrinoFileStatus> listBucketFiles(Path path, FileSystem fs, String partitionName)
     {
         try {
-            return ImmutableList.copyOf(new HiveFileIterator(table, path, fs, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
+            return ImmutableList.copyOf(new HiveFileIterator(table, path, fs, directoryLister, hdfsNamenodeStats, FAIL, ignoreAbsentPartitions));
         }
         catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -642,7 +642,7 @@ public class BackgroundHiveSplitLoader
         FileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, parent);
 
         Map<Path, TrinoFileStatus> fileStatuses = new HashMap<>();
-        HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, namenodeStats, IGNORED, false);
+        HiveFileIterator fileStatusIterator = new HiveFileIterator(table, parent, targetFilesystem, directoryLister, hdfsNamenodeStats, IGNORED, false);
         fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(new Path(status.getPath())), status));
 
         List<TrinoFileStatus> locatedFileStatuses = new ArrayList<>();
@@ -803,7 +803,7 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
     {
-        Iterator<TrinoFileStatus> iterator = new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions);
+        Iterator<TrinoFileStatus> iterator = new HiveFileIterator(table, path, fileSystem, directoryLister, hdfsNamenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED, ignoreAbsentPartitions);
         return createInternalHiveSplitIterator(splitFactory, splittable, acidInfo, Streams.stream(iterator));
     }
 

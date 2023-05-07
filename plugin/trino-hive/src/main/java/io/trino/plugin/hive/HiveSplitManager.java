@@ -23,7 +23,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.NamenodeStats;
+import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -104,7 +104,7 @@ public class HiveSplitManager
     private final HiveTransactionManager transactionManager;
     private final HivePartitionManager partitionManager;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final NamenodeStats namenodeStats;
+    private final HdfsNamenodeStats hdfsNamenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
     private final Executor executor;
     private final int maxOutstandingSplits;
@@ -125,7 +125,7 @@ public class HiveSplitManager
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
             TrinoFileSystemFactory fileSystemFactory,
-            NamenodeStats namenodeStats,
+            HdfsNamenodeStats hdfsNamenodeStats,
             HdfsEnvironment hdfsEnvironment,
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
@@ -135,7 +135,7 @@ public class HiveSplitManager
                 transactionManager,
                 partitionManager,
                 fileSystemFactory,
-                namenodeStats,
+                hdfsNamenodeStats,
                 hdfsEnvironment,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
                 new CounterStat(),
@@ -155,7 +155,7 @@ public class HiveSplitManager
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
             TrinoFileSystemFactory fileSystemFactory,
-            NamenodeStats namenodeStats,
+            HdfsNamenodeStats hdfsNamenodeStats,
             HdfsEnvironment hdfsEnvironment,
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
@@ -173,7 +173,7 @@ public class HiveSplitManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
+        this.hdfsNamenodeStats = requireNonNull(hdfsNamenodeStats, "hdfsNamenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.executor = new ErrorCodedExecutor(executor);
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
@@ -262,7 +262,7 @@ public class HiveSplitManager
                 session,
                 fileSystemFactory,
                 hdfsEnvironment,
-                namenodeStats,
+                hdfsNamenodeStats,
                 transactionalMetadata.getDirectoryLister(),
                 executor,
                 splitLoaderConcurrency,
