@@ -19,8 +19,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicConfigurationProvider;
+import io.trino.hdfs.rubix.RubixEnabledConfig;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.concurrent.TimeUnit;
