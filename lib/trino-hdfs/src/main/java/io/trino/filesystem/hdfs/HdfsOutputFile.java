@@ -16,10 +16,10 @@ package io.trino.filesystem.hdfs;
 import io.airlift.stats.TimeStat;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.hdfs.CallStats;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.MemoryAwareFileSystem;
-import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.memory.context.AggregatedMemoryContext;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -37,9 +37,9 @@ class HdfsOutputFile
     private final Location location;
     private final HdfsEnvironment environment;
     private final HdfsContext context;
-    private final TrinoHdfsFileSystemStats.CallStats createFileCallStat;
+    private final CallStats createFileCallStat;
 
-    public HdfsOutputFile(Location location, HdfsEnvironment environment, HdfsContext context, TrinoHdfsFileSystemStats.CallStats createFileCallStat)
+    public HdfsOutputFile(Location location, HdfsEnvironment environment, HdfsContext context, CallStats createFileCallStat)
     {
         this.location = requireNonNull(location, "location is null");
         this.environment = requireNonNull(environment, "environment is null");

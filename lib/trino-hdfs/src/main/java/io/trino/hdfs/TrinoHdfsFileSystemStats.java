@@ -13,16 +13,10 @@
  */
 package io.trino.hdfs;
 
-import io.airlift.stats.CounterStat;
-import io.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
-
-public class TrinoHdfsFileSystemStats
+public final class TrinoHdfsFileSystemStats
 {
     private final CallStats openFileCalls = new CallStats();
     private final CallStats createFileCalls = new CallStats();
@@ -71,70 +65,5 @@ public class TrinoHdfsFileSystemStats
     public CallStats getDeleteDirectoryCalls()
     {
         return deleteDirectoryCalls;
-    }
-
-    public static class CallStats
-    {
-        private final TimeStat time = new TimeStat(TimeUnit.MILLISECONDS);
-        private final CounterStat totalCalls = new CounterStat();
-        private final CounterStat totalFailures = new CounterStat();
-        private final CounterStat ioExceptions = new CounterStat();
-        private final CounterStat fileNotFoundExceptions = new CounterStat();
-
-        public TimeStat.BlockTimer time()
-        {
-            return time.time();
-        }
-
-        public void recordException(Exception exception)
-        {
-            if (exception instanceof IOException) {
-                ioExceptions.update(1);
-            }
-            else if (exception instanceof FileNotFoundException) {
-                fileNotFoundExceptions.update(1);
-            }
-            totalFailures.update(1);
-        }
-
-        @Managed
-        @Nested
-        public CounterStat getTotalCalls()
-        {
-            return totalCalls;
-        }
-
-        @Managed
-        @Nested
-        public CounterStat getTotalFailures()
-        {
-            return totalFailures;
-        }
-
-        @Managed
-        @Nested
-        public CounterStat getIoExceptions()
-        {
-            return ioExceptions;
-        }
-
-        @Managed
-        @Nested
-        public CounterStat getFileNotFoundExceptions()
-        {
-            return fileNotFoundExceptions;
-        }
-
-        @Managed
-        @Nested
-        public TimeStat getTime()
-        {
-            return time;
-        }
-
-        public void newCall()
-        {
-            totalCalls.update(1);
-        }
     }
 }
