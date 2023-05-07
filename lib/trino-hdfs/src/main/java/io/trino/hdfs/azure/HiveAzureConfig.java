@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.azure;
+package io.trino.hdfs.azure;
 
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
