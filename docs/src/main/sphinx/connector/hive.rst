@@ -1637,10 +1637,10 @@ with Parquet files performed by the Hive connector.
       - ``true``
     * - ``parquet.optimized-writer.enabled``
       - Whether the optimized writer is used when writing Parquet files.
-        Set this property to ``true`` to use the optimized parquet writer by
+        Set this property to ``false`` to disable the optimized parquet writer by
         default. The equivalent catalog session property is
         ``parquet_optimized_writer_enabled``.
-      - ``false``
+      - ``true``
     * - ``parquet.optimized-writer.validation-percentage``
       - Percentage of parquet files to validate after write by re-reading the whole file
         when ``parquet.optimized-writer.enabled`` is set to ``true``.

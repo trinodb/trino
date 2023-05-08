@@ -26,6 +26,8 @@ public class TestParquetPageSkipping
         return HiveQueryRunner.builder()
                 .setHiveProperties(
                         ImmutableMap.of(
+                                // TODO (https://github.com/trinodb/trino/issues/9359) use optimized writer
+                                "parquet.optimized-writer.enabled", "false",
                                 "parquet.use-column-index", "true",
                                 "parquet.max-buffer-size", "1MB",
                                 "parquet.optimized-reader.enabled", "false"))
