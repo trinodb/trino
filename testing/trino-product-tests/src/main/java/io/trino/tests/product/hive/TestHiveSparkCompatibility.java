@@ -394,10 +394,10 @@ public class TestHiveSparkCompatibility
     }
 
     @Test(groups = {HIVE_SPARK, PROFILE_SPECIFIC_TESTS})
-    public void testReadTrinoCreatedParquetTableWithNativeWriter()
+    public void testReadTrinoCreatedParquetTableWithHiveWriter()
     {
-        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".parquet_optimized_writer_enabled = true");
-        testReadTrinoCreatedTable("using_native_parquet", "PARQUET");
+        onTrino().executeQuery("SET SESSION " + TRINO_CATALOG + ".parquet_optimized_writer_enabled = false");
+        testReadTrinoCreatedTable("using_hive_parquet", "PARQUET");
     }
 
     private void testReadTrinoCreatedTable(String tableName, String tableFormat)

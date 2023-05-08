@@ -2077,6 +2077,10 @@ public abstract class BaseHiveConnectorTest
                 if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
                     continue;
                 }
+                if ((storageFormat == HiveStorageFormat.PARQUET) && (compressionCodec == HiveCompressionCodec.LZ4)) {
+                    // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+                    continue;
+                }
                 testEmptyBucketedTable(storageFormat, compressionCodec, true);
             }
             testEmptyBucketedTable(storageFormat, HiveCompressionCodec.GZIP, false);
@@ -5159,10 +5163,10 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test(dataProvider = "timestampPrecisionAndValues")
-    public void testParquetTimestampPredicatePushdownOptimizedWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
+    public void testParquetTimestampPredicatePushdownHiveWriter(HiveTimestampPrecision timestampPrecision, LocalDateTime value)
     {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "true")
+                .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "false")
                 .build();
         doTestParquetTimestampPredicatePushdown(session, timestampPrecision, value);
     }
@@ -5271,11 +5275,11 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testParquetDictionaryPredicatePushdownWithOptimizedWriter()
+    public void testParquetDictionaryPredicatePushdownWithHiveWriter()
     {
         testParquetDictionaryPredicatePushdown(
                 Session.builder(getSession())
-                        .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "true")
+                        .setCatalogSessionProperty("hive", "parquet_optimized_writer_enabled", "false")
                         .build());
     }
 
