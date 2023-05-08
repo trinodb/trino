@@ -43,9 +43,6 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronize
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizerManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HiveLocationService;
-import io.trino.plugin.hive.HiveTransactionManager;
-import io.trino.plugin.hive.LocationService;
 import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.plugin.hive.TransactionalMetadata;
@@ -107,13 +104,11 @@ public class DeltaLakeModule
         binder.bind(ConnectorPageSinkProvider.class).to(DeltaLakePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(DeltaLakeNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(DeltaLakeMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(CachingExtendedStatisticsAccess.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedStatisticsAccess.class).to(CachingExtendedStatisticsAccess.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedStatisticsAccess.class).annotatedWith(ForCachingExtendedStatisticsAccess.class).to(MetaDirStatisticsAccess.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(ExtendedStatistics.class);
-        binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(CheckpointSchemaManager.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(LastCheckpoint.class);
         binder.bind(CheckpointWriterManager.class).in(Scopes.SINGLETON);
