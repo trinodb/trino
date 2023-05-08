@@ -43,6 +43,8 @@ Built-in table functions
     The argument ``input`` is a table or a query.
     The argument ``columns`` is a descriptor without types.
 
+.. _sequence_table_function:
+
 .. function:: sequence(start => bigint, stop => bigint, step => bigint) -> table(sequential_number bigint)
     :noindex:
 
