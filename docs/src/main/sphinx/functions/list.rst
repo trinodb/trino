@@ -147,6 +147,7 @@ E
 - :func:`empty_approx_set`
 - ``evaluate_classifier_predictions``
 - :func:`every`
+- :func:`exclude_columns`
 - :func:`extract`
 - :func:`exp`
 
@@ -378,7 +379,8 @@ S
 -
 
 - :func:`second`
-- :func:`sequence`
+- :func:`sequence` (scalar function)
+- :ref:`sequence()<sequence_table_function>` (table function)
 - :func:`sha1`
 - :func:`sha256`
 - :func:`sha512`
