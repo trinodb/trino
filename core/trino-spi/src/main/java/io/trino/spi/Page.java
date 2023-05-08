@@ -153,6 +153,10 @@ public final class Page
             throw new IndexOutOfBoundsException(format("Invalid position %s and length %s in page with %s positions", positionOffset, length, positionCount));
         }
 
+        if (positionOffset == 0 && length == positionCount) {
+            return this;
+        }
+
         int channelCount = getChannelCount();
         Block[] slicedBlocks = new Block[channelCount];
         for (int i = 0; i < channelCount; i++) {
