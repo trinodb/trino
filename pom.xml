@@ -2353,7 +2353,7 @@
                     <plugin>
                         <groupId>io.github.gitflow-incremental-builder</groupId>
                         <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>4.1.1</version>
+                        <version>4.4.1</version>
                         <extensions>true</extensions>
                         <configuration>
                             <disableIfBranchMatches>master</disableIfBranchMatches>
