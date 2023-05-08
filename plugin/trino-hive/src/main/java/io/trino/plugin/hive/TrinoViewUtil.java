@@ -28,7 +28,7 @@ import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isViewOrMaterializedView;
 
 public final class TrinoViewUtil
@@ -47,7 +47,7 @@ public final class TrinoViewUtil
             return Optional.empty();
         }
 
-        if (!isPrestoView(tableParameters)) {
+        if (!isTrinoView(tableParameters)) {
             // Hive views are not compatible
             throw new HiveViewNotSupportedException(viewName);
         }

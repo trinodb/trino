@@ -82,7 +82,7 @@ public final class ViewReaderUtil
             boolean runHiveViewRunAsInvoker,
             HiveTimestampPrecision hiveViewsTimestampPrecision)
     {
-        if (isPrestoView(table)) {
+        if (isTrinoView(table)) {
             return new PrestoViewReader();
         }
         if (isHiveViewsLegacyTranslation(session)) {
@@ -130,12 +130,12 @@ public final class ViewReaderUtil
     private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
-    public static boolean isPrestoView(Table table)
+    public static boolean isTrinoView(Table table)
     {
-        return isPrestoView(table.getParameters());
+        return isTrinoView(table.getParameters());
     }
 
-    public static boolean isPrestoView(Map<String, String> tableParameters)
+    public static boolean isTrinoView(Map<String, String> tableParameters)
     {
         return "true".equals(tableParameters.get(PRESTO_VIEW_FLAG));
     }
@@ -147,7 +147,7 @@ public final class ViewReaderUtil
 
     public static boolean isTrinoMaterializedView(Map<String, String> tableParameters)
     {
-        return isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
+        return isTrinoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
     }
 
     public static boolean isViewOrMaterializedView(Table table)

@@ -263,8 +263,8 @@ import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isViewOrMaterializedView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
@@ -1445,7 +1445,7 @@ public class HiveMetadata
     {
         Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
                 .orElseThrow(() -> new ViewNotFoundException(viewName));
-        if (translateHiveViews && !isPrestoView(view)) {
+        if (translateHiveViews && !isTrinoView(view)) {
             throw new HiveViewNotSupportedException(viewName);
         }
         return view;
@@ -2611,7 +2611,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(existing.get())) {
+            if (!replace || !isTrinoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -2728,7 +2728,7 @@ public class HiveMetadata
         return table
                 .filter(view -> isViewOrMaterializedView(view) && !isTrinoMaterializedView(view))
                 .map(view -> {
-                    if (!translateHiveViews && !isPrestoView(view)) {
+                    if (!translateHiveViews && !isTrinoView(view)) {
                         throw new HiveViewNotSupportedException(viewName);
                     }
 

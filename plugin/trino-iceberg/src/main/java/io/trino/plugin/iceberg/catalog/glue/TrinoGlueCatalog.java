@@ -88,7 +88,7 @@ import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.TrinoViewUtil.createViewProperties;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
@@ -515,7 +515,7 @@ public class TrinoGlueCatalog
                     LOG.warn(e, "Failed to cache materialized view from %s", schemaTableName);
                 }
             }
-            else if (isPrestoView(parameters) && !viewCache.containsKey(schemaTableName)) {
+            else if (isTrinoView(parameters) && !viewCache.containsKey(schemaTableName)) {
                 if (materializedViewCache.containsKey(schemaTableName) || tableMetadataCache.containsKey(schemaTableName)) {
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, "Glue table cache inconsistency. View cannot also be a materialized view or table");
                 }
@@ -611,7 +611,7 @@ public class TrinoGlueCatalog
     {
         Optional<com.amazonaws.services.glue.model.Table> existing = getTable(session, schemaViewName);
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(firstNonNull(existing.get().getParameters(), ImmutableMap.of()))) {
+            if (!replace || !isTrinoView(firstNonNull(existing.get().getParameters(), ImmutableMap.of()))) {
                 // TODO: ViewAlreadyExists is misleading if the name is used by a table https://github.com/trinodb/trino/issues/10037
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
@@ -707,7 +707,7 @@ public class TrinoGlueCatalog
                             stats.getGetTables())
                             .map(GetTablesResult::getTableList)
                             .flatMap(List::stream)
-                            .filter(table -> isPrestoView(firstNonNull(table.getParameters(), ImmutableMap.of())))
+                            .filter(table -> isTrinoView(firstNonNull(table.getParameters(), ImmutableMap.of())))
                             .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                             .collect(toImmutableList()));
                 }
