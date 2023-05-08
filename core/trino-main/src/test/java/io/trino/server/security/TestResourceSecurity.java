@@ -466,7 +466,6 @@ public class TestResourceSecurity
         verifyJwtAuthenticator(Optional.empty(), Optional.empty());
         verifyJwtAuthenticator(Optional.of("custom-principal"), Optional.empty());
         verifyJwtAuthenticator(Optional.empty(), Optional.of(TRINO_AUDIENCE));
-        verifyJwtAuthenticator(Optional.empty(), Optional.of(ImmutableList.of(TRINO_AUDIENCE, ADDITIONAL_AUDIENCE)));
     }
 
     private void verifyJwtAuthenticator(Optional<String> principalField, Optional<Object> audience)

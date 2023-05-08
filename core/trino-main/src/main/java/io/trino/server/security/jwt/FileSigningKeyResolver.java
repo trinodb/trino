@@ -23,7 +23,6 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.SecurityException;
 
 import javax.crypto.spec.SecretKeySpec;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,12 +48,6 @@ public class FileSigningKeyResolver
     private final String keyFile;
     private final LoadedKey staticKey;
     private final ConcurrentMap<String, LoadedKey> keys = new ConcurrentHashMap<>();
-
-    @Inject
-    public FileSigningKeyResolver(JwtAuthenticatorConfig config)
-    {
-        this(config.getKeyFile());
-    }
 
     public FileSigningKeyResolver(String keyFile)
     {
