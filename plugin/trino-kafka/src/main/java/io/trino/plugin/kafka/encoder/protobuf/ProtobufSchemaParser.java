@@ -24,6 +24,7 @@ import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
 import io.trino.decoder.protobuf.ProtobufRowDecoder;
 import io.trino.plugin.kafka.KafkaTopicFieldDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
+import io.trino.plugin.kafka.schema.ProtobufAnySupportConfig;
 import io.trino.plugin.kafka.schema.confluent.SchemaParser;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -57,13 +58,16 @@ import static java.util.stream.Collectors.joining;
 public class ProtobufSchemaParser
         implements SchemaParser
 {
+    private static final String ANY_TYPE_NAME = "google.protobuf.Any";
     private static final String TIMESTAMP_TYPE_NAME = "google.protobuf.Timestamp";
     private final TypeManager typeManager;
+    private final boolean isProtobufAnySupportEnabled;
 
     @Inject
-    public ProtobufSchemaParser(TypeManager typeManager)
+    public ProtobufSchemaParser(TypeManager typeManager, ProtobufAnySupportConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.isProtobufAnySupportEnabled = requireNonNull(config, "config is null").isProtobufAnySupportEnabled();
     }
 
     @Override
@@ -142,6 +146,9 @@ public class ProtobufSchemaParser
         Descriptor descriptor = fieldDescriptor.getMessageType();
         if (descriptor.getFullName().equals(TIMESTAMP_TYPE_NAME)) {
             return createTimestampType(6);
+        }
+        else if (isProtobufAnySupportEnabled && descriptor.getFullName().equals(ANY_TYPE_NAME)) {
+            return typeManager.getType(new TypeSignature(JSON));
         }
 
         // We MUST check just the type names since same type can be present with different field names which is also recursive

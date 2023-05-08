@@ -35,13 +35,13 @@ public class ProtobufRowDecoder
     private final DynamicMessageProvider dynamicMessageProvider;
     private final Map<DecoderColumnHandle, ProtobufColumnDecoder> columnDecoders;
 
-    public ProtobufRowDecoder(DynamicMessageProvider dynamicMessageProvider, Set<DecoderColumnHandle> columns, TypeManager typeManager)
+    public ProtobufRowDecoder(DynamicMessageProvider dynamicMessageProvider, Set<DecoderColumnHandle> columns, TypeManager typeManager, DescriptorProvider descriptorProvider)
     {
         this.dynamicMessageProvider = requireNonNull(dynamicMessageProvider, "dynamicMessageSupplier is null");
         this.columnDecoders = columns.stream()
                 .collect(toImmutableMap(
                         identity(),
-                        column -> new ProtobufColumnDecoder(column, typeManager)));
+                        column -> new ProtobufColumnDecoder(column, typeManager, descriptorProvider)));
     }
 
     @Override
