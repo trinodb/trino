@@ -161,8 +161,10 @@ public final class DeltaLakeSchemaSupport
             Map<String, Boolean> columnNullability,
             Map<String, Map<String, Object>> columnMetadata)
     {
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-type
         ImmutableMap.Builder<String, Object> schema = ImmutableMap.builder();
 
+        schema.put("type", "struct");
         schema.put("fields", columns.stream()
                 .map(column -> {
                     String columnName = column.getColumnName();
@@ -174,14 +176,18 @@ public final class DeltaLakeSchemaSupport
                             columnMetadata.get(columnName));
                 })
                 .collect(toImmutableList()));
-        schema.put("type", "struct");
 
         return schema.buildOrThrow();
     }
 
     private static Map<String, Object> serializeStructField(String name, Type type, @Nullable String comment, @Nullable Boolean nullable, @Nullable Map<String, Object> metadata)
     {
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-field
         ImmutableMap.Builder<String, Object> fieldContents = ImmutableMap.builder();
+
+        fieldContents.put("name", name);
+        fieldContents.put("type", serializeColumnType(type));
+        fieldContents.put("nullable", nullable != null ? nullable : true);
 
         ImmutableMap.Builder<String, Object> columnMetadata = ImmutableMap.builder();
         if (comment != null) {
@@ -192,11 +198,7 @@ public final class DeltaLakeSchemaSupport
                     .filter(entry -> !entry.getKey().equals("comment"))
                     .forEach(entry -> columnMetadata.put(entry.getKey(), entry.getValue()));
         }
-
         fieldContents.put("metadata", columnMetadata.buildOrThrow());
-        fieldContents.put("name", name);
-        fieldContents.put("nullable", nullable != null ? nullable : true);
-        fieldContents.put("type", serializeColumnType(type));
 
         return fieldContents.buildOrThrow();
     }
@@ -217,23 +219,25 @@ public final class DeltaLakeSchemaSupport
 
     private static Map<String, Object> serializeArrayType(ArrayType arrayType)
     {
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#array-type
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
         fields.put("type", "array");
-        fields.put("containsNull", true);
         fields.put("elementType", serializeColumnType(arrayType.getElementType()));
+        fields.put("containsNull", true);
 
         return fields.buildOrThrow();
     }
 
     private static Map<String, Object> serializeMapType(MapType mapType)
     {
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#map-type
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
-        fields.put("keyType", serializeColumnType(mapType.getKeyType()));
         fields.put("type", "map");
-        fields.put("valueContainsNull", true);
+        fields.put("keyType", serializeColumnType(mapType.getKeyType()));
         fields.put("valueType", serializeColumnType(mapType.getValueType()));
+        fields.put("valueContainsNull", true);
 
         return fields.buildOrThrow();
     }
