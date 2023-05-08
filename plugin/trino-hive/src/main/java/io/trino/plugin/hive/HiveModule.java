@@ -124,7 +124,7 @@ public class HiveModule
 
         binder.bind(HdfsNamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HdfsNamenodeStats.class)
-                .as(generator -> generator.generatedNameOf(io.trino.plugin.hive.NamenodeStats.class));
+                .as(generator -> generator.generatedNameOf(NamenodeStats.class));
 
         configBinder(binder).bindConfig(HiveFormatsConfig.class);
 
