@@ -68,14 +68,14 @@ public class TransactionScopeCachingDirectoryLister
     public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
             throws IOException
     {
-        return listInternal(fs, table, new DirectoryListingCacheKey(path, false));
+        return listInternal(fs, table, new DirectoryListingCacheKey(path.toString(), false));
     }
 
     @Override
     public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
             throws IOException
     {
-        return listInternal(fs, table, new DirectoryListingCacheKey(path, true));
+        return listInternal(fs, table, new DirectoryListingCacheKey(path.toString(), true));
     }
 
     private RemoteIterator<TrinoFileStatus> listInternal(FileSystem fs, Table table, DirectoryListingCacheKey cacheKey)
@@ -103,9 +103,9 @@ public class TransactionScopeCachingDirectoryLister
             throws IOException
     {
         if (cacheKey.isRecursiveFilesOnly()) {
-            return delegate.listFilesRecursively(fs, table, cacheKey.getPath());
+            return delegate.listFilesRecursively(fs, table, new Path(cacheKey.getPath()));
         }
-        return delegate.list(fs, table, cacheKey.getPath());
+        return delegate.list(fs, table, new Path(cacheKey.getPath()));
     }
 
     @Override
@@ -171,7 +171,7 @@ public class TransactionScopeCachingDirectoryLister
     @VisibleForTesting
     boolean isCached(Path path)
     {
-        return isCached(new DirectoryListingCacheKey(path, false));
+        return isCached(new DirectoryListingCacheKey(path.toString(), false));
     }
 
     @VisibleForTesting
