@@ -1803,7 +1803,7 @@
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
                 <type>pom</type>
-                <version>3.37.1</version>
+                <version>3.38.2</version>
                 <scope>import</scope>
             </dependency>
 
