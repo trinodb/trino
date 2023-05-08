@@ -32,18 +32,18 @@ import static java.util.Objects.requireNonNull;
  */
 final class DirectoryListingCacheKey
 {
-    private final Path path;
+    private final String path;
     private final int hashCode; // precomputed hashCode
     private final boolean recursiveFilesOnly;
 
-    public DirectoryListingCacheKey(Path path, boolean recursiveFilesOnly)
+    public DirectoryListingCacheKey(String path, boolean recursiveFilesOnly)
     {
         this.path = requireNonNull(path, "path is null");
         this.recursiveFilesOnly = recursiveFilesOnly;
         this.hashCode = Objects.hash(path, recursiveFilesOnly);
     }
 
-    public Path getPath()
+    public String getPath()
     {
         return path;
     }
@@ -82,6 +82,6 @@ final class DirectoryListingCacheKey
 
     public static List<DirectoryListingCacheKey> allKeysWithPath(Path path)
     {
-        return ImmutableList.of(new DirectoryListingCacheKey(path, true), new DirectoryListingCacheKey(path, false));
+        return ImmutableList.of(new DirectoryListingCacheKey(path.toString(), true), new DirectoryListingCacheKey(path.toString(), false));
     }
 }

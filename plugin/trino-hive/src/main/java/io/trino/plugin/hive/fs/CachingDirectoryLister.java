@@ -94,7 +94,7 @@ public class CachingDirectoryLister
             return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
         }
 
-        return listInternal(fs, new DirectoryListingCacheKey(path, false));
+        return listInternal(fs, new DirectoryListingCacheKey(path.toString(), false));
     }
 
     @Override
@@ -105,7 +105,7 @@ public class CachingDirectoryLister
             return new TrinoFileStatusRemoteIterator(fs.listFiles(path, true));
         }
 
-        return listInternal(fs, new DirectoryListingCacheKey(path, true));
+        return listInternal(fs, new DirectoryListingCacheKey(path.toString(), true));
     }
 
     private RemoteIterator<TrinoFileStatus> listInternal(FileSystem fs, DirectoryListingCacheKey cacheKey)
@@ -123,9 +123,9 @@ public class CachingDirectoryLister
             throws IOException
     {
         if (cacheKey.isRecursiveFilesOnly()) {
-            return new TrinoFileStatusRemoteIterator(fs.listFiles(cacheKey.getPath(), true));
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(new Path(cacheKey.getPath()), true));
         }
-        return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(cacheKey.getPath()));
+        return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(new Path(cacheKey.getPath())));
     }
 
     @Override
@@ -219,7 +219,7 @@ public class CachingDirectoryLister
     @VisibleForTesting
     boolean isCached(Path path)
     {
-        return isCached(new DirectoryListingCacheKey(path, false));
+        return isCached(new DirectoryListingCacheKey(path.toString(), false));
     }
 
     @VisibleForTesting
