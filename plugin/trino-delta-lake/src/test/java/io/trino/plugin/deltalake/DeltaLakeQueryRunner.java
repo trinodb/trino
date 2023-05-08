@@ -216,7 +216,7 @@ public final class DeltaLakeQueryRunner
                 .addExtraProperties(extraProperties)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
-                        .put("hive.s3.streaming.part-size", "5MB") //must be at least 5MB according to annotations on io.trino.plugin.hive.s3.HiveS3Config.getS3StreamingPartSize
+                        .put("hive.s3.streaming.part-size", "5MB") //must be at least 5MB according to annotations on io.trino.hdfs.s3.HiveS3Config.getS3StreamingPartSize
                         .putAll(connectorProperties)
                         .buildOrThrow())
                 .build();

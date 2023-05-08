@@ -15,7 +15,7 @@ package io.trino.plugin.hive.rubix;
 
 import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.spi.ClusterType;
-import io.trino.plugin.hive.s3.TrinoS3FileSystem;
+import io.trino.hdfs.s3.TrinoS3FileSystem;
 
 public class CachingTrinoS3FileSystem
         extends CachingFileSystem<TrinoS3FileSystem>
