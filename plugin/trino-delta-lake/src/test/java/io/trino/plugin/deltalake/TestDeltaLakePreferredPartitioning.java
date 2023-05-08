@@ -16,12 +16,10 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
@@ -39,10 +37,6 @@ public class TestDeltaLakePreferredPartitioning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        verify(
-                !new ParquetWriterConfig().isParquetOptimizedWriterEnabled(),
-                "This test assumes the optimized Parquet writer is disabled by default");
-
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(TEST_BUCKET_NAME));
         hiveMinioDataLake.start();
         return createS3DeltaLakeQueryRunner(

@@ -32,7 +32,7 @@ public class ParquetWriterConfig
     public static final String PARQUET_WRITER_MIN_PAGE_SIZE = "8kB";
     public static final String PARQUET_WRITER_MAX_PAGE_SIZE = "8MB";
 
-    private boolean parquetOptimizedWriterEnabled;
+    private boolean parquetOptimizedWriterEnabled = true;
 
     private DataSize blockSize = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
     private DataSize pageSize = DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE);
