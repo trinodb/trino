@@ -14,13 +14,19 @@
 package io.trino.plugin.kafka.schema.file;
 
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.decoder.DecoderModule;
+import io.trino.decoder.protobuf.DescriptorProvider;
+import io.trino.decoder.protobuf.FileDescriptorProvider;
 import io.trino.plugin.kafka.encoder.EncoderModule;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
+import io.trino.plugin.kafka.schema.ProtobufAnySupportConfig;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 
+import static com.google.inject.Scopes.SINGLETON;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class FileTableDescriptionSupplierModule
@@ -34,5 +40,20 @@ public class FileTableDescriptionSupplierModule
         install(new DecoderModule());
         install(new EncoderModule());
         binder.bind(ContentSchemaReader.class).to(FileContentSchemaReader.class).in(Scopes.SINGLETON);
+
+        configBinder(binder).bindConfig(ProtobufAnySupportConfig.class);
+        install(conditionalModule(ProtobufAnySupportConfig.class,
+                ProtobufAnySupportConfig::isProtobufAnySupportEnabled,
+                new FileDescriptorProviderModule()));
+    }
+
+    private static class FileDescriptorProviderModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(DescriptorProvider.class).to(FileDescriptorProvider.class).in(SINGLETON);
+        }
     }
 }

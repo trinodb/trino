@@ -33,12 +33,14 @@ public class ProtobufRowDecoderFactory
 
     private final Factory dynamicMessageProviderFactory;
     private final TypeManager typeManager;
+    private final DescriptorProvider descriptorProvider;
 
     @Inject
-    public ProtobufRowDecoderFactory(Factory dynamicMessageProviderFactory, TypeManager typeManager)
+    public ProtobufRowDecoderFactory(Factory dynamicMessageProviderFactory, TypeManager typeManager, DescriptorProvider descriptorProvider)
     {
         this.dynamicMessageProviderFactory = requireNonNull(dynamicMessageProviderFactory, "dynamicMessageProviderFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.descriptorProvider = requireNonNull(descriptorProvider, "descriptorProvider is null");
     }
 
     @Override
@@ -47,6 +49,7 @@ public class ProtobufRowDecoderFactory
         return new ProtobufRowDecoder(
                 dynamicMessageProviderFactory.create(Optional.ofNullable(decoderParams.get("dataSchema"))),
                 columns,
-                typeManager);
+                typeManager,
+                descriptorProvider);
     }
 }

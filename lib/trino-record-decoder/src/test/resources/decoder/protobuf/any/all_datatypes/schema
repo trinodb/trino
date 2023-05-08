@@ -1,0 +1,21 @@
+// Copy of all_datatypes.proto which is a resolvable URL when packed into a google.protobuf.Any type
+
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+message schema {
+  string stringColumn = 1 ;
+  uint32 integerColumn = 2;
+  uint64 longColumn = 3;
+  double doubleColumn = 4;
+  float floatColumn = 5;
+  bool booleanColumn = 6;
+  enum Number {
+    ZERO = 0;
+    ONE = 1;
+  };
+  Number numberColumn = 7;
+  google.protobuf.Timestamp timestampColumn = 8;
+  bytes bytesColumn = 9;
+}
