@@ -81,6 +81,7 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -252,13 +253,12 @@ public class IcebergPageSink
 
     private void doAppend(Page page)
     {
-        while (page.getPositionCount() > MAX_PAGE_POSITIONS) {
-            Page chunk = page.getRegion(0, MAX_PAGE_POSITIONS);
-            page = page.getRegion(MAX_PAGE_POSITIONS, page.getPositionCount() - MAX_PAGE_POSITIONS);
+        int writeOffset = 0;
+        while (writeOffset < page.getPositionCount()) {
+            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, MAX_PAGE_POSITIONS));
+            writeOffset += chunk.getPositionCount();
             writePage(chunk);
         }
-
-        writePage(page);
     }
 
     private void writePage(Page page)

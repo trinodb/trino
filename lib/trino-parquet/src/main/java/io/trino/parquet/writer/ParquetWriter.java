@@ -158,27 +158,16 @@ public class ParquetWriter
         Page validationPage = page;
         recordValidation(validation -> validation.addPage(validationPage));
 
-        while (page != null) {
-            int chunkRows = min(page.getPositionCount(), writerOption.getBatchSize());
-            Page chunk = page;
-            if (chunkRows < page.getPositionCount()) {
-                chunk = chunk.getRegion(0, chunkRows);
-            }
+        int writeOffset = 0;
+        while (writeOffset < page.getPositionCount()) {
+            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, writerOption.getBatchSize()));
 
             // avoid chunk with huge logical size
-            while (chunkRows > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
-                chunkRows /= 2;
-                chunk = chunk.getRegion(0, chunkRows);
+            while (chunk.getPositionCount() > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
+                chunk = page.getRegion(writeOffset, chunk.getPositionCount() / 2);
             }
 
-            // Remove chunk from current page
-            if (chunkRows < page.getPositionCount()) {
-                page = page.getRegion(chunkRows, page.getPositionCount() - chunkRows);
-            }
-            else {
-                page = null;
-            }
-
+            writeOffset += chunk.getPositionCount();
             writeChunk(chunk);
         }
     }
