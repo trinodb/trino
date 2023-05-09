@@ -17,6 +17,8 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.MaxDataSize;
+import io.airlift.units.MinDataSize;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import org.apache.parquet.hadoop.ParquetWriter;
 
@@ -25,6 +27,11 @@ import javax.validation.constraints.DecimalMin;
 
 public class ParquetWriterConfig
 {
+    public static final String PARQUET_WRITER_MIN_BLOCK_SIZE = "4MB";
+    public static final String PARQUET_WRITER_MAX_BLOCK_SIZE = "2GB";
+    public static final String PARQUET_WRITER_MIN_PAGE_SIZE = "8kB";
+    public static final String PARQUET_WRITER_MAX_PAGE_SIZE = "8MB";
+
     private boolean parquetOptimizedWriterEnabled;
 
     private DataSize blockSize = DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE);
@@ -32,6 +39,8 @@ public class ParquetWriterConfig
     private int batchSize = ParquetWriterOptions.DEFAULT_BATCH_SIZE;
     private double validationPercentage = 5;
 
+    @MinDataSize(PARQUET_WRITER_MIN_BLOCK_SIZE)
+    @MaxDataSize(PARQUET_WRITER_MAX_BLOCK_SIZE)
     public DataSize getBlockSize()
     {
         return blockSize;
@@ -45,6 +54,8 @@ public class ParquetWriterConfig
         return this;
     }
 
+    @MinDataSize(PARQUET_WRITER_MIN_PAGE_SIZE)
+    @MaxDataSize(PARQUET_WRITER_MAX_PAGE_SIZE)
     public DataSize getPageSize()
     {
         return pageSize;
