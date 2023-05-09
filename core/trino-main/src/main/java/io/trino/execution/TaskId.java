@@ -42,8 +42,8 @@ public class TaskId
     public TaskId(StageId stageId, int partitionId, int attemptId)
     {
         requireNonNull(stageId, "stageId is null");
-        checkArgument(partitionId >= 0, "partitionId is negative");
-        checkArgument(attemptId >= 0, "attemptId is negative");
+        checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
+        checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
         this.fullId = stageId + "." + partitionId + "." + attemptId;
     }
 
