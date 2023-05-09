@@ -14,12 +14,10 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
 
 public class TestBigQueryArrowConnectorSmokeTest
-        extends BaseConnectorSmokeTest
+        extends BaseBigQueryConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -29,30 +27,5 @@ public class TestBigQueryArrowConnectorSmokeTest
                 ImmutableMap.of(),
                 ImmutableMap.of("bigquery.experimental.arrow-serialization.enabled", "true"),
                 REQUIRED_TPCH_TABLES);
-    }
-
-    @SuppressWarnings("DuplicateBranchesInSwitch")
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-                return false;
-
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE:
-                return false;
-
-            case SUPPORTS_CREATE_VIEW:
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
     }
 }
