@@ -41,6 +41,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -112,7 +113,7 @@ public class TestIcebergGlueCatalogSkipArchive
 
             // Add a new archive using Glue client
             Table glueTable = glueClient.getTable(new GetTableRequest().withDatabaseName(schemaName).withName(table.getName())).getTable();
-            TableInput tableInput = getTableInput(table.getName(), Optional.empty(), glueTable.getParameters());
+            TableInput tableInput = getTableInput(table.getName(), Optional.empty(), getTableParameters(glueTable));
             glueClient.updateTable(new UpdateTableRequest().withDatabaseName(schemaName).withTableInput(tableInput));
             assertThat(getTableVersions(schemaName, table.getName())).hasSize(2);
 
