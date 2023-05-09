@@ -24,24 +24,29 @@ import io.trino.parquet.reader.ChunkedInputStream;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.PageReader;
 import io.trino.parquet.reader.TestingParquetDataSource;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.VersionParser;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -109,5 +114,38 @@ public class TestParquetWriter
             assertThat(dataPage.getValueCount()).isBetween(4500, 5500);
         }
         assertThat(pagesRead).isGreaterThan(10);
+    }
+
+    @Test
+    public void testColumnReordering()
+            throws IOException
+    {
+        List<String> columnNames = ImmutableList.of("columnA", "columnB", "columnC", "columnD");
+        List<Type> types = ImmutableList.of(BIGINT, TINYINT, INTEGER, DecimalType.createDecimalType(12));
+
+        // Write a file with many row groups
+        ParquetDataSource dataSource = new TestingParquetDataSource(
+                writeParquetFile(
+                        ParquetWriterOptions.builder()
+                                .setMaxBlockSize(DataSize.ofBytes(20 * 1024))
+                                .build(),
+                        types,
+                        columnNames,
+                        generateInputPages(types, 100, 100)),
+                new ParquetReaderOptions());
+
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks().size()).isGreaterThanOrEqualTo(10);
+        for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
+            // Sort columns by size in file
+            List<ColumnChunkMetaData> columns = blockMetaData.getColumns().stream()
+                    .sorted(Comparator.comparingLong(ColumnChunkMetaData::getTotalUncompressedSize))
+                    .collect(toImmutableList());
+            // Verify that the columns are stored in the same order
+            List<Long> offsets = columns.stream()
+                    .map(ColumnChunkMetaData::getFirstDataPageOffset)
+                    .collect(toImmutableList());
+            assertThat(offsets).isSorted();
+        }
     }
 }
