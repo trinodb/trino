@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -4859,35 +4858,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testHighlyNestedData()
-    {
-        assertUpdate("CREATE TABLE nested_data (id INT, row_t ROW(f1 INT, f2 INT, row_t ROW (f1 INT, f2 INT, row_t ROW(f1 INT, f2 INT))))");
-        assertUpdate("INSERT INTO nested_data VALUES (1, ROW(2, 3, ROW(4, 5, ROW(6, 7)))), (11, ROW(12, 13, ROW(14, 15, ROW(16, 17))))", 2);
-        assertUpdate("INSERT INTO nested_data VALUES (21, ROW(22, 23, ROW(24, 25, ROW(26, 27))))", 1);
-
-        // Test select projected columns, with and without their parent column
-        assertQuery("SELECT id, row_t.row_t.row_t.f2 FROM nested_data", "VALUES (1, 7), (11, 17), (21, 27)");
-        assertQuery("SELECT id, row_t.row_t.row_t.f2, CAST(row_t AS JSON) FROM nested_data",
-                "VALUES (1, 7, '{\"f1\":2,\"f2\":3,\"row_t\":{\"f1\":4,\"f2\":5,\"row_t\":{\"f1\":6,\"f2\":7}}}'), " +
-                        "(11, 17, '{\"f1\":12,\"f2\":13,\"row_t\":{\"f1\":14,\"f2\":15,\"row_t\":{\"f1\":16,\"f2\":17}}}'), " +
-                        "(21, 27, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
-
-        // Test predicates on immediate child column and deeper nested column
-        assertQuery("SELECT id, CAST(row_t.row_t.row_t AS JSON) FROM nested_data WHERE row_t.row_t.row_t.f2 = 27", "VALUES (21, '{\"f1\":26,\"f2\":27}')");
-        assertQuery("SELECT id, CAST(row_t.row_t.row_t AS JSON) FROM nested_data WHERE row_t.row_t.row_t.f2 > 20", "VALUES (21, '{\"f1\":26,\"f2\":27}')");
-        assertQuery("SELECT id, CAST(row_t AS JSON) FROM nested_data WHERE row_t.row_t.row_t.f2 = 27",
-                "VALUES (21, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
-        assertQuery("SELECT id, CAST(row_t AS JSON) FROM nested_data WHERE row_t.row_t.row_t.f2 > 20",
-                "VALUES (21, '{\"f1\":22,\"f2\":23,\"row_t\":{\"f1\":24,\"f2\":25,\"row_t\":{\"f1\":26,\"f2\":27}}}')");
-
-        // Test predicates on parent columns
-        assertQuery("SELECT id, row_t.row_t.row_t.f1 FROM nested_data WHERE row_t.row_t.row_t = ROW(16, 17)", "VALUES (11, 16)");
-        assertQuery("SELECT id, row_t.row_t.row_t.f1 FROM nested_data WHERE row_t = ROW(22, 23, ROW(24, 25, ROW(26, 27)))", "VALUES (21, 26)");
-
-        assertUpdate("DROP TABLE IF EXISTS nested_data");
-    }
-
-    @Test
     public void testProjectionPushdownAfterRename()
     {
         assertUpdate("CREATE TABLE projection_pushdown_after_rename (id INT, a ROW(b INT, c ROW (d INT)))");
@@ -4900,56 +4870,6 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT id, CAST(row_t AS JSON), row_t.c.d FROM projection_pushdown_after_rename WHERE row_t.b = 12", expected);
 
         assertUpdate("DROP TABLE IF EXISTS projection_pushdown_after_rename");
-    }
-
-    @Test
-    public void testProjectionWithCaseSensitiveField()
-    {
-        assertUpdate("CREATE TABLE projection_with_case_sensitive_field (id INT, a ROW(\"UPPER_CASE\" INT, \"lower_case\" INT, \"MiXeD_cAsE\" INT))");
-        assertUpdate("INSERT INTO projection_with_case_sensitive_field VALUES (1, ROW(2, 3, 4)), (5, ROW(6, 7, 8))", 2);
-
-        String expected = "VALUES (2, 3, 4), (6, 7, 8)";
-        assertQuery("SELECT a.UPPER_CASE, a.lower_case, a.MiXeD_cAsE FROM projection_with_case_sensitive_field", expected);
-        assertQuery("SELECT a.upper_case, a.lower_case, a.mixed_case FROM projection_with_case_sensitive_field", expected);
-        assertQuery("SELECT a.UPPER_CASE, a.LOWER_CASE, a.MIXED_CASE FROM projection_with_case_sensitive_field", expected);
-
-        assertUpdate("DROP TABLE IF EXISTS projection_with_case_sensitive_field");
-    }
-
-    @Test
-    public void testProjectionPushdownReadsLessData()
-    {
-        String largeVarchar = "ZZZ".repeat(1000);
-        assertUpdate("CREATE TABLE projection_pushdown_reads_less_data (id INT, a ROW(b VARCHAR, c INT))");
-        assertUpdate(
-                format("INSERT INTO projection_pushdown_reads_less_data VALUES (1, ROW('%s', 3)), (11, ROW('%1$s', 13)), (21, ROW('%1$s', 23)), (31, ROW('%1$s', 33))", largeVarchar),
-                4);
-
-        String selectQuery = "SELECT a.c FROM projection_pushdown_reads_less_data";
-        Set<Integer> expected = ImmutableSet.of(3, 13, 23, 33);
-        Session sessionWithoutPushdown = Session.builder(getSession())
-                .setCatalogSessionProperty(ICEBERG_CATALOG, "projection_pushdown_enabled", "false")
-                .build();
-
-        assertQueryStats(
-                getSession(),
-                selectQuery,
-                statsWithPushdown -> {
-                    DataSize physicalDataSizeWithPushdown = statsWithPushdown.getPhysicalInputDataSize();
-                    DataSize processedDataSizeWithPushdown = statsWithPushdown.getProcessedInputDataSize();
-                    assertQueryStats(
-                            sessionWithoutPushdown,
-                            selectQuery,
-                            statsWithoutPushdown -> {
-                                //TODO (https://github.com/trinodb/trino/issues/17156) add dereference pushdown on the physical layer
-                                assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isEqualTo(physicalDataSizeWithPushdown);
-                                assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown);
-                            },
-                            results -> assertEquals(results.getOnlyColumnAsSet(), expected));
-                },
-                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
-
-        assertUpdate("DROP TABLE IF EXISTS projection_pushdown_reads_less_data");
     }
 
     @Test
@@ -6954,6 +6874,13 @@ public abstract class BaseIcebergConnectorTest
         assertThat(e).hasMessageMatching(".*(Failed to set column type: Cannot change (column type:|type from .* to )" +
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
                 "|Type not supported for Iceberg: char\\(20\\)).*");
+    }
+
+    @Override
+    protected boolean supportsPhysicalPushdown()
+    {
+        // TODO https://github.com/trinodb/trino/issues/17156
+        return false;
     }
 
     private Session prepareCleanUpSession()

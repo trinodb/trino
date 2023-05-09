@@ -87,6 +87,7 @@ public abstract class BaseBigQueryConnectorTest
                 return true;
 
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_DEREFERENCE_PUSHDOWN:
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
