@@ -17,7 +17,7 @@ name.
 If you receive a keystore file from your site's network admin group, verify that
 it shows the correct information for your Trino cluster, as described next.
 
-.. _troubleshooting_keystore:
+.. _troubleshooting-keystore:
 
 Inspect and validate keystore
 -----------------------------
@@ -65,7 +65,7 @@ the Trino server, as described in :ref:`cert-placement` and
 The rest of this page describes additional steps that may apply in certain
 circumstances.
 
-.. _import_to_keystore:
+.. _import-to-keystore:
 
 Extra: add PEM to keystore
 --------------------------
@@ -95,7 +95,7 @@ The ``alias`` name is an arbitrary string used as a handle for the certificate
 you are adding. A keystore can contain multiple keys and certs, so ``keytool``
 uses the alias to address individual entries.
 
-.. _cli_java_truststore:
+.. _cli-java-truststore:
 
 Extra: Java truststores
 -----------------------

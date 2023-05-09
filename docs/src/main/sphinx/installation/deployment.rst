@@ -76,7 +76,7 @@ This holds the following configuration:
   The available catalog configuration properties for a connector are described
   in the respective connector documentation.
 
-.. _node_properties:
+.. _node-properties:
 
 Node properties
 ^^^^^^^^^^^^^^^
@@ -112,7 +112,7 @@ The above properties are described below:
   The location (filesystem path) of the data directory. Trino stores
   logs and other data here.
 
-.. _jvm_config:
+.. _jvm-config:
 
 JVM config
 ^^^^^^^^^^
@@ -177,7 +177,7 @@ list of JVM options.
 We enable ``-XX:+UnlockDiagnosticVMOptions`` and ``-XX:+UseAESCTRIntrinsics`` to improve AES performance for S3, etc. on ARM64 (`JDK-8271567 <https://bugs.openjdk.java.net/browse/JDK-8271567>`_)
 We disable Preventive GC (``-XX:-G1UsePreventiveGC``) for performance reasons (see `JDK-8293861 <https://bugs.openjdk.org/browse/JDK-8293861>`_)
 
-.. _config_properties:
+.. _config-properties:
 
 Config properties
 ^^^^^^^^^^^^^^^^^
@@ -275,7 +275,7 @@ The default minimum level is ``INFO``,
 thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 
-.. _catalog_properties:
+.. _catalog-properties:
 
 Catalog properties
 ^^^^^^^^^^^^^^^^^^
@@ -298,7 +298,7 @@ contents to mount the ``jmx`` connector as the ``jmx`` catalog:
 
 See :doc:`/connector` for more information about configuring connectors.
 
-.. _running_trino:
+.. _running-trino:
 
 Running Trino
 --------------

@@ -30,11 +30,11 @@ order of steps. Do not skip or combine steps.
      HTTPS, if possible.
    * Use a globally trusted TLS certificate.
 
-   :ref:`Verify this step is working correctly.<verify_tls>`
+   :ref:`Verify this step is working correctly.<verify-tls>`
 
 #. **Configure** a :doc:`a shared secret </security/internal-communication>`
 
-   :ref:`Verify this step is working correctly.<verify_secrets>`
+   :ref:`Verify this step is working correctly.<verify-secrets>`
 
 #. **Enable authentication**
 
@@ -44,14 +44,14 @@ order of steps. Do not skip or combine steps.
      </security/ldap>`.
    * Avoid the complexity of Kerberos for client authentication, if possible.
 
-   :ref:`Verify this step is working correctly.<verify_authentication>`
+   :ref:`Verify this step is working correctly.<verify-authentication>`
 
 #. **Enable authorization and access control**
 
    * Start with :doc:`file-based rules <file-system-access-control>`.
    * Then configure another access control method as required.
 
-   :ref:`Verify this step is working correctly. <verify_rules>`
+   :ref:`Verify this step is working correctly. <verify-rules>`
 
 Configure one step at a time. Always restart the Trino server after each
 change, and verify the results before proceeding.
@@ -140,7 +140,7 @@ denying access to any inaccessible columns.
 
 You can change this behavior to silently hide inaccessible columns with the
 global property ``hide-inaccessible-columns`` configured in
-:ref:`config_properties`:
+:ref:`config-properties`:
 
 .. code-block:: properties
 

@@ -3,7 +3,7 @@
 ## General
 
 * Add support for aggregate functions and parameters as arguments for the
-  [`json_object()`](json_object) and [`json_array()`](json_array)
+  [`json_object()`](json-object) and [`json_array()`](json-array)
   functions. ({issue}`16489`, {issue}`16523`, {issue}`16525`)
 * Expose optimizer rule execution statistics in query statistics. The number of
   rules for which statistics are collected can be limited with the

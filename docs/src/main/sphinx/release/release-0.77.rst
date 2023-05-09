@@ -5,7 +5,7 @@ Release 0.77
 Parametric types
 ----------------
 Presto now has a framework for implementing parametric types and functions.
-Support for :ref:`array_type` and :ref:`map_type` types has been added, including the element accessor
+Support for :ref:`array-type` and :ref:`map-type` types has been added, including the element accessor
 operator ``[]``, and new :doc:`/functions/array`.
 
 Streaming index joins

@@ -4,4 +4,4 @@ UUID functions
 
 .. function:: uuid() -> uuid
 
-    Returns a pseudo randomly generated :ref:`uuid_type` (type 4).
+    Returns a pseudo randomly generated :ref:`uuid-type` (type 4).

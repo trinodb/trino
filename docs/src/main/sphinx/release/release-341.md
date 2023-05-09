@@ -6,10 +6,10 @@
 * Add support for variable precision `TIME WITH TIME ZONE` type. ({issue}`4905`)
 * Add {doc}`/connector/iceberg`.
 * Add {func}`human_readable_seconds` function. ({issue}`4344`)
-* Add [`reverse()`](function_reverse_varbinary) function for `VARBINARY`. ({issue}`4741`)
+* Add [`reverse()`](function-reverse-varbinary) function for `VARBINARY`. ({issue}`4741`)
 * Add support for {func}`extract` for `timestamp(p) with time zone` with values of `p` other than 3. ({issue}`4867`)
 * Add support for correlated subqueries in recursive queries. ({issue}`4877`)
-* Add [](optimizer_rule_stats) system table. ({issue}`4659`)
+* Add [](optimizer-rule-stats) system table. ({issue}`4659`)
 * Report dynamic filters statistics. ({issue}`4440`)
 * Improve query scalability when new nodes are added to cluster. ({issue}`4294`)
 * Improve error message when JSON parsing fails. ({issue}`4616`)
@@ -68,11 +68,11 @@
 * Use a temporary staging directory for temporary files when writing to sorted bucketed tables.
   This allows using a more efficient file system for temporary files. ({issue}`3434`)
 * Fix metastore cache invalidation for `GRANT` and `REVOKE`. ({issue}`4768`)
-* Add Parquet and RCBinary [configuration properties](hive_configuration_properties) `hive.parquet.time-zone`
+* Add Parquet and RCBinary [configuration properties](hive-configuration-properties) `hive.parquet.time-zone`
   and `hive.rcfile.time-zone` to adjust binary timestamp values to a specific time zone. For Hive 3.1+, this
   should be set to UTC. The default value is the JVM default time zone, for backwards compatibility with
   earlier versions of Hive. ({issue}`4799`)
-* Add ORC [configuration property](hive_configuration_properties) `hive.orc.time-zone` to set the default
+* Add ORC [configuration property](hive-configuration-properties) `hive.orc.time-zone` to set the default
   time zone for legacy ORC files that did not declare a time zone. ({issue}`4799`)
 * Replace the `hive.time-zone` configuration property with format specific properties: `hive.orc.time-zone`,
   `hive.parquet.time-zone`, `hive.rcfile.time-zone`. ({issue}`4799`)

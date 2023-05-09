@@ -28,7 +28,7 @@ Security
 * Remove unused ``internal-communication.jwt.enabled`` configuration property. (:issue:`2709`)
 * Rename JWT configuration properties from ``http.authentication.jwt.*`` to ``http-server.authentication.jwt.*``. (:issue:`2712`)
 * Add access control checks for query execution, view query, and kill query. This can be
-  configured using :ref:`query_rules` in :doc:`/security/file-system-access-control`. (:issue:`2213`)
+  configured using :ref:`query-rules` in :doc:`/security/file-system-access-control`. (:issue:`2213`)
 * Hide columns of tables for which the user has no privileges in :doc:`/security/file-system-access-control`. (:issue:`2925`)
 
 JDBC driver

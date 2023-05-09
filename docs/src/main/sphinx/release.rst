@@ -2,7 +2,7 @@
 Release notes
 *************
 
-.. _releases_2023:
+.. _releases-2023:
 
 2023
 ====
@@ -22,7 +22,7 @@ Release notes
     release/release-407
     release/release-406
 
-.. _releases_2022:
+.. _releases-2022:
 
 2022
 ====
@@ -69,7 +69,7 @@ Release notes
     release/release-369
     release/release-368
 
-.. _releases_2021:
+.. _releases-2021:
 
 2021
 ====
@@ -95,7 +95,7 @@ Release notes
     release/release-352
     release/release-351
 
-.. _releases_2020:
+.. _releases-2020:
 
 2020
 ====
@@ -127,7 +127,7 @@ Release notes
     release/release-329
     release/release-328
 
-.. _releases_2019:
+.. _releases-2019:
 
 2019
 ====

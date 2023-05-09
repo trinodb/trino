@@ -24,7 +24,7 @@ Operator Example                                               Result
 ``-``    ``interval '3' year - interval '5' month``            ``2-7``
 ======== ===================================================== ===========================
 
-.. _at_time_zone_operator:
+.. _at-time-zone-operator:
 
 Time zone conversion
 --------------------

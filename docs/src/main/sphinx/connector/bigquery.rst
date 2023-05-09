@@ -105,7 +105,7 @@ a few caveats:
   it, set the ``bigquery.experimental.arrow-serialization.enabled``
   configuration property to ``true`` and add
   ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the Trino
-  :ref:`jvm_config`.
+  :ref:`jvm-config`.
 
 Reading from views
 ^^^^^^^^^^^^^^^^^^
@@ -279,7 +279,7 @@ which exposes BigQuery view definition. Given a BigQuery view ``example_view``
 you can send query ``SELECT * example_view$view_definition`` to see the SQL
 which defines view in BigQuery.
 
-.. _bigquery_special_columns:
+.. _bigquery-special-columns:
 
 Special columns
 ---------------

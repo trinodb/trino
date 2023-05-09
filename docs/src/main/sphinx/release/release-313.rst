@@ -12,12 +12,12 @@ General
 CLI
 ---
 
-* Fix failure when selecting a value of type :ref:`uuid_type`. (:issue:`854`)
+* Fix failure when selecting a value of type :ref:`uuid-type`. (:issue:`854`)
 
 JDBC driver
 -----------
 
-* Fix failure when selecting a value of type :ref:`uuid_type`. (:issue:`854`)
+* Fix failure when selecting a value of type :ref:`uuid-type`. (:issue:`854`)
 
 Phoenix connector
 -------------------

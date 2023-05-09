@@ -23,7 +23,7 @@ General
   ``optimizer.optimize-top-n-row-number`` to toggle the top N row number
   optimization.
 * Add :func:`ngrams` function to generate N-grams from an array.
-* Add :ref:`qdigest <qdigest_type>` type and associated :doc:`/functions/qdigest`.
+* Add :ref:`qdigest <qdigest-type>` type and associated :doc:`/functions/qdigest`.
 * Add functionality to delay query execution until a minimum number of workers
   nodes are available. The minimum number of workers can be set with the
   ``query-manager.required-workers`` configuration property, and the max wait

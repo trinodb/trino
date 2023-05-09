@@ -2,7 +2,7 @@
 Conditional expressions
 =======================
 
-.. _case_expression:
+.. _case-expression:
 
 CASE
 ----
@@ -51,7 +51,7 @@ returned if it exists, otherwise null is returned. Example::
                ELSE 'ccc'
            END
 
-.. _if_function:
+.. _if-function:
 
 IF
 --
@@ -92,7 +92,7 @@ The following ``IF`` and ``CASE`` expressions are equivalent:
     END
   FROM tpch.sf1.orders;
 
-.. _coalesce_function:
+.. _coalesce-function:
 
 COALESCE
 --------
@@ -103,7 +103,7 @@ COALESCE
     Returns the first non-null ``value`` in the argument list.
     Like a ``CASE`` expression, arguments are only evaluated if necessary.
 
-.. _nullif_function:
+.. _nullif-function:
 
 NULLIF
 ------
@@ -112,7 +112,7 @@ NULLIF
 
     Returns null if ``value1`` equals ``value2``, otherwise returns ``value1``.
 
-.. _try_function:
+.. _try-function:
 
 TRY
 ---

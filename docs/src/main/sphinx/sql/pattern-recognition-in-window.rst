@@ -83,18 +83,18 @@ Besides the ``frame_extent``, pattern matching requires the ``PATTERN`` and
 
 The ``PATTERN`` clause specifies a row pattern, which is a form of a regular
 expression with some syntactical extensions. The row pattern syntax is similar
-to the :ref:`row pattern syntax in MATCH_RECOGNIZE<row_pattern_syntax>`.
+to the :ref:`row pattern syntax in MATCH_RECOGNIZE<row-pattern-syntax>`.
 However, the anchor patterns ``^`` and ``$`` are not allowed in a window
 specification.
 
 The ``DEFINE`` clause defines the row pattern primary variables in terms of
 boolean conditions that must be satisfied. It is similar to the
-:ref:`DEFINE clause of MATCH_RECOGNIZE<row_pattern_variable_definitions>`.
+:ref:`DEFINE clause of MATCH_RECOGNIZE<row-pattern-variable-definitions>`.
 The only difference is that the window syntax does not support the
 ``MATCH_NUMBER`` function.
 
 The ``MEASURES`` clause is syntactically similar to the
-:ref:`MEASURES clause of MATCH_RECOGNIZE<row_pattern_measures>`. The only
+:ref:`MEASURES clause of MATCH_RECOGNIZE<row-pattern-measures>`. The only
 limitation is that the ``MATCH_NUMBER`` function is not allowed. However, the
 semantics of this clause differs between ``MATCH_RECOGNIZE`` and window.
 While in ``MATCH_RECOGNIZE`` every measure produces an output column, the
@@ -127,7 +127,7 @@ performed from the position of the final row of the match, so the semantics is
 effectively ``FINAL``.
 
 The ``AFTER MATCH SKIP`` clause has the same syntax as the
-:ref:`AFTER MATCH SKIP clause of MATCH_RECOGNIZE<after_match_skip>`.
+:ref:`AFTER MATCH SKIP clause of MATCH_RECOGNIZE<after-match-skip>`.
 
 The ``INITIAL`` or ``SEEK`` modifier is specific to row pattern recognition in
 window. With ``INITIAL``, which is the default, the pattern match for an input
@@ -137,7 +137,7 @@ from subsequent rows within the frame. As a result, it is possible to associate
 an input row with a match which is detached from that row.
 
 The ``SUBSET`` clause is used to define :ref:`union variables
-<row_pattern_union_variables>` as sets of primary pattern variables. You can
+<row-pattern-union-variables>` as sets of primary pattern variables. You can
 use union variables to refer to a set of rows matched to any primary pattern
 variable from the subset::
 

@@ -73,7 +73,7 @@ Upon execution of a ``DROP TABLE`` operation, memory is not released
 immediately. It is instead released after the next write operation to the
 catalog.
 
-.. _memory_dynamic_filtering:
+.. _memory-dynamic-filtering:
 
 Dynamic filtering
 -----------------

@@ -1,4 +1,4 @@
-.. _logical_operators:
+.. _logical-operators:
 
 =================
 Logical operators

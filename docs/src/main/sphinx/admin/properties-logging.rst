@@ -36,7 +36,7 @@ exceptions as singular fields in a logging search system.
 
 The path to the log file used by Trino. The path is relative to the data
 directory, configured to ``var/log/server.log`` by the launcher script as
-detailed in :ref:`running_trino`. Alternatively, you can write logs to separate
+detailed in :ref:`running-trino`. Alternatively, you can write logs to separate
 the process (typically running next to Trino as a sidecar process) via the TCP
 protocol by using a log path of the format ``tcp://host:port``.
 
@@ -89,7 +89,7 @@ Flag to enable or disable compression of the log files of the HTTP server.
 
 The path to the log file used by the HTTP server. The path is relative to
 the data directory, configured by the launcher script as detailed in
-:ref:`running_trino`.
+:ref:`running-trino`.
 
 ``http-server.log.max-history``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

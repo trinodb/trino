@@ -111,7 +111,7 @@ When not using Kerberos with HDFS, Trino accesses HDFS using the
 OS user of the Trino process. For example, if Trino is running as
 ``nobody``, it accesses HDFS as ``nobody``. You can override this
 username by setting the ``HADOOP_USER_NAME`` system property in the
-Trino :ref:`jvm_config`, replacing ``hdfs_user`` with the
+Trino :ref:`jvm-config`, replacing ``hdfs_user`` with the
 appropriate username:
 
 .. code-block:: text
@@ -125,7 +125,7 @@ Whenever you change the user Trino is using to access HDFS, remove
 ``/tmp/presto-*`` on HDFS, as the new user may not have access to
 the existing temporary directories.
 
-.. _hive_configuration_properties:
+.. _hive-configuration-properties:
 
 Hive general configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -316,7 +316,7 @@ Hive connector documentation.
       - ``true``
     * - ``hive.auto-purge``
       - Set the default value for the auto_purge table property for managed
-        tables. See the :ref:`hive_table_properties` for more information on
+        tables. See the :ref:`hive-table-properties` for more information on
         auto_purge.
       - ``false``
     * - ``hive.partition-projection-enabled``
@@ -581,7 +581,7 @@ properties:
       - Number of threads for parallel statistic writes to Glue.
       - ``5``
 
-.. _partition_projection:
+.. _partition-projection:
 
 Accessing tables with Athena partition projection metadata
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -600,7 +600,7 @@ you have partition projection enabled, you can set the
 ``partition_projection_ignore`` table property to ``true`` for a table to bypass
 any errors.
 
-Refer to :ref:`hive_table_properties` and :ref:`hive_column_properties` for
+Refer to :ref:`hive-table-properties` and :ref:`hive-column-properties` for
 configuration of partition projection.
 
 Metastore configuration for Avro
@@ -692,7 +692,7 @@ on migrating from Hive to Trino.
 
 The following sections provide Hive-specific information regarding SQL support.
 
-.. _hive_examples:
+.. _hive-examples:
 
 Basic usage examples
 ^^^^^^^^^^^^^^^^^^^^
@@ -828,7 +828,7 @@ The following procedures are available:
   ``create_empty_partition``). If ``partition_values`` argument is omitted, stats are dropped for the
   entire table.
 
-.. _register_partition:
+.. _register-partition:
 
 * ``system.register_partition(schema_name, table_name, partition_columns, partition_values, location)``
 
@@ -840,14 +840,14 @@ The following procedures are available:
   Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
   is set to ``true``.
 
-.. _unregister_partition:
+.. _unregister-partition:
 
 * ``system.unregister_partition(schema_name, table_name, partition_columns, partition_values)``
 
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
 
-.. _hive_flush_metadata_cache:
+.. _hive-flush-metadata-cache:
 
 * ``system.flush_metadata_cache()``
 
@@ -920,7 +920,7 @@ as Hive. For example, converting the string ``'foo'`` to a number,
 or converting the string ``'1234'`` to a ``tinyint`` (which has a
 maximum value of ``127``).
 
-.. _hive_avro_schema:
+.. _hive-avro-schema:
 
 Avro schema evolution
 """""""""""""""""""""
@@ -1050,7 +1050,7 @@ session property:
     to the Trino logs and query failure messages to see which files must be
     deleted.
 
-.. _hive_table_properties:
+.. _hive-table-properties:
 
 Table properties
 """"""""""""""""
@@ -1075,7 +1075,7 @@ to the connector using a :doc:`WITH </sql/create-table-as>` clause::
       partition is deleted instead of a soft deletion using the trash.
     -
   * - ``avro_schema_url``
-    - The URI pointing to :ref:`hive_avro_schema` for the table.
+    - The URI pointing to :ref:`hive-avro-schema` for the table.
     -
   * - ``bucket_count``
     - The number of buckets to group data into. Only valid if used with
@@ -1102,7 +1102,7 @@ to the connector using a :doc:`WITH </sql/create-table-as>` clause::
     - ``,``
   * - ``external_location``
     - The URI for an external Hive table on S3, Azure Blob Storage, etc. See the
-      :ref:`hive_examples` for more information.
+      :ref:`hive-examples` for more information.
     -
   * - ``format``
     - The table file format. Valid values include ``ORC``, ``PARQUET``,
@@ -1169,7 +1169,7 @@ to the connector using a :doc:`WITH </sql/create-table-as>` clause::
       `storage.location.template <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-setting-up.html#partition-projection-specifying-custom-s3-storage-locations>`_
     - ``${table_location}/${partition_name}``
 
-.. _hive_special_tables:
+.. _hive-special-tables:
 
 Metadata tables
 """""""""""""""
@@ -1183,7 +1183,7 @@ You can inspect the property names and values with a simple query::
 
     SELECT * FROM example.web."page_views$properties";
 
-.. _hive_column_properties:
+.. _hive-column-properties:
 
 Column properties
 """""""""""""""""
@@ -1249,7 +1249,7 @@ Column properties
       `projection.${columnName}.interval.unit <https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html>`_.
     -
 
-.. _hive_special_columns:
+.. _hive-special-columns:
 
 Metadata columns
 """"""""""""""""
@@ -1422,7 +1422,7 @@ and by default will also collect column level statistics:
     * - ``BOOLEAN``
       - Number of nulls, number of true/false values
 
-.. _hive_analyze:
+.. _hive-analyze:
 
 Updating table and partition statistics
 """""""""""""""""""""""""""""""""""""""
@@ -1467,7 +1467,7 @@ You can also drop statistics for selected partitions only::
         table_name => 'table',
         partition_values => ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
-.. _hive_dynamic_filtering:
+.. _hive-dynamic-filtering:
 
 Dynamic filtering
 ^^^^^^^^^^^^^^^^^
