@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.rubix;
+package io.trino.hdfs.rubix;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -30,8 +30,8 @@ import com.qubole.rubix.prestosql.CachingPrestoSecureNativeAzureFileSystem;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
+import io.trino.hdfs.s3.RetryDriver;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
@@ -65,10 +65,10 @@ import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
 import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static io.trino.hdfs.ConfigurationUtils.getInitialConfiguration;
 import static io.trino.hdfs.DynamicConfigurationProvider.setCacheKey;
-import static io.trino.plugin.hive.rubix.RubixInitializer.Owner.PRESTO;
-import static io.trino.plugin.hive.rubix.RubixInitializer.Owner.RUBIX;
-import static io.trino.plugin.hive.util.RetryDriver.DEFAULT_SCALE_FACTOR;
-import static io.trino.plugin.hive.util.RetryDriver.retry;
+import static io.trino.hdfs.rubix.RubixInitializer.Owner.PRESTO;
+import static io.trino.hdfs.rubix.RubixInitializer.Owner.RUBIX;
+import static io.trino.hdfs.s3.RetryDriver.DEFAULT_SCALE_FACTOR;
+import static io.trino.hdfs.s3.RetryDriver.retry;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Integer.MAX_VALUE;
 import static java.util.concurrent.TimeUnit.MINUTES;
