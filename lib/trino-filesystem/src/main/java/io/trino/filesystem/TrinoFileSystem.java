@@ -15,6 +15,7 @@ package io.trino.filesystem;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Optional;
 
 /**
  * TrinoFileSystem is the main abstraction for Trino to interact with data in cloud-like storage
@@ -149,5 +150,15 @@ public interface TrinoFileSystem
      * @throws IllegalArgumentException if location is not valid for this file system
      */
     FileIterator listFiles(Location location)
+            throws IOException;
+
+    /**
+     * Checks if a directory exists at the specified location. For non-hierarchical file systems
+     * an empty Optional is returned.
+     *
+     * @param location the location to check for a directory
+     * @throws IOException if the location is not valid for this file system
+     */
+    Optional<Boolean> directoryExists(Location location)
             throws IOException;
 }

@@ -23,15 +23,19 @@ import io.trino.hdfs.FileSystemWithBatchDelete;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.UUID;
 
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
@@ -47,6 +51,8 @@ class HdfsFileSystem
     private final HdfsEnvironment environment;
     private final HdfsContext context;
     private final TrinoHdfsFileSystemStats stats;
+
+    private final Map<FileSystem, Boolean> hierarchicalFileSystemCache = new IdentityHashMap<>();
 
     public HdfsFileSystem(HdfsEnvironment environment, HdfsContext context, TrinoHdfsFileSystemStats stats)
     {
@@ -187,5 +193,55 @@ class HdfsFileSystem
                 throw e;
             }
         });
+    }
+
+    @Override
+    public Optional<Boolean> directoryExists(Location location)
+            throws IOException
+    {
+        stats.getDirectoryExistsCalls().newCall();
+        Path directory = hadoopPath(location);
+        FileSystem fileSystem = environment.getFileSystem(context, directory);
+
+        return environment.doAs(context.getIdentity(), () -> {
+            if (!hierarchical(fileSystem, location)) {
+                return Optional.empty();
+            }
+
+            try (TimeStat.BlockTimer ignored = stats.getDirectoryExistsCalls().time()) {
+                FileStatus fileStatus = fileSystem.getFileStatus(directory);
+                return Optional.of(fileStatus.isDirectory());
+            }
+            catch (FileNotFoundException e) {
+                return Optional.of(false);
+            }
+            catch (IOException e) {
+                stats.getListFilesCalls().recordException(e);
+                throw e;
+            }
+        });
+    }
+
+    private boolean hierarchical(FileSystem fileSystem, Location rootLocation)
+    {
+        Boolean cachedResult = hierarchicalFileSystemCache.get(fileSystem);
+        if (cachedResult != null) {
+            return cachedResult;
+        }
+
+        // Hierarchical file systems will fail to list directories which do not exist.
+        // Object store file systems like S3 will allow these kinds of operations.
+        // Attempt to list a path which does not exist to know which one we have.
+        try {
+            fileSystem.listStatus(hadoopPath(rootLocation.appendPath(UUID.randomUUID().toString())));
+            hierarchicalFileSystemCache.putIfAbsent(fileSystem, false);
+            return false;
+        }
+        catch (IOException e) {
+            // Being overly broad to avoid throwing an exception with the random UUID path in it.
+            // Instead, defer to later calls to fail with a more appropriate message.
+            hierarchicalFileSystemCache.putIfAbsent(fileSystem, true);
+            return true;
+        }
     }
 }

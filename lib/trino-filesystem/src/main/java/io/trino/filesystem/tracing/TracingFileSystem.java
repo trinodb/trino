@@ -107,4 +107,14 @@ final class TracingFileSystem
                 .startSpan();
         return withTracing(span, () -> delegate.listFiles(location));
     }
+
+    @Override
+    public Optional<Boolean> directoryExists(Location location)
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("FileSystem.directoryExists")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.directoryExists(location));
+    }
 }

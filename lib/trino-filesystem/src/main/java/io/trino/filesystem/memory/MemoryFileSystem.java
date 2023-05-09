@@ -154,6 +154,12 @@ public class MemoryFileSystem
         };
     }
 
+    @Override
+    public Optional<Boolean> directoryExists(Location location)
+    {
+        return Optional.empty();
+    }
+
     private static String toBlobKey(Location location)
     {
         validateMemoryLocation(location);
