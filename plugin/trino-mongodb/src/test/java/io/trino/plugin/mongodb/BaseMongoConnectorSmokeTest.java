@@ -26,6 +26,7 @@ public abstract class BaseMongoConnectorSmokeTest
         switch (connectorBehavior) {
             case SUPPORTS_UPDATE:
             case SUPPORTS_MERGE:
+            case SUPPORTS_TRUNCATE:
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:

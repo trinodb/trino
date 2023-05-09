@@ -69,6 +69,9 @@ public abstract class BaseIcebergConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
