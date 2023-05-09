@@ -2225,7 +2225,6 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
                     .build();
             analyzeFiltersAndMasks(table, targetTableName, new RelationType(outputFields), accessControlScope);
-            analyzeCheckConstraints(table, targetTableName, accessControlScope, tableSchema.getTableSchema().getCheckConstraints());
             analysis.registerTable(table, tableHandle, targetTableName, session.getIdentity().getUser(), accessControlScope);
 
             Scope tableScope = createAndAssignScope(table, scope, outputFields);
