@@ -93,7 +93,7 @@ public class HiveConfig
     private long perTransactionMetastoreCacheMaximumSize = 1000;
 
     private HiveStorageFormat hiveStorageFormat = HiveStorageFormat.ORC;
-    private HiveCompressionOption hiveCompressionCodec = HiveCompressionOption.GZIP;
+    private HiveCompressionOption hiveCompressionCodec = HiveCompressionOption.SNAPPY;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
     private Optional<InsertExistingPartitionsBehavior> insertExistingPartitionsBehavior = Optional.empty();
