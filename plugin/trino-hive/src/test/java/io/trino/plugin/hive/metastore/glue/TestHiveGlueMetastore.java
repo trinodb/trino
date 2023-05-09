@@ -1352,10 +1352,8 @@ public class TestHiveGlueMetastore
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
                 ConnectorMetadata metadata = transaction.getMetadata();
-                // Not a view TODO getView should return empty
-                assertThatThrownBy(() -> metadata.getView(session, table))
-                        .isInstanceOf(TrinoException.class)
-                        .hasMessage("View data missing prefix: /* Presto Materialized View: eyJvcmlnaW5hbFNxbCI6IlNFTEVDVCAxIiwiY29sdW1ucyI6W3sibmFtZSI6ImEiLCJ0eXBlIjoiaW50ZWdlciJ9XX0= */");
+                // Not a view
+                assertThat(metadata.getView(session, table)).isEmpty();
             }
         }
         finally {
