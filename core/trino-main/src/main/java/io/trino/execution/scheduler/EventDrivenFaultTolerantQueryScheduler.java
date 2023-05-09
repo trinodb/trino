@@ -2049,21 +2049,34 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             IndexedPriorityQueue.Prioritized<ScheduledTask> task = queue.pollPrioritized();
             checkState(task != null, "queue is empty");
-            if (nonSpeculativeTaskCount > 0) {
-                // non speculative tasks are always pooled first
+            PrioritizedScheduledTask prioritizedTask = getPrioritizedTask(task);
+            if (!prioritizedTask.isSpeculative()) {
                 nonSpeculativeTaskCount--;
             }
-            // negate priority to reverse operation we do in addOrUpdate
-            return new PrioritizedScheduledTask(task.getValue(), toIntExact(-task.getPriority()));
+            return prioritizedTask;
         }
 
         public void addOrUpdate(PrioritizedScheduledTask prioritizedTask)
         {
-            if (!prioritizedTask.isSpeculative()) {
+            IndexedPriorityQueue.Prioritized<ScheduledTask> previousTask = queue.getPrioritized(prioritizedTask.task());
+            PrioritizedScheduledTask previousPrioritizedTask = null;
+            if (previousTask != null) {
+                previousPrioritizedTask = getPrioritizedTask(previousTask);
+            }
+
+            if (!prioritizedTask.isSpeculative() && (previousPrioritizedTask == null || previousPrioritizedTask.isSpeculative())) {
+                // number of non-speculative tasks increased
                 nonSpeculativeTaskCount++;
             }
-            // using negative priority here as will return entries with lowest pririty first and here we use bigger number for tasks with lower priority
+
+            // using negative priority here as will return entries with the lowest priority first and here we use bigger number for tasks with lower priority
             queue.addOrUpdate(prioritizedTask.task(), -prioritizedTask.priority());
+        }
+
+        private static PrioritizedScheduledTask getPrioritizedTask(IndexedPriorityQueue.Prioritized<ScheduledTask> task)
+        {
+            // negate priority to reverse operation we do in addOrUpdate
+            return new PrioritizedScheduledTask(task.getValue(), toIntExact(-task.getPriority()));
         }
     }
 
