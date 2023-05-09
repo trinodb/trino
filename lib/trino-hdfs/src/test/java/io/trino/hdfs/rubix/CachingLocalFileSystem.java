@@ -11,11 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.rubix;
+package io.trino.hdfs.rubix;
 
-import io.trino.hdfs.ConfigurationInitializer;
+import com.qubole.rubix.core.CachingFileSystem;
+import com.qubole.rubix.spi.ClusterType;
+import org.apache.hadoop.fs.LocalFileSystem;
 
-public interface RubixHdfsInitializer
-        extends ConfigurationInitializer
+public class CachingLocalFileSystem
+        extends CachingFileSystem<LocalFileSystem>
 {
+    private static final String SCHEME = "file";
+
+    @Override
+    public ClusterType getClusterType()
+    {
+        return ClusterType.PRESTOSQL_CLUSTER_MANAGER;
+    }
+
+    @Override
+    public String getScheme()
+    {
+        return SCHEME;
+    }
 }

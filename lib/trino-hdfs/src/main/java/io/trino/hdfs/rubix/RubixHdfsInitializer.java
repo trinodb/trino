@@ -11,24 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.rubix;
+package io.trino.hdfs.rubix;
 
-import com.qubole.rubix.core.CachingFileSystem;
-import com.qubole.rubix.spi.ClusterType;
-import io.trino.hdfs.s3.TrinoS3FileSystem;
+import io.trino.hdfs.ConfigurationInitializer;
 
-public class CachingTrinoS3FileSystem
-        extends CachingFileSystem<TrinoS3FileSystem>
+public interface RubixHdfsInitializer
+        extends ConfigurationInitializer
 {
-    @Override
-    public ClusterType getClusterType()
-    {
-        return ClusterType.PRESTOSQL_CLUSTER_MANAGER;
-    }
-
-    @Override
-    public String getScheme()
-    {
-        return "s3";
-    }
 }
