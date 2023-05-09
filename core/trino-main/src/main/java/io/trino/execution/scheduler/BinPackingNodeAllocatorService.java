@@ -51,9 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.Semaphore;
@@ -66,10 +64,8 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
@@ -104,7 +100,6 @@ public class BinPackingNodeAllocatorService
     private final DataSize taskRuntimeMemoryEstimationOverhead;
     private final Ticker ticker;
 
-    private final ConcurrentMap<String, Long> allocatedMemory = new ConcurrentHashMap<>();
     private final Deque<PendingAcquire> pendingAcquires = new ConcurrentLinkedDeque<>();
     private final Set<BinPackingNodeLease> fulfilledAcquires = newConcurrentHashSet();
     private final Duration allowedNoMatchingNodePeriod;
@@ -208,7 +203,6 @@ public class BinPackingNodeAllocatorService
                 nodeManager.getActiveNodesSnapshot(),
                 nodePoolMemoryInfos.get(),
                 fulfilledAcquires,
-                allocatedMemory,
                 scheduleOnCoordinator,
                 taskRuntimeMemoryEstimationOverhead);
 
@@ -226,12 +220,9 @@ public class BinPackingNodeAllocatorService
                 case RESERVED:
                     InternalNode reservedNode = result.getNode().orElseThrow();
                     fulfilledAcquires.add(pendingAcquire.getLease());
-                    updateAllocatedMemory(reservedNode, pendingAcquire.getMemoryLease());
                     pendingAcquire.getFuture().set(reservedNode);
                     if (pendingAcquire.getFuture().isCancelled()) {
                         // completing future was unsuccessful - request was cancelled in the meantime
-                        pendingAcquire.getLease().deallocateMemory(reservedNode);
-
                         fulfilledAcquires.remove(pendingAcquire.getLease());
 
                         // run once again when we are done
@@ -288,20 +279,6 @@ public class BinPackingNodeAllocatorService
         //      and that can be done before all leases are yet returned from running (soon to be failed) tasks.
     }
 
-    private void updateAllocatedMemory(InternalNode node, long delta)
-    {
-        allocatedMemory.compute(
-                node.getNodeIdentifier(),
-                (key, oldValue) -> {
-                    verify(delta > 0 || (oldValue != null && oldValue >= -delta), "tried to release more than allocated (%s vs %s) for node %s", -delta, oldValue, key);
-                    long newValue = oldValue == null ? delta : oldValue + delta;
-                    if (newValue == 0) {
-                        return null; // delete
-                    }
-                    return newValue;
-                });
-    }
-
     private static class PendingAcquire
     {
         private final NodeRequirements nodeRequirements;
@@ -356,7 +333,6 @@ public class BinPackingNodeAllocatorService
     {
         private final SettableFuture<InternalNode> node = SettableFuture.create();
         private final AtomicBoolean released = new AtomicBoolean();
-        private final AtomicBoolean memoryDeallocated = new AtomicBoolean();
         private final long memoryLease;
         private final AtomicReference<TaskId> taskId = new AtomicReference<>();
 
@@ -410,20 +386,12 @@ public class BinPackingNodeAllocatorService
             if (released.compareAndSet(false, true)) {
                 node.cancel(true);
                 if (node.isDone() && !node.isCancelled()) {
-                    deallocateMemory(getFutureValue(node));
                     checkState(fulfilledAcquires.remove(this), "node lease %s not found in fulfilledAcquires %s", this, fulfilledAcquires);
                     wakeupProcessPendingAcquires();
                 }
             }
             else {
                 throw new IllegalStateException("Node " + node + " already released");
-            }
-        }
-
-        public void deallocateMemory(InternalNode node)
-        {
-            if (memoryDeallocated.compareAndSet(false, true)) {
-                updateAllocatedMemory(node, -memoryLease);
             }
         }
     }
@@ -442,7 +410,6 @@ public class BinPackingNodeAllocatorService
                 NodesSnapshot nodesSnapshot,
                 Map<String, MemoryPoolInfo> nodeMemoryPoolInfos,
                 Set<BinPackingNodeLease> fulfilledAcquires,
-                Map<String, Long> preReservedMemory,
                 boolean scheduleOnCoordinator,
                 DataSize taskRuntimeMemoryEstimationOverhead)
         {
@@ -455,7 +422,6 @@ public class BinPackingNodeAllocatorService
             requireNonNull(nodeMemoryPoolInfos, "nodeMemoryPoolInfos is null");
             this.nodeMemoryPoolInfos = ImmutableMap.copyOf(nodeMemoryPoolInfos);
 
-            requireNonNull(preReservedMemory, "preReservedMemory is null");
             this.scheduleOnCoordinator = scheduleOnCoordinator;
 
             Map<String, Map<String, Long>> realtimeTasksMemoryPerNode = new HashMap<>();
@@ -468,10 +434,12 @@ public class BinPackingNodeAllocatorService
                 realtimeTasksMemoryPerNode.put(node.getNodeIdentifier(), memoryPoolInfo.getTaskMemoryReservations());
             }
 
+            Map<String, Long> preReservedMemory = new HashMap<>();
             SetMultimap<String, BinPackingNodeLease> fulfilledAcquiresByNode = HashMultimap.create();
             for (BinPackingNodeLease fulfilledAcquire : fulfilledAcquires) {
                 InternalNode node = fulfilledAcquire.getAssignedNode();
                 fulfilledAcquiresByNode.put(node.getNodeIdentifier(), fulfilledAcquire);
+                preReservedMemory.compute(node.getNodeIdentifier(), (key, prev) -> (prev == null ? 0L : prev) + fulfilledAcquire.getMemoryLease());
             }
 
             nodesRemainingMemory = new HashMap<>();
