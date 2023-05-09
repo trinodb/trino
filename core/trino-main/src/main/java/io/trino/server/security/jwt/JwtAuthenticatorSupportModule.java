@@ -28,7 +28,7 @@ public class JwtAuthenticatorSupportModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(JwtAuthenticatorConfig.class);
-        httpClientBinder(binder).bindHttpClient("jwk", ForJwt.class);
+        httpClientBinder(binder).bindHttpClient(JWK, ForJwt.class);
     }
 
     // this module can be added multiple times, and this prevents multiple processing by Guice
