@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.rubix;
+package io.trino.hdfs.rubix;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -33,15 +33,11 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.HdfsAuthenticationConfig;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.hdfs.rubix.RubixConfig.ReadMode;
+import io.trino.hdfs.rubix.RubixModule.DefaultRubixHdfsInitializer;
 import io.trino.metadata.InternalNode;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.orc.OrcReaderConfig;
-import io.trino.plugin.hive.rubix.RubixConfig.ReadMode;
-import io.trino.plugin.hive.rubix.RubixModule.DefaultRubixHdfsInitializer;
 import io.trino.spi.Node;
-import io.trino.spi.session.PropertyMetadata;
-import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -79,10 +75,10 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.client.NodeVersion.UNKNOWN;
-import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
-import static io.trino.plugin.hive.rubix.RubixConfig.ReadMode.ASYNC;
-import static io.trino.plugin.hive.rubix.RubixConfig.ReadMode.READ_THROUGH;
-import static io.trino.plugin.hive.util.RetryDriver.retry;
+import static io.trino.hdfs.rubix.RubixConfig.ReadMode.ASYNC;
+import static io.trino.hdfs.rubix.RubixConfig.ReadMode.READ_THROUGH;
+import static io.trino.hdfs.s3.RetryDriver.retry;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.net.InetAddress.getLocalHost;
@@ -120,14 +116,7 @@ public class TestRubixCaching
 
         cacheStoragePath = getStoragePath("/");
         config = new HdfsConfig();
-        List<PropertyMetadata<?>> hiveSessionProperties = getHiveSessionProperties(
-                new HiveConfig(),
-                new OrcReaderConfig()).getSessionProperties();
-        context = new HdfsContext(
-                TestingConnectorSession.builder()
-                        .setPropertyMetadata(hiveSessionProperties)
-                        .build());
-
+        context = new HdfsContext(SESSION);
         nonCachingFileSystem = getNonCachingFileSystem();
     }
 

@@ -11,17 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.rubix;
+package io.trino.hdfs.rubix;
 
 import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.spi.ClusterType;
-import org.apache.hadoop.fs.LocalFileSystem;
+import io.trino.hdfs.s3.TrinoS3FileSystem;
 
-public class CachingLocalFileSystem
-        extends CachingFileSystem<LocalFileSystem>
+public class CachingTrinoS3FileSystem
+        extends CachingFileSystem<TrinoS3FileSystem>
 {
-    private static final String SCHEME = "file";
-
     @Override
     public ClusterType getClusterType()
     {
@@ -31,6 +29,6 @@ public class CachingLocalFileSystem
     @Override
     public String getScheme()
     {
-        return SCHEME;
+        return "s3";
     }
 }

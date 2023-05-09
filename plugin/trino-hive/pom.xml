@@ -210,11 +210,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.qubole.rubix</groupId>
-            <artifactId>rubix-presto-shaded</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>dev.failsafe</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -353,12 +348,6 @@
         </dependency>
 
         <!-- for testing -->
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-client</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
