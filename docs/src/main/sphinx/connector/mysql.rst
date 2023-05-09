@@ -67,7 +67,7 @@ parameter to secure the connection with TLS. By default the parameter is set to
 also set this parameter to ``REQUIRED`` which causes the connection to fail if
 TLS is not established.
 
-You can set the ``sslMode`` paremeter in the catalog configuration file by
+You can set the ``sslMode`` parameter in the catalog configuration file by
 appending it to the ``connection-url`` configuration property:
 
 .. code-block:: properties
