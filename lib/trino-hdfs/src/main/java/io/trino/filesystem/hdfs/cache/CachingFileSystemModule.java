@@ -18,6 +18,8 @@ import alluxio.conf.AlluxioConfiguration;
 import alluxio.conf.AlluxioProperties;
 import alluxio.conf.InstancedConfiguration;
 import alluxio.conf.PropertyKey;
+import alluxio.metrics.MetricsConfig;
+import alluxio.metrics.MetricsSystem;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
@@ -27,6 +29,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.CachingFileSystemFactory;
 
 import java.io.IOException;
+import java.util.Properties;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -39,6 +42,10 @@ public class CachingFileSystemModule
     {
         configBinder(binder).bindConfig(CachingFileSystemConfig.class);
         binder.bind(TrinoFileSystemFactory.class).to(CachingFileSystemFactory.class).in(SINGLETON);
+        Properties metricProps = new Properties();
+        metricProps.put("sink.jmx.class", "alluxio.metrics.sink.JmxSink");
+        metricProps.put("sink.jmx.domain", "org.alluxio");
+        MetricsSystem.startSinksFromConfig(new MetricsConfig(metricProps));
     }
 
     @Inject
@@ -52,6 +59,7 @@ public class CachingFileSystemModule
             alluxioProperties.set(PropertyKey.USER_CLIENT_CACHE_DIRS, config.getBaseDirectory());
         }
         alluxioProperties.set(PropertyKey.USER_CLIENT_CACHE_SIZE, config.getMaxCacheSize().toString());
+        alluxioProperties.set(PropertyKey.USER_CLIENT_CACHE_SHADOW_ENABLED, "true");
         return new InstancedConfiguration(alluxioProperties);
     }
 
