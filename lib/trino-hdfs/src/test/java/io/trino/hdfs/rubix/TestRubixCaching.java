@@ -24,6 +24,7 @@ import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
+import dev.failsafe.Failsafe;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.hdfs.DynamicHdfsConfiguration;
@@ -292,7 +293,7 @@ public class TestRubixCaching
                 UNKNOWN,
                 false);
         RubixInitializer rubixInitializer = new RubixInitializer(
-                retry().maxAttempts(1),
+                Failsafe.none(),
                 rubixConfig.setStartServerOnCoordinator(true),
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),

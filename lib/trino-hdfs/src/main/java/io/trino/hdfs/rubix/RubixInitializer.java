@@ -27,10 +27,11 @@ import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureNativeAzureFileSystem;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeExecutor;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.s3.RetryDriver;
 import io.trino.plugin.base.CatalogName;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -43,10 +44,10 @@ import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.qubole.rubix.spi.CacheConfig.enableHeartbeat;
 import static com.qubole.rubix.spi.CacheConfig.setBookKeeperServerPort;
@@ -67,12 +68,7 @@ import static io.trino.hdfs.ConfigurationUtils.getInitialConfiguration;
 import static io.trino.hdfs.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.hdfs.rubix.RubixInitializer.Owner.PRESTO;
 import static io.trino.hdfs.rubix.RubixInitializer.Owner.RUBIX;
-import static io.trino.hdfs.s3.RetryDriver.DEFAULT_SCALE_FACTOR;
-import static io.trino.hdfs.s3.RetryDriver.retry;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static java.lang.Integer.MAX_VALUE;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 /*
  * Responsibilities of this initializer:
@@ -94,19 +90,16 @@ public class RubixInitializer
     private static final String RUBIX_GS_FS_CLASS_NAME = CachingPrestoGoogleHadoopFileSystem.class.getName();
     private static final String FILESYSTEM_OWNED_BY_RUBIX_CONFIG_PROPETY = "presto.fs.owned.by.rubix";
 
-    private static final RetryDriver DEFAULT_COORDINATOR_RETRY_DRIVER = retry()
-            // unlimited attempts
-            .maxAttempts(MAX_VALUE)
-            .exponentialBackoff(
-                    new Duration(1, SECONDS),
-                    new Duration(1, SECONDS),
-                    // wait for 10 minutes
-                    new Duration(10, MINUTES),
-                    DEFAULT_SCALE_FACTOR);
+    private static final FailsafeExecutor<?> DEFAULT_COORDINATOR_FAILSAFE_EXECUTOR = Failsafe.with(RetryPolicy.builder()
+            .handle(TrinoException.class)
+            .withMaxAttempts(-1)
+            .withMaxDuration(Duration.ofMinutes(10))
+            .withDelay(Duration.ofSeconds(1))
+            .build());
 
     private static final Logger log = Logger.get(RubixInitializer.class);
 
-    private final RetryDriver coordinatorRetryDriver;
+    private final FailsafeExecutor<?> coordinatorFailsafeExecutor;
     private final boolean startServerOnCoordinator;
     private final boolean parallelWarmupEnabled;
     private final Optional<String> cacheLocation;
@@ -133,19 +126,19 @@ public class RubixInitializer
             HdfsConfigurationInitializer hdfsConfigurationInitializer,
             RubixHdfsInitializer rubixHdfsInitializer)
     {
-        this(DEFAULT_COORDINATOR_RETRY_DRIVER, rubixConfig, nodeManager, catalogName, hdfsConfigurationInitializer, rubixHdfsInitializer);
+        this(DEFAULT_COORDINATOR_FAILSAFE_EXECUTOR, rubixConfig, nodeManager, catalogName, hdfsConfigurationInitializer, rubixHdfsInitializer);
     }
 
     @VisibleForTesting
     RubixInitializer(
-            RetryDriver coordinatorRetryDriver,
+            FailsafeExecutor<?> coordinatorFailsafeExecutor,
             RubixConfig rubixConfig,
             NodeManager nodeManager,
             CatalogName catalogName,
             HdfsConfigurationInitializer hdfsConfigurationInitializer,
             RubixHdfsInitializer rubixHdfsInitializer)
     {
-        this.coordinatorRetryDriver = coordinatorRetryDriver;
+        this.coordinatorFailsafeExecutor = coordinatorFailsafeExecutor;
         this.startServerOnCoordinator = rubixConfig.isStartServerOnCoordinator();
         this.parallelWarmupEnabled = rubixConfig.getReadMode().isParallelWarmupEnabled();
         this.cacheLocation = rubixConfig.getCacheLocation();
@@ -236,21 +229,12 @@ public class RubixInitializer
 
     private void waitForCoordinator()
     {
-        try {
-            coordinatorRetryDriver.run(
-                    "waitForCoordinator",
-                    () -> {
-                        if (nodeManager.getAllNodes().stream().noneMatch(Node::isCoordinator)) {
-                            // This exception will only be propagated when timeout is reached.
-                            throw new TrinoException(GENERIC_INTERNAL_ERROR, "No coordinator node available");
-                        }
-                        return null;
-                    });
-        }
-        catch (Exception exception) {
-            propagateIfPossible(exception, TrinoException.class);
-            throw new RuntimeException(exception);
-        }
+        coordinatorFailsafeExecutor.run(() -> {
+            if (nodeManager.getAllNodes().stream().noneMatch(Node::isCoordinator)) {
+                // This exception will only be propagated when timeout is reached.
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "No coordinator node available");
+            }
+        });
     }
 
     private void startRubix()
