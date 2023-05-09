@@ -72,6 +72,7 @@ import io.trino.sql.tree.Intersect;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
 import io.trino.sql.tree.JoinUsing;
+import io.trino.sql.tree.JsonTable;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.MeasureDefinition;
@@ -1204,6 +1205,12 @@ class RelationPlanner
         PlanNode values = new ValuesNode(idAllocator.getNextId(), 1);
         TranslationMap translations = new TranslationMap(outerContext, scope.build(), analysis, lambdaDeclarationToSymbolMap, ImmutableList.of(), session, plannerContext);
         return new PlanBuilder(translations, values);
+    }
+
+    @Override
+    protected RelationPlan visitJsonTable(JsonTable node, Void context)
+    {
+        throw semanticException(NOT_SUPPORTED, node, "JSON_TABLE is not yet supported");
     }
 
     @Override
