@@ -73,7 +73,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.qubole.rubix.spi.CacheConfig.setRemoteFetchProcessInterval;
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.hdfs.rubix.RubixConfig.ReadMode.ASYNC;
@@ -81,6 +80,7 @@ import static io.trino.hdfs.rubix.RubixConfig.ReadMode.READ_THROUGH;
 import static io.trino.hdfs.s3.RetryDriver.retry;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.net.InetAddress.getLocalHost;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -89,6 +89,7 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -148,7 +149,7 @@ public class TestRubixCaching
     private void initializeRubix(RubixConfig rubixConfig)
             throws Exception
     {
-        InternalNode coordinatorNode = new InternalNode(
+        Node coordinatorNode = new InternalNode(
                 "master",
                 URI.create("http://" + getLocalHost().getHostAddress() + ":8080"),
                 UNKNOWN,
@@ -287,7 +288,7 @@ public class TestRubixCaching
         RubixConfig rubixConfig = new RubixConfig()
                 .setCacheLocation("/tmp/not/existing/dir");
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
-        InternalNode workerNode = new InternalNode(
+        Node workerNode = new InternalNode(
                 "worker",
                 URI.create("http://127.0.0.2:8080"),
                 UNKNOWN,
@@ -308,17 +309,17 @@ public class TestRubixCaching
             throws Exception
     {
         RubixConfig rubixConfig = new RubixConfig();
-        InternalNode coordinatorNode = new InternalNode(
+        Node coordinatorNode = new InternalNode(
                 "master",
                 URI.create("http://" + getLocalHost().getHostAddress() + ":8080"),
                 UNKNOWN,
                 true);
-        InternalNode workerNode1 = new InternalNode(
+        Node workerNode1 = new InternalNode(
                 "worker1",
                 URI.create("http://127.0.0.2:8080"),
                 UNKNOWN,
                 false);
-        InternalNode workerNode2 = new InternalNode(
+        Node workerNode2 = new InternalNode(
                 "worker2",
                 URI.create("http://127.0.0.3:8080"),
                 UNKNOWN,
@@ -345,7 +346,7 @@ public class TestRubixCaching
     {
         RubixConfig rubixConfig = new RubixConfig().setReadMode(readMode);
         initializeCachingFileSystem(rubixConfig);
-        byte[] randomData = new byte[(int) SMALL_FILE_SIZE.toBytes()];
+        byte[] randomData = new byte[toIntExact(SMALL_FILE_SIZE.toBytes())];
         new Random().nextBytes(randomData);
 
         Path file = getStoragePath("some_file");
@@ -361,7 +362,7 @@ public class TestRubixCaching
             // wait for async Rubix requests to complete
             assertEventually(
                     new Duration(10, SECONDS),
-                    () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 1));
+                    () -> assertEquals(getAsyncDownloadedMb(ASYNC), beforeAsyncDownloadedMb + 1));
         }
 
         // stats are propagated asynchronously
@@ -401,7 +402,7 @@ public class TestRubixCaching
             throws Exception
     {
         initializeCachingFileSystem(new RubixConfig().setReadMode(readMode));
-        byte[] randomData = new byte[(int) LARGE_FILE_SIZE.toBytes()];
+        byte[] randomData = new byte[toIntExact(LARGE_FILE_SIZE.toBytes())];
         new Random().nextBytes(randomData);
 
         Path file = getStoragePath("large_file");
@@ -417,7 +418,7 @@ public class TestRubixCaching
             // wait for async Rubix requests to complete
             assertEventually(
                     new Duration(10, SECONDS),
-                    () -> assertEquals(getAsyncDownloadedMb(readMode), beforeAsyncDownloadedMb + 100));
+                    () -> assertEquals(getAsyncDownloadedMb(ASYNC), beforeAsyncDownloadedMb + 100));
         }
 
         // stats are propagated asynchronously
@@ -514,14 +515,13 @@ public class TestRubixCaching
         }
     }
 
-    private void assertRawFileSystemInstanceOf(FileSystem actual, Class<? extends FileSystem> expectedType)
+    private static void assertRawFileSystemInstanceOf(FileSystem actual, Class<? extends FileSystem> expectedType)
     {
-        assertInstanceOf(actual, FilterFileSystem.class);
-        FileSystem rawFileSystem = ((FilterFileSystem) actual).getRawFileSystem();
-        assertInstanceOf(rawFileSystem, expectedType);
+        assertThat(actual).isInstanceOfSatisfying(FilterFileSystem.class, filterFileSystem ->
+                assertThat(filterFileSystem.getRawFileSystem()).isInstanceOf(expectedType));
     }
 
-    private byte[] readFile(FileSystem fileSystem, Path path)
+    private static byte[] readFile(FileSystem fileSystem, Path path)
     {
         try (FSDataInputStream inputStream = fileSystem.open(path)) {
             return ByteStreams.toByteArray(inputStream);
@@ -531,14 +531,11 @@ public class TestRubixCaching
         }
     }
 
-    private void writeFile(FSDataOutputStream outputStream, byte[] content)
+    private static void writeFile(FSDataOutputStream outputStream, byte[] content)
             throws IOException
     {
-        try {
+        try (outputStream) {
             outputStream.write(content);
-        }
-        finally {
-            outputStream.close();
         }
     }
 
