@@ -299,7 +299,7 @@ public class RubixInitializer
             setCacheDataOnMasterEnabled(config, false);
         }
         else {
-            setCacheDataDirPrefix(config, cacheLocation.get());
+            setCacheDataDirPrefix(config, cacheLocation.orElseThrow());
         }
 
         config.set("fs.s3.impl", RUBIX_S3_FS_CLASS_NAME);
