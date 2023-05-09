@@ -92,6 +92,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -115,8 +116,6 @@ import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.SystemSessionProperties.isUseCostBasedPartitioning;
 import static io.trino.SystemSessionProperties.isUseExactPartitioning;
 import static io.trino.SystemSessionProperties.isUsePartialDistinctLimit;
-import static io.trino.sql.planner.FragmentTableScanCounter.countSources;
-import static io.trino.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -1512,6 +1511,29 @@ public class AddExchanges
                 .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
                 .findAll()
                 .size();
+    }
+
+    private static boolean hasMultipleSources(PlanNode... nodes)
+    {
+        return countSources(nodes) > 1;
+    }
+
+    private static int countSources(PlanNode... nodes)
+    {
+        return countSources(Arrays.asList(nodes));
+    }
+
+    private static int countSources(List<PlanNode> nodes)
+    {
+        return nodes
+                .stream()
+                .mapToInt(node -> PlanNodeSearcher
+                        .searchFrom(node)
+                        .where(TableScanNode.class::isInstance)
+                        .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                        .findAll()
+                        .size())
+                .sum();
     }
 
     private static Stream<CatalogHandle> collectSourceCatalogs(PlanNode root)
