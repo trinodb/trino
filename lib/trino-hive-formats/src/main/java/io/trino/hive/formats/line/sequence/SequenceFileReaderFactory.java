@@ -14,12 +14,14 @@
 package io.trino.hive.formats.line.sequence;
 
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.line.FooterAwareLineReader;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
 import io.trino.hive.formats.line.LineReaderFactory;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class SequenceFileReaderFactory
         implements LineReaderFactory
@@ -51,7 +53,8 @@ public class SequenceFileReaderFactory
             long start,
             long length,
             int headerCount,
-            int footerCount)
+            int footerCount,
+            Optional<Codec> codec)
             throws IOException
     {
         LineReader lineReader = new SequenceFileReader(inputFile, start, length);

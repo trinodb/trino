@@ -98,7 +98,8 @@ public class TestOnlyNulls
                         Optional.empty(),
                         OptionalInt.empty(),
                         false,
-                        AcidTransaction.NO_ACID_TRANSACTION)
+                        AcidTransaction.NO_ACID_TRANSACTION,
+                        true)
                 .orElseThrow()
                 .get();
     }

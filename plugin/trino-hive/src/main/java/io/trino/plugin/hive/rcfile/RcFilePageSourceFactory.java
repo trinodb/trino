@@ -107,7 +107,8 @@ public class RcFilePageSourceFactory
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            boolean s3SelectPushdownEnabled)
     {
         ColumnEncodingFactory columnEncodingFactory;
         String deserializerClassName = getDeserializerClassName(schema);

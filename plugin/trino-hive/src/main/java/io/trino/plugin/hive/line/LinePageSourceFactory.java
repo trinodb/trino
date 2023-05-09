@@ -22,6 +22,8 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.memory.MemoryInputFile;
+import io.trino.hive.formats.compression.Codec;
+import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.LineDeserializerFactory;
@@ -99,7 +101,8 @@ public abstract class LinePageSourceFactory
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,
             boolean originalFile,
-            AcidTransaction transaction)
+            AcidTransaction transaction,
+            boolean s3SelectPushdownEnabled)
     {
         if (!lineReaderFactory.getHiveOutputFormatClassName().equals(schema.getProperty(FILE_INPUT_FORMAT)) ||
                 !lineDeserializerFactory.getHiveSerDeClassNames().contains(getDeserializerClassName(schema)) ||
@@ -166,7 +169,9 @@ public abstract class LinePageSourceFactory
         }
 
         try {
-            LineReader lineReader = lineReaderFactory.createLineReader(inputFile, start, length, headerCount, footerCount);
+            Optional<Codec> codec = CompressionKind.forFile(inputFile.location().fileName())
+                    .map(CompressionKind::createCodec);
+            LineReader lineReader = lineReaderFactory.createLineReader(inputFile, start, length, headerCount, footerCount, codec);
             LinePageSource pageSource = new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path);
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));
         }

@@ -37,5 +37,6 @@ public interface HivePageSourceFactory
             Optional<AcidInfo> acidInfo,
             OptionalInt bucketNumber,
             boolean originalFile,
-            AcidTransaction transaction);
+            AcidTransaction transaction,
+            boolean s3SelectPushdownEnabled);
 }

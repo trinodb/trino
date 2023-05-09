@@ -90,7 +90,7 @@ public class TrinoS3ClientFactory
         this.defaultMaxConnections = config.getS3SelectPushdownMaxConnections();
     }
 
-    synchronized AmazonS3 getS3Client(Configuration config)
+    public synchronized AmazonS3 getS3Client(Configuration config)
     {
         if (s3Client == null) {
             s3Client = createS3Client(config);

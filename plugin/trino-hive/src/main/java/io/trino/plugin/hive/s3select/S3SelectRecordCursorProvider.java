@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
@@ -23,7 +22,6 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.s3select.csv.S3SelectCsvRecordReader;
-import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -33,23 +31,16 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.s3select.S3SelectDataType.CSV;
-import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfosFromTypeString;
+import static io.trino.plugin.hive.s3select.S3SelectUtils.hasFilters;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
-import static io.trino.plugin.hive.util.SerdeConstants.COLUMN_NAME_DELIMITER;
-import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
-import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static java.util.Objects.requireNonNull;
 
 public class S3SelectRecordCursorProvider
@@ -120,8 +111,16 @@ public class S3SelectRecordCursorProvider
             }
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType, nullCharacterEncoding);
             String ionSqlQuery = queryBuilder.buildSql(readerColumns, effectivePredicate);
-            Optional<S3SelectLineRecordReader> recordReader = S3SelectLineRecordReaderProvider.get(configuration, path, start, length, schema,
-                    ionSqlQuery, s3ClientFactory, s3SelectDataType);
+            Optional<S3SelectLineRecordReader> recordReader = S3SelectLineRecordReaderProvider.get(
+                    configuration,
+                    session,
+                    path,
+                    start,
+                    length,
+                    schema,
+                    ionSqlQuery,
+                    s3ClientFactory,
+                    s3SelectDataType);
 
             if (recordReader.isEmpty()) {
                 // S3 Select data type is not mapped to an S3SelectLineRecordReader
@@ -133,66 +132,5 @@ public class S3SelectRecordCursorProvider
         }
         // unsupported serdes
         return Optional.empty();
-    }
-
-    private static boolean hasFilters(
-            Properties schema,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
-            List<HiveColumnHandle> readerColumns)
-    {
-        //There are no effective predicates and readercolumns and columntypes are identical to schema
-        //means getting all data out of S3. We can use S3 GetObject instead of S3 SelectObjectContent in these cases.
-        if (effectivePredicate.isAll()) {
-            return !isEquivalentSchema(readerColumns, schema);
-        }
-        return true;
-    }
-
-    private static boolean isEquivalentSchema(List<HiveColumnHandle> readerColumns, Properties schema)
-    {
-        Set<String> projectedColumnNames = getColumnProperty(readerColumns, HiveColumnHandle::getName);
-        Set<String> projectedColumnTypes = getColumnProperty(readerColumns, column -> column.getHiveType().getTypeInfo().getTypeName());
-        return isEquivalentColumns(projectedColumnNames, schema) && isEquivalentColumnTypes(projectedColumnTypes, schema);
-    }
-
-    private static boolean isEquivalentColumns(Set<String> projectedColumnNames, Properties schema)
-    {
-        Set<String> columnNames;
-        String columnNameProperty = schema.getProperty(LIST_COLUMNS);
-        if (columnNameProperty.length() == 0) {
-            columnNames = ImmutableSet.of();
-        }
-        else {
-            String columnNameDelimiter = (String) schema.getOrDefault(COLUMN_NAME_DELIMITER, ",");
-            columnNames = Arrays.stream(columnNameProperty.split(columnNameDelimiter))
-                    .collect(toImmutableSet());
-        }
-        return projectedColumnNames.equals(columnNames);
-    }
-
-    private static boolean isEquivalentColumnTypes(Set<String> projectedColumnTypes, Properties schema)
-    {
-        String columnTypeProperty = schema.getProperty(LIST_COLUMN_TYPES);
-        Set<String> columnTypes;
-        if (columnTypeProperty.length() == 0) {
-            columnTypes = ImmutableSet.of();
-        }
-        else {
-            columnTypes = getTypeInfosFromTypeString(columnTypeProperty)
-                    .stream()
-                    .map(TypeInfo::getTypeName)
-                    .collect(toImmutableSet());
-        }
-        return projectedColumnTypes.equals(columnTypes);
-    }
-
-    private static Set<String> getColumnProperty(List<HiveColumnHandle> readerColumns, Function<HiveColumnHandle, String> mapper)
-    {
-        if (readerColumns.isEmpty()) {
-            return ImmutableSet.of();
-        }
-        return readerColumns.stream()
-                .map(mapper)
-                .collect(toImmutableSet());
     }
 }

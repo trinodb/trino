@@ -14,8 +14,10 @@
 package io.trino.hive.formats.line;
 
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.compression.Codec;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public interface LineReaderFactory
 {
@@ -28,6 +30,7 @@ public interface LineReaderFactory
             long start,
             long length,
             int headerCount,
-            int footerCount)
+            int footerCount,
+            Optional<Codec> codec)
             throws IOException;
 }

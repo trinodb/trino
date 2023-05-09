@@ -42,8 +42,8 @@ public class S3SelectCsvRecordReader
      * TODO: Remove this proxy logic when S3Select API supports disabling of row level comments.
      */
 
-    private static final String COMMENTS_CHAR_STR = "\uFDD0";
-    private static final String DEFAULT_FIELD_DELIMITER = ",";
+    public static final String COMMENTS_CHAR_STR = "\uFDD0";
+    public static final String DEFAULT_FIELD_DELIMITER = ",";
 
     public S3SelectCsvRecordReader(
             Configuration configuration,

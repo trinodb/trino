@@ -15,7 +15,6 @@ package io.trino.hive.formats.line.text;
 
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.compression.Codec;
-import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.line.FooterAwareLineReader;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
@@ -60,13 +59,12 @@ public class TextLineReaderFactory
             long start,
             long length,
             int headerCount,
-            int footerCount)
+            int footerCount,
+            Optional<Codec> codec)
             throws IOException
     {
         InputStream inputStream = inputFile.newStream();
         try {
-            Optional<Codec> codec = CompressionKind.forFile(inputFile.location().fileName())
-                    .map(CompressionKind::createCodec);
             if (codec.isPresent()) {
                 checkArgument(start == 0, "Compressed files are not splittable");
                 // for compressed input, we do not know the length of the uncompressed text

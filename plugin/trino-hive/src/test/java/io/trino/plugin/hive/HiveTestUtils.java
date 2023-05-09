@@ -142,7 +142,7 @@ public final class HiveTestUtils
     public static TestingConnectorSession getHiveSession(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
     {
         return TestingConnectorSession.builder()
-                .setPropertyMetadata(getHiveSessionProperties(hiveConfig, orcReaderConfig).getSessionProperties())
+                .setPropertyMetadata(getHiveSessionProperties(hiveConfig, orcReaderConfig, new HiveFormatsConfig()).getSessionProperties())
                 .build();
     }
 
@@ -162,14 +162,14 @@ public final class HiveTestUtils
 
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig)
     {
-        return getHiveSessionProperties(hiveConfig, new OrcReaderConfig());
+        return getHiveSessionProperties(hiveConfig, new OrcReaderConfig(), new HiveFormatsConfig());
     }
 
-    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
+    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig, HiveFormatsConfig hiveFormatsConfig)
     {
         return new HiveSessionProperties(
                 hiveConfig,
-                new HiveFormatsConfig(),
+                hiveFormatsConfig,
                 orcReaderConfig,
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),

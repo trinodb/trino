@@ -124,7 +124,8 @@ public class TestTimestampMicros
                         Optional.empty(),
                         OptionalInt.empty(),
                         false,
-                        AcidTransaction.NO_ACID_TRANSACTION)
+                        AcidTransaction.NO_ACID_TRANSACTION,
+                        true)
                 .orElseThrow();
 
         pageSourceWithProjections.getReaderColumns().ifPresent(projections -> {

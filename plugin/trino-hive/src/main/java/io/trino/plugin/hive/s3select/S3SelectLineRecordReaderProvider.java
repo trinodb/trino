@@ -15,11 +15,15 @@ package io.trino.plugin.hive.s3select;
 
 import io.trino.plugin.hive.s3select.csv.S3SelectCsvRecordReader;
 import io.trino.plugin.hive.s3select.json.S3SelectJsonRecordReader;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;
 import java.util.Properties;
+
+import static io.trino.plugin.hive.HiveSessionProperties.isJsonNativeReaderEnabled;
+import static io.trino.plugin.hive.HiveSessionProperties.isTextFileNativeReaderEnabled;
 
 /**
  * Returns an S3SelectLineRecordReader based on the serDe class. It supports CSV and JSON formats, and
@@ -30,6 +34,7 @@ public class S3SelectLineRecordReaderProvider
     private S3SelectLineRecordReaderProvider() {}
 
     public static Optional<S3SelectLineRecordReader> get(Configuration configuration,
+                                                  ConnectorSession session,
                                                   Path path,
                                                   long start,
                                                   long length,
@@ -40,8 +45,14 @@ public class S3SelectLineRecordReaderProvider
     {
         switch (dataType) {
             case CSV:
+                if (isTextFileNativeReaderEnabled(session)) {
+                    return Optional.empty();
+                }
                 return Optional.of(new S3SelectCsvRecordReader(configuration, path, start, length, schema, ionSqlQuery, s3ClientFactory));
             case JSON:
+                if (isJsonNativeReaderEnabled(session)) {
+                    return Optional.empty();
+                }
                 return Optional.of(new S3SelectJsonRecordReader(configuration, path, start, length, schema, ionSqlQuery, s3ClientFactory));
             default:
                 // return empty if data type is not returned by the serDeMapper or unrecognizable by the LineRecordReader

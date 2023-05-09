@@ -241,7 +241,8 @@ public class TestOrcPageSourceFactory
                 acidInfo,
                 OptionalInt.empty(),
                 false,
-                NO_ACID_TRANSACTION);
+                NO_ACID_TRANSACTION,
+                true);
 
         checkArgument(pageSourceWithProjections.isPresent());
         checkArgument(pageSourceWithProjections.get().getReaderColumns().isEmpty(),

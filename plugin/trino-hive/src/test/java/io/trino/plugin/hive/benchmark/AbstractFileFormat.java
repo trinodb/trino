@@ -223,7 +223,8 @@ public abstract class AbstractFileFormat
                         Optional.empty(),
                         OptionalInt.empty(),
                         false,
-                        NO_ACID_TRANSACTION);
+                        NO_ACID_TRANSACTION,
+                        true);
 
         checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
         checkState(readerPageSourceWithProjections.get().getReaderColumns().isEmpty(), "projection should not be required");
