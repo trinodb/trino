@@ -16,7 +16,6 @@ package io.trino.plugin.kudu;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -30,8 +29,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseKuduConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
-    private TestingKuduServer kuduServer;
-
     protected abstract String getKuduServerVersion();
 
     protected abstract Optional<String> getKuduSchemaEmulationPrefix();
@@ -40,15 +37,9 @@ public abstract class BaseKuduConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        kuduServer = new TestingKuduServer(getKuduServerVersion());
-        return createKuduQueryRunnerTpch(kuduServer, getKuduSchemaEmulationPrefix(), REQUIRED_TPCH_TABLES);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        kuduServer.close();
-        kuduServer = null;
+        return createKuduQueryRunnerTpch(
+                closeAfterClass(new TestingKuduServer(getKuduServerVersion())),
+                getKuduSchemaEmulationPrefix(), REQUIRED_TPCH_TABLES);
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
