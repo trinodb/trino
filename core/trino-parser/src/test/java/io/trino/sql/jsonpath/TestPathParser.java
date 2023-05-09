@@ -75,7 +75,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPathParser
 {
-    private static final PathParser PATH_PARSER = new PathParser(new Location(1, 0));
+    private static final PathParser PATH_PARSER = PathParser.withRelativeErrorLocation(new Location(1, 0));
     private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
     @Test
