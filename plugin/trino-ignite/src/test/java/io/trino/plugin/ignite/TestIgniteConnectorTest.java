@@ -385,22 +385,22 @@ public class TestIgniteConnectorTest
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertQueryFails(
                 "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
-                errorMessageForDateOutOrRange("-1996-09-14"));
+                errorMessageForDateOutOfRange("-1996-09-14"));
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return errorMessageForDateOutOrRange(date);
+        return errorMessageForDateOutOfRange(date);
     }
 
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return errorMessageForDateOutOrRange(date);
+        return errorMessageForDateOutOfRange(date);
     }
 
-    private String errorMessageForDateOutOrRange(String date)
+    private String errorMessageForDateOutOfRange(String date)
     {
         return "Date must be between 1970-01-01 and 9999-12-31 in Ignite: " + date;
     }
