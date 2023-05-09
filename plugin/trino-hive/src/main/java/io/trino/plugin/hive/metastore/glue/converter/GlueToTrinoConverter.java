@@ -195,7 +195,7 @@ public final class GlueToTrinoConverter
             requireNonNull(table, "table is null");
             this.databaseName = requireNonNull(table.getDatabaseName(), "databaseName is null");
             this.tableName = requireNonNull(table.getTableName(), "tableName is null");
-            this.tableParameters = convertParameters(table.getParameters());
+            this.tableParameters = table.getParameters();
             this.columnsConverter = memoizeLast(glueColumns -> convertColumns(
                     table.getSchemaTableName(),
                     glueColumns,
