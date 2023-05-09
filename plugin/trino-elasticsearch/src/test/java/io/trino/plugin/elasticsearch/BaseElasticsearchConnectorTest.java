@@ -130,6 +130,9 @@ public abstract class BaseElasticsearchConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
+            case SUPPORTS_ROW_TYPE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

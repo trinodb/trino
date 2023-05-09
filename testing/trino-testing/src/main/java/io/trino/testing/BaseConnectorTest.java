@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
@@ -41,6 +42,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OutputNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
@@ -104,6 +106,7 @@ import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT;
@@ -123,6 +126,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEREFERENCE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
@@ -5901,6 +5905,224 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
     }
 
+    @Test
+    public void testProjectionPushdown()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_projection_pushdown_",
+                "(id BIGINT, root ROW(f1 BIGINT, f2 BIGINT))",
+                ImmutableList.of("(1, ROW(1, 2))", "(2, NULl)", "(3, ROW(NULL, 4))"))) {
+            String selectQuery = "SELECT id, root.f1 FROM " + testTable.getName();
+            String expectedResult = "VALUES (BIGINT '1', BIGINT '1'), (BIGINT '2', NULL), (BIGINT '3', NULL)";
+
+            if (!hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN)) {
+                assertThat(query(selectQuery))
+                        .matches(expectedResult)
+                        .isNotFullyPushedDown(ProjectNode.class);
+            }
+            else {
+                assertThat(query(selectQuery))
+                        .matches(expectedResult)
+                        .isFullyPushedDown();
+            }
+        }
+    }
+
+    @Test
+    public void testProjectionWithCaseSensitiveField()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_projection_with_case_sensitive_field_",
+                "(id INT, a ROW(\"UPPER_CASE\" INT, \"lower_case\" INT, \"MiXeD_cAsE\" INT))",
+                ImmutableList.of("(1, ROW(2, 3, 4))", "(5, ROW(6, 7, 8))"))) {
+            String expected = "VALUES (2, 3, 4), (6, 7, 8)";
+            assertThat(query("SELECT a.UPPER_CASE, a.lower_case, a.MiXeD_cAsE FROM " + testTable.getName()))
+                    .matches(expected)
+                    .isFullyPushedDown();
+            assertThat(query("SELECT a.upper_case, a.lower_case, a.mixed_case FROM " + testTable.getName()))
+                    .matches(expected)
+                    .isFullyPushedDown();
+            assertThat(query("SELECT a.UPPER_CASE, a.LOWER_CASE, a.MIXED_CASE FROM " + testTable.getName()))
+                    .matches(expected)
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testProjectionPushdownMultipleRows()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_projection_pushdown_multiple_rows_",
+                "(id INT, nested1 ROW(child1 INT, child2 VARCHAR, child3 INT), nested2 ROW(child1 DOUBLE, child2 BOOLEAN, child3 DATE))",
+                ImmutableList.of(
+                        "(1, ROW(10, 'a', 100), ROW(10.10, true, DATE '2023-04-19'))",
+                        "(2, ROW(20, 'b', 200), ROW(20.20, false, DATE '1990-04-20'))",
+                        "(4, ROW(40, NULL, 400), NULL)",
+                        "(5, NULL, ROW(NULL, true, NULL))"))) {
+            // Select one field from one row field
+            assertThat(query("SELECT id, nested1.child1 FROM " + testTable.getName()))
+                    .matches("VALUES (1, 10), (2, 20), (4, 40), (5, NULL)")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT nested2.child3, id FROM " + testTable.getName()))
+                    .matches("VALUES (DATE '2023-04-19', 1), (DATE '1990-04-20', 2), (NULL, 4), (NULL, 5)")
+                    .isFullyPushedDown();
+
+            // Select one field each from multiple row fields
+            assertThat(query("SELECT nested2.child1, id, nested1.child2 FROM " + testTable.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (DOUBLE '10.10', 1, 'a'), (DOUBLE '20.20', 2, 'b'), (NULL, 4, NULL), (NULL, 5, NULL)")
+                    .isFullyPushedDown();
+
+            // Select multiple fields from one row field
+            assertThat(query("SELECT nested1.child3, id, nested1.child2 FROM " + testTable.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (100, 1, 'a'), (200, 2, 'b'), (400, 4, NULL), (NULL, 5, NULL)")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT nested2.child2, nested2.child3, id FROM " + testTable.getName()))
+                    .matches("VALUES (true, DATE '2023-04-19' , 1), (false, DATE '1990-04-20', 2), (NULL, NULL, 4), (true, NULL, 5)")
+                    .isFullyPushedDown();
+
+            // Select multiple fields from multiple row fields
+            assertThat(query("SELECT id, nested2.child1, nested1.child3, nested2.child2, nested1.child1 FROM " + testTable.getName()))
+                    .matches("VALUES (1, DOUBLE '10.10', 100, true, 10), (2, DOUBLE '20.20', 200, false, 20), (4, NULL, 400, NULL, 40), (5, NULL, NULL, true, NULL)")
+                    .isFullyPushedDown();
+
+            // Select only nested fields
+            assertThat(query("SELECT nested2.child2, nested1.child3 FROM " + testTable.getName()))
+                    .matches("VALUES (true, 100), (false, 200), (NULL, 400), (true, NULL)")
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testReadHighlyNestedData()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_highly_nested_data_",
+                "(id INT, row1_t ROW(f1 INT, f2 INT, row2_t ROW (f1 INT, f2 INT, row3_t ROW(f1 INT, f2 INT))))",
+                ImmutableList.of("(1, ROW(2, 3, ROW(4, 5, ROW(6, 7))))",
+                        "(11, ROW(12, 13, ROW(14, 15, ROW(16, 17))))",
+                        "(21, ROW(22, 23, ROW(24, 25, ROW(26, 27))))"))) {
+            // Test select projected columns, with and without their parent column
+            assertQuery("SELECT id, row1_t.row2_t.row3_t.f2 FROM " + testTable.getName(), "VALUES (1, 7), (11, 17), (21, 27)");
+            assertQuery("SELECT id, row1_t.row2_t.row3_t.f2, CAST(row1_t AS JSON) FROM " + testTable.getName(),
+                    "VALUES (1, 7, '{\"f1\":2,\"f2\":3,\"row2_t\":{\"f1\":4,\"f2\":5,\"row3_t\":{\"f1\":6,\"f2\":7}}}'), " +
+                            "(11, 17, '{\"f1\":12,\"f2\":13,\"row2_t\":{\"f1\":14,\"f2\":15,\"row3_t\":{\"f1\":16,\"f2\":17}}}'), " +
+                            "(21, 27, '{\"f1\":22,\"f2\":23,\"row2_t\":{\"f1\":24,\"f2\":25,\"row3_t\":{\"f1\":26,\"f2\":27}}}')");
+
+            // Test predicates on immediate child column and deeper nested column
+            assertQuery("SELECT id, CAST(row1_t.row2_t.row3_t AS JSON) FROM " + testTable.getName() + " WHERE row1_t.row2_t.row3_t.f2 = 27", "VALUES (21, '{\"f1\":26,\"f2\":27}')");
+            assertQuery("SELECT id, CAST(row1_t.row2_t.row3_t AS JSON) FROM " + testTable.getName() + " WHERE row1_t.row2_t.row3_t.f2 > 20", "VALUES (21, '{\"f1\":26,\"f2\":27}')");
+            assertQuery("SELECT id, CAST(row1_t AS JSON) FROM " + testTable.getName() + " WHERE row1_t.row2_t.row3_t.f2 = 27",
+                    "VALUES (21, '{\"f1\":22,\"f2\":23,\"row2_t\":{\"f1\":24,\"f2\":25,\"row3_t\":{\"f1\":26,\"f2\":27}}}')");
+            assertQuery("SELECT id, CAST(row1_t AS JSON) FROM " + testTable.getName() + " WHERE row1_t.row2_t.row3_t.f2 > 20",
+                    "VALUES (21, '{\"f1\":22,\"f2\":23,\"row2_t\":{\"f1\":24,\"f2\":25,\"row3_t\":{\"f1\":26,\"f2\":27}}}')");
+
+            // Test predicates on parent columns
+            assertQuery("SELECT id, row1_t.row2_t.row3_t.f1 FROM " + testTable.getName() + " WHERE row1_t.row2_t.row3_t = ROW(16, 17)", "VALUES (11, 16)");
+            assertQuery("SELECT id, row1_t.row2_t.row3_t.f1 FROM " + testTable.getName() + " WHERE row1_t = ROW(22, 23, ROW(24, 25, ROW(26, 27)))", "VALUES (21, 26)");
+        }
+    }
+
+    @Test
+    public void testProjectionPushdownReadsLessData()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_projection_pushdown_reads_less_data_",
+                "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
+            MaterializedResult expectedResult = computeActual("SELECT val + 2 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)");
+            String selectQuery = "SELECT root.leaf2 FROM " + testTable.getName();
+            Session sessionWithoutPushdown = Session.builder(getSession())
+                    .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
+                    .build();
+
+            assertQueryStats(
+                    getSession(),
+                    selectQuery,
+                    statsWithPushdown -> {
+                        DataSize physicalInputDataSizeWithPushdown = statsWithPushdown.getPhysicalInputDataSize();
+                        DataSize processedDataSizeWithPushdown = statsWithPushdown.getProcessedInputDataSize();
+                        assertQueryStats(
+                                sessionWithoutPushdown,
+                                selectQuery,
+                                statsWithoutPushdown -> {
+                                    if (supportsPhysicalPushdown()) {
+                                        assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isGreaterThan(physicalInputDataSizeWithPushdown);
+                                    }
+                                    else {
+                                        // TODO https://github.com/trinodb/trino/issues/17201
+                                        assertThat(statsWithoutPushdown.getPhysicalInputDataSize()).isEqualTo(physicalInputDataSizeWithPushdown);
+                                    }
+                                    assertThat(statsWithoutPushdown.getProcessedInputDataSize()).isGreaterThan(processedDataSizeWithPushdown);
+                                },
+                                results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
+        }
+    }
+
+    @Test
+    public void testProjectionPushdownPhysicalInputSize()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_projection_pushdown_physical_input_size_",
+                "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
+            // Verify that the physical input size is smaller when reading the root.leaf1 field compared to reading the root field
+            assertQueryStats(
+                    getSession(),
+                    "SELECT root FROM " + testTable.getName(),
+                    statsWithSelectRootField -> {
+                        assertQueryStats(
+                                getSession(),
+                                "SELECT root.leaf1 FROM " + testTable.getName(),
+                                statsWithSelectLeafField -> {
+                                    if (supportsPhysicalPushdown()) {
+                                        assertThat(statsWithSelectLeafField.getPhysicalInputDataSize()).isLessThan(statsWithSelectRootField.getPhysicalInputDataSize());
+                                    }
+                                    else {
+                                        // TODO https://github.com/trinodb/trino/issues/17201
+                                        assertThat(statsWithSelectLeafField.getPhysicalInputDataSize()).isEqualTo(statsWithSelectRootField.getPhysicalInputDataSize());
+                                    }
+                                },
+                                results -> assertEquals(results.getOnlyColumnAsSet(), computeActual("SELECT val + 1 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getOnlyColumnAsSet()));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), computeActual("SELECT ROW(val + 1, val + 2) FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getOnlyColumnAsSet()));
+
+            // Verify that the physical input size is the same when reading the root field compared to reading both the root and root.leaf1 fields
+            assertQueryStats(
+                    getSession(),
+                    "SELECT root FROM " + testTable.getName(),
+                    statsWithSelectRootField -> {
+                        assertQueryStats(
+                                getSession(),
+                                "SELECT root, root.leaf1 FROM " + testTable.getName(),
+                                statsWithSelectRootAndLeafField -> {
+                                    assertThat(statsWithSelectRootAndLeafField.getPhysicalInputDataSize()).isEqualTo(statsWithSelectRootField.getPhysicalInputDataSize());
+                                },
+                                results -> assertEqualsIgnoreOrder(results.getMaterializedRows(), computeActual("SELECT ROW(val + 1, val + 2), val + 1 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getMaterializedRows()));
+                    },
+                    results -> assertEquals(results.getOnlyColumnAsSet(), computeActual("SELECT ROW(val + 1, val + 2) FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getOnlyColumnAsSet()));
+        }
+    }
+
     protected Consumer<Plan> assertPartialLimitWithPreSortedInputsCount(Session session, int expectedCount)
     {
         return plan -> {
@@ -5938,6 +6160,11 @@ public abstract class BaseConnectorTest
     protected String createSchemaSql(String schemaName)
     {
         return "CREATE SCHEMA " + schemaName;
+    }
+
+    protected boolean supportsPhysicalPushdown()
+    {
+        return true;
     }
 
     protected static final class DataMappingTestSetup
