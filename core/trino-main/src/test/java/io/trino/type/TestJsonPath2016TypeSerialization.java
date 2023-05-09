@@ -71,7 +71,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonPath2016TypeSerialization
 {
-    private static final Type JSON_PATH_2016 = new JsonPath2016Type(new TypeDeserializer(TESTING_TYPE_MANAGER), new TestingBlockEncodingSerde());
+    public static final Type JSON_PATH_2016 = new JsonPath2016Type(new TypeDeserializer(TESTING_TYPE_MANAGER), new TestingBlockEncodingSerde());
     private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
     @Test

@@ -133,7 +133,10 @@ public class TestLocalDispatchQuery
                 metadata,
                 new FunctionManager(
                         new ConnectorCatalogServiceProvider<>("function provider", new NoConnectorServicesProvider(), ConnectorServices::getFunctionProvider),
-                        new GlobalFunctionCatalog(),
+                        new GlobalFunctionCatalog(
+                                () -> { throw new UnsupportedOperationException(); },
+                                () -> { throw new UnsupportedOperationException(); },
+                                () -> { throw new UnsupportedOperationException(); }),
                         LanguageFunctionProvider.DISABLED),
                 new QueryMonitorConfig());
         CreateTable createTable = new CreateTable(QualifiedName.of("table"), ImmutableList.of(), FAIL, ImmutableList.of(), Optional.empty());

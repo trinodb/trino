@@ -396,7 +396,10 @@ public class LocalQueryRunner
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
-        this.globalFunctionCatalog = new GlobalFunctionCatalog();
+        this.globalFunctionCatalog = new GlobalFunctionCatalog(
+                this::getMetadata,
+                this::getTypeManager,
+                this::getFunctionManager);
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         this.groupProvider = new TestingGroupProviderManager();

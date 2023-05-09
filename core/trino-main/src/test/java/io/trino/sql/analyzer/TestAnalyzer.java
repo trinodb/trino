@@ -119,6 +119,7 @@ import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_OR_PATH_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PARAMETER_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
@@ -144,6 +145,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
+import static io.trino.spi.StandardErrorCode.INVALID_PLAN;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_RANGE;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
@@ -161,6 +163,7 @@ import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_GROUP_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.MISSING_OVER;
+import static io.trino.spi.StandardErrorCode.MISSING_PATH_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_ROW_PATTERN;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_VARIABLE_DEFINITIONS;
@@ -6740,11 +6743,541 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testJsonTable()
+    public void testJsonTableColumnTypes()
     {
-        assertFails("SELECT * FROM JSON_TABLE('[1, 2, 3]', 'lax $[2]' COLUMNS(o FOR ORDINALITY))")
+        // ordinality column
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS(
+                        o FOR ORDINALITY))
+                """);
+
+        // regular column
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(
+                        id BIGINT
+                            PATH 'lax $[1]'
+                            DEFAULT 0 ON EMPTY
+                            ERROR ON ERROR))
+                """);
+
+        // formatted column
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(
+                        id VARBINARY
+                            FORMAT JSON ENCODING UTF16
+                            PATH 'lax $[1]'
+                            WITHOUT WRAPPER
+                            OMIT QUOTES
+                            EMPTY ARRAY ON EMPTY
+                            NULL ON ERROR))
+                """);
+
+        // nested columns
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(
+                        NESTED PATH 'lax $[*]' AS nested_path COLUMNS (
+                            o FOR ORDINALITY,
+                            id BIGINT PATH 'lax $[1]')))
+                """);
+    }
+
+    @Test
+    public void testJsonTableColumnAndPathNameUniqueness()
+    {
+        // root path is named
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]' AS root_path
+                    COLUMNS(
+                        o FOR ORDINALITY))
+                """);
+
+        // nested path is named
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(
+                        NESTED PATH 'lax $[*]' AS nested_path COLUMNS (
+                            o FOR ORDINALITY)))
+                """);
+
+        // root and nested paths are named
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $[*]' AS nested_path COLUMNS (
+                            o FOR ORDINALITY)))
+                """);
+
+        // duplicate path name
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS some_path
+                    COLUMNS(
+                        NESTED PATH 'lax $[*]' AS some_path COLUMNS (
+                            o FOR ORDINALITY)))
+                """)
+                .hasErrorCode(DUPLICATE_COLUMN_OR_PATH_NAME)
+                .hasMessage("line 6:35: All column and path names in JSON_TABLE invocation must be unique");
+
+        // duplicate column name
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS(
+                        id FOR ORDINALITY,
+                        id BIGINT))
+                """)
+                .hasErrorCode(DUPLICATE_COLUMN_OR_PATH_NAME)
+                .hasMessage("line 7:9: All column and path names in JSON_TABLE invocation must be unique");
+
+        // column and path names are the same
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]' AS some_name
+                    COLUMNS(
+                        some_name FOR ORDINALITY))
+                """)
+                .hasErrorCode(DUPLICATE_COLUMN_OR_PATH_NAME)
+                .hasMessage("line 6:9: All column and path names in JSON_TABLE invocation must be unique");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(
+                        NESTED PATH 'lax $[*]' AS some_name COLUMNS (
+                            some_name FOR ORDINALITY)))
+                """)
+                .hasErrorCode(DUPLICATE_COLUMN_OR_PATH_NAME)
+                .hasMessage("line 7:13: All column and path names in JSON_TABLE invocation must be unique");
+
+        // duplicate name is deeply nested
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS(
+                        NESTED PATH 'lax $[*]' AS some_name COLUMNS (
+                            NESTED PATH 'lax $' AS another_name COLUMNS (
+                                NESTED PATH 'lax $' AS yet_another_name COLUMNS (
+                                    some_name FOR ORDINALITY)))))
+                """)
+                .hasErrorCode(DUPLICATE_COLUMN_OR_PATH_NAME)
+                .hasMessage("line 9:21: All column and path names in JSON_TABLE invocation must be unique");
+    }
+
+    @Test
+    public void testJsonTableColumnAndPathNameIdentifierSemantics()
+    {
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]' AS some_name
+                    COLUMNS(
+                        Some_Name FOR ORDINALITY))
+                """)
+                .hasErrorCode(DUPLICATE_COLUMN_OR_PATH_NAME)
+                .hasMessage("line 6:9: All column and path names in JSON_TABLE invocation must be unique");
+
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]' AS some_name
+                    COLUMNS(
+                        "some_name" FOR ORDINALITY))
+                """);
+    }
+
+    @Test
+    public void testJsonTableOutputColumns()
+    {
+        analyze("""
+                SELECT a, b, c, d, e
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $'
+                    COLUMNS(
+                        a FOR ORDINALITY,
+                        b BIGINT,
+                        c VARBINARY FORMAT JSON ENCODING UTF16,
+                        NESTED PATH 'lax $[*]' COLUMNS (
+                            d FOR ORDINALITY,
+                            e BIGINT)))
+                """);
+    }
+
+    @Test
+    public void testImplicitJsonPath()
+    {
+        // column name: Ab
+        // canonical name: AB
+        // implicit path: lax $."AB"
+        // resolved member accessor: $.AB
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS(Ab BIGINT))
+                """);
+
+        // column name: Ab
+        // canonical name: Ab
+        // implicit path: lax $."Ab"
+        // resolved member accessor: $.Ab
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS("Ab" BIGINT))
+                """);
+
+        // column name: ?
+        // canonical name: ?
+        // implicit path: lax $."?"
+        // resolved member accessor: $.?
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS("?" BIGINT))
+                """);
+
+        // column name: "
+        // canonical name: "
+        // implicit path: lax $.""""
+        // resolved member accessor $."
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS("\"\"" BIGINT))
+                """);
+    }
+
+    @Test
+    public void testJsonTableSpecificPlan()
+    {
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS(id BIGINT)
+                    PLAN (root_path))
+                """)
+                .hasErrorCode(MISSING_PATH_NAME)
+                .hasMessage("line 3:5: All JSON paths must be named when specific plan is given");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]' AS root_path
+                    COLUMNS(id BIGINT)
+                    PLAN (root_path UNION another_path))
+                """)
+                .hasErrorCode(INVALID_PLAN)
+                .hasMessage("line 6:11: JSON_TABLE plan must either be a single path name or it must be rooted in parent-child relationship (OUTER or INNER)");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(id BIGINT)
+                    PLAN (another_path))
+                """)
+                .hasErrorCode(INVALID_PLAN)
+                .hasMessage("line 6:11: JSON_TABLE plan should contain all JSON paths available at each level of nesting. Paths not included: ROOT_PATH");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $' COLUMNS(id BIGINT))
+                    PLAN (root_path OUTER another_path))
+                """)
+                .hasErrorCode(MISSING_PATH_NAME)
+                .hasMessage("line 6:21: All JSON paths must be named when specific plan is given");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $' AS nested_path_1 COLUMNS(id_1 BIGINT),
+                        NESTED PATH 'lax $' AS nested_path_2 COLUMNS(id_2 BIGINT))
+                    PLAN (root_path OUTER (nested_path_1 CROSS another_path)))
+                """)
+                .hasErrorCode(INVALID_PLAN)
+                .hasMessage("line 8:11: JSON_TABLE plan should contain all JSON paths available at each level of nesting. Paths not included: NESTED_PATH_2");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $' AS nested_path_1 COLUMNS(id_1 BIGINT),
+                        NESTED PATH 'lax $' AS nested_path_2 COLUMNS(id_2 BIGINT))
+                    PLAN (root_path OUTER (nested_path_1 CROSS another_path CROSS nested_path_2)))
+                """)
+                .hasErrorCode(INVALID_PLAN)
+                .hasMessage("line 8:11: JSON_TABLE plan includes unavailable JSON path names: ANOTHER_PATH");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $' AS nested_path_1 COLUMNS(id_1 BIGINT),
+                        NESTED PATH 'lax $' AS nested_path_2 COLUMNS(
+                            id_2 BIGINT,
+                            NESTED PATH 'lax $' AS nested_path_3 COLUMNS(id_3 BIGINT)))
+                    PLAN (root_path OUTER (nested_path_1 CROSS (nested_path_2 UNION nested_path_3))))
+                """)
+                .hasErrorCode(INVALID_PLAN)
+                .hasMessage("line 10:11: JSON_TABLE plan includes unavailable JSON path names: NESTED_PATH_3"); // nested_path_3 is on another nesting level
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $' AS nested_path_1 COLUMNS(id_1 BIGINT),
+                        NESTED PATH 'lax $' AS nested_path_2 COLUMNS(id_2 BIGINT))
+                    PLAN (root_path OUTER (nested_path_1 CROSS (nested_path_2 UNION nested_path_1))))
+                """)
+                .hasErrorCode(INVALID_PLAN)
+                .hasMessage("line 8:69: Duplicate reference to JSON path name in sibling plan: NESTED_PATH_1");
+
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $' AS nested_path_1 COLUMNS(id_1 BIGINT),
+                        NESTED PATH 'lax $' AS nested_path_2 COLUMNS(
+                            id_2 BIGINT,
+                            NESTED PATH 'lax $' AS nested_path_3 COLUMNS(id_3 BIGINT)))
+                    PLAN (root_path OUTER (nested_path_1 CROSS (nested_path_2 INNER nested_path_3))))
+                """);
+    }
+
+    @Test
+    public void testJsonTableDefaultPlan()
+    {
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS(id BIGINT)
+                    PLAN DEFAULT(CROSS, INNER))
+                """);
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $' AS root_path
+                    COLUMNS(
+                        NESTED PATH 'lax $' COLUMNS(id BIGINT))
+                    PLAN DEFAULT(OUTER, UNION))
+                """)
+                .hasErrorCode(MISSING_PATH_NAME)
+                .hasMessage("line 6:21: All nested JSON paths must be named when default plan is given");
+    }
+
+    @Test
+    public void tstJsonTableInJoin()
+    {
+        analyze("""
+                SELECT *
+                FROM t1, t2, JSON_TABLE('[1, 2, 3]', 'lax $[2]' COLUMNS(o FOR ORDINALITY))
+                """);
+
+        // join condition
+        analyze("""
+                SELECT *
+                    FROM t1
+                    LEFT JOIN
+                    JSON_TABLE('[1, 2, 3]', 'lax $[2]' COLUMNS(o FOR ORDINALITY))
+                    ON TRUE
+                """);
+
+        assertFails("""
+                SELECT *
+                    FROM t1
+                    RIGHT JOIN
+                    JSON_TABLE('[1, 2, 3]', 'lax $[2]' COLUMNS(o FOR ORDINALITY)) t
+                    ON t.o > t1.a
+                """)
                 .hasErrorCode(NOT_SUPPORTED)
-                .hasMessage("line 1:15: JSON_TABLE is not yet supported");
+                .hasMessage("line 5:12: RIGHT JOIN involving JSON_TABLE is only supported with condition ON TRUE");
+
+        // correlation in context item
+        analyze("""
+                SELECT *
+                    FROM t6
+                    LEFT JOIN
+                    JSON_TABLE(b, 'lax $[2]' COLUMNS(o FOR ORDINALITY))
+                    ON TRUE
+                """);
+
+        // correlation in default value
+        analyze("""
+                SELECT *
+                    FROM t6
+                    LEFT JOIN
+                    JSON_TABLE('[1, 2, 3]', 'lax $[2]' COLUMNS(x BIGINT DEFAULT a ON EMPTY))
+                    ON TRUE
+                """);
+
+        // correlation in path parameter
+        analyze("""
+                SELECT *
+                    FROM t6
+                    LEFT JOIN
+                    JSON_TABLE('[1, 2, 3]', 'lax $[2]' PASSING a AS parameter_name COLUMNS(o FOR ORDINALITY))
+                    ON TRUE
+                """);
+
+        // invalid correlation in right join
+        assertFails("""
+                SELECT *
+                    FROM t6
+                    RIGHT JOIN
+                    JSON_TABLE('[1, 2, 3]', 'lax $[2]' PASSING a AS parameter_name COLUMNS(o FOR ORDINALITY))
+                    ON TRUE
+                """)
+                .hasErrorCode(INVALID_COLUMN_REFERENCE)
+                .hasMessage("line 4:48: LATERAL reference not allowed in RIGHT JOIN");
+    }
+
+    @Test
+    public void testSubqueryInJsonTable()
+    {
+        analyze("""
+                SELECT *
+                FROM JSON_TABLE(
+                    (SELECT '[1, 2, 3]'),
+                    'lax $[2]' PASSING (SELECT 1) AS parameter_name
+                    COLUMNS(
+                        x BIGINT DEFAULT (SELECT 2) ON EMPTY))
+                """);
+    }
+
+    @Test
+    public void testAggregationInJsonTable()
+    {
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    CAST(sum(1) AS varchar),
+                    'lax $' PASSING 2 AS parameter_name
+                    COLUMNS(
+                        x BIGINT DEFAULT 3 ON EMPTY DEFAULT 4 ON ERROR))
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 3:5: JSON_TABLE input expression cannot contain aggregations, window functions or grouping operations: [sum(1)]");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'lax $' PASSING avg(2) AS parameter_name
+                    COLUMNS(
+                        x BIGINT DEFAULT 3 ON EMPTY DEFAULT 4 ON ERROR))
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 4:21: JSON_TABLE path parameter cannot contain aggregations, window functions or grouping operations: [avg(2)]");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'lax $' PASSING 2 AS parameter_name
+                    COLUMNS(
+                        x BIGINT DEFAULT min(3) ON EMPTY DEFAULT 4 ON ERROR))
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 6:26: default expression for JSON_TABLE column cannot contain aggregations, window functions or grouping operations: [min(3)]");
+
+        assertFails("""
+                SELECT *
+                FROM JSON_TABLE(
+                    '1',
+                    'lax $' PASSING 2 AS parameter_name
+                    COLUMNS(
+                        x BIGINT DEFAULT 3 ON EMPTY DEFAULT max(4) ON ERROR))
+                """)
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 6:45: default expression for JSON_TABLE column cannot contain aggregations, window functions or grouping operations: [max(4)]");
+    }
+
+    @Test
+    public void testAliasJsonTable()
+    {
+        analyze("""
+                SELECT t.y
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS(x BIGINT)) t(y)
+                """);
+
+        analyze("""
+                SELECT t.x
+                FROM JSON_TABLE(
+                    '[1, 2, 3]',
+                    'lax $[2]'
+                    COLUMNS(x BIGINT)) t
+                """);
     }
 
     @Test
