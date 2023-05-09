@@ -1177,6 +1177,14 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
+
+            if (node.getCriteria().isEmpty()
+                    && node.getFilter().isEmpty()
+                    && node.getOutputSymbols().size() != node.getLeft().getOutputSymbols().size() + node.getRight().getOutputSymbols().size()) {
+                // Bail out for a LEFT/RIGHT join that would have been converted to CrossJoin with pruning columns.
+                return node;
+            }
+
             return new JoinNode(
                     node.getId(),
                     JoinNode.Type.INNER,

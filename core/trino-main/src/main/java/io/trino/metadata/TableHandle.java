@@ -92,4 +92,25 @@ public final class TableHandle
     {
         return Objects.hash(catalogHandle, connectorHandle, transaction);
     }
+
+    // This is mostly a clone of equals() method above, except that when comparing ConnectorTableHandles, we use its equalsForFusion() instead of equals()
+    public boolean equalsForFusion(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        TableHandle other = (TableHandle) o;
+        return Objects.equals(catalogHandle, other.catalogHandle) &&
+                Objects.equals(transaction, other.transaction) &&
+                connectorHandle.equalsForFusion(other.connectorHandle);
+    }
+
+    // This is similar to hashCode() method above, except that we replace the hashing of connectorHandle with its custom hash code
+    public int hashCodeForFusion()
+    {
+        return Objects.hash(catalogHandle, connectorHandle.hashCodeForFusion(), transaction);
+    }
 }

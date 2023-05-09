@@ -37,6 +37,7 @@ import java.util.Set;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static io.trino.SystemSessionProperties.markDistinctStrategy;
+import static io.trino.SystemSessionProperties.useQueryFusion;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy.AUTOMATIC;
 import static io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy.NONE;
@@ -109,10 +110,18 @@ public class MultipleDistinctAggregationToMarkDistinct
     }
 
     private final TaskCountEstimator taskCountEstimator;
+    private final boolean isDependentOnFusion;  // defensive mechanism to avoid side effect
 
     public MultipleDistinctAggregationToMarkDistinct(TaskCountEstimator taskCountEstimator)
     {
         this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+        this.isDependentOnFusion = false;
+    }
+
+    public MultipleDistinctAggregationToMarkDistinct(TaskCountEstimator taskCountEstimator, boolean isDependentOnFusion)
+    {
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+        this.isDependentOnFusion = isDependentOnFusion;
     }
 
     @Override
@@ -130,6 +139,10 @@ public class MultipleDistinctAggregationToMarkDistinct
         }
 
         if (markDistinctStrategy.equals(AUTOMATIC) && !shouldAddMarkDistinct(parent, context)) {
+            return Result.empty();
+        }
+
+        if (isDependentOnFusion && !useQueryFusion(context.getSession())) {
             return Result.empty();
         }
 

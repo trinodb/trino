@@ -73,4 +73,16 @@ public class TpcdsTableHandle
         return Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.scaleFactor, other.scaleFactor);
     }
+
+    @Override
+    public boolean equalsForFusion(Object o)
+    {
+        return equals(o);
+    }
+
+    @Override
+    public int hashCodeForFusion()
+    {
+        return hashCode();
+    }
 }

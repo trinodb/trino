@@ -32,6 +32,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
+import io.trino.spi.type.BooleanType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Partitioning;
@@ -98,6 +99,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -113,6 +115,7 @@ import static io.trino.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.trino.SystemSessionProperties.isUseCostBasedPartitioning;
 import static io.trino.SystemSessionProperties.isUseExactPartitioning;
 import static io.trino.SystemSessionProperties.isUsePartialDistinctLimit;
+import static io.trino.SystemSessionProperties.useQueryFusion;
 import static io.trino.sql.planner.FragmentTableScanCounter.countSources;
 import static io.trino.sql.planner.FragmentTableScanCounter.hasMultipleSources;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -351,22 +354,45 @@ public class AddExchanges
             };
         }
 
+        private List<Symbol> getPreferredPartitioningForMarkDistinct(MarkDistinctNode node)
+        {
+            if (useQueryFusion(session) && !node.getDistinctSymbols().stream().allMatch(s -> types.get(s) instanceof BooleanType)) {
+                PlanNode sourceNode = node.getSource();
+                while (sourceNode instanceof ProjectNode) {
+                    sourceNode = sourceNode.getSources().get(0);
+                }
+
+                if (sourceNode instanceof MarkDistinctNode) {
+                    // We have a stack of MarkDistinctNodes that might come from query fusion. Heuristically
+                    // remove boolean masks from partitioning requirement so that we can reuse partitioning
+                    // across MarkDistinct operators.
+                    // TODO: Can be done in a more principled/accurate way.
+                    return node.getDistinctSymbols().stream()
+                            .filter(symbol -> !(types.get(symbol) instanceof BooleanType && symbol.getName().startsWith("mask")))
+                            .collect(Collectors.toList());
+                }
+            }
+
+            return node.getDistinctSymbols();
+        }
+
         @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, PreferredProperties preferredProperties)
         {
+            List<Symbol> preferredPartitioning = getPreferredPartitioningForMarkDistinct(node);
             PreferredProperties preferredChildProperties = computePreference(
-                    partitionedWithLocal(ImmutableSet.copyOf(node.getDistinctSymbols()), grouped(node.getDistinctSymbols())),
+                    partitionedWithLocal(ImmutableSet.copyOf(preferredPartitioning), grouped(preferredPartitioning)),
                     preferredProperties);
 
             PlanWithProperties child = node.getSource().accept(this, preferredChildProperties);
 
-            if (child.getProperties().isSingleNode() || !isNodePartitionedOn(child.getProperties(), node.getDistinctSymbols())) {
+            if (child.getProperties().isSingleNode() || !isNodePartitionedOn(child.getProperties(), preferredPartitioning)) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 REMOTE,
                                 child.getNode(),
-                                node.getDistinctSymbols(),
+                                preferredPartitioning,
                                 node.getHashSymbol()),
                         child.getProperties());
             }

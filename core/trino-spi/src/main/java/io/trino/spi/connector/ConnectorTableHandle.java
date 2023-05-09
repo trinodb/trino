@@ -13,10 +13,29 @@
  */
 package io.trino.spi.connector;
 
+import java.util.Random;
+
 /**
  * Represents a handle to a relation returned from the connector to the engine.
  * It will be used by the engine whenever given relation will be accessed.
  */
 public interface ConnectorTableHandle
 {
+    /**
+     * Returns true if a ConnectorTableHandle is "fusible" with another ConnectorTableHandler.
+     * Fusible here means the two tables can possibly be optimized by SharedScanOptimizer.
+     */
+    default boolean equalsForFusion(Object o)
+    {
+        return false;
+    }
+
+    /**
+     * Returns the hashcode that is & should only be used by Query Fusion to compare the table handles and group them into HashMaps.
+     */
+    default int hashCodeForFusion()
+    {
+        Random rand = new Random();
+        return rand.nextInt();
+    }
 }

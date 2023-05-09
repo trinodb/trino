@@ -102,4 +102,16 @@ public class TpchTableHandle
                 Objects.equals(this.scaleFactor, other.scaleFactor) &&
                 Objects.equals(this.constraint, other.constraint);
     }
+
+    @Override
+    public boolean equalsForFusion(Object o)
+    {
+        return equals(o);
+    }
+
+    @Override
+    public int hashCodeForFusion()
+    {
+        return hashCode();
+    }
 }
