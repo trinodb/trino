@@ -719,6 +719,29 @@ public abstract class AbstractTestTrinoFileSystem
         }
     }
 
+    @Test
+    public void testDirectoryExists()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            String directoryName = "testDirectoryExistsDir";
+            String fileName = "file.csv";
+            createBlob(closer, createLocation(directoryName).appendPath(fileName).path());
+            TrinoFileSystem fileSystem = getFileSystem();
+
+            if (isHierarchical()) {
+                assertThat(fileSystem.directoryExists(createLocation(directoryName))).contains(true);
+                assertThat(fileSystem.directoryExists(createLocation(UUID.randomUUID().toString()))).contains(false);
+                assertThat(fileSystem.directoryExists(createLocation(directoryName).appendPath(fileName))).contains(false);
+            }
+            else {
+                assertThat(fileSystem.directoryExists(createLocation(directoryName))).isEmpty();
+                assertThat(fileSystem.directoryExists(createLocation(UUID.randomUUID().toString()))).isEmpty();
+                assertThat(fileSystem.directoryExists(createLocation(directoryName).appendPath(fileName))).isEmpty();
+            }
+        }
+    }
+
     private List<Location> listPath(String path)
             throws IOException
     {
