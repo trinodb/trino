@@ -456,7 +456,7 @@ public class TestDynamicTable
         String tableName = realtimeOnlyTable.getTableName();
         List<String> columnNames = getColumnNames(tableName);
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
-        String query = "select %s from %s limit 10 option(skipupsert=true)".formatted(join(", ", columnNames), tableNameWithSuffix);
+        String query = "SELECT %s FROM %s LIMIT 10 OPTION(skipupsert=true)".formatted(join(", ", columnNames), tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         Optional<String> expectedOption = Optional.of(" OPTION(skipUpsert=true)");
         assertEquals(dynamicTable.getOptions(), expectedOption);
@@ -468,7 +468,7 @@ public class TestDynamicTable
         String tableName = realtimeOnlyTable.getTableName();
         List<String> columnNames = getColumnNames(tableName);
         String tableNameWithSuffix = tableName + REALTIME_SUFFIX;
-        String query = "select %s from %s limit 10 option(skipUpsert=true,enableNullHandling=true)".formatted(join(", ", columnNames), tableNameWithSuffix);
+        String query = "SELECT %s FROM %s LIMIT 10 OPTION(skipUpsert=true, enableNullHandling=true)".formatted(join(", ", columnNames), tableNameWithSuffix);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, new SchemaTableName("default", query), mockClusterInfoFetcher, TESTING_TYPE_CONVERTER);
         Optional<String> expectedOption = Optional.of(" OPTION(enableNullHandling=true), OPTION(skipUpsert=true)");
         assertEquals(dynamicTable.getOptions(), expectedOption);
