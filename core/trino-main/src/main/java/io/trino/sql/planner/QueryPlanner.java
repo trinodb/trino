@@ -138,6 +138,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxRecursionDepth;
 import static io.trino.SystemSessionProperties.isSkipRedundantSort;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.spi.StandardErrorCode.MERGE_TARGET_ROW_MULTIPLE_MATCHES;
@@ -150,6 +151,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -628,12 +630,15 @@ class QueryPlanner
         // The integer merge case number, always 0 for update
         Metadata metadata = plannerContext.getMetadata();
         ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+        Assignments.Builder assignments = Assignments.builder();
 
         // Add column values to the rowBuilder - - the SET expression value for updated
         // columns, and the existing column value for non-updated columns
         for (int columnIndex = 0; columnIndex < mergeAnalysis.getDataColumnHandles().size(); columnIndex++) {
             ColumnHandle dataColumnHandle = mergeAnalysis.getDataColumnHandles().get(columnIndex);
             ColumnSchema columnSchema = mergeAnalysis.getDataColumnSchemas().get(columnIndex);
+            int fieldNumber = mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle);
+            Symbol field = relationPlan.getFieldMappings().get(fieldNumber);
             int index = updatedColumnHandles.indexOf(dataColumnHandle);
             if (index >= 0) {
                 // This column is updated...
@@ -648,13 +653,17 @@ class QueryPlanner
                     rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(columnSchema.getType())));
                 }
                 rowBuilder.add(rewritten);
+                assignments.put(field, rewritten);
             }
             else {
                 // Get the non-updated column value from the table
-                Integer fieldNumber = requireNonNull(mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle), "Field number for ColumnHandle is null");
-                rowBuilder.add(relationPlan.getFieldMappings().get(fieldNumber).toSymbolReference());
+                rowBuilder.add(field.toSymbolReference());
+                assignments.putIdentity(field);
             }
         }
+
+        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
+        assignments.putIdentity(relationPlan.getFieldMappings().get(rowIdReference.getFieldIndex()));
 
         // Add the "present" field
         rowBuilder.add(new GenericLiteral("BOOLEAN", "TRUE"));
@@ -668,6 +677,31 @@ class QueryPlanner
         // Finally, the merge row is complete
         Expression mergeRow = new Row(rowBuilder.build());
 
+        List<Expression> constraints = analysis.getCheckConstraints(table);
+        if (!constraints.isEmpty()) {
+            subPlanBuilder = subPlanBuilder.withNewRoot(new ProjectNode(
+                    idAllocator.getNextId(),
+                    subPlanBuilder.getRoot(),
+                    assignments.build()));
+
+            PlanBuilder constraintBuilder = subPlanBuilder.appendProjections(constraints, symbolAllocator, idAllocator);
+
+            List<Expression> predicates = new ArrayList<>();
+            for (Expression constraint : constraints) {
+                Expression symbol = constraintBuilder.translate(constraint).toSymbolReference();
+
+                Expression predicate = new IfExpression(
+                        // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
+                        new CoalesceExpression(coerceIfNecessary(analysis, symbol, symbol), TRUE_LITERAL),
+                        TRUE_LITERAL,
+                        new Cast(failFunction(plannerContext.getMetadata(), session, CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
+
+                predicates.add(predicate);
+            }
+
+            subPlanBuilder = subPlanBuilder.withNewRoot(new FilterNode(idAllocator.getNextId(), constraintBuilder.getRoot(), and(predicates)));
+        }
+
         // Build the page, containing:
         // The write redistribution columns if any
         // For partitioned or bucketed tables, a long hash value column.
@@ -675,7 +709,6 @@ class QueryPlanner
         // The merge case RowBlock
         // The integer case number block, always 0 for update
         // The byte is_distinct block, always true for update
-        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
         Symbol rowIdSymbol = relationPlan.getFieldMappings().get(rowIdReference.getFieldIndex());
         Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", mergeAnalysis.getMergeRowType());
         Symbol caseNumberSymbol = symbolAllocator.newSymbol("case_number", INTEGER);
