@@ -187,7 +187,7 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
         assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
                 .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
         assertThatThrownBy(() -> query("UPDATE " + tableName + " SET dummy = 3 WHERE dummy = 1"))
-                .hasMessageContaining("Updating a table with a check constraint is not supported");
+                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
     }
