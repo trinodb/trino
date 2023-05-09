@@ -16,6 +16,7 @@ package io.trino.hdfs.rubix;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteProcessor;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.qubole.rubix.core.CachingFileSystem;
@@ -92,7 +93,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestRubixCaching
@@ -356,7 +356,7 @@ public class TestRubixCaching
         long beforeCachedReadsCount = getCachedReadsCount();
         long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
 
-        assertEquals(readFile(cachingFileSystem, file), randomData);
+        assertFileContents(cachingFileSystem, file, randomData);
 
         if (readMode == ASYNC) {
             // wait for async Rubix requests to complete
@@ -379,7 +379,7 @@ public class TestRubixCaching
                 new Duration(10, SECONDS),
                 () -> {
                     long remoteReadsCount = getRemoteReadsCount();
-                    assertEquals(readFile(cachingFileSystem, file), randomData);
+                    assertFileContents(cachingFileSystem, file, randomData);
                     assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
                     assertEquals(getRemoteReadsCount(), remoteReadsCount);
                 });
@@ -394,7 +394,7 @@ public class TestRubixCaching
 
         byte[] data = "Hello world".getBytes(UTF_8);
         writeFile(cachingFileSystem.create(file), data);
-        assertEquals(readFile(nonCachingFileSystem, file), data);
+        assertFileContents(cachingFileSystem, file, data);
     }
 
     @Test(dataProvider = "readMode")
@@ -412,7 +412,7 @@ public class TestRubixCaching
         long beforeCachedReadsCount = getCachedReadsCount();
         long beforeAsyncDownloadedMb = getAsyncDownloadedMb(readMode);
 
-        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
+        assertFileContents(cachingFileSystem, file, randomData);
 
         if (readMode == ASYNC) {
             // wait for async Rubix requests to complete
@@ -434,7 +434,7 @@ public class TestRubixCaching
                 new Duration(10, SECONDS),
                 () -> {
                     long remoteReadsCount = getRemoteReadsCount();
-                    assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
+                    assertFileContents(cachingFileSystem, file, randomData);
                     assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
                     assertEquals(getRemoteReadsCount(), remoteReadsCount);
                 });
@@ -447,7 +447,7 @@ public class TestRubixCaching
             List<Callable<?>> reads = nCopies(
                     3,
                     () -> {
-                        assertTrue(Arrays.equals(randomData, readFile(cachingFileSystem, file)));
+                        assertFileContents(cachingFileSystem, file, randomData);
                         return null;
                     });
             List<Future<?>> futures = reads.stream()
@@ -521,10 +521,33 @@ public class TestRubixCaching
                 assertThat(filterFileSystem.getRawFileSystem()).isInstanceOf(expectedType));
     }
 
-    private static byte[] readFile(FileSystem fileSystem, Path path)
+    private static void assertFileContents(FileSystem fileSystem, Path path, byte[] expected)
     {
         try (FSDataInputStream inputStream = fileSystem.open(path)) {
-            return ByteStreams.toByteArray(inputStream);
+            ByteStreams.readBytes(inputStream, new ByteProcessor<>()
+            {
+                int readOffset;
+
+                @Override
+                public boolean processBytes(byte[] buf, int off, int len)
+                {
+                    if (readOffset + len > expected.length) {
+                        throw new AssertionError("read too much");
+                    }
+                    if (!Arrays.equals(buf, off, off + len, expected, readOffset, readOffset + len)) {
+                        throw new AssertionError("read different than expected");
+                    }
+                    readOffset += len;
+                    return true; // continue
+                }
+
+                @Override
+                public Void getResult()
+                {
+                    assertEquals(readOffset, expected.length, "Read different amount of data");
+                    return null;
+                }
+            });
         }
         catch (IOException exception) {
             throw new RuntimeException(exception);
