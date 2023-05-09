@@ -77,6 +77,24 @@ public final class GlueToTrinoConverter
         return glueTable.getTableType();
     }
 
+    @SuppressModernizer // Usage of `Table.getParameters` is not allowed. Only this method can call that.
+    public static Map<String, String> getTableParameters(com.amazonaws.services.glue.model.Table glueTable)
+    {
+        return firstNonNull(glueTable.getParameters(), ImmutableMap.of());
+    }
+
+    @SuppressModernizer // Usage of `Partition.getParameters` is not allowed. Only this method can call that.
+    public static Map<String, String> getPartitionParameters(com.amazonaws.services.glue.model.Partition gluePartition)
+    {
+        return firstNonNull(gluePartition.getParameters(), ImmutableMap.of());
+    }
+
+    @SuppressModernizer // Usage of `SerDeInfo.getParameters` is not allowed. Only this method can call that.
+    public static Map<String, String> getSerDeInfoParameters(com.amazonaws.services.glue.model.SerDeInfo glueSerDeInfo)
+    {
+        return firstNonNull(glueSerDeInfo.getParameters(), ImmutableMap.of());
+    }
+
     public static Database convertDatabase(com.amazonaws.services.glue.model.Database glueDb)
     {
         return Database.builder()
@@ -97,7 +115,7 @@ public final class GlueToTrinoConverter
         SchemaTableName table = new SchemaTableName(dbName, glueTable.getName());
 
         String tableType = getTableType(glueTable);
-        Map<String, String> tableParameters = convertParameters(glueTable.getParameters());
+        Map<String, String> tableParameters = ImmutableMap.copyOf(getTableParameters(glueTable));
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getSchemaName())
                 .setTableName(table.getTableName())
@@ -162,17 +180,9 @@ public final class GlueToTrinoConverter
         return mappedCopy(glueColumns, glueColumn -> convertColumn(table, glueColumn, serde));
     }
 
-    private static Map<String, String> convertParameters(Map<String, String> parameters)
-    {
-        if (parameters == null || parameters.isEmpty()) {
-            return ImmutableMap.of();
-        }
-        return ImmutableMap.copyOf(parameters);
-    }
-
     private static Function<Map<String, String>, Map<String, String>> parametersConverter()
     {
-        return memoizeLast(GlueToTrinoConverter::convertParameters);
+        return memoizeLast(ImmutableMap::copyOf);
     }
 
     private static boolean isNullOrEmpty(List<?> list)
@@ -219,7 +229,7 @@ public final class GlueToTrinoConverter
                     .setTableName(tableName)
                     .setValues(gluePartition.getValues()) // No memoization benefit
                     .setColumns(columnsConverter.apply(sd.getColumns()))
-                    .setParameters(parametersConverter.apply(gluePartition.getParameters()));
+                    .setParameters(parametersConverter.apply(getPartitionParameters(gluePartition)));
 
             storageConverter.setStorageBuilder(sd, partitionBuilder.getStorageBuilder(), tableParameters);
 
@@ -244,7 +254,7 @@ public final class GlueToTrinoConverter
                     .setLocation(nullToEmpty(sd.getLocation()))
                     .setBucketProperty(convertToBucketProperty(tableParameters, sd))
                     .setSkewed(sd.getSkewedInfo() != null && !isNullOrEmpty(sd.getSkewedInfo().getSkewedColumnNames()))
-                    .setSerdeParameters(serdeParametersConverter.apply(serdeInfo.getParameters()))
+                    .setSerdeParameters(serdeParametersConverter.apply(getSerDeInfoParameters(serdeInfo)))
                     .build();
         }
 

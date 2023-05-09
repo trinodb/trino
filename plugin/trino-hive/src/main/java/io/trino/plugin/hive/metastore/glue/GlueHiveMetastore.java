@@ -132,7 +132,6 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Comparators.lexicographical;
@@ -149,6 +148,7 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
@@ -442,7 +442,7 @@ public class GlueHiveMetastore
     @Override
     public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        return getAllViews(databaseName, table -> parameterValue.equals(firstNonNull(table.getParameters(), ImmutableMap.of()).get(parameterKey)));
+        return getAllViews(databaseName, table -> parameterValue.equals(getTableParameters(table).get(parameterKey)));
     }
 
     @Override
@@ -680,7 +680,7 @@ public class GlueHiveMetastore
                 .withViewExpandedText(glueTable.getViewExpandedText())
                 .withTableType(getTableTypeNullable(glueTable))
                 .withTargetTable(glueTable.getTargetTable())
-                .withParameters(glueTable.getParameters());
+                .withParameters(getTableParameters(glueTable));
     }
 
     @Override

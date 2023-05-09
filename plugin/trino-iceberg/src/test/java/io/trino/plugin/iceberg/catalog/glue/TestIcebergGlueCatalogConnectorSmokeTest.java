@@ -51,6 +51,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -188,9 +189,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         GetTableRequest getTableRequest = new GetTableRequest()
                 .withDatabaseName(schemaName)
                 .withName(tableName);
-        return glueClient.getTable(getTableRequest)
-                .getTable()
-                .getParameters().get("metadata_location");
+        return getTableParameters(glueClient.getTable(getTableRequest).getTable())
+                .get("metadata_location");
     }
 
     @Override
