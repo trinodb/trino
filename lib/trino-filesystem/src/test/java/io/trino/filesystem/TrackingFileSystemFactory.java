@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -161,6 +162,13 @@ public class TrackingFileSystemFactory
                 throws IOException
         {
             return delegate.listFiles(location);
+        }
+
+        @Override
+        public Optional<Boolean> directoryExists(Location location)
+                throws IOException
+        {
+            return delegate.directoryExists(location);
         }
     }
 

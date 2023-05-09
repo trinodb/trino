@@ -151,6 +151,13 @@ public class LocalFileSystem
         return new LocalFileIterator(location, rootPath, toDirectoryPath(location));
     }
 
+    @Override
+    public Optional<Boolean> directoryExists(Location location)
+            throws IOException
+    {
+        return Optional.of(Files.isDirectory(toFilePath(location)));
+    }
+
     private Path toFilePath(Location location)
     {
         validateLocalLocation(location);
