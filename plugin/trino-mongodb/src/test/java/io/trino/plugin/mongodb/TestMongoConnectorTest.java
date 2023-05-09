@@ -93,6 +93,9 @@ public class TestMongoConnectorTest
             case SUPPORTS_TRUNCATE:
                 return false;
 
+            case SUPPORTS_DEREFERENCE_PUSHDOWN:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 

@@ -8801,6 +8801,14 @@ public abstract class BaseHiveConnectorTest
         return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
     }
 
+    @Override
+    protected boolean supportsPhysicalPushdown()
+    {
+        // Hive table is created using default format which is ORC. Currently ORC reader has issue
+        // pruning dereferenced struct fields https://github.com/trinodb/trino/issues/17201
+        return false;
+    }
+
     private static final class BucketedFilterTestSetup
     {
         private final String typeName;
