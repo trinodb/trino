@@ -89,6 +89,16 @@ public final class IndexedPriorityQueue<E>
         return entry.getValue();
     }
 
+    public Prioritized<E> getPrioritized(E element)
+    {
+        Entry<E> entry = index.get(element);
+        if (entry == null) {
+            return null;
+        }
+
+        return new Prioritized<>(entry.getValue(), entry.getPriority());
+    }
+
     public Prioritized<E> pollPrioritized()
     {
         Entry<E> entry = pollEntry();
