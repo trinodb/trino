@@ -517,11 +517,21 @@ public class TrinoS3FileSystem
         return new FileStatus(
                 getObjectSize(path, metadata),
                 // Some directories (e.g. uploaded through S3 GUI) return a charset in the Content-Type header
-                MediaType.parse(metadata.getContentType()).is(DIRECTORY_MEDIA_TYPE),
+                isDirectoryMediaType(nullToEmpty(metadata.getContentType())),
                 1,
                 BLOCK_SIZE.toBytes(),
                 lastModifiedTime(metadata),
                 qualifiedPath(path));
+    }
+
+    private static boolean isDirectoryMediaType(String contentType)
+    {
+        try {
+            return MediaType.parse(contentType).is(DIRECTORY_MEDIA_TYPE);
+        }
+        catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private long getObjectSize(Path path, ObjectMetadata metadata)
