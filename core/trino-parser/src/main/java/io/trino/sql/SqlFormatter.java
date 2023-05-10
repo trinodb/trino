@@ -187,13 +187,6 @@ public final class SqlFormatter
         return ExpressionFormatter.formatExpression(expression);
     }
 
-    /**
-     * @deprecated Use {@link #formatName(Identifier)} instead.
-     */
-    @Deprecated
-    @SuppressWarnings("unused")
-    private static void formatExpression(Identifier identifier) {}
-
     private static class Formatter
             extends AstVisitor<Void, Integer>
     {
