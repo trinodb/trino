@@ -414,7 +414,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
-                        <version>2.22.2</version>
                         <configuration>
                             <systemPropertyVariables>
                                 <jdbc-jar>${project.build.directory}/${project.name}-${project.version}.jar</jdbc-jar>
