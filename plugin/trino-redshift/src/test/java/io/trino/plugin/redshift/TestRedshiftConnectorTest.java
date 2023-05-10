@@ -67,6 +67,10 @@ public class TestRedshiftConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_TABLE:
+                return false;
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return true;
+
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
@@ -82,10 +86,10 @@ public class TestRedshiftConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-                return true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+                return false;
 
             case SUPPORTS_JOIN_PUSHDOWN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
@@ -536,9 +540,9 @@ public class TestRedshiftConnectorTest
                     .isInstanceOf(AssertionError.class)
                     .hasMessageContaining("""
                             elements not found:
-                              <(555555555555555555561728450.9938271605)>
+                              (555555555555555555561728450.9938271605)
                             and elements not expected:
-                              <(555555555555555555561728450.9938271604)>
+                              (555555555555555555561728450.9938271604)
                             """);
         }
     }
