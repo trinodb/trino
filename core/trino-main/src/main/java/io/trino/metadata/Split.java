@@ -14,16 +14,22 @@
 package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.SizeOf;
 import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
+import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class Split
@@ -32,14 +38,36 @@ public final class Split
 
     private final CatalogHandle catalogHandle;
     private final ConnectorSplit connectorSplit;
+    private final Optional<CacheSplitId> cacheSplitId;
+    private final Optional<Boolean> remotelyAccessible;
+    private final Optional<List<HostAddress>> addresses;
+
+    public Split(CatalogHandle catalogHandle, ConnectorSplit connectorSplit)
+    {
+        this(catalogHandle, connectorSplit, Optional.empty(), Optional.empty(), Optional.empty());
+    }
 
     @JsonCreator
     public Split(
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
-            @JsonProperty("connectorSplit") ConnectorSplit connectorSplit)
+            @JsonProperty("connectorSplit") ConnectorSplit connectorSplit,
+            @JsonProperty("cacheSplitId") Optional<CacheSplitId> cacheSplitId)
+    {
+        this(catalogHandle, connectorSplit, cacheSplitId, Optional.empty(), Optional.empty());
+    }
+
+    public Split(
+            CatalogHandle catalogHandle,
+            ConnectorSplit connectorSplit,
+            Optional<CacheSplitId> cacheSplitId,
+            Optional<Boolean> remotelyAccessible,
+            Optional<List<HostAddress>> addresses)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
+        this.cacheSplitId = requireNonNull(cacheSplitId, "cacheSplitId is null");
+        this.remotelyAccessible = requireNonNull(remotelyAccessible, "remotelyAccessible is null");
+        this.addresses = requireNonNull(addresses, "addresses is null");
     }
 
     @JsonProperty
@@ -54,19 +82,29 @@ public final class Split
         return connectorSplit;
     }
 
+    @JsonProperty
+    public Optional<CacheSplitId> getCacheSplitId()
+    {
+        return cacheSplitId;
+    }
+
     public Object getInfo()
     {
         return connectorSplit.getInfo();
     }
 
+    // do not serialize addresses as they are not needed on workers
+    @JsonIgnore
     public List<HostAddress> getAddresses()
     {
-        return connectorSplit.getAddresses();
+        return addresses.orElse(connectorSplit.getAddresses());
     }
 
+    // do not serialize remotelyAccessible as it is not needed on workers
+    @JsonIgnore
     public boolean isRemotelyAccessible()
     {
-        return connectorSplit.isRemotelyAccessible();
+        return remotelyAccessible.orElse(connectorSplit.isRemotelyAccessible());
     }
 
     public boolean isRemotelyAccessibleIfNodeMissing()
@@ -85,6 +123,9 @@ public final class Split
         return toStringHelper(this)
                 .add("catalogHandle", catalogHandle)
                 .add("connectorSplit", connectorSplit)
+                .add("cacheSplitId", cacheSplitId)
+                .add("remotelyAccessible", remotelyAccessible)
+                .add("addresses", addresses)
                 .toString();
     }
 
@@ -92,6 +133,9 @@ public final class Split
     {
         return INSTANCE_SIZE
                 + catalogHandle.getRetainedSizeInBytes()
-                + connectorSplit.getRetainedSizeInBytes();
+                + connectorSplit.getRetainedSizeInBytes()
+                + sizeOf(cacheSplitId, CacheSplitId::getRetainedSizeInBytes)
+                + sizeOf(remotelyAccessible, value -> SizeOf.BOOLEAN_INSTANCE_SIZE)
+                + sizeOf(addresses, value -> estimatedSizeOf(value, HostAddress::getRetainedSizeInBytes));
     }
 }

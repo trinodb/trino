@@ -19,6 +19,16 @@ public abstract class PlanVisitor<R, C>
 {
     protected abstract R visitPlan(PlanNode node, C context);
 
+    public R visitCacheDataPlanNode(CacheDataPlanNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitLoadCachedDataPlanNode(LoadCachedDataPlanNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitRemoteSource(RemoteSourceNode node, C context)
     {
         return visitPlan(node, context);

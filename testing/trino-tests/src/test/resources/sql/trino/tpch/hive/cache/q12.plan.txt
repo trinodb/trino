@@ -1,0 +1,23 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (shipmode)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["shipmode"])
+                        partial aggregation over (shipmode)
+                            join (INNER, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                    alternatives
+                                        dynamic filter (["orderkey"])
+                                            scan orders
+                                        cache data
+                                            dynamic filter (["orderkey"])
+                                                scan orders
+                                        load from cache
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["orderkey_0"])
+                                        alternatives
+                                            scan lineitem
+                                            cache data
+                                                scan lineitem
+                                            load from cache

@@ -13,6 +13,8 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.starburstdata.trino.plugin.snowflake.jdbc.SnowflakeClient;
+import io.airlift.json.JsonCodec;
+import io.trino.plugin.hive.HiveCacheSplitId;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.connector.Connector;
@@ -40,6 +42,7 @@ public class SnowflakeSplitManager
     private final SnowflakeConnectionManager connectionManager;
     private final SnowflakeDistributedConfig config;
     private final SnowflakeExportStats exportStats;
+    private final JsonCodec<HiveCacheSplitId> splitIdCodec;
 
     @Inject
     public SnowflakeSplitManager(
@@ -49,7 +52,8 @@ public class SnowflakeSplitManager
             TypeManager typeManager,
             SnowflakeConnectionManager connectionManager,
             SnowflakeDistributedConfig config,
-            SnowflakeExportStats exportStats)
+            SnowflakeExportStats exportStats,
+            JsonCodec<HiveCacheSplitId> splitIdCodec)
     {
         this.connector = requireNonNull(connector, "connector is null");
         this.client = requireNonNull(client, "client is null");
@@ -58,6 +62,7 @@ public class SnowflakeSplitManager
         this.connectionManager = requireNonNull(connectionManager, "connectionManager is null");
         this.config = requireNonNull(config, "config is null");
         this.exportStats = requireNonNull(exportStats, "exportStats is null");
+        this.splitIdCodec = requireNonNull(splitIdCodec, "splitIdCodec is null");
     }
 
     @Override
@@ -84,6 +89,7 @@ public class SnowflakeSplitManager
                 columns,
                 connectionManager,
                 config,
-                exportStats);
+                exportStats,
+                splitIdCodec);
     }
 }

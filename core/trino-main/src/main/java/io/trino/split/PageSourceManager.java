@@ -23,6 +23,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
@@ -76,5 +77,21 @@ public class PageSourceManager
                 session,
                 columns,
                 dynamicFilter);
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> simplifyPredicate(
+            Session session,
+            Split split,
+            TableHandle table,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        CatalogHandle catalogHandle = split.getCatalogHandle();
+        ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        if (!provider.shouldPerformDynamicRowFiltering()) {
+            return provider.simplifyPredicate(connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), predicate);
+        }
+        return dynamicRowFilteringPageSourceProvider.simplifyPredicate(provider, session, connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), predicate);
     }
 }

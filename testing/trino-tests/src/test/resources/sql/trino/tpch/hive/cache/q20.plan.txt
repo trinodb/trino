@@ -1,0 +1,63 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            join (INNER, PARTITIONED):
+                final aggregation over (suppkey_6)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["suppkey_6"])
+                            partial aggregation over (suppkey_6)
+                                cross join (can skip output duplicates):
+                                    join (RIGHT, PARTITIONED, can skip output duplicates):
+                                        final aggregation over (partkey_21, suppkey_22)
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["partkey_21", "suppkey_22"])
+                                                    partial aggregation over (partkey_21, suppkey_22)
+                                                        alternatives
+                                                            dynamic filter (["partkey_21", "suppkey_22", "suppkey_22"])
+                                                                scan lineitem
+                                                            cache data
+                                                                dynamic filter (["partkey_21", "suppkey_22", "suppkey_22"])
+                                                                    scan lineitem
+                                                            load from cache
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["partkey", "suppkey_6"])
+                                                join (INNER, PARTITIONED, can skip output duplicates):
+                                                    remote exchange (REPARTITION, HASH, ["partkey"])
+                                                        alternatives
+                                                            dynamic filter (["partkey", "suppkey_6"])
+                                                                scan partsupp
+                                                            cache data
+                                                                dynamic filter (["partkey", "suppkey_6"])
+                                                                    scan partsupp
+                                                            load from cache
+                                                    final aggregation over (partkey_13)
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPARTITION, HASH, ["partkey_13"])
+                                                                alternatives
+                                                                    partial aggregation over (partkey_13)
+                                                                        scan part
+                                                                    cache data
+                                                                        partial aggregation over (partkey_13)
+                                                                            scan part
+                                                                    load from cache
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            single aggregation over ()
+                                                values (1 rows)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["suppkey"])
+                        join (INNER, REPLICATED):
+                            alternatives
+                                dynamic filter (await ["nationkey"])
+                                    scan supplier
+                                cache data
+                                    dynamic filter (await ["nationkey"])
+                                        scan supplier
+                                load from cache
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    alternatives
+                                        scan nation
+                                        cache data
+                                            scan nation
+                                        load from cache

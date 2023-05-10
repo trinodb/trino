@@ -14,6 +14,7 @@
 package io.trino.connector.alternatives;
 
 import io.trino.spi.Experimental;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAlternativeChooser;
@@ -67,6 +68,12 @@ public class MockPlanAlternativeConnector
     public ConnectorSplitManager getSplitManager()
     {
         return new MockPlanAlternativeSplitManager(delegate.getSplitManager());
+    }
+
+    @Override
+    public ConnectorCacheMetadata getCacheMetadata()
+    {
+        return new MockPlanAlternativesCacheMetadata(delegate.getCacheMetadata());
     }
 
     @Override

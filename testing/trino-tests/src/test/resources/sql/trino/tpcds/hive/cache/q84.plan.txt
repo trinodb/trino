@@ -1,0 +1,57 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                join (INNER, REPLICATED):
+                    alternatives
+                        dynamic filter (["sr_cdemo_sk"])
+                            scan store_returns
+                        cache data
+                            dynamic filter (["sr_cdemo_sk"])
+                                scan store_returns
+                        load from cache
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            join (INNER, REPLICATED):
+                                alternatives
+                                    dynamic filter (["cd_demo_sk"])
+                                        scan customer_demographics
+                                    cache data
+                                        dynamic filter (["cd_demo_sk"])
+                                            scan customer_demographics
+                                    load from cache
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED):
+                                                alternatives
+                                                    dynamic filter (["c_current_addr_sk"], await ["c_current_hdemo_sk"])
+                                                        scan customer
+                                                    cache data
+                                                        dynamic filter (["c_current_addr_sk"], await ["c_current_hdemo_sk"])
+                                                            scan customer
+                                                    load from cache
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        alternatives
+                                                            scan customer_address
+                                                            cache data
+                                                                scan customer_address
+                                                            load from cache
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    join (INNER, REPLICATED):
+                                                        alternatives
+                                                            dynamic filter (await ["hd_income_band_sk"])
+                                                                scan household_demographics
+                                                            cache data
+                                                                dynamic filter (await ["hd_income_band_sk"])
+                                                                    scan household_demographics
+                                                            load from cache
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                alternatives
+                                                                    scan income_band
+                                                                    cache data
+                                                                        scan income_band
+                                                                    load from cache

@@ -21,7 +21,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
-import io.trino.SystemSessionProperties;
+import io.trino.cache.CacheCommonSubqueries;
+import io.trino.cache.CacheController;
 import io.trino.cost.CachingCostProvider;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CachingTableStatsProvider;
@@ -130,8 +131,10 @@ import static com.google.common.collect.Streams.forEachPair;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isCacheEnabled;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
+import static io.trino.SystemSessionProperties.isUseSubPlanAlternatives;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
@@ -187,6 +190,8 @@ public class LogicalPlanner
     private final StatisticsAggregationPlanner statisticsAggregationPlanner;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final boolean cacheEnabled;
+    private final CacheCommonSubqueries cacheCommonSubqueries;
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
@@ -230,6 +235,14 @@ public class LogicalPlanner
         this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, plannerContext, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.cacheEnabled = isCacheEnabled(session);
+        this.cacheCommonSubqueries = new CacheCommonSubqueries(
+                new CacheController(),
+                plannerContext,
+                session,
+                idAllocator,
+                symbolAllocator,
+                typeAnalyzer);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
     }
@@ -245,6 +258,11 @@ public class LogicalPlanner
     }
 
     public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
+    {
+        return plan(analysis, stage, collectPlanStatistics, false);
+    }
+
+    public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics, boolean showStatsQuery)
     {
         PlanNode root;
         try (var ignored = scopedSpan(plannerContext.getTracer(), "plan")) {
@@ -284,10 +302,16 @@ public class LogicalPlanner
             }
         }
 
-        if (SystemSessionProperties.isUseSubPlanAlternatives(session)) {
-            for (PlanOptimizer optimizer : alternativeOptimizers) {
-                try (var ignored = scopedSpan(plannerContext.getTracer(), "alternative-optimizer")) {
-                    root = runOptimizer(root, tableStatsProvider, optimizer);
+        if (!showStatsQuery && (cacheEnabled || isUseSubPlanAlternatives(session))) {
+            try (var ignored = scopedSpan(plannerContext.getTracer(), "cache-subqueries")) {
+                root = cacheCommonSubqueries.cacheSubqueries(root);
+            }
+
+            if (isUseSubPlanAlternatives(session)) {
+                for (PlanOptimizer optimizer : alternativeOptimizers) {
+                    try (var ignored = scopedSpan(plannerContext.getTracer(), "alternative-optimizer")) {
+                        root = runOptimizer(root, tableStatsProvider, optimizer);
+                    }
                 }
             }
 

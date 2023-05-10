@@ -17,8 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.cache.CacheManagerRegistry;
+import io.trino.cache.CacheSplitSource;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.TableHandle;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.ColumnHandle;
@@ -43,6 +48,7 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -81,6 +87,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.cache.CacheCommonSubqueries.getLoadCachedDataPlanNode;
+import static io.trino.cache.CacheCommonSubqueries.isCacheChooseAlternativeNode;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ExpressionUtils.filterConjuncts;
@@ -93,14 +101,30 @@ public class SplitSourceFactory
     private final SplitManager splitManager;
     private final PlannerContext plannerContext;
     private final DynamicFilterService dynamicFilterService;
+    private final InternalNodeManager internalNodeManager;
+    private final CacheManagerRegistry cacheManagerRegistry;
+    private final NodeInfo nodeInfo;
+    private final boolean schedulerIncludeCoordinator;
     private final TypeAnalyzer typeAnalyzer;
 
     @Inject
-    public SplitSourceFactory(SplitManager splitManager, PlannerContext plannerContext, DynamicFilterService dynamicFilterService, TypeAnalyzer typeAnalyzer)
+    public SplitSourceFactory(
+            SplitManager splitManager,
+            PlannerContext plannerContext,
+            DynamicFilterService dynamicFilterService,
+            InternalNodeManager internalNodeManager,
+            CacheManagerRegistry cacheManagerRegistry,
+            NodeInfo nodeInfo,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            TypeAnalyzer typeAnalyzer)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.plannerContext = requireNonNull(plannerContext, "metadata is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
+        this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
+        this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
+        this.schedulerIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -167,6 +191,11 @@ public class SplitSourceFactory
 
         private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate)
         {
+            return createSplitSource(table, assignments, filterPredicate, false);
+        }
+
+        private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate, boolean preferDeterministicSplits)
+        {
             List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
                     .map(DynamicFilters::extractDynamicFilters)
                     .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
@@ -190,6 +219,7 @@ public class SplitSourceFactory
                     stageSpan,
                     table,
                     dynamicFilter,
+                    preferDeterministicSplits,
                     constraint);
         }
 
@@ -332,6 +362,26 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitChooseAlternativeNode(ChooseAlternativeNode node, Void context)
         {
+            if (isCacheChooseAlternativeNode(node)) {
+                TableHandle originalTableScan = node.getOriginalTableScan().tableHandle();
+                SplitSource splitSource = createSplitSource(
+                        originalTableScan,
+                        node.getOriginalTableScan().assignments(),
+                        node.getOriginalTableScan().filterPredicate(),
+                        true);
+                LoadCachedDataPlanNode loadCachedDataNode = getLoadCachedDataPlanNode(node);
+                return ImmutableMap.of(
+                        node.getId(),
+                        new CacheSplitSource(
+                                loadCachedDataNode.getPlanSignature(),
+                                splitManager.getConnectorSplitManager(originalTableScan),
+                                splitSource,
+                                internalNodeManager,
+                                cacheManagerRegistry,
+                                nodeInfo,
+                                schedulerIncludeCoordinator));
+            }
+
             SplitSource splitSource = createSplitSource(
                     node.getOriginalTableScan().tableHandle(),
                     node.getOriginalTableScan().assignments(),

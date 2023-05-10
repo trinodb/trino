@@ -22,6 +22,7 @@ import io.trino.metadata.CatalogMetadata.SecurityManagement;
 import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
@@ -81,6 +82,7 @@ public class ConnectorServices
     private final Optional<FunctionProvider> functionProvider;
     private final CatalogTableFunctions tableFunctions;
     private final Optional<ConnectorSplitManager> splitManager;
+    private final Optional<ConnectorCacheMetadata> cacheMetadata;
     private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
     private final Optional<ConnectorAlternativeChooser> alternativeChooser;
     private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
@@ -132,6 +134,14 @@ public class ConnectorServices
         catch (UnsupportedOperationException ignored) {
         }
         this.splitManager = Optional.ofNullable(splitManager);
+
+        ConnectorCacheMetadata cacheMetadata = null;
+        try {
+            cacheMetadata = connector.getCacheMetadata();
+        }
+        catch (UnsupportedOperationException ignored) {
+        }
+        this.cacheMetadata = Optional.ofNullable(cacheMetadata);
 
         ConnectorPageSourceProvider connectorPageSourceProvider = null;
         try {
@@ -275,6 +285,11 @@ public class ConnectorServices
     public Optional<ConnectorSplitManager> getSplitManager()
     {
         return splitManager;
+    }
+
+    public Optional<ConnectorCacheMetadata> getCacheMetadata()
+    {
+        return cacheMetadata;
     }
 
     public Optional<ConnectorPageSourceProvider> getPageSourceProvider()

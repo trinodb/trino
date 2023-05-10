@@ -20,6 +20,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.cache.CacheDriverContext;
 import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -81,6 +82,7 @@ public class DriverContext
     private final long splitWeight;
 
     private final AtomicReference<Optional<AlternativePlanContext>> alternativePlanContext = new AtomicReference<>(Optional.empty());
+    private final AtomicReference<Optional<CacheDriverContext>> cacheDriverContext = new AtomicReference<>(Optional.empty());
 
     public DriverContext(
             PipelineContext pipelineContext,
@@ -470,6 +472,18 @@ public class DriverContext
         }
 
         return this;
+    }
+
+    public Optional<CacheDriverContext> getCacheDriverContext()
+    {
+        return cacheDriverContext.get();
+    }
+
+    public void setCacheDriverContext(CacheDriverContext cacheDriverContext)
+    {
+        if (!this.cacheDriverContext.compareAndSet(Optional.empty(), Optional.of(cacheDriverContext))) {
+            throw new IllegalStateException("CacheDriverContext is already set");
+        }
     }
 
     private static long nanosBetween(long start, long end)

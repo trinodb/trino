@@ -16,6 +16,7 @@ package io.trino.testing;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
@@ -35,5 +36,10 @@ public final class TestingHandles
     public static CatalogHandle createTestCatalogHandle(String catalogName)
     {
         return createRootCatalogHandle(catalogName, TEST_CATALOG_VERSION);
+    }
+
+    public static TableHandle createTestTableHandle(SchemaTableName schemaTableName)
+    {
+        return new TableHandle(TEST_CATALOG_HANDLE, new TestingTableHandle(schemaTableName), TestingTransactionHandle.create());
     }
 }

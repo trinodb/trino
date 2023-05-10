@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugin.snowflake.distributed;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.spi.NodeManager;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -47,6 +48,7 @@ public class SnowflakeDistributedConnectorFactory
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Bootstrap app = new Bootstrap(
+                    new JsonModule(),
                     new SnowflakeDistributedModule(),
                     binder -> {
                         binder.bind(ClassLoader.class).toInstance(SnowflakeDistributedConnectorFactory.class.getClassLoader());

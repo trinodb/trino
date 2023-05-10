@@ -66,6 +66,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.CacheDataPlanNode;
 import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -83,6 +84,7 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -1946,6 +1948,20 @@ public class PlanPrinter
                 properties.append(", pass through columns");
             }
             return format("%s => TableArgument{%s}", argumentName, properties);
+        }
+
+        @Override
+        public Void visitLoadCachedDataPlanNode(LoadCachedDataPlanNode node, Context context)
+        {
+            addNode(node, "LoadCachedData", context.tag());
+            return null;
+        }
+
+        @Override
+        public Void visitCacheDataPlanNode(CacheDataPlanNode node, Context context)
+        {
+            addNode(node, "CacheData", context.tag());
+            return processChildren(node, new Context());
         }
 
         @Override

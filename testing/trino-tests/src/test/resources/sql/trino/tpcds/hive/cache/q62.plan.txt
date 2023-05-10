@@ -1,0 +1,48 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                final aggregation over (sm_type, substr$gid, web_name)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["sm_type", "substr$gid", "web_name"])
+                            intermediate aggregation over (sm_type, substr$gid, web_name)
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        join (INNER, REPLICATED):
+                                            partial aggregation over (ws_ship_mode_sk, ws_warehouse_sk, ws_web_site_sk)
+                                                join (INNER, REPLICATED):
+                                                    alternatives
+                                                        dynamic filter (await ["ws_ship_date_sk", "ws_ship_mode_sk", "ws_warehouse_sk", "ws_web_site_sk"])
+                                                            scan web_sales
+                                                        cache data
+                                                            dynamic filter (await ["ws_ship_date_sk", "ws_ship_mode_sk", "ws_warehouse_sk", "ws_web_site_sk"])
+                                                                scan web_sales
+                                                        load from cache
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            alternatives
+                                                                scan date_dim
+                                                                cache data
+                                                                    scan date_dim
+                                                                load from cache
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    alternatives
+                                                        scan web_site
+                                                        cache data
+                                                            scan web_site
+                                                        load from cache
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                alternatives
+                                                    scan ship_mode
+                                                    cache data
+                                                        scan ship_mode
+                                                    load from cache
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            alternatives
+                                                scan warehouse
+                                                cache data
+                                                    scan warehouse
+                                                load from cache

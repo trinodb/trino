@@ -23,6 +23,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -46,6 +47,30 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter);
+        }
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> simplifyPredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.simplifyPredicate(session, split, table, predicate);
+        }
+    }
+
+    @Override
+    public TupleDomain<ColumnHandle> prunePredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.prunePredicate(session, split, table, predicate);
         }
     }
 

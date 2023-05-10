@@ -194,6 +194,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/memory-cache">
+        <artifact id="${project.groupId}:trino-memory-cache:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/ml">
         <artifact id="${project.groupId}:trino-ml:zip:${project.version}">
             <unpack />

@@ -155,7 +155,7 @@ public final class DynamicFilters
                                 descriptor.getPreferredTimeout())));
     }
 
-    private static Symbol extractSourceSymbol(DynamicFilters.Descriptor descriptor)
+    public static Symbol extractSourceSymbol(DynamicFilters.Descriptor descriptor)
     {
         Expression dynamicFilterExpression = descriptor.getInput();
         if (dynamicFilterExpression instanceof SymbolReference) {

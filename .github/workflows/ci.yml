@@ -1191,6 +1191,7 @@ jobs:
           config:
             - default
           suite:
+            - suite-subquery-cache
             - suite-1
             - suite-2
             - suite-3

@@ -38,6 +38,7 @@ import io.trino.plugin.hive.line.SimpleSequenceFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
 import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
+import io.trino.plugin.hive.metastore.HiveCacheTableId;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
@@ -49,6 +50,10 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.trino.plugin.hive.util.BlockJsonSerde;
+import io.trino.plugin.hive.util.HiveBlockEncodingSerde;
+import io.trino.spi.block.Block;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -63,6 +68,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -108,6 +114,7 @@ public class HiveModule
         binder.bind(TransactionScopeCachingDirectoryListerFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorCacheMetadata.class).to(HiveCacheMetadata.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
         newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
@@ -130,6 +137,11 @@ public class HiveModule
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(AvroPageSourceFactory.class).in(Scopes.SINGLETON);
 
+        // for table handle, column handle and split ids
+        jsonCodecBinder(binder).bindJsonCodec(HiveCacheTableId.class);
+        jsonCodecBinder(binder).bindJsonCodec(HiveCacheSplitId.class);
+        jsonCodecBinder(binder).bindJsonCodec(HiveColumnHandle.class);
+
         Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = newSetBinder(binder, HiveFileWriterFactory.class);
         binder.bind(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(OrcFileWriterFactory.class).withGeneratedName();
@@ -151,6 +163,11 @@ public class HiveModule
 
         newOptionalBinder(binder, FunctionProvider.class).setDefault().toInstance(new NoopFunctionProvider());
         newSetBinder(binder, ConnectorTableFunction.class);
+
+        // bind block serializers for the purpose of TupleDomain serde
+        binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
+        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
     }
 
     @Singleton

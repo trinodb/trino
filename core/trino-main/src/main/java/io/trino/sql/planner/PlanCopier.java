@@ -20,6 +20,7 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.CacheDataPlanNode;
 import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -32,6 +33,7 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -102,6 +104,18 @@ public final class PlanCopier
         protected PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
             throw new UnsupportedOperationException("plan copying not implemented for " + node.getClass().getSimpleName());
+        }
+
+        @Override
+        public PlanNode visitCacheDataPlanNode(CacheDataPlanNode node, RewriteContext<Void> context)
+        {
+            return new CacheDataPlanNode(idAllocator.getNextId(), context.rewrite(node.getSource()));
+        }
+
+        @Override
+        public PlanNode visitLoadCachedDataPlanNode(LoadCachedDataPlanNode node, RewriteContext<Void> context)
+        {
+            return new LoadCachedDataPlanNode(idAllocator.getNextId(), node.getPlanSignature(), node.getDynamicFilterDisjuncts(), node.getDynamicFilterColumnMapping(), node.getOutputSymbols());
         }
 
         @Override

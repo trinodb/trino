@@ -27,6 +27,8 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.hive.util.BlockJsonSerde;
+import io.trino.plugin.hive.util.HiveBlockEncodingSerde;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProvider;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProvider;
@@ -36,6 +38,8 @@ import io.trino.plugin.iceberg.procedure.OptimizeTableProcedure;
 import io.trino.plugin.iceberg.procedure.RegisterTableProcedure;
 import io.trino.plugin.iceberg.procedure.RemoveOrphanFilesTableProcedure;
 import io.trino.plugin.iceberg.procedure.UnregisterTableProcedure;
+import io.trino.spi.block.Block;
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -48,6 +52,7 @@ import io.trino.spi.procedure.Procedure;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -73,6 +78,7 @@ public class IcebergModule
         newOptionalBinder(binder, Key.get(boolean.class, AsyncIcebergSplitProducer.class))
                 .setDefault().toInstance(true);
         binder.bind(ConnectorSplitManager.class).to(IcebergSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorCacheMetadata.class).to(IcebergCacheMetadata.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
@@ -92,6 +98,11 @@ public class IcebergModule
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
+        // for table handle, column handle and split ids
+        jsonCodecBinder(binder).bindJsonCodec(IcebergCacheTableId.class);
+        jsonCodecBinder(binder).bindJsonCodec(IcebergCacheSplitId.class);
+        jsonCodecBinder(binder).bindJsonCodec(IcebergColumnHandle.class);
+
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
 
@@ -109,5 +120,10 @@ public class IcebergModule
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableChangesFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(FunctionProvider.class).to(IcebergFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(TableChangesFunctionProcessorProvider.class).in(Scopes.SINGLETON);
+
+        // bind block serializers for the purpose of TupleDomain serde
+        binder.bind(HiveBlockEncodingSerde.class).in(Scopes.SINGLETON);
+        jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+        jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
     }
 }

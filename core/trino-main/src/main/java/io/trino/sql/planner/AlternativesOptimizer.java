@@ -57,6 +57,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.cache.CacheCommonSubqueries.isCacheChooseAlternativeNode;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
@@ -131,6 +132,11 @@ public class AlternativesOptimizer
     private void exploreGroup(int group, Context context, Optional<FilteredTableScan> preCalculatedOriginalScan)
     {
         PlanNode node = context.memo.getNode(group);
+
+        if (isCacheChooseAlternativeNode(node, context.lookup)) {
+            // skip split level cache alternatives
+            return;
+        }
 
         // must be done before creating ChooseAlternativeNode, otherwise there will be multiple children, and the result would be Optional.empty()
         Optional<FilteredTableScan> originalTableScan = preCalculatedOriginalScan.or(() -> findFilteredScanInChain(node, context));

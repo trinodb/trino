@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.connector.CatalogFactory;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -34,6 +35,7 @@ import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.block.BlockEncoding;
+import io.trino.spi.cache.CacheManagerFactory;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorFactory;
@@ -88,6 +90,7 @@ public class PluginManager
     private final EventListenerManager eventListenerManager;
     private final GroupProviderManager groupProviderManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final BlockEncodingManager blockEncodingManager;
@@ -110,7 +113,8 @@ public class PluginManager
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
-            ExchangeManagerRegistry exchangeManagerRegistry)
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            CacheManagerRegistry cacheManagerRegistry)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
@@ -127,6 +131,7 @@ public class PluginManager
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
     }
 
     @Override
@@ -256,6 +261,11 @@ public class PluginManager
         for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
             log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
             exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
+        }
+
+        for (CacheManagerFactory cacheManagerFactory : plugin.getCacheManagerFactories()) {
+            log.info("Registering cache manager %s", cacheManagerFactory.getName());
+            cacheManagerRegistry.addCacheManagerFactory(cacheManagerFactory);
         }
     }
 

@@ -247,6 +247,7 @@ export function getChildren(nodeInfo: any)
         case 'groupid':
         case 'unnest':
         case 'scalar':
+        case 'cacheData':
             return [nodeInfo.source];
         case 'join':
             return [nodeInfo.left, nodeInfo.right];
@@ -264,6 +265,7 @@ export function getChildren(nodeInfo: any)
         case 'tablescan':
         case 'values':
         case 'indexsource':
+        case 'loadCachedData':
             break;
         default:
             console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);

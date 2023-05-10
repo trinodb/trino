@@ -27,9 +27,12 @@ import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.CacheDataPlanNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -88,9 +91,9 @@ public abstract class BaseCostBasedPlanTest
             .map(queryId -> format("/sql/trino/tpcds/%s.sql", queryId))
             .collect(toImmutableList());
 
-    private static final String CATALOG_NAME = "local";
+    protected static final String CATALOG_NAME = "local";
 
-    private final String schemaName;
+    protected final String schemaName;
     private final Optional<String> fileFormatName;
     private final boolean partitioned;
     protected boolean smallFiles;
@@ -144,7 +147,7 @@ public abstract class BaseCostBasedPlanTest
         assertEquals(generateQueryPlan(readQuery(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
     }
 
-    private String getQueryPlanResourcePath(String queryResourcePath)
+    protected String getQueryPlanResourcePath(String queryResourcePath)
     {
         Path queryPath = Paths.get(queryResourcePath);
         String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
@@ -282,6 +285,27 @@ public abstract class BaseCostBasedPlanTest
             }
 
             return visitPlan(node, indent + 1);
+        }
+
+        @Override
+        public Void visitChooseAlternativeNode(ChooseAlternativeNode node, Integer indent)
+        {
+            output(indent, "alternatives");
+            return visitPlan(node, indent + 1);
+        }
+
+        @Override
+        public Void visitCacheDataPlanNode(CacheDataPlanNode node, Integer indent)
+        {
+            output(indent, "cache data");
+            return visitPlan(node, indent + 1);
+        }
+
+        @Override
+        public Void visitLoadCachedDataPlanNode(LoadCachedDataPlanNode node, Integer indent)
+        {
+            output(indent, "load from cache");
+            return null;
         }
 
         @Override

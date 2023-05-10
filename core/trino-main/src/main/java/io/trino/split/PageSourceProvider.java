@@ -19,6 +19,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -30,4 +31,13 @@ public interface PageSourceProvider
             TableHandle table,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter);
+
+    default TupleDomain<ColumnHandle> simplifyPredicate(
+            Session session,
+            Split split,
+            TableHandle table,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

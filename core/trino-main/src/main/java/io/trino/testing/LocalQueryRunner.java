@@ -27,6 +27,9 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.cache.CacheConfig;
+import io.trino.cache.CacheManagerRegistry;
+import io.trino.cache.CacheMetadata;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
@@ -78,6 +81,7 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.index.IndexManager;
+import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
@@ -238,6 +242,7 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAlternativeChooser;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
+import static io.trino.connector.CatalogServiceProviderModule.createCacheMetadata;
 import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createFunctionProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
@@ -319,6 +324,7 @@ public class LocalQueryRunner
     private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
 
     private final TaskManagerConfig taskManagerConfig;
     private final boolean alwaysRevokeMemory;
@@ -345,6 +351,7 @@ public class LocalQueryRunner
             Session defaultSession,
             FeaturesConfig featuresConfig,
             NodeSpillConfig nodeSpillConfig,
+            CacheConfig cacheConfig,
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
             Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
@@ -428,7 +435,7 @@ public class LocalQueryRunner
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
-        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
+        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, cacheConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
         this.functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
@@ -447,7 +454,8 @@ public class LocalQueryRunner
                 new JsonValueFunction(functionManager, metadata, typeManager),
                 new JsonQueryFunction(functionManager, metadata, typeManager)));
 
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer);
+        CacheMetadata cacheMetadata = new CacheMetadata(createCacheMetadata(catalogManager));
+        this.plannerContext = new PlannerContext(metadata, cacheMetadata, typeOperators, blockEncodingSerde, typeManager, functionManager, languageFunctionManager, tracer);
         this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         this.filterCompiler = new ColumnarFilterCompiler(functionManager, 0);
         this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler, filterCompiler);
@@ -489,6 +497,7 @@ public class LocalQueryRunner
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
         exchangeManagerRegistry = new ExchangeManagerRegistry();
+        cacheManagerRegistry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(new NodeMemoryConfig()), plannerContext.getBlockEncodingSerde());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 catalogFactory,
@@ -504,7 +513,8 @@ public class LocalQueryRunner
                 typeRegistry,
                 blockEncodingManager,
                 handleResolver,
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                cacheManagerRegistry);
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         languageFunctionManager.setPlannerContext(plannerContext);
@@ -549,6 +559,7 @@ public class LocalQueryRunner
             Set<SystemSessionPropertiesProvider> extraSessionProperties,
             TaskManagerConfig taskManagerConfig,
             FeaturesConfig featuresConfig,
+            CacheConfig cacheConfig,
             OptimizerConfig optimizerConfig)
     {
         Set<SystemSessionPropertiesProvider> systemSessionProperties = ImmutableSet.<SystemSessionPropertiesProvider>builder()
@@ -561,6 +572,7 @@ public class LocalQueryRunner
                         optimizerConfig,
                         new NodeMemoryConfig(),
                         new DynamicFilterConfig(),
+                        cacheConfig,
                         new NodeSchedulerConfig()))
                 .build();
 
@@ -616,6 +628,12 @@ public class LocalQueryRunner
     public Metadata getMetadata()
     {
         return plannerContext.getMetadata();
+    }
+
+    @Override
+    public CacheMetadata getCacheMetadata()
+    {
+        return plannerContext.getCacheMetadata();
     }
 
     public TablePropertyManager getTablePropertyManager()
@@ -1028,6 +1046,7 @@ public class LocalQueryRunner
                 typeOperators,
                 tableExecuteContextManager,
                 exchangeManagerRegistry,
+                cacheManagerRegistry,
                 nodeManager.getCurrentNode().getNodeVersion(),
                 new CompilerConfig());
 
@@ -1234,6 +1253,7 @@ public class LocalQueryRunner
         private final Session defaultSession;
         private FeaturesConfig featuresConfig = new FeaturesConfig();
         private NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
+        private CacheConfig cacheConfig = new CacheConfig();
         private boolean initialTransaction;
         private boolean alwaysRevokeMemory;
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
@@ -1255,6 +1275,12 @@ public class LocalQueryRunner
         public Builder withNodeSpillConfig(NodeSpillConfig nodeSpillConfig)
         {
             this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
+            return this;
+        }
+
+        public Builder withCacheConfig(CacheConfig cacheConfig)
+        {
+            this.cacheConfig = requireNonNull(cacheConfig, "cacheConfig is null");
             return this;
         }
 
@@ -1299,6 +1325,7 @@ public class LocalQueryRunner
                     defaultSession,
                     featuresConfig,
                     nodeSpillConfig,
+                    cacheConfig,
                     alwaysRevokeMemory,
                     nodeCountForStats,
                     defaultSessionProperties,

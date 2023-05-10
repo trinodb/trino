@@ -1,0 +1,33 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                final aggregation over (d_year, i_brand, i_brand_id)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["d_year", "i_brand", "i_brand_id"])
+                            intermediate aggregation over (d_year, i_brand, i_brand_id)
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        alternatives
+                                            partial aggregation over (ss_item_sk, ss_sold_date_sk)
+                                                dynamic filter (["ss_item_sk"], await ["ss_sold_date_sk"])
+                                                    scan store_sales
+                                            cache data
+                                                partial aggregation over (ss_item_sk, ss_sold_date_sk)
+                                                    dynamic filter (["ss_item_sk"], await ["ss_sold_date_sk"])
+                                                        scan store_sales
+                                            load from cache
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                alternatives
+                                                    scan item
+                                                    cache data
+                                                        scan item
+                                                    load from cache
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            alternatives
+                                                scan date_dim
+                                                cache data
+                                                    scan date_dim
+                                                load from cache

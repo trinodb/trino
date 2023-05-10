@@ -45,7 +45,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
-        return BaseHiveConnectorTest.createHiveQueryRunner(HiveQueryRunner.builder()
+        return createHiveQueryRunner(HiveQueryRunner.builder()
                 .setExtraProperties(getExtraProperties())
                 .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());

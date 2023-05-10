@@ -195,6 +195,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -818,7 +819,7 @@ public abstract class AbstractTestHive
         HivePartitionManager partitionManager = new HivePartitionManager(hiveConfig);
         HdfsFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS);
         locationService = new HiveLocationService(fileSystemFactory, hiveConfig);
-        JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
+        JsonCodec<PartitionUpdate> partitionUpdateCodec = jsonCodec(PartitionUpdate.class);
         countingDirectoryLister = new CountingDirectoryLister();
         metadataFactory = new HiveMetadataFactory(
                 new LocationAccessControl() {
@@ -921,6 +922,7 @@ public abstract class AbstractTestHive
                 hiveConfig.getMaxSplitsPerSecond(),
                 false,
                 TESTING_TYPE_MANAGER,
+                jsonCodec(HiveCacheSplitId.class),
                 hiveConfig.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
@@ -6109,7 +6111,7 @@ public abstract class AbstractTestHive
                 assertThat(tag).isEqualTo(COMMIT);
 
                 if (conflictTrigger.isPresent()) {
-                    JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
+                    JsonCodec<PartitionUpdate> partitionUpdateCodec = jsonCodec(PartitionUpdate.class);
                     List<PartitionUpdate> partitionUpdates = fragments.stream()
                             .map(Slice::getBytes)
                             .map(partitionUpdateCodec::fromJson)

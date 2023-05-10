@@ -1,0 +1,62 @@
+remote exchange (GATHER, SINGLE, [])
+    local exchange (GATHER, UNKNOWN, [])
+        remote exchange (REPARTITION, ROUND_ROBIN, [])
+            final aggregation over (expr$gid, name_21, name_27)
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (REPARTITION, HASH, ["expr$gid", "name_21", "name_27"])
+                        partial aggregation over (expr$gid, name_21, name_27)
+                            join (INNER, PARTITIONED):
+                                remote exchange (REPARTITION, HASH, ["orderkey"])
+                                    join (INNER, REPLICATED):
+                                        alternatives
+                                            dynamic filter (["orderkey", "suppkey_0"])
+                                                scan lineitem
+                                            cache data
+                                                dynamic filter (["orderkey", "suppkey_0"])
+                                                    scan lineitem
+                                            load from cache
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                join (INNER, REPLICATED):
+                                                    alternatives
+                                                        dynamic filter (await ["nationkey"])
+                                                            scan supplier
+                                                        cache data
+                                                            dynamic filter (await ["nationkey"])
+                                                                scan supplier
+                                                        load from cache
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            alternatives
+                                                                scan nation
+                                                                cache data
+                                                                    scan nation
+                                                                load from cache
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPARTITION, HASH, ["orderkey_5"])
+                                        join (INNER, PARTITIONED):
+                                            remote exchange (REPARTITION, HASH, ["custkey"])
+                                                alternatives
+                                                    dynamic filter (["custkey"])
+                                                        scan orders
+                                                    cache data
+                                                        dynamic filter (["custkey"])
+                                                            scan orders
+                                                    load from cache
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPARTITION, HASH, ["custkey_10"])
+                                                    join (INNER, REPLICATED):
+                                                        alternatives
+                                                            dynamic filter (await ["nationkey_13"])
+                                                                scan customer
+                                                            cache data
+                                                                dynamic filter (await ["nationkey_13"])
+                                                                    scan customer
+                                                            load from cache
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                alternatives
+                                                                    scan nation
+                                                                    cache data
+                                                                        scan nation
+                                                                    load from cache

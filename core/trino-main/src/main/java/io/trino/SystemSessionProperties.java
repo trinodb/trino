@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.cache.CacheConfig;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
@@ -214,6 +215,11 @@ public final class SystemSessionProperties
     public static final String USE_COST_BASED_PARTITIONING = "use_cost_based_partitioning";
     public static final String USE_SUB_PLAN_ALTERNATIVES = "use_sub_plan_alternatives";
     public static final String FORCE_SPILLING_JOIN = "force_spilling_join";
+    public static final String CACHE_ENABLED = "cache_enabled";
+    public static final String CACHE_COMMON_SUBQUERIES_ENABLED = "cache_common_subqueries_enabled";
+    public static final String CACHE_AGGREGATIONS_ENABLED = "cache_aggregations_enabled";
+    public static final String CACHE_PROJECTIONS_ENABLED = "cache_projections_enabled";
+    public static final String CACHE_MAX_SPLIT_SIZE = "cache_max_split_size";
     public static final String DYNAMIC_ROW_FILTERING_ENABLED = "dynamic_row_filtering_enabled";
     public static final String DYNAMIC_ROW_FILTERING_SELECTIVITY_THRESHOLD = "dynamic_row_filtering_selectivity_threshold";
     public static final String DYNAMIC_ROW_FILTERING_WAIT_TIMEOUT = "dynamic_row_filtering_wait_timeout";
@@ -232,6 +238,7 @@ public final class SystemSessionProperties
                 new OptimizerConfig(),
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
+                new CacheConfig(),
                 new NodeSchedulerConfig());
     }
 
@@ -244,6 +251,7 @@ public final class SystemSessionProperties
             OptimizerConfig optimizerConfig,
             NodeMemoryConfig nodeMemoryConfig,
             DynamicFilterConfig dynamicFilterConfig,
+            CacheConfig cacheConfig,
             NodeSchedulerConfig nodeSchedulerConfig)
     {
         sessionProperties = ImmutableList.of(
@@ -1103,6 +1111,36 @@ public final class SystemSessionProperties
                         "Force the usage of spliing join operator in favor of the non-spilling one, even if spill is not enabled",
                         featuresConfig.isForceSpillingJoin(),
                         false),
+                booleanProperty(
+                        CACHE_ENABLED,
+                        "Enables subquery caching",
+                        cacheConfig.isEnabled(),
+                        enabled -> {
+                            if (enabled && !cacheConfig.isEnabled()) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "Subquery cache must be enabled via feature config");
+                            }
+                        },
+                        true),
+                booleanProperty(
+                        CACHE_COMMON_SUBQUERIES_ENABLED,
+                        "Enables caching of common subqueries when running a single query",
+                        cacheConfig.isEnabled() && cacheConfig.isCacheCommonSubqueriesEnabled(),
+                        true),
+                booleanProperty(
+                        CACHE_AGGREGATIONS_ENABLED,
+                        "Enables caching of aggregations",
+                        cacheConfig.isEnabled() && cacheConfig.isCacheAggregationsEnabled(),
+                        true),
+                booleanProperty(
+                        CACHE_PROJECTIONS_ENABLED,
+                        "Enables caching of projections",
+                        cacheConfig.isEnabled() && cacheConfig.isCacheProjectionsEnabled(),
+                        true),
+                dataSizeProperty(
+                        CACHE_MAX_SPLIT_SIZE,
+                        "Max size of cached split",
+                        cacheConfig.getMaxSplitSize(),
+                        true),
                 booleanProperty(
                         COLUMNAR_FILTER_EVALUATION_ENABLED,
                         "Enables columnar evaluation of filters",
@@ -2010,6 +2048,31 @@ public final class SystemSessionProperties
     public static boolean isForceSpillingOperator(Session session)
     {
         return session.getSystemProperty(FORCE_SPILLING_JOIN, Boolean.class);
+    }
+
+    public static boolean isCacheEnabled(Session session)
+    {
+        return session.getSystemProperty(CACHE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCacheCommonSubqueriesEnabled(Session session)
+    {
+        return session.getSystemProperty(CACHE_COMMON_SUBQUERIES_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCacheAggregationsEnabled(Session session)
+    {
+        return session.getSystemProperty(CACHE_AGGREGATIONS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCacheProjectionsEnabled(Session session)
+    {
+        return session.getSystemProperty(CACHE_PROJECTIONS_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getCacheMaxSplitSize(Session session)
+    {
+        return session.getSystemProperty(CACHE_MAX_SPLIT_SIZE, DataSize.class);
     }
 
     public static boolean isDynamicRowFilteringEnabled(Session session)

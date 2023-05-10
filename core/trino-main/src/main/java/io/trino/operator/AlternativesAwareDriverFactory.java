@@ -15,8 +15,10 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.cache.CacheDriverFactory;
 import io.trino.execution.ScheduledSplit;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.cache.CacheSplitId;
 import io.trino.split.AlternativeChooser;
 import io.trino.split.AlternativeChooser.Choice;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -35,6 +37,7 @@ public class AlternativesAwareDriverFactory
     private final Session session;
     private final Map<TableHandle, AlternativeDriverFactory> alternatives;
     private final PlanNodeId chooseAlternativeNodeId;
+    private final Optional<CacheDriverFactory> cacheDriverFactory;
     private final int pipelineId;
     private final boolean inputDriver;
     private final boolean outputDriver;
@@ -45,6 +48,7 @@ public class AlternativesAwareDriverFactory
             Session session,
             Map<TableHandle, DriverFactory> alternatives,
             PlanNodeId chooseAlternativeNodeId,
+            Optional<CacheDriverFactory> cacheDriverFactory,
             int pipelineId,
             boolean inputDriver,
             boolean outputDriver,
@@ -59,6 +63,7 @@ public class AlternativesAwareDriverFactory
         }
         this.alternatives = alternativesBuilder.buildOrThrow();
         this.chooseAlternativeNodeId = requireNonNull(chooseAlternativeNodeId, "chooseAlternativeNodeId is null");
+        this.cacheDriverFactory = requireNonNull(cacheDriverFactory, "cacheDriverFactory is null");
         this.pipelineId = pipelineId;
         this.inputDriver = inputDriver;
         this.outputDriver = outputDriver;
@@ -94,6 +99,12 @@ public class AlternativesAwareDriverFactory
     {
         checkArgument(optionalSplit.isPresent());
         ScheduledSplit split = optionalSplit.get();
+
+        Optional<CacheSplitId> cacheSplitId = split.getSplit().getCacheSplitId();
+        if (cacheDriverFactory.isPresent()) {
+            return cacheDriverFactory.get().createDriver(driverContext, split, cacheSplitId);
+        }
+
         Choice chosen = alternativeChooser.chooseAlternative(session, split.getSplit(), alternatives.keySet());
 
         AlternativeDriverFactory alternative = alternatives.get(chosen.tableHandle());
@@ -104,6 +115,7 @@ public class AlternativesAwareDriverFactory
     public void noMoreDrivers()
     {
         alternatives.values().forEach(alternative -> alternative.driverFactory().noMoreDrivers());
+        cacheDriverFactory.ifPresent(CacheDriverFactory::closeSplitCache);
     }
 
     @Override

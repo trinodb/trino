@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugin.toolkit;
 
+import io.trino.spi.cache.ConnectorCacheMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAlternativeChooser;
@@ -56,6 +57,12 @@ public abstract class ForwardingConnector
     public ConnectorSplitManager getSplitManager()
     {
         return delegate().getSplitManager();
+    }
+
+    @Override
+    public ConnectorCacheMetadata getCacheMetadata()
+    {
+        return delegate().getCacheMetadata();
     }
 
     @Override

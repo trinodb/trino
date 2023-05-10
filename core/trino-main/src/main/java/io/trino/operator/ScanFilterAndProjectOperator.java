@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.cache.CacheDriverContext;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
@@ -504,7 +505,7 @@ public class ScanFilterAndProjectOperator
                     cursorProcessor.get(),
                     pageProcessor.get(),
                     columns,
-                    dynamicFilter,
+                    CacheDriverContext.getDynamicFilter(operatorContext, dynamicFilter),
                     types,
                     minOutputPageSize,
                     minOutputPageRowCount);

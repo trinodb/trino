@@ -20,6 +20,7 @@ import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
 import dev.failsafe.event.ExecutionAttemptedEvent;
 import dev.failsafe.function.CheckedSupplier;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -28,6 +29,7 @@ import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
+import io.trino.plugin.hive.HiveCacheSplitId;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HivePartition;
@@ -140,6 +142,8 @@ public class SnowflakeSplitSource
     private final Set<String> retryableErrorCodes;
     private final CachingDirectoryLister directoryLister;
 
+    private final JsonCodec<HiveCacheSplitId> splitIdCodec;
+
     SnowflakeSplitSource(
             ListeningExecutorService executorService,
             TypeManager typeManager,
@@ -149,7 +153,8 @@ public class SnowflakeSplitSource
             List<JdbcColumnHandle> columns,
             SnowflakeConnectionManager connectionManager,
             SnowflakeDistributedConfig snowflakeConfig,
-            SnowflakeExportStats exportStats)
+            SnowflakeExportStats exportStats,
+            JsonCodec<HiveCacheSplitId> splitIdCodec)
     {
         this.executorService = requireNonNull(executorService, "executorService is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -160,6 +165,7 @@ public class SnowflakeSplitSource
         this.connectionManager = requireNonNull(connectionManager, "connection is null");
         this.snowflakeConfig = requireNonNull(snowflakeConfig, "snowflakeConfig is null");
         this.exportStats = requireNonNull(exportStats, "exportStats is null");
+        this.splitIdCodec = requireNonNull(splitIdCodec, "splitIdCodec is null");
         this.retryPolicy = RetryPolicy.<ConnectorSplitBatch>builder()
                 .withMaxAttempts(snowflakeConfig.getMaxExportRetries())
                 .onRetry(this::closeSnowflakeConnection)
@@ -363,6 +369,7 @@ public class SnowflakeSplitSource
                 hiveConfig.getMaxSplitsPerSecond(),
                 hiveConfig.getRecursiveDirWalkerEnabled(),
                 typeManager,
+                splitIdCodec,
                 hiveConfig.getMaxPartitionsPerScan());
     }
 

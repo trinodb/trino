@@ -28,6 +28,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvid
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HiveCacheSplitId;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcDynamicFilteringSplitManager;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
@@ -49,6 +50,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeConnectorFlavour.DISTRIBUTED;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -84,6 +86,8 @@ public class SnowflakeDistributedModule
                 .addBinding()
                 .to(Key.get(SnowflakeConnectionManager.class))
                 .in(Scopes.SINGLETON);
+
+        jsonCodecBinder(binder).bindJsonCodec(HiveCacheSplitId.class);
 
         newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForSnowflake.class))
                 .setDefault()

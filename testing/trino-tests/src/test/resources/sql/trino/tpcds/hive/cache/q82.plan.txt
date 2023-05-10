@@ -1,0 +1,43 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                final aggregation over (i_current_price, i_item_desc, i_item_id)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["i_current_price", "i_item_desc", "i_item_id"])
+                            intermediate aggregation over (i_current_price, i_item_desc, i_item_id)
+                                join (INNER, REPLICATED, can skip output duplicates):
+                                    alternatives
+                                        partial aggregation over (ss_item_sk)
+                                            dynamic filter (["ss_item_sk"])
+                                                scan store_sales
+                                        cache data
+                                            partial aggregation over (ss_item_sk)
+                                                dynamic filter (["ss_item_sk"])
+                                                    scan store_sales
+                                        load from cache
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            join (INNER, REPLICATED, can skip output duplicates):
+                                                join (INNER, REPLICATED, can skip output duplicates):
+                                                    alternatives
+                                                        dynamic filter (["inv_item_sk"], await ["inv_date_sk"])
+                                                            scan inventory
+                                                        cache data
+                                                            dynamic filter (["inv_item_sk"], await ["inv_date_sk"])
+                                                                scan inventory
+                                                        load from cache
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            alternatives
+                                                                scan item
+                                                                cache data
+                                                                    scan item
+                                                                load from cache
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        alternatives
+                                                            scan date_dim
+                                                            cache data
+                                                                scan date_dim
+                                                            load from cache

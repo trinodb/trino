@@ -1,0 +1,58 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.tests.product.launcher.env.environment;
+
+import com.google.inject.Inject;
+import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.env.EnvironmentProvider;
+import io.trino.tests.product.launcher.env.common.Hadoop;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
+import io.trino.tests.product.launcher.env.common.TestsEnvironment;
+
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_JVM_CONFIG;
+import static org.testcontainers.utility.MountableFile.forHostPath;
+
+@TestsEnvironment
+public final class EnvHiveMultinodeSubqueryCache
+        extends EnvironmentProvider
+{
+    private final DockerFiles.ResourceProvider configDir;
+
+    @Inject
+    public EnvHiveMultinodeSubqueryCache(
+            DockerFiles dockerFiles,
+            StandardMultinode standardMultinode,
+            Hadoop hadoop)
+    {
+        super(standardMultinode, hadoop);
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode-hive-subquery-cache");
+    }
+
+    @Override
+    public void extendEnvironment(Environment.Builder builder)
+    {
+        builder.configureContainer(COORDINATOR, container -> container
+                .withCopyFileToContainer(forHostPath(configDir.getPath("master-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES));
+        builder.configureContainer(WORKER, container -> container
+                .withCopyFileToContainer(forHostPath(configDir.getPath("worker-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
+                .withCopyFileToContainer(forHostPath(configDir.getPath("worker-jvm.config")), CONTAINER_TRINO_JVM_CONFIG));
+        builder.addConnector("hive");
+        builder.addConnector("tpch", forHostPath(configDir.getPath("tpch.properties")));
+        builder.addConnector("tpcds", forHostPath(configDir.getPath("tpcds.properties")));
+    }
+}

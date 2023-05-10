@@ -87,6 +87,7 @@ public class TestAlternativesAwareDriverFactory
                         "alternative0", alternativeOperatorFactory0,
                         "alternative1", alternativeOperatorFactory1)),
                 CHOOSE_ALTERNATIVE_NODE_ID,
+                Optional.empty(),
                 0,
                 true,
                 false,

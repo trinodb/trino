@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.trace.Span;
+import io.trino.cache.CacheConfig;
+import io.trino.cache.CacheManagerRegistry;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
@@ -30,12 +32,15 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.index.IndexManager;
+import io.trino.memory.LocalMemoryManager;
+import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Split;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.dynamicfiltering.DynamicPageFilterCache;
 import io.trino.operator.dynamicfiltering.DynamicRowFilteringPageSourceProvider;
 import io.trino.operator.index.IndexJoinLookupStats;
+import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.AlternativeChooser;
@@ -192,6 +197,7 @@ public final class TaskTestUtils
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
                 new ExchangeManagerRegistry(),
+                new CacheManagerRegistry(new CacheConfig(), new LocalMemoryManager(new NodeMemoryConfig()), new TestingBlockEncodingSerde()),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }

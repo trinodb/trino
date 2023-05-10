@@ -1,0 +1,54 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                cross join:
+                    join (RIGHT, PARTITIONED):
+                        final aggregation over (ws_item_sk_9)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["ws_item_sk_9"])
+                                    partial aggregation over (ws_item_sk_9)
+                                        join (INNER, REPLICATED):
+                                            alternatives
+                                                dynamic filter (["ws_item_sk_9"], await ["ws_sold_date_sk_6"])
+                                                    scan web_sales
+                                                cache data
+                                                    dynamic filter (["ws_item_sk_9"], await ["ws_sold_date_sk_6"])
+                                                        scan web_sales
+                                                load from cache
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    alternatives
+                                                        scan date_dim
+                                                        cache data
+                                                            scan date_dim
+                                                        load from cache
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["ws_item_sk"])
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        alternatives
+                                            dynamic filter (["ws_item_sk"], await ["ws_sold_date_sk"])
+                                                scan web_sales
+                                            cache data
+                                                dynamic filter (["ws_item_sk"], await ["ws_sold_date_sk"])
+                                                    scan web_sales
+                                            load from cache
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                alternatives
+                                                    scan item
+                                                    cache data
+                                                        scan item
+                                                    load from cache
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            alternatives
+                                                scan date_dim
+                                                cache data
+                                                    scan date_dim
+                                                load from cache
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            single aggregation over ()
+                                values (1 rows)

@@ -1,0 +1,38 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                cross join:
+                    join (RIGHT, PARTITIONED):
+                        final aggregation over (partkey_6)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["partkey_6"])
+                                    partial aggregation over (partkey_6)
+                                        alternatives
+                                            dynamic filter (["partkey_6"])
+                                                scan lineitem
+                                            cache data
+                                                dynamic filter (["partkey_6"])
+                                                    scan lineitem
+                                            load from cache
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["partkey"])
+                                join (INNER, REPLICATED):
+                                    alternatives
+                                        dynamic filter (["partkey"])
+                                            scan lineitem
+                                        cache data
+                                            dynamic filter (["partkey"])
+                                                scan lineitem
+                                        load from cache
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            alternatives
+                                                scan part
+                                                cache data
+                                                    scan part
+                                                load from cache
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            single aggregation over ()
+                                values (1 rows)

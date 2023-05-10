@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.cache.CacheMetadata;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.FunctionBundle;
@@ -122,6 +123,12 @@ public final class StandaloneQueryRunner
     public Metadata getMetadata()
     {
         return server.getMetadata();
+    }
+
+    @Override
+    public CacheMetadata getCacheMetadata()
+    {
+        return server.getCacheMetadata();
     }
 
     @Override

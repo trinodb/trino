@@ -1,0 +1,78 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        local exchange (GATHER, SINGLE, [])
+            local exchange (REPARTITION, ROUND_ROBIN, [])
+                join (INNER, REPLICATED):
+                    join (INNER, REPLICATED):
+                        join (INNER, PARTITIONED):
+                            remote exchange (REPARTITION, HASH, ["rank"])
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (GATHER, SINGLE, [])
+                                        cross join:
+                                            final aggregation over (ss_item_sk)
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPARTITION, HASH, ["ss_item_sk"])
+                                                        alternatives
+                                                            partial aggregation over (ss_item_sk)
+                                                                scan store_sales
+                                                            cache data
+                                                                partial aggregation over (ss_item_sk)
+                                                                    scan store_sales
+                                                            load from cache
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (GATHER, SINGLE, [])
+                                                            final aggregation over (ss_store_sk_7)
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (REPARTITION, HASH, ["ss_store_sk_7"])
+                                                                        alternatives
+                                                                            partial aggregation over (ss_store_sk_7)
+                                                                                scan store_sales
+                                                                            cache data
+                                                                                partial aggregation over (ss_store_sk_7)
+                                                                                    scan store_sales
+                                                                            load from cache
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["rank_83"])
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (GATHER, SINGLE, [])
+                                            cross join:
+                                                final aggregation over (ss_item_sk_29)
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPARTITION, HASH, ["ss_item_sk_29"])
+                                                            alternatives
+                                                                partial aggregation over (ss_item_sk_29)
+                                                                    scan store_sales
+                                                                cache data
+                                                                    partial aggregation over (ss_item_sk_29)
+                                                                        scan store_sales
+                                                                load from cache
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (REPLICATE, BROADCAST, [])
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (GATHER, SINGLE, [])
+                                                                final aggregation over (ss_store_sk_62)
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPARTITION, HASH, ["ss_store_sk_62"])
+                                                                            alternatives
+                                                                                partial aggregation over (ss_store_sk_62)
+                                                                                    scan store_sales
+                                                                                cache data
+                                                                                    partial aggregation over (ss_store_sk_62)
+                                                                                        scan store_sales
+                                                                                load from cache
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                alternatives
+                                    scan item
+                                    cache data
+                                        scan item
+                                    load from cache
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            alternatives
+                                scan item
+                                cache data
+                                    scan item
+                                load from cache

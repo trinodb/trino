@@ -13,6 +13,8 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.predicate.TupleDomain;
+
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -27,6 +29,34 @@ public interface ConnectorAlternativeChooser
             ConnectorSession session,
             ConnectorSplit split,
             List<ConnectorTableHandle> alternatives);
+
+    /**
+     * Simplifies predicate into a predicate that {@link ConnectorPageSource} would use
+     * to filter split data. Returned predicate might contain additional columns that
+     * were not part of input predicate.
+     */
+    default TupleDomain<ColumnHandle> simplifyPredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
+     * Prunes columns from predicate that have prefilled values for a given split.
+     * If split is completely filtered out by pruned and prefilled columns, then this
+     * method must return {@link TupleDomain#none}.
+     */
+    default TupleDomain<ColumnHandle> prunePredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            TupleDomain<ColumnHandle> predicate)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * Returns whether the engine should perform dynamic row filtering on top of the returned page source.

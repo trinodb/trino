@@ -327,6 +327,30 @@ public class DeltaLakeTableHandle
         return readVersion;
     }
 
+    public DeltaLakeTableHandle toCanonical()
+    {
+        return new DeltaLakeTableHandle(
+                getSchemaName(),
+                getTableName(),
+                isManaged(),
+                getLocation(),
+                getMetadataEntry(),
+                getProtocolEntry(),
+                getEnforcedPartitionConstraint(),
+                /*
+                    It overwrites `nonPartitionConstraint` because setting this property to `TupleDomain.all()` does not affect
+                    final result when table is queried. It allows to match more similar subqueries that reads from same table
+                    but has different predicates.
+                */
+                TupleDomain.all(),
+                getWriteType(),
+                getProjectedColumns(),
+                getUpdatedColumns(),
+                getUpdateRowIdColumns(),
+                getAnalyzeHandle(),
+                getReadVersion());
+    }
+
     @Override
     public String toString()
     {

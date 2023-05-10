@@ -1,0 +1,43 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                join (FULL, PARTITIONED):
+                    final aggregation over (ss_customer_sk, ss_item_sk)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_item_sk"])
+                                partial aggregation over (ss_customer_sk, ss_item_sk)
+                                    join (INNER, REPLICATED, can skip output duplicates):
+                                        alternatives
+                                            dynamic filter (await ["ss_sold_date_sk"])
+                                                scan store_sales
+                                            cache data
+                                                dynamic filter (await ["ss_sold_date_sk"])
+                                                    scan store_sales
+                                            load from cache
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                alternatives
+                                                    scan date_dim
+                                                    cache data
+                                                        scan date_dim
+                                                    load from cache
+                    final aggregation over (cs_bill_customer_sk, cs_item_sk)
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk", "cs_item_sk"])
+                                partial aggregation over (cs_bill_customer_sk, cs_item_sk)
+                                    join (INNER, REPLICATED, can skip output duplicates):
+                                        alternatives
+                                            dynamic filter (await ["cs_sold_date_sk"])
+                                                scan catalog_sales
+                                            cache data
+                                                dynamic filter (await ["cs_sold_date_sk"])
+                                                    scan catalog_sales
+                                            load from cache
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                alternatives
+                                                    scan date_dim
+                                                    cache data
+                                                        scan date_dim
+                                                    load from cache

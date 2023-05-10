@@ -41,6 +41,9 @@ import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
+import io.trino.cache.CacheManagerModule;
+import io.trino.cache.CacheManagerRegistry;
+import io.trino.cache.CacheMetadata;
 import io.trino.connector.CatalogManagerModule;
 import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
@@ -168,6 +171,7 @@ public class TestingTrinoServer
     private final TransactionManager transactionManager;
     private final TablePropertyManager tablePropertyManager;
     private final Metadata metadata;
+    private final CacheMetadata cacheMetadata;
     private final TypeManager typeManager;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
@@ -197,6 +201,7 @@ public class TestingTrinoServer
     private final boolean coordinator;
     private final FailureInjector failureInjector;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
+    private final CacheManagerRegistry cacheManagerRegistry;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -286,6 +291,7 @@ public class TestingTrinoServer
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
                 .add(new ServerMainModule(VERSION))
+                .add(new CacheManagerModule())
                 .add(new TestingWarningCollectorModule())
                 .add(binder -> {
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
@@ -350,6 +356,7 @@ public class TestingTrinoServer
         tablePropertyManager = injector.getInstance(TablePropertyManager.class);
         globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
         metadata = injector.getInstance(Metadata.class);
+        cacheMetadata = injector.getInstance(CacheMetadata.class);
         typeManager = injector.getInstance(TypeManager.class);
         functionManager = injector.getInstance(FunctionManager.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
@@ -393,6 +400,8 @@ public class TestingTrinoServer
         mBeanServer = injector.getInstance(MBeanServer.class);
         failureInjector = injector.getInstance(FailureInjector.class);
         exchangeManagerRegistry = injector.getInstance(ExchangeManagerRegistry.class);
+        cacheManagerRegistry = injector.getInstance(CacheManagerRegistry.class);
+        cacheManagerRegistry.loadCacheManager();
 
         systemAccessControlConfiguration.ifPresentOrElse(
                 configuration -> {
@@ -480,6 +489,11 @@ public class TestingTrinoServer
         exchangeManagerRegistry.loadExchangeManager(name, properties);
     }
 
+    public CacheManagerRegistry getCacheManagerRegistry()
+    {
+        return cacheManagerRegistry;
+    }
+
     /**
      * Add the event listeners from connectors.  Connector event listeners are
      * only supported for statically loaded catalogs, and this doesn't match up
@@ -538,6 +552,11 @@ public class TestingTrinoServer
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public CacheMetadata getCacheMetadata()
+    {
+        return cacheMetadata;
     }
 
     public TypeManager getTypeManager()
@@ -660,10 +679,19 @@ public class TestingTrinoServer
 
     public Connector getConnector(String catalogName)
     {
+        return getConnector(getCatalogHandle(catalogName));
+    }
+
+    public CatalogHandle getCatalogHandle(String catalogName)
+    {
         checkState(coordinator, "not a coordinator");
-        CatalogHandle catalogHandle = catalogManager.orElseThrow().getCatalog(catalogName)
+        return catalogManager.orElseThrow().getCatalog(catalogName)
                 .orElseThrow(() -> new IllegalArgumentException("Catalog does not exist: " + catalogName))
                 .getCatalogHandle();
+    }
+
+    public Connector getConnector(CatalogHandle catalogHandle)
+    {
         return injector.getInstance(ConnectorServicesProvider.class)
                 .getConnectorServices(catalogHandle)
                 .getConnector();

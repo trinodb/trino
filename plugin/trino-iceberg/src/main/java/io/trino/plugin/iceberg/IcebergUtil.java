@@ -382,7 +382,7 @@ public final class IcebergUtil
                 .allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(typeOperators, spec, columnHandle, domain));
     }
 
-    private static boolean canEnforceConstraintWithinPartitioningSpec(TypeOperators typeOperators, PartitionSpec spec, IcebergColumnHandle column, Domain domain)
+    static boolean canEnforceConstraintWithinPartitioningSpec(TypeOperators typeOperators, PartitionSpec spec, IcebergColumnHandle column, Domain domain)
     {
         for (PartitionField field : spec.getFieldsBySourceId(column.getId())) {
             if (canEnforceConstraintWithPartitionField(typeOperators, field, column, domain)) {
@@ -560,6 +560,15 @@ public final class IcebergUtil
     public static Map<Integer, Optional<String>> getPartitionKeys(FileScanTask scanTask)
     {
         return getPartitionKeys(scanTask.file().partition(), scanTask.spec());
+    }
+
+    public static Map<Integer, Optional<String>> getPartitionKeys(Schema tableSchema, PartitionSpec partitionSpec, String partitionDataJson)
+    {
+        org.apache.iceberg.types.Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(tableSchema.findType(field.sourceId())))
+                .toArray(org.apache.iceberg.types.Type[]::new);
+        PartitionData partitionData = PartitionData.fromJson(partitionDataJson, partitionColumnTypes);
+        return getPartitionKeys(partitionData, partitionSpec);
     }
 
     public static Map<Integer, Optional<String>> getPartitionKeys(StructLike partition, PartitionSpec spec)

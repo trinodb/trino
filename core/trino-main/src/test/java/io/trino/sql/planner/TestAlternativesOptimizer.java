@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
@@ -26,13 +27,20 @@ import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.plugin.tpch.TpchTableHandle;
+import io.trino.spi.cache.PlanSignature;
+import io.trino.spi.cache.SignatureKey;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -50,10 +58,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static io.trino.cache.CacheCommonSubqueries.isCacheChooseAlternativeNode;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.chooseAlternativeNode;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -67,6 +75,7 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAlternativesOptimizer
         extends BasePlanTest
@@ -97,7 +106,7 @@ public class TestAlternativesOptimizer
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         Session session = getQueryRunner().getDefaultSession();
-        PlanBuilder planBuilder = new PlanBuilder(idAllocator, PLANNER_CONTEXT, session);
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getQueryRunner().getPlannerContext(), session);
         ProjectNode plan = planBuilder.project(
                 Assignments.of(),
                 planBuilder.filter(
@@ -127,6 +136,46 @@ public class TestAlternativesOptimizer
     }
 
     @Test
+    public void testWithSplitLevelCache()
+    {
+        String tableName = "nation";
+        TableHandle tableHandle = new TableHandle(
+                getQueryRunner().getCatalogHandle(TEST_CATALOG_NAME),
+                new TpchTableHandle(TEST_SCHEMA_NAME, tableName, 1.0),
+                TestingTransactionHandle.create());
+
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        Session session = getQueryRunner().getDefaultSession();
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getQueryRunner().getPlannerContext(), session);
+        TableScanNode scan = planBuilder.tableScan(tableHandle, emptyList(), emptyMap());
+        PlanNode plan = new ChooseAlternativeNode(
+                idAllocator.getNextId(),
+                ImmutableList.of(
+                        planBuilder.filter(
+                                idAllocator.getNextId(),
+                                TRUE_LITERAL,
+                                scan),
+                        scan,
+                        new LoadCachedDataPlanNode(
+                                idAllocator.getNextId(),
+                                new PlanSignature(new SignatureKey("sig"), Optional.empty(), ImmutableList.of(), ImmutableList.of(), TupleDomain.all(), TupleDomain.all()),
+                                FALSE_LITERAL,
+                                ImmutableMap.of(),
+                                ImmutableList.of())),
+                new FilteredTableScan(scan, Optional.empty()));
+
+        assertThat(isCacheChooseAlternativeNode(plan)).isTrue();
+
+        PlanNode optimized = runOptimizer(
+                plan,
+                planBuilder.getTypes(),
+                ImmutableSet.of(new CreateAlternativesForFilter(FALSE_LITERAL)));
+
+        assertThat(isCacheChooseAlternativeNode(optimized)).isTrue();
+        assertThat(PlanNodeSearcher.searchFrom(optimized).whereIsInstanceOfAny(ChooseAlternativeNode.class).count()).isEqualTo(1);
+    }
+
+    @Test
     public void testTwoRules()
     {
         String tableName = "nation";
@@ -138,7 +187,7 @@ public class TestAlternativesOptimizer
         String symbol = "symbol";
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         Session session = getQueryRunner().getDefaultSession();
-        PlanBuilder planBuilder = new PlanBuilder(idAllocator, PLANNER_CONTEXT, session);
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getQueryRunner().getPlannerContext(), session);
         ProjectNode plan = planBuilder.project(
                 Assignments.of(new Symbol(symbol), TRUE_LITERAL),
                 planBuilder.filter(
@@ -189,7 +238,7 @@ public class TestAlternativesOptimizer
         String columnName = "nationkey";
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         Session session = getQueryRunner().getDefaultSession();
-        PlanBuilder planBuilder = new PlanBuilder(idAllocator, PLANNER_CONTEXT, session);
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getQueryRunner().getPlannerContext(), session);
         Symbol symbol = planBuilder.symbol(columnName, BIGINT);
         ProjectNode plan = planBuilder.project(
                 Assignments.of(symbol, new ComparisonExpression(EQUAL, new SymbolReference(columnName), new LongLiteral("1"))),

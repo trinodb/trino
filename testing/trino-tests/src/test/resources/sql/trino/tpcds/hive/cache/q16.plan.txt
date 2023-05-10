@@ -1,0 +1,67 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                final aggregation over (cs_order_number_26, group)
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPARTITION, HASH, ["cs_order_number_26", "group"])
+                            partial aggregation over (cs_order_number_26, group)
+                                join (RIGHT, PARTITIONED):
+                                    final aggregation over (cr_order_number)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["cr_order_number"])
+                                                alternatives
+                                                    partial aggregation over (cr_order_number)
+                                                        dynamic filter (["cr_order_number"])
+                                                            scan catalog_returns
+                                                    cache data
+                                                        partial aggregation over (cr_order_number)
+                                                            dynamic filter (["cr_order_number"])
+                                                                scan catalog_returns
+                                                    load from cache
+                                    final aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_26, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPARTITION, HASH, ["cs_order_number_26"])
+                                                intermediate aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_26, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
+                                                    join (INNER, REPLICATED, can skip output duplicates):
+                                                        partial aggregation over (cs_order_number_26, cs_warehouse_sk_23)
+                                                            alternatives
+                                                                dynamic filter (["cs_order_number_26"])
+                                                                    scan catalog_sales
+                                                                cache data
+                                                                    dynamic filter (["cs_order_number_26"])
+                                                                        scan catalog_sales
+                                                                load from cache
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                join (INNER, REPLICATED):
+                                                                    join (INNER, REPLICATED):
+                                                                        join (INNER, REPLICATED):
+                                                                            alternatives
+                                                                                dynamic filter (["cs_ship_addr_sk"], await ["cs_call_center_sk", "cs_ship_date_sk"])
+                                                                                    scan catalog_sales
+                                                                                cache data
+                                                                                    dynamic filter (["cs_ship_addr_sk"], await ["cs_call_center_sk", "cs_ship_date_sk"])
+                                                                                        scan catalog_sales
+                                                                                load from cache
+                                                                            local exchange (GATHER, SINGLE, [])
+                                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                                    alternatives
+                                                                                        scan customer_address
+                                                                                        cache data
+                                                                                            scan customer_address
+                                                                                        load from cache
+                                                                        local exchange (GATHER, SINGLE, [])
+                                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                                alternatives
+                                                                                    scan date_dim
+                                                                                    cache data
+                                                                                        scan date_dim
+                                                                                    load from cache
+                                                                    local exchange (GATHER, SINGLE, [])
+                                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                                            alternatives
+                                                                                scan call_center
+                                                                                cache data
+                                                                                    scan call_center
+                                                                                load from cache

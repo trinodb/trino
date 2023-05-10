@@ -43,6 +43,7 @@ public class Suite1
                                 "profile_specific_tests",
                                 "storage_formats",
                                 "storage_formats_detailed",
+                                "hive-cache-subqueries",
                                 "tpch",
                                 "tpcds")
                         .build());

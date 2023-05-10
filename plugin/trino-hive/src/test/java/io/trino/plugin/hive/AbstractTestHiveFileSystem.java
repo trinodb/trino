@@ -100,6 +100,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
 import static io.trino.plugin.hive.AbstractTestHive.createTableProperties;
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles;
@@ -213,7 +214,7 @@ public abstract class AbstractTestHiveFileSystem
                 hdfsEnvironment);
         HdfsFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS);
         locationService = new HiveLocationService(fileSystemFactory, config);
-        JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
+        JsonCodec<PartitionUpdate> partitionUpdateCodec = jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 LocationAccessControl.ALLOW_ALL,
                 new CatalogName("hive"),
@@ -255,6 +256,7 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxSplitsPerSecond(),
                 config.getRecursiveDirWalkerEnabled(),
                 TESTING_TYPE_MANAGER,
+                jsonCodec(HiveCacheSplitId.class),
                 config.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),

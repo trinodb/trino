@@ -24,6 +24,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
+import io.trino.cache.CacheMetadata;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
@@ -334,6 +335,12 @@ public class DistributedQueryRunner
     public Metadata getMetadata()
     {
         return coordinator.getMetadata();
+    }
+
+    @Override
+    public CacheMetadata getCacheMetadata()
+    {
+        return coordinator.getCacheMetadata();
     }
 
     @Override
