@@ -254,7 +254,8 @@ Hive connector documentation.
       - How long a cached directory listing is considered valid.
       - ``1m``
     * - ``hive.per-transaction-file-status-cache.max-retained-size``
-      - Maximum retained size of cached file status entries per transaction
+      - Maximum retained size of all entries in per transaction file status cache.
+        Retained size limit is shared across all running queries.
       - ``100MB``
     * - ``hive.rcfile.time-zone``
       - Adjusts binary encoded timestamp values to a specific time zone. For

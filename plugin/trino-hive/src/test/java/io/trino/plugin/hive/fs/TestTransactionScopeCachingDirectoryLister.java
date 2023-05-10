@@ -73,7 +73,7 @@ public class TestTransactionScopeCachingDirectoryLister
     @Override
     protected TransactionScopeCachingDirectoryLister createDirectoryLister()
     {
-        return new TransactionScopeCachingDirectoryLister(new FileSystemDirectoryLister(), DataSize.of(1, MEGABYTE));
+        return (TransactionScopeCachingDirectoryLister) new TransactionScopeCachingDirectoryListerFactory(DataSize.of(1, MEGABYTE), Optional.empty()).get(new FileSystemDirectoryLister());
     }
 
     @Override
@@ -100,7 +100,7 @@ public class TestTransactionScopeCachingDirectoryLister
 
         // Set concurrencyLevel to 1 as EvictableCache with higher concurrencyLimit is not deterministic
         // due to Token being a key in segmented cache.
-        TransactionScopeCachingDirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, DataSize.ofBytes(500), Optional.of(1));
+        TransactionScopeCachingDirectoryLister cachingLister = (TransactionScopeCachingDirectoryLister) new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(500), Optional.of(1)).get(countingLister);
 
         assertFiles(cachingLister.list(null, TABLE, path2), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
@@ -138,7 +138,7 @@ public class TestTransactionScopeCachingDirectoryLister
         Path path = new Path("x");
 
         CountingDirectoryLister countingLister = new CountingDirectoryLister(ImmutableMap.of(path, ImmutableList.of(file)));
-        DirectoryLister cachingLister = new TransactionScopeCachingDirectoryLister(countingLister, DataSize.ofBytes(500));
+        DirectoryLister cachingLister = new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(600), Optional.empty()).get(countingLister);
 
         // start listing path concurrently
         countingLister.setThrowException(true);
