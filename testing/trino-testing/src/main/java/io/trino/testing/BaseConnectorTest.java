@@ -1039,7 +1039,7 @@ public abstract class BaseConnectorTest
         assertThat(query("SHOW TABLES"))
                 .skippingTypesCheck()
                 .containsAll("VALUES '" + view.getObjectName() + "'");
-        // information_schema.tables without table_name filter
+        // information_schema.tables without table_name filter so that ConnectorMetadata.listViews is exercised
         assertThat(query(
                 "SELECT table_name, table_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "'"))

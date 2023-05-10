@@ -2691,18 +2691,23 @@ public class HiveMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> optionalSchemaName)
     {
+        Set<SchemaTableName> materializedViews = ImmutableSet.copyOf(listMaterializedViews(session, optionalSchemaName));
         if (optionalSchemaName.isEmpty()) {
             Optional<List<SchemaTableName>> allViews = metastore.getAllViews();
             if (allViews.isPresent()) {
                 return allViews.get().stream()
                         .filter(view -> !isHiveSystemSchema(view.getSchemaName()))
+                        .filter(view -> !materializedViews.contains(view))
                         .collect(toImmutableList());
             }
         }
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (String tableName : metastore.getAllViews(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName));
+                SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
+                if (!materializedViews.contains(schemaTableName)) {
+                    tableNames.add(schemaTableName);
+                }
             }
         }
         return tableNames.build();

@@ -1349,11 +1349,19 @@ public class TestHiveGlueMetastore
                     .withDatabaseName(database)
                     .withTableInput(tableInput));
             assertTrue(isTrinoMaterializedView(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
+            materializedViews.add(table);
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
                 ConnectorMetadata metadata = transaction.getMetadata();
                 // Not a view
+                assertThat(metadata.listViews(session, Optional.empty()))
+                        .doesNotContain(table);
+                assertThat(metadata.listViews(session, Optional.of(table.getSchemaName())))
+                        .doesNotContain(table);
                 assertThat(metadata.getView(session, table)).isEmpty();
+            }
+            finally {
+                materializedViews.remove(table);
             }
         }
         finally {

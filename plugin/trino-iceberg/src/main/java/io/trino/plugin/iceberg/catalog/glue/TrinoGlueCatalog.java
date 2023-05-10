@@ -707,7 +707,7 @@ public class TrinoGlueCatalog
                             stats.getGetTables())
                             .map(GetTablesResult::getTableList)
                             .flatMap(List::stream)
-                            .filter(table -> isPrestoView(getTableParameters(table)))
+                            .filter(table -> isPrestoView(getTableParameters(table)) && !isTrinoMaterializedView(getTableType(table), getTableParameters(table))) // TODO isTrinoMaterializedView should not be needed, isPrestoView should not return true for materialized views
                             .map(table -> new SchemaTableName(glueNamespace, table.getName()))
                             .collect(toImmutableList()));
                 }

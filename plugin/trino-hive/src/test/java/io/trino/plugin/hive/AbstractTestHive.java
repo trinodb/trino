@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import alluxio.collections.ConcurrentHashSet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -673,6 +674,8 @@ public abstract class AbstractTestHive
     private ScheduledExecutorService heartbeatService;
     private java.nio.file.Path temporaryStagingDirectory;
 
+    protected final ConcurrentHashSet<SchemaTableName> materializedViews = new ConcurrentHashSet<>();
+
     @BeforeClass(alwaysRun = true)
     public void setupClass()
             throws Exception
@@ -869,6 +872,16 @@ public abstract class AbstractTestHive
                         new PropertiesSystemTableProvider()),
                 metastore -> new NoneHiveMaterializedViewMetadata()
                 {
+                    @Override
+                    public List<SchemaTableName> listMaterializedViews(ConnectorSession session, Optional<String> schemaName)
+                    {
+                        return materializedViews.stream()
+                                .filter(schemaName
+                                        .<Predicate<SchemaTableName>>map(name -> mvName -> mvName.getSchemaName().equals(name))
+                                        .orElse(mvName -> true))
+                                .collect(toImmutableList());
+                    }
+
                     @Override
                     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
                     {
