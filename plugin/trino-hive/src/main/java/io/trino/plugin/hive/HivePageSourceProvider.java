@@ -58,13 +58,13 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static io.trino.plugin.hive.AbstractHiveAcidWriters.ORIGINAL_FILE_PATH_MATCHER;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
@@ -82,6 +82,9 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    // The original file path looks like this: /root/dir/nnnnnnn_m(_copy_ccc)?
+    private static final Pattern ORIGINAL_FILE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<filename>(?<bucketNumber>\\d+)_(?<rest>.*)?)$");
+
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final int domainCompactionThreshold;
