@@ -197,20 +197,23 @@ public class ClickHouseClient
 
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+    private final Optional<String> clusterName;
     private final Type uuidType;
     private final Type ipAddressType;
     private final AtomicReference<ClickHouseVersion> clickHouseVersion = new AtomicReference<>();
 
     @Inject
     public ClickHouseClient(
-            BaseJdbcConfig config,
+            ClickHouseConfig config,
+            BaseJdbcConfig baseJdbcConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             TypeManager typeManager,
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+        super("\"", connectionFactory, queryBuilder, baseJdbcConfig.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+        this.clusterName = config.getClusterName();
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -227,6 +230,11 @@ public class ClickHouseClient
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgBigint())
                         .build());
+    }
+
+    private String getClusterInfo()
+    {
+        return clusterName.map(" ON CLUSTER %s "::formatted).orElse("");
     }
 
     @Override
@@ -267,8 +275,9 @@ public class ClickHouseClient
         // 1. create table tbl as tbl2
         // 2. create table tbl1 ENGINE=<engine> as select * from tbl2
         String sql = format(
-                "CREATE TABLE %s AS %s ",
+                "CREATE TABLE %s %s AS %s ",
                 quoted(null, schemaName, newTableName),
+                getClusterInfo(),
                 quoted(null, schemaName, tableName));
         try {
             execute(session, connection, sql);
@@ -287,7 +296,7 @@ public class ClickHouseClient
     }
 
     @Override
-    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
         Map<String, Object> tableProperties = tableMetadata.getProperties();
@@ -304,7 +313,7 @@ public class ClickHouseClient
         ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + quoted(value)));
         tableMetadata.getComment().ifPresent(comment -> tableOptions.add(format("COMMENT %s", clickhouseVarcharLiteral(comment))));
 
-        return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build()));
+        return ImmutableList.of(format("CREATE TABLE %s %s (%s) %s", quoted(remoteTableName), getClusterInfo(), join(", ", columns), join(" ", tableOptions.build())));
     }
 
     @Override
@@ -369,8 +378,8 @@ public class ClickHouseClient
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             String sql = format(
-                    "ALTER TABLE %s MODIFY %s",
-                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    "ALTER TABLE %s %s MODIFY %s",
+                    quoted(handle.asPlainTable().getRemoteTableName()), getClusterInfo(),
                     join(" ", tableOptions.build()));
             execute(session, connection, sql);
         }
@@ -403,21 +412,21 @@ public class ClickHouseClient
     protected void createSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
             throws SQLException
     {
-        execute(session, connection, "CREATE DATABASE " + quoted(remoteSchemaName));
+        execute(session, connection, "CREATE DATABASE " + quoted(remoteSchemaName) + getClusterInfo());
     }
 
     @Override
     protected void dropSchema(ConnectorSession session, Connection connection, String remoteSchemaName)
             throws SQLException
     {
-        execute(session, connection, "DROP DATABASE " + quoted(remoteSchemaName));
+        execute(session, connection, "DROP DATABASE " + quoted(remoteSchemaName) + getClusterInfo());
     }
 
     @Override
     protected void renameSchema(ConnectorSession session, Connection connection, String remoteSchemaName, String newRemoteSchemaName)
             throws SQLException
     {
-        execute(session, connection, "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName));
+        execute(session, connection, "RENAME DATABASE " + quoted(remoteSchemaName) + " TO " + quoted(newRemoteSchemaName) + getClusterInfo());
     }
 
     @Override
@@ -426,8 +435,8 @@ public class ClickHouseClient
         try (Connection connection = connectionFactory.openConnection(session)) {
             String remoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, column.getName());
             String sql = format(
-                    "ALTER TABLE %s ADD COLUMN %s",
-                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    "ALTER TABLE %s %s ADD COLUMN %s",
+                    quoted(handle.asPlainTable().getRemoteTableName()), getClusterInfo(),
                     getColumnDefinitionSql(session, column, remoteColumnName));
             execute(session, connection, sql);
         }
@@ -437,11 +446,47 @@ public class ClickHouseClient
     }
 
     @Override
+    protected void renameColumn(ConnectorSession session, Connection connection, RemoteTableName remoteTableName, String remoteColumnName, String newRemoteColumnName)
+            throws SQLException
+    {
+        execute(session, connection, format(
+                "ALTER TABLE %s RENAME COLUMN %s TO %s  %s",
+                quoted(remoteTableName),
+                quoted(remoteColumnName),
+                quoted(newRemoteColumnName),
+                getClusterInfo()));
+    }
+
+    @Override
+    public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            String remoteColumnName = getIdentifierMapping().toRemoteColumnName(connection, column.getColumnName());
+            String sql = format(
+                    "ALTER TABLE %s %s DROP COLUMN %s",
+                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    getClusterInfo(),
+                    quoted(remoteColumnName));
+            execute(session, connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        String sql = "DROP TABLE " + quoted(remoteTableName) + getClusterInfo();
+        execute(session, sql);
+    }
+
+    @Override
     public void setTableComment(ConnectorSession session, JdbcTableHandle handle, Optional<String> comment)
     {
         String sql = format(
-                "ALTER TABLE %s MODIFY COMMENT %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
+                "ALTER TABLE %s %s MODIFY COMMENT %s",
+                quoted(handle.asPlainTable().getRemoteTableName()), getClusterInfo(),
                 clickhouseVarcharLiteral(comment.orElse(NO_COMMENT)));
         execute(session, sql);
     }
@@ -450,8 +495,8 @@ public class ClickHouseClient
     public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
         String sql = format(
-                "ALTER TABLE %s COMMENT COLUMN %s %s",
-                quoted(handle.asPlainTable().getRemoteTableName()),
+                "ALTER TABLE %s %s COMMENT COLUMN %s %s",
+                quoted(handle.asPlainTable().getRemoteTableName()), getClusterInfo(),
                 quoted(column.getColumnName()),
                 clickhouseVarcharLiteral(comment.orElse("")));
         execute(session, sql);
@@ -479,11 +524,12 @@ public class ClickHouseClient
     protected void renameTable(ConnectorSession session, Connection connection, String catalogName, String remoteSchemaName, String remoteTableName, String newRemoteSchemaName, String newRemoteTableName)
             throws SQLException
     {
-        execute(session, connection, format("RENAME TABLE %s.%s TO %s.%s",
+        execute(session, connection, format("RENAME TABLE %s.%s  TO %s.%s  %s",
                 quoted(remoteSchemaName),
                 quoted(remoteTableName),
                 quoted(newRemoteSchemaName),
-                quoted(newRemoteTableName)));
+                quoted(newRemoteTableName),
+                getClusterInfo()));
     }
 
     @Override

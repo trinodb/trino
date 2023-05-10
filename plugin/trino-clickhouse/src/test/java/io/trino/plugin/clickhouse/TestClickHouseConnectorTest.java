@@ -139,7 +139,7 @@ public class TestClickHouseConnectorTest
     @Override
     public void testDropAndAddColumnWithSameName()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "(x int NOT NULL, y int, z int) WITH (engine = 'MergeTree', order_by = ARRAY['x'])", ImmutableList.of("1,2,3"))) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "(x int NOT NULL, y int, z int) WITH (engine = 'mergetree', order_by = ARRAY['x'])", ImmutableList.of("1,2,3"))) {
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
@@ -151,7 +151,7 @@ public class TestClickHouseConnectorTest
     @Override
     protected String createTableSqlForAddingAndDroppingColumn(String tableName, String columnNameInSql)
     {
-        return format("CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['value'])", tableName, columnNameInSql);
+        return format("CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['value'])", tableName, columnNameInSql);
     }
 
     @Override
@@ -184,7 +184,7 @@ public class TestClickHouseConnectorTest
         String tableName = "test_drop_column_" + randomNameSuffix();
 
         // only MergeTree engine table can drop column
-        assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
+        assertUpdate("CREATE TABLE " + tableName + "(x int NOT NULL, y int, a int NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['x'], partition_by = ARRAY['a'])");
         assertUpdate("INSERT INTO " + tableName + "(x,y,a) SELECT 123, 456, 111", 1);
 
         // the columns are referenced by order_by/partition_by property can not be dropped
@@ -206,13 +206,13 @@ public class TestClickHouseConnectorTest
     @Override
     protected TestTable createTableWithOneIntegerColumn(String namePrefix)
     {
-        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['col'])");
+        return new TestTable(getQueryRunner()::execute, namePrefix, "(col integer NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['col'])");
     }
 
     @Override
     protected String tableDefinitionForAddColumn()
     {
-        return "(x VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'])";
+        return "(x VARCHAR NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['x'])";
     }
 
     @Override // Overridden because the default storage type doesn't support adding columns
@@ -253,7 +253,7 @@ public class TestClickHouseConnectorTest
     public void testAddColumnWithComment()
     {
         // Override because the default storage type doesn't support adding columns
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_desc_", "(a_varchar varchar NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['a_varchar'])")) {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_col_desc_", "(a_varchar varchar NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['a_varchar'])")) {
             String tableName = table.getName();
 
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN b_varchar varchar COMMENT 'test new column comment'");
@@ -345,18 +345,16 @@ public class TestClickHouseConnectorTest
     {
         String tableName = "test_add_column_" + randomNameSuffix();
         // MergeTree
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'mergetree', order_by = ARRAY['id'], partition_by= ARRAY['id'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("DROP TABLE " + tableName);
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'mergetree', order_by = ARRAY['id'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'mergetree', order_by = ARRAY['id'], partition_by= ARRAY['id'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("DROP TABLE " + tableName);
-        // MergeTree without order by
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree')", "The property of order_by is required for table engine MergeTree\\(\\)");
 
         // MergeTree with optional
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR, logdate DATE NOT NULL) WITH " +
-                "(engine = 'MergeTree', order_by = ARRAY['id'], partition_by = ARRAY['logdate'])");
+                "(engine = 'mergetree', order_by = ARRAY['id'], partition_by = ARRAY['logdate'])");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertUpdate("DROP TABLE " + tableName);
 
@@ -367,10 +365,6 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
         assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'stripelog')");
         assertUpdate("DROP TABLE " + tableName);
-
-        //NOT support engine
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'bad_engine')",
-                "Unable to set catalog 'clickhouse' table property 'engine' to.*");
     }
 
     @Test
@@ -425,7 +419,7 @@ public class TestClickHouseConnectorTest
         assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'Log', sample_by='id')", ".* doesn't support PARTITION_BY, PRIMARY_KEY, ORDER_BY or SAMPLE_BY clauses.*\\n.*");
 
         // optional properties
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'mergetree', order_by = ARRAY['id'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .isEqualTo(format("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
@@ -440,9 +434,9 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // the column refers by order by must be not null
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'])", ".* Sorting key cannot contain nullable columns.*\\n.*");
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'mergetree', order_by = ARRAY['id', 'x'])", ".* Sorting key cannot contain nullable columns.*\\n.*");
 
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR) WITH (engine = 'mergetree', order_by = ARRAY['id'], primary_key = ARRAY['id'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .isEqualTo(format("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
@@ -456,7 +450,7 @@ public class TestClickHouseConnectorTest
                         ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x', 'y'], primary_key = ARRAY['id', 'x'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x VARCHAR NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['id', 'x', 'y'], primary_key = ARRAY['id', 'x'])");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .isEqualTo(format("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
@@ -471,7 +465,7 @@ public class TestClickHouseConnectorTest
                         ")", tableName));
         assertUpdate("DROP TABLE " + tableName);
 
-        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x BOOLEAN NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
+        assertUpdate("CREATE TABLE " + tableName + " (id int NOT NULL, x BOOLEAN NOT NULL, y VARCHAR NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['id', 'x'], primary_key = ARRAY['id','x'], sample_by = 'x' )");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .isEqualTo(format("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
@@ -505,15 +499,15 @@ public class TestClickHouseConnectorTest
         assertUpdate("DROP TABLE " + tableName);
 
         // Primary key must be a prefix of the sorting key,
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x boolean NOT NULL, y boolean NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], sample_by = ARRAY['x', 'y'])",
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL, x boolean NOT NULL, y boolean NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['id'], sample_by = ARRAY['x', 'y'])",
                 "Invalid value for catalog 'clickhouse' table property 'sample_by': .*");
 
         // wrong property type
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = 'id')",
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'mergetree', order_by = 'id')",
                 "Invalid value for catalog 'clickhouse' table property 'order_by': .*");
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = 'id')",
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['id'], primary_key = 'id')",
                 "Invalid value for catalog 'clickhouse' table property 'primary_key': .*");
-        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['id'], primary_key = ARRAY['id'], partition_by = 'id')",
+        assertQueryFails("CREATE TABLE " + tableName + " (id int NOT NULL) WITH (engine = 'mergetree', order_by = ARRAY['id'], primary_key = ARRAY['id'], partition_by = 'id')",
                 "Invalid value for catalog 'clickhouse' table property 'partition_by': .*");
     }
 

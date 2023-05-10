@@ -17,11 +17,17 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 
+import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
+
 @DefunctConfig("clickhouse.legacy-driver")
 public class ClickHouseConfig
 {
     // TODO (https://github.com/trinodb/trino/issues/7102) reconsider default behavior
     private boolean mapStringAsVarchar;
+
+    private Optional<String> clusterName = Optional.empty();
 
     public boolean isMapStringAsVarchar()
     {
@@ -33,6 +39,20 @@ public class ClickHouseConfig
     public ClickHouseConfig setMapStringAsVarchar(boolean mapStringAsVarchar)
     {
         this.mapStringAsVarchar = mapStringAsVarchar;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getClusterName()
+    {
+        return clusterName;
+    }
+
+    @Config("clickhouse.cluster-name")
+    @ConfigDescription("ClickHouse cluster name")
+    public ClickHouseConfig setClusterName(String clusterName)
+    {
+        this.clusterName = Optional.ofNullable(clusterName);
         return this;
     }
 }

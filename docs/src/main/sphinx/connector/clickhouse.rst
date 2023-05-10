@@ -36,6 +36,7 @@ connection properties as appropriate for your setup:
     connection-url=jdbc:clickhouse://host1:8123/
     connection-user=exampleuser
     connection-password=examplepassword
+    cluster-name=examplecluster
 
 The ``connection-url`` defines the connection information and parameters to pass
 to the ClickHouse JDBC driver. The supported parameters for the URL are
@@ -46,6 +47,11 @@ The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
+
+The ``cluster-name`` defines the clickhouse cluster name. If the clickhouse connected by
+``connection-url`` belongs to the cluster mode, it is recommended to add this item,
+so that the ddl statement will be executed on all nodes of the cluster by default,
+which will be as convenient as the stand-alone clickhouse.
 
 .. _clickhouse-tls:
 
