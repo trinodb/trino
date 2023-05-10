@@ -15,13 +15,13 @@ package io.trino.plugin.hive.line;
 
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.mapred.JobConf;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,8 +39,8 @@ public class RegexFileWriterFactory
             Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
             Properties schema,
-            JobConf configuration,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,

@@ -17,7 +17,6 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.mapred.JobConf;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +29,8 @@ public interface HiveFileWriterFactory
             Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
             Properties schema,
-            JobConf conf,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,

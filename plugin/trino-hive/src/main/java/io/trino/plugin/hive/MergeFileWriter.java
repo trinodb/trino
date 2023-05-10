@@ -28,7 +28,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MergePage;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -41,7 +40,6 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.orc.OrcWriter.OrcOperation.DELETE;
 import static io.trino.orc.OrcWriter.OrcOperation.INSERT;
 import static io.trino.plugin.hive.HivePageSource.BUCKET_CHANNEL;
@@ -83,7 +81,7 @@ public class MergeFileWriter
     private final List<HiveColumnHandle> inputColumns;
     private final RowIdSortingFileWriterMaker sortingFileWriterMaker;
     private final OrcFileWriterFactory orcFileWriterFactory;
-    private final Configuration configuration;
+    private final HiveCompressionCodec compressionCodec;
     private final Properties hiveAcidSchema;
     private final String bucketFilename;
     private Optional<FileWriter> deleteFileWriter = Optional.empty();
@@ -99,8 +97,8 @@ public class MergeFileWriter
             RowIdSortingFileWriterMaker sortingFileWriterMaker,
             String bucketPath,
             OrcFileWriterFactory orcFileWriterFactory,
+            HiveCompressionCodec compressionCodec,
             List<HiveColumnHandle> inputColumns,
-            Configuration configuration,
             ConnectorSession session,
             TypeManager typeManager,
             HiveType hiveRowType)
@@ -110,7 +108,7 @@ public class MergeFileWriter
         this.sortingFileWriterMaker = requireNonNull(sortingFileWriterMaker, "sortingFileWriterMaker is null");
         this.bucketValueBlock = nativeValueToBlock(INTEGER, (long) computeBucketValue(bucketNumber.orElse(0), statementId));
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
-        this.configuration = requireNonNull(configuration, "configuration is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
@@ -253,8 +251,8 @@ public class MergeFileWriter
                     deltaDirectory.appendPath(bucketFilename),
                     ACID_COLUMN_NAMES,
                     fromHiveStorageFormat(ORC),
+                    compressionCodec,
                     schemaCopy,
-                    toJobConf(configuration),
                     session,
                     bucketNumber,
                     transaction,
@@ -274,8 +272,8 @@ public class MergeFileWriter
                     deletePath,
                     ACID_COLUMN_NAMES,
                     fromHiveStorageFormat(ORC),
+                    compressionCodec,
                     schemaCopy,
-                    toJobConf(configuration),
                     session,
                     bucketNumber,
                     transaction,
