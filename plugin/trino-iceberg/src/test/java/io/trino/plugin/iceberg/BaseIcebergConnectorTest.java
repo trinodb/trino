@@ -4588,7 +4588,7 @@ public abstract class BaseIcebergConnectorTest
                 ctas,
                 "'orderstatus'",
                 3);
-        // Test uses relatively small table (60K rows). When engine doesn't redistribute data for writes,
+        // Test uses relatively small table (15K rows). When engine doesn't redistribute data for writes,
         // occasionally a worker node doesn't get any data and fewer files get created.
         assertEventually(new Duration(3, MINUTES), () -> {
             testRepartitionData(
