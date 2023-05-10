@@ -1102,6 +1102,10 @@ public abstract class BaseConnectorTest
         assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.getSchemaName() + "' AND table_name = '" + view.getObjectName() + "'"))
                 .returnsEmptyResult();
 
+        // materialized view-specific listings
+        assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalog + "' AND schema_name = '" + view.getSchemaName() + "'"))
+                .containsAll("VALUES VARCHAR '" + view.getObjectName() + "'");
+
         // system.jdbc.columns without filter
         assertThat(query("SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
                 .skippingTypesCheck()
@@ -1870,6 +1874,7 @@ public abstract class BaseConnectorTest
         }
         // Validate that it is possible to have views and materialized views defined at the same time and both are operational
 
+        String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
 
         String regularViewName = "test_views_together_normal_" + randomNameSuffix();
@@ -1884,6 +1889,11 @@ public abstract class BaseConnectorTest
         assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
                 .contains(regularViewName)
                 .doesNotContain(materializedViewName);
+
+        // only the materialized view should be accessible via system.metadata.materialized_view
+        assertThat(computeActual("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'").getOnlyColumnAsSet())
+                .doesNotContain(regularViewName)
+                .contains(materializedViewName);
 
         // check we can query from both
         assertThat(query("SELECT * FROM " + regularViewName)).containsAll("SELECT * FROM region");
