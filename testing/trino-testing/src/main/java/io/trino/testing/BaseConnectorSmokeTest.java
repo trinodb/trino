@@ -574,6 +574,20 @@ public abstract class BaseConnectorSmokeTest
                         "FROM\n" +
                         "  nation");
 
+        // information_schema.tables (no filtering on table_name so that ConnectorMetadata.listViews is exercised)
+        assertThat(query("SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = '" + schemaName + "'"))
+                .containsAll("VALUES (VARCHAR '" + viewName + "', VARCHAR 'BASE TABLE')");
+
+        // information_schema.views
+        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
+                .doesNotContain(viewName);
+        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "' AND table_name = '" + viewName + "'"))
+                .returnsEmptyResult();
+
+        // materialized view-specific listings
+        assertThat(query("SELECT name FROM system.metadata.materialized_views WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "'"))
+                .containsAll("VALUES VARCHAR '" + viewName + "'");
+
         assertUpdate("DROP MATERIALIZED VIEW " + viewName);
     }
 
