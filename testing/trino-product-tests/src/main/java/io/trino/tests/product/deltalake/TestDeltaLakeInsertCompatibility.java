@@ -435,8 +435,8 @@ public class TestDeltaLakeInsertCompatibility
         assertThat(onTrino().executeQuery("SHOW SESSION LIKE 'delta.compression_codec'"))
                 .containsOnly(row(
                         "delta.compression_codec",
-                        "SNAPPY",
-                        "SNAPPY",
+                        "ZSTD",
+                        "ZSTD",
                         "varchar",
                         "Compression codec to use when writing new data files. Possible values: " +
                                 Stream.of(compressionCodecs())

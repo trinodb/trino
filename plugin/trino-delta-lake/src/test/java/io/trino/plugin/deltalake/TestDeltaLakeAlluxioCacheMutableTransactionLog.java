@@ -79,12 +79,12 @@ public class TestDeltaLakeAlluxioCacheMutableTransactionLog
                         .addCopies(new CacheFileSystemTraceUtils.CacheOperation("Input.readTail", "00000000000000000002.checkpoint.parquet"), 2)
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.newStream", "00000000000000000003.json"))
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p1/", 0, 220))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p2/", 0, 220))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Input.readFully", "key=p1/", 0, 220))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Input.readFully", "key=p2/", 0, 220))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.writeCache", "key=p1/", 0, 220))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.writeCache", "key=p2/", 0, 220))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p1/", 0, 227))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p2/", 0, 227))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Input.readFully", "key=p1/", 0, 227))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Input.readFully", "key=p2/", 0, 227))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.writeCache", "key=p1/", 0, 227))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.writeCache", "key=p2/", 0, 227))
                         .build());
         assertFileSystemAccesses(
                 "SELECT * FROM test_transaction_log_not_cached",
@@ -93,8 +93,8 @@ public class TestDeltaLakeAlluxioCacheMutableTransactionLog
                         .addCopies(new CacheFileSystemTraceUtils.CacheOperation("Input.readTail", "00000000000000000002.checkpoint.parquet"), 2)
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.newStream", "00000000000000000003.json"))
                         .add(new CacheFileSystemTraceUtils.CacheOperation("InputFile.newStream", "_last_checkpoint"))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p1/", 0, 220))
-                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p2/", 0, 220))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p1/", 0, 227))
+                        .add(new CacheFileSystemTraceUtils.CacheOperation("Alluxio.readCached", "key=p2/", 0, 227))
                         .build());
     }
 

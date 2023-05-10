@@ -60,7 +60,7 @@ public class TestDeltaLakeConfig
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
                 .setCollectExtendedStatisticsOnWrite(true)
-                .setCompressionCodec(HiveCompressionCodec.SNAPPY)
+                .setCompressionCodec(HiveCompressionCodec.ZSTD)
                 .setDeleteSchemaLocationsFallback(false)
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)

@@ -78,7 +78,7 @@ public class DeltaLakeConfig
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
-    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
+    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.ZSTD;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean storeTableMetadataEnabled;
     private int storeTableMetadataThreads = 5;
