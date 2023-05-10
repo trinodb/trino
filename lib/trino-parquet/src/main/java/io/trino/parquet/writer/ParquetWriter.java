@@ -385,9 +385,10 @@ public class ParquetWriter
 
     private void updateRowGroups(List<ColumnMetaData> columnMetaData)
     {
-        long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
+        long totalCompressedBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
+        long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_uncompressed_size).sum();
         ImmutableList<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
-        rowGroupBuilder.add(new RowGroup(columnChunks, totalBytes, rows));
+        rowGroupBuilder.add(new RowGroup(columnChunks, totalBytes, rows).setTotal_compressed_size(totalCompressedBytes));
     }
 
     private static org.apache.parquet.format.ColumnChunk toColumnChunk(ColumnMetaData metaData)
