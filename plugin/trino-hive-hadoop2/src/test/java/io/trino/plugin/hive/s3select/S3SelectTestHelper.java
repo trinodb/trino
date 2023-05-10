@@ -100,13 +100,13 @@ public class S3SelectTestHelper
     private ScheduledExecutorService heartbeatService;
 
     public S3SelectTestHelper(String host,
-                              int port,
-                              String databaseName,
-                              String awsAccessKey,
-                              String awsSecretKey,
-                              String writableBucket,
-                              String testDirectory,
-                              HiveConfig hiveConfig)
+            int port,
+            String databaseName,
+            String awsAccessKey,
+            String awsSecretKey,
+            String writableBucket,
+            String testDirectory,
+            HiveConfig hiveConfig)
     {
         checkArgument(!isNullOrEmpty(host), "Expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "Expected non empty databaseName");
@@ -195,12 +195,12 @@ public class S3SelectTestHelper
     }
 
     public S3SelectTestHelper(String host,
-                              int port,
-                              String databaseName,
-                              String awsAccessKey,
-                              String awsSecretKey,
-                              String writableBucket,
-                              String testDirectory)
+            int port,
+            String databaseName,
+            String awsAccessKey,
+            String awsSecretKey,
+            String writableBucket,
+            String testDirectory)
     {
         this(host, port, databaseName, awsAccessKey, awsSecretKey, writableBucket, testDirectory, new HiveConfig().setS3SelectPushdownEnabled(true));
     }
@@ -279,8 +279,8 @@ public class S3SelectTestHelper
     }
 
     static boolean isSplitCountInOpenInterval(int splitCount,
-                                       int lowerBound,
-                                       int upperBound)
+            int lowerBound,
+            int upperBound)
     {
         // Split number may vary, the minimum number of splits being obtained with
         // the first split of maxInitialSplitSize and the rest of maxSplitSize
