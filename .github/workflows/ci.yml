@@ -568,7 +568,6 @@ jobs:
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
             - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-oracle, profile: fte-tests }
             - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
