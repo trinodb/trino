@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.transactionlog.writer;
 
+import io.trino.filesystem.Location;
 import io.trino.spi.connector.ConnectorSession;
 
 public interface TransactionLogSynchronizer
@@ -23,7 +24,7 @@ public interface TransactionLogSynchronizer
      * @throws TransactionConflictException If file cannot be written because of conflict with other transaction
      * @throws RuntimeException If some other unexpected error occurs
      */
-    void write(ConnectorSession session, String clusterId, String newLogEntryPath, byte[] entryContents);
+    void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents);
 
     /**
      * Whether or not writes using this Synchronizer need to be enabled with the "delta.enable-non-concurrent-writes" config property.

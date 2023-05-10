@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
@@ -34,7 +35,7 @@ public class FileTestingTransactionLogSynchronizer
     }
 
     @Override
-    public void write(ConnectorSession session, String clusterId, String newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
         try {
             TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(session);

@@ -13,21 +13,13 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-
-import java.util.Optional;
-
-public class IrJsonNull
-        extends IrPathNode
+public enum IrJsonNull
+        implements IrPathNode
 {
-    @JsonCreator
-    public IrJsonNull()
-    {
-        super(Optional.empty());
-    }
+    JSON_NULL;
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrJsonNull(this, context);
     }

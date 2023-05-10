@@ -19,13 +19,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.util.AsyncQueue;
+import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
 import io.trino.plugin.hudi.partition.HudiPartitionInfoLoader;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
-import org.apache.hadoop.fs.FileStatus;
 
 import java.util.Collection;
 import java.util.List;
@@ -91,9 +91,9 @@ public class HudiBackgroundSplitLoader
     private void loadSplits(HudiPartitionInfo partition)
     {
         List<HivePartitionKey> partitionKeys = partition.getHivePartitionKeys();
-        List<FileStatus> partitionFiles = hudiDirectoryLister.listStatus(partition);
+        List<HudiFileStatus> partitionFiles = hudiDirectoryLister.listStatus(partition);
         partitionFiles.stream()
-                .flatMap(fileStatus -> hudiSplitFactory.createSplits(partitionKeys, fileStatus))
+                .flatMap(fileStatus -> hudiSplitFactory.createSplits(partitionKeys, fileStatus).stream())
                 .map(asyncQueue::offer)
                 .forEachOrdered(MoreFutures::getFutureValue);
     }

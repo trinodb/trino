@@ -56,6 +56,7 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_READER_VERSION
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -166,7 +167,7 @@ public class TestDeltaLakePageSink
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators()), new BlockTypeOperators()),
-                new HdfsFileSystemFactory(HDFS_ENVIRONMENT),
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
                 stats,
@@ -188,7 +189,8 @@ public class TestDeltaLakePageSink
                     OptionalInt.empty(),
                     column.getColumnName(),
                     getTrinoType(column.getType()),
-                    REGULAR));
+                    REGULAR,
+                    Optional.empty()));
         }
         return handles.build();
     }

@@ -2,7 +2,7 @@
 SQL statement syntax
 ********************
 
-This chapter describes the SQL syntax used in Trino.
+This section describes the SQL syntax used in Trino.
 
 A :doc:`reference to the supported SQL data types</language>` is available.
 
@@ -27,6 +27,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/create-view
     sql/deallocate-prepare
     sql/delete
+    sql/deny
     sql/describe
     sql/describe-input
     sql/describe-output

@@ -62,7 +62,7 @@ public class ForwardingInputFile
     @Override
     public String location()
     {
-        return inputFile.location();
+        return inputFile.location().toString();
     }
 
     @Override

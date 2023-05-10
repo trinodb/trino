@@ -153,6 +153,24 @@
     </violation>
 
     <violation>
+        <name>com/amazonaws/services/glue/model/Table.getParameters:()Ljava/util/Map;</name>
+        <version>1.1</version>
+        <comment>Table parameters map is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getTableParameters</comment>
+    </violation>
+
+    <violation>
+        <name>com/amazonaws/services/glue/model/Partition.getParameters:()Ljava/util/Map;</name>
+        <version>1.1</version>
+        <comment>Partition parameters map is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getPartitionParameters</comment>
+    </violation>
+
+    <violation>
+        <name>com/amazonaws/services/glue/model/SerDeInfo.getParameters:()Ljava/util/Map;</name>
+        <version>1.1</version>
+        <comment>SerDeInfo parameters map is nullable in Glue model, which is too easy to forget about. Prefer GlueToTrinoConverter.getSerDeInfoParameters</comment>
+    </violation>
+
+    <violation>
         <name>org/apache/hadoop/mapred/JobConf."&lt;init&gt;":()V</name>
         <version>1.1</version>
         <comment>This constructor reads default configuration resource files implicitly. Prefer new JobConf(Configuration)</comment>

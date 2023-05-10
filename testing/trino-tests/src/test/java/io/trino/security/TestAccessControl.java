@@ -523,6 +523,15 @@ public class TestAccessControl
     }
 
     @Test
+    public void testTableFunctionRequiredColumns()
+    {
+        assertAccessDenied(
+                "SELECT * FROM TABLE(exclude_columns(TABLE(nation), descriptor(regionkey, comment)))",
+                "Cannot select from columns \\[nationkey, name] in table .*.nation.*",
+                privilege("nation.nationkey", SELECT_COLUMN));
+    }
+
+    @Test
     public void testAnalyzeAccessControl()
     {
         assertAccessAllowed("ANALYZE nation");

@@ -67,7 +67,7 @@ parameter to secure the connection with TLS. By default the parameter is set to
 also set this parameter to ``REQUIRED`` which causes the connection to fail if
 TLS is not established.
 
-You can set the ``sslMode`` paremeter in the catalog configuration file by
+You can set the ``sslMode`` parameter in the catalog configuration file by
 appending it to the ``connection-url`` configuration property:
 
 .. code-block:: properties
@@ -318,6 +318,14 @@ the following statements:
 
 .. include:: sql-delete-limitation.fragment
 
+.. _mysql-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -337,8 +345,6 @@ running a query natively may be faster.
 
 .. include:: query-passthrough-warning.fragment
 
-.. include:: polymorphic-table-function-ordering.fragment
-
 For example, query the ``example`` catalog and group and concatenate all
 employee IDs by manager ID::
 
@@ -355,6 +361,8 @@ employee IDs by manager ID::
             manager_id'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

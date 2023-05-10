@@ -19,7 +19,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import io.airlift.slice.SizeOf;
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.Location;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -197,48 +197,48 @@ public class AcidInfo
         }
     }
 
-    public static Builder builder(Path partitionPath)
+    public static Builder builder(Location partitionPath)
     {
         return new Builder(partitionPath);
     }
 
     public static class Builder
     {
-        private final Path partitionLocation;
+        private final Location partitionLocation;
         private final List<String> deleteDeltaDirectories = new ArrayList<>();
         private final ListMultimap<Integer, OriginalFileInfo> bucketIdToOriginalFileInfoMap = ArrayListMultimap.create();
         private boolean orcAcidVersionValidated;
 
-        private Builder(Path partitionPath)
+        private Builder(Location partitionPath)
         {
             partitionLocation = requireNonNull(partitionPath, "partitionPath is null");
         }
 
-        public Builder addDeleteDelta(Path deleteDeltaPath)
+        public Builder addDeleteDelta(Location deleteDeltaPath)
         {
             requireNonNull(deleteDeltaPath, "deleteDeltaPath is null");
-            Path partitionPathFromDeleteDelta = deleteDeltaPath.getParent();
+            Location partitionPathFromDeleteDelta = deleteDeltaPath.parentDirectory();
             checkArgument(
                     partitionLocation.equals(partitionPathFromDeleteDelta),
                     "Partition location in DeleteDelta '%s' does not match stored location '%s'",
-                    deleteDeltaPath.getParent().toString(),
+                    partitionPathFromDeleteDelta,
                     partitionLocation);
 
-            deleteDeltaDirectories.add(deleteDeltaPath.getName());
+            deleteDeltaDirectories.add(deleteDeltaPath.fileName());
             return this;
         }
 
-        public Builder addOriginalFile(Path originalFilePath, long originalFileLength, int bucketId)
+        public Builder addOriginalFile(Location originalFilePath, long originalFileSize, int bucketId)
         {
             requireNonNull(originalFilePath, "originalFilePath is null");
-            Path partitionPathFromOriginalPath = originalFilePath.getParent();
+            Location partitionPathFromOriginalPath = originalFilePath.parentDirectory();
             // originalFilePath has scheme in the prefix (i.e. scheme://<path>), extract path from uri and compare.
             checkArgument(
-                    partitionLocation.toUri().getPath().equals(partitionPathFromOriginalPath.toUri().getPath()),
+                    partitionLocation.equals(partitionPathFromOriginalPath),
                     "Partition location in OriginalFile '%s' does not match stored location '%s'",
-                    originalFilePath.getParent().toString(),
+                    partitionPathFromOriginalPath,
                     partitionLocation);
-            bucketIdToOriginalFileInfoMap.put(bucketId, new OriginalFileInfo(originalFilePath.getName(), originalFileLength));
+            bucketIdToOriginalFileInfoMap.put(bucketId, new OriginalFileInfo(originalFilePath.fileName(), originalFileSize));
             return this;
         }
 

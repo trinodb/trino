@@ -146,7 +146,7 @@ public class CheckpointEntryIterator
             boolean checkpointRowStatisticsWritingEnabled,
             int domainCompactionThreshold)
     {
-        this.checkpointPath = checkpoint.location();
+        this.checkpointPath = checkpoint.location().toString();
         this.session = requireNonNull(session, "session is null");
         this.stringList = (ArrayType) typeManager.getType(TypeSignature.arrayType(VarcharType.VARCHAR.getTypeSignature()));
         this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VarcharType.VARCHAR.getTypeSignature(), VarcharType.VARCHAR.getTypeSignature()));
@@ -222,7 +222,7 @@ public class CheckpointEntryIterator
             default:
                 throw new IllegalArgumentException("Unsupported Delta Lake checkpoint entry type: " + entryType);
         }
-        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR);
+        return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR, Optional.empty());
     }
 
     private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, Block block, int pagePosition)

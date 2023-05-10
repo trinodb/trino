@@ -152,9 +152,11 @@ Property name                                                 Description
 
 ``cassandra.tls.enabled``                                     Whether TLS security is enabled, defaults to ``false``.
 
-``cassandra.tls.keystore-path``                               Path to the PEM or JKS key store.
+``cassandra.tls.keystore-path``                               Path to the :doc:`PEM </security/inspect-pem>` or
+                                                              :doc:`JKS </security/inspect-jks>` key store file.
 
-``cassandra.tls.truststore-path``                             Path to the PEM or JKS trust store.
+``cassandra.tls.truststore-path``                             Path to the :doc:`PEM </security/inspect-pem>` or
+                                                              :doc:`JKS </security/inspect-jks>` trust store file.
 
 ``cassandra.tls.keystore-password``                           Password for the key store.
 
@@ -412,7 +414,7 @@ processed by Cassandra. This can be useful for accessing native features which a
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-table-function-ordering.fragment
 
 As a simple example, to select an entire table::
 

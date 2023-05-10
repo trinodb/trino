@@ -16,16 +16,13 @@ package io.trino.plugin.iceberg;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -43,7 +40,6 @@ public class IcebergTableHandle
     private final TableType tableType;
     private final Optional<Long> snapshotId;
     private final String tableSchemaJson;
-    private final List<TrinoSortField> sortOrder;
     // Empty means the partitioning spec is not known (can be the case for certain time travel queries).
     private final Optional<String> partitionSpecJson;
     private final int formatVersion;
@@ -70,7 +66,6 @@ public class IcebergTableHandle
             @JsonProperty("tableType") TableType tableType,
             @JsonProperty("snapshotId") Optional<Long> snapshotId,
             @JsonProperty("tableSchemaJson") String tableSchemaJson,
-            @JsonProperty("sortOrder") List<TrinoSortField> sortOrder,
             @JsonProperty("partitionSpecJson") Optional<String> partitionSpecJson,
             @JsonProperty("formatVersion") int formatVersion,
             @JsonProperty("unenforcedPredicate") TupleDomain<IcebergColumnHandle> unenforcedPredicate,
@@ -86,7 +81,6 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
@@ -105,7 +99,6 @@ public class IcebergTableHandle
             TableType tableType,
             Optional<Long> snapshotId,
             String tableSchemaJson,
-            List<TrinoSortField> sortOrder,
             Optional<String> partitionSpecJson,
             int formatVersion,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
@@ -122,7 +115,6 @@ public class IcebergTableHandle
         this.tableType = requireNonNull(tableType, "tableType is null");
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "schemaJson is null");
-        this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.formatVersion = formatVersion;
         this.unenforcedPredicate = requireNonNull(unenforcedPredicate, "unenforcedPredicate is null");
@@ -164,12 +156,6 @@ public class IcebergTableHandle
     public String getTableSchemaJson()
     {
         return tableSchemaJson;
-    }
-
-    @JsonProperty
-    public List<TrinoSortField> getSortOrder()
-    {
-        return sortOrder;
     }
 
     @JsonProperty
@@ -250,28 +236,6 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                sortOrder,
-                partitionSpecJson,
-                formatVersion,
-                unenforcedPredicate,
-                enforcedPredicate,
-                projectedColumns,
-                nameMappingJson,
-                tableLocation,
-                storageProperties,
-                recordScannedFiles,
-                maxScannedFileSize);
-    }
-
-    public IcebergTableHandle withRetryMode(RetryMode retryMode)
-    {
-        return new IcebergTableHandle(
-                schemaName,
-                tableName,
-                tableType,
-                snapshotId,
-                tableSchemaJson,
-                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
@@ -292,7 +256,6 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,
@@ -322,7 +285,6 @@ public class IcebergTableHandle
                 tableType == that.tableType &&
                 Objects.equals(snapshotId, that.snapshotId) &&
                 Objects.equals(tableSchemaJson, that.tableSchemaJson) &&
-                Objects.equals(sortOrder, that.sortOrder) &&
                 Objects.equals(partitionSpecJson, that.partitionSpecJson) &&
                 formatVersion == that.formatVersion &&
                 Objects.equals(unenforcedPredicate, that.unenforcedPredicate) &&
@@ -343,7 +305,6 @@ public class IcebergTableHandle
                 tableType,
                 snapshotId,
                 tableSchemaJson,
-                sortOrder,
                 partitionSpecJson,
                 formatVersion,
                 unenforcedPredicate,

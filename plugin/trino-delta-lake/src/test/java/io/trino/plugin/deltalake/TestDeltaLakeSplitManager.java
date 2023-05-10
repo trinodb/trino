@@ -17,16 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.DataSize;
-import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.SplitWeight;
@@ -35,9 +33,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
@@ -48,6 +44,8 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeSplitManager
@@ -67,7 +65,8 @@ public class TestDeltaLakeSplitManager
     private static final DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
             "schema",
             "table",
-            "location",
+            true,
+            TABLE_PATH,
             metadataEntry,
             TupleDomain.all(),
             TupleDomain.all(),
@@ -158,11 +157,22 @@ public class TestDeltaLakeSplitManager
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
 
-        MockDeltaLakeMetastore metastore = new MockDeltaLakeMetastore();
-        metastore.setValidDataFiles(addFileEntries);
         return new DeltaLakeSplitManager(
                 typeManager,
-                (session, transaction) -> metastore,
+                new TransactionLogAccess(
+                        typeManager,
+                        new CheckpointSchemaManager(typeManager),
+                        deltaLakeConfig,
+                        new FileFormatDataSourceStats(),
+                        new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS),
+                        new ParquetReaderConfig())
+                {
+                    @Override
+                    public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, ConnectorSession session)
+                    {
+                        return addFileEntries;
+                    }
+                },
                 MoreExecutors.newDirectExecutorService(),
                 deltaLakeConfig);
     }
@@ -204,112 +214,5 @@ public class TestDeltaLakeSplitManager
         return TestingConnectorSession.builder()
                 .setPropertyMetadata(sessionProperties.getSessionProperties())
                 .build();
-    }
-
-    private static class MockDeltaLakeMetastore
-            implements DeltaLakeMetastore
-    {
-        private List<AddFileEntry> validDataFiles;
-
-        public void setValidDataFiles(List<AddFileEntry> validDataFiles)
-        {
-            this.validDataFiles = ImmutableList.copyOf(validDataFiles);
-        }
-
-        @Override
-        public List<String> getAllDatabases()
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public Optional<Database> getDatabase(String databaseName)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public List<String> getAllTables(String databaseName)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public Optional<Table> getTable(String databaseName, String tableName)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void createDatabase(Database database)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void dropDatabase(String databaseName, boolean deleteData)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void dropTable(ConnectorSession session, String databaseName, String tableName, boolean deleteData)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public MetadataEntry getMetadata(TableSnapshot tableSnapshot, ConnectorSession session)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot tableSnapshot)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public String getTableLocation(SchemaTableName table)
-        {
-            return TABLE_PATH;
-        }
-
-        @Override
-        public TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public List<AddFileEntry> getValidDataFiles(SchemaTableName table, ConnectorSession session)
-        {
-            return validDataFiles;
-        }
-
-        @Override
-        public TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
-
-        @Override
-        public HiveMetastore getHiveMetastore()
-        {
-            throw new UnsupportedOperationException("Unimplemented");
-        }
     }
 }

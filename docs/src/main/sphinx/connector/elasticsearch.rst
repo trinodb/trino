@@ -105,11 +105,11 @@ The allowed configuration values are:
     * - ``elasticsearch.tls.enabled``
       - Enables TLS security.
     * - ``elasticsearch.tls.keystore-path``
-      - The path to the PEM or JKS key store. This file must be readable by the
-        operating system user running Trino.
+      - The path to the :doc:`PEM </security/inspect-pem>` or
+        :doc:`JKS </security/inspect-jks>` key store.
     * - ``elasticsearch.tls.truststore-path``
-      - The path to PEM or JKS trust store. This file must be readable by the
-        operating system user running Trino.
+      - The path to :doc:`PEM </security/inspect-pem>` or
+        :doc:`JKS </security/inspect-jks>` trust store.
     * - ``elasticsearch.tls.keystore-password``
       - The key password for the key store specified by
         ``elasticsearch.tls.keystore-path``.
@@ -442,8 +442,6 @@ natively may be faster.
 
 .. include:: query-passthrough-warning.fragment
 
-.. include:: polymorphic-table-function-ordering.fragment
-
 The ``raw_query`` function requires three parameters:
 
 * ``schema``: The schema in the catalog that the query is to be executed on.
@@ -473,3 +471,5 @@ is ``ALGERIA``::
           }'
         )
       );
+
+.. include:: query-table-function-ordering.fragment

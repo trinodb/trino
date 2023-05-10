@@ -146,6 +146,23 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     # Disable Preventive GC for performance reasons (JDK-8293861)
     -XX:-G1UsePreventiveGC
 
+You must adjust the value for the memory used by Trino, specified with ``-Xmx``
+to the available memory on your nodes. Typically, values representing 70 to 85
+percent of the total available memory is recommended. For example, if all
+workers and the coordinator use nodes with 64GB of RAM, you can use ``-Xmx54G``.
+Trino uses most of the allocated memory for processing, with a small percentage
+used by JVM-internal processes such as garbage collection.
+
+The rest of the available node memory must be sufficient for the operating
+system and other running services, as well as off-heap memory used for native
+code initiated the JVM process.
+
+On larger nodes, the percentage value can be lower. Allocation of all memory  to
+the JVM or using swap space is not supported, and disabling swap space on the
+operating system level is recommended.
+
+Large memory allocation beyond 32GB is recommended for production clusters.
+
 Because an ``OutOfMemoryError`` typically leaves the JVM in an
 inconsistent state, we write a heap dump, for debugging, and forcibly
 terminate the process when this occurs.

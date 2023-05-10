@@ -18,11 +18,11 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.memory.MemoryInputFile;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
@@ -35,10 +35,10 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveTimestampPrecision;
-import io.trino.plugin.hive.MonitoredTrinoInputFile;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.fs.MonitoredInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -47,7 +47,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -79,15 +78,15 @@ public class RcFilePageSourceFactory
     private static final DataSize BUFFER_SIZE = DataSize.of(8, Unit.MEGABYTE);
 
     private final TypeManager typeManager;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
     private final DateTimeZone timeZone;
 
     @Inject
-    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
+    public RcFilePageSourceFactory(TypeManager typeManager, TrinoFileSystemFactory fileSystemFactory, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.timeZone = hiveConfig.getRcfileDateTimeZone();
     }
@@ -106,7 +105,7 @@ public class RcFilePageSourceFactory
     public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location path,
             long start,
             long length,
             long estimatedFileSize,
@@ -141,8 +140,8 @@ public class RcFilePageSourceFactory
                     .collect(toImmutableList());
         }
 
-        TrinoFileSystem trinoFileSystem = new HdfsFileSystemFactory(hdfsEnvironment).create(session.getIdentity());
-        TrinoInputFile inputFile = new MonitoredTrinoInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
+        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(path));
         try {
             length = min(inputFile.length() - start, length);
             if (!inputFile.exists()) {
@@ -151,7 +150,7 @@ public class RcFilePageSourceFactory
             if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
                 try (InputStream inputStream = inputFile.newStream()) {
                     byte[] data = inputStream.readAllBytes();
-                    inputFile = new MemoryInputFile(path.toString(), Slices.wrappedBuffer(data));
+                    inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
                 }
             }
         }
@@ -196,7 +195,7 @@ public class RcFilePageSourceFactory
         }
     }
 
-    private static String splitError(Throwable t, Path path, long start, long length)
+    private static String splitError(Throwable t, Location path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }

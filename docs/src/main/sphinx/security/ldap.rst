@@ -74,14 +74,14 @@ Property                                                      Description
 Password authenticator configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Password authentication needs to be configured to use LDAP. Create an
+Password authentication must be configured to use LDAP. Create an
 ``etc/password-authenticator.properties`` file on the coordinator. Example:
 
 .. code-block:: text
 
     password-authenticator.name=ldap
     ldap.url=ldaps://ldap-server:636
-    ldap.ssl.truststore.path=/path/to/ldap_server.crt
+    ldap.ssl.truststore.path=/path/to/ldap_server.pem
     ldap.user-bind-pattern=<Refer below for usage>
 
 ================================== ======================================================
@@ -93,10 +93,12 @@ Property                           Description
                                    ``ldap.allow-insecure=true``.
 ``ldap.allow-insecure``            Allow using an LDAP connection that is not secured with
                                    TLS.
-``ldap.ssl.keystore.path``         Path to the PEM or JKS key store.
+``ldap.ssl.keystore.path``         The path to the :doc:`PEM </security/inspect-pem>`
+                                   or :doc:`JKS </security/inspect-jks>` keystore file.
 ``ldap.ssl.keystore.password``     Password for the key store.
-``ldap.ssl.truststore.path``       Path to the PEM or JKS trust store.
-``ldap.ssl.truststore.password``   Password for the trust store.
+``ldap.ssl.truststore.path``       The path to the :doc:`PEM </security/inspect-pem>`
+                                   or :doc:`JKS </security/inspect-jks>` truststore file.
+``ldap.ssl.truststore.password``   Password for the truststore.
 ``ldap.user-bind-pattern``         This property can be used to specify the LDAP user
                                    bind string for password authentication. This property
                                    must contain the pattern ``${USER}``, which is

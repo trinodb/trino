@@ -15,6 +15,7 @@ package io.trino.filesystem.tracing;
 
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 
@@ -41,7 +42,7 @@ final class TracingOutputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.create")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, location())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
         return withTracing(span, () -> delegate.create());
     }
@@ -51,7 +52,7 @@ final class TracingOutputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.createOrOverwrite")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, location())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
         return withTracing(span, () -> delegate.createOrOverwrite());
     }
@@ -61,7 +62,7 @@ final class TracingOutputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.create")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, location())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
         return withTracing(span, () -> delegate.create(memoryContext));
     }
@@ -71,14 +72,20 @@ final class TracingOutputFile
             throws IOException
     {
         Span span = tracer.spanBuilder("OutputFile.createOrOverwrite")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, location())
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
         return withTracing(span, () -> delegate.createOrOverwrite(memoryContext));
     }
 
     @Override
-    public String location()
+    public Location location()
     {
         return delegate.location();
+    }
+
+    @Override
+    public String toString()
+    {
+        return location().toString();
     }
 }

@@ -65,7 +65,7 @@ public class TextLineReaderFactory
     {
         InputStream inputStream = inputFile.newStream();
         try {
-            Optional<Codec> codec = CompressionKind.forFile(inputFile.location())
+            Optional<Codec> codec = CompressionKind.forFile(inputFile.location().fileName())
                     .map(CompressionKind::createCodec);
             if (codec.isPresent()) {
                 checkArgument(start == 0, "Compressed files are not splittable");

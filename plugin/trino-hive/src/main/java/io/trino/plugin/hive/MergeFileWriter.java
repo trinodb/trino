@@ -27,7 +27,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MergePage;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -54,7 +53,7 @@ public class MergeFileWriter
             int statementId,
             OptionalInt bucketNumber,
             RowIdSortingFileWriterMaker sortingFileWriterMaker,
-            Path bucketPath,
+            String bucketPath,
             OrcFileWriterFactory orcFileWriterFactory,
             List<HiveColumnHandle> inputColumns,
             Configuration configuration,

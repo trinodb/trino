@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.transactionlog.writer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
@@ -97,7 +98,7 @@ public class TransactionLogWriter
 
         String transactionLogLocation = getTransactionLogDir(tableLocation);
         CommitInfoEntry commitInfo = requireNonNull(commitInfoEntry.get().getCommitInfo(), "commitInfoEntry.get().getCommitInfo() is null");
-        String logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.getVersion());
+        Location logEntry = getTransactionLogJsonEntryPath(transactionLogLocation, commitInfo.getVersion());
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         writeEntry(bos, commitInfoEntry.get());

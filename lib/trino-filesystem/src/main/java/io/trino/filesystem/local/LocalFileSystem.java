@@ -14,7 +14,7 @@
 package io.trino.filesystem.local;
 
 import io.trino.filesystem.FileIterator;
-import io.trino.filesystem.ParsedLocation;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
@@ -25,9 +25,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.filesystem.ParsedLocation.parseLocation;
 import static io.trino.filesystem.local.LocalUtils.handleException;
 
 /**
@@ -45,25 +45,25 @@ public class LocalFileSystem
     }
 
     @Override
-    public TrinoInputFile newInputFile(String location)
+    public TrinoInputFile newInputFile(Location location)
     {
         return new LocalInputFile(location, toFilePath(location));
     }
 
     @Override
-    public TrinoInputFile newInputFile(String location, long length)
+    public TrinoInputFile newInputFile(Location location, long length)
     {
         return new LocalInputFile(location, toFilePath(location), length);
     }
 
     @Override
-    public TrinoOutputFile newOutputFile(String location)
+    public TrinoOutputFile newOutputFile(Location location)
     {
         return new LocalOutputFile(location, toFilePath(location));
     }
 
     @Override
-    public void deleteFile(String location)
+    public void deleteFile(Location location)
             throws IOException
     {
         Path filePath = toFilePath(location);
@@ -76,7 +76,7 @@ public class LocalFileSystem
     }
 
     @Override
-    public void deleteDirectory(String location)
+    public void deleteDirectory(Location location)
             throws IOException
     {
         Path directoryPath = toDirectoryPath(location);
@@ -121,7 +121,7 @@ public class LocalFileSystem
     }
 
     @Override
-    public void renameFile(String source, String target)
+    public void renameFile(Location source, Location target)
             throws IOException
     {
         Path sourcePath = toFilePath(source);
@@ -145,44 +145,41 @@ public class LocalFileSystem
     }
 
     @Override
-    public FileIterator listFiles(String location)
+    public FileIterator listFiles(Location location)
             throws IOException
     {
         return new LocalFileIterator(location, rootPath, toDirectoryPath(location));
     }
 
-    private Path toFilePath(String fileLocation)
+    private Path toFilePath(Location location)
     {
-        ParsedLocation parsedLocation = parseLocalLocation(fileLocation);
-        parsedLocation.verifyValidFileLocation();
+        validateLocalLocation(location);
+        location.verifyValidFileLocation();
 
-        Path localPath = toPath(fileLocation, parsedLocation);
+        Path localPath = toPath(location);
 
         // local file path can not be empty as this would create a file for the root entry
-        checkArgument(!localPath.equals(rootPath), "Local file location must contain a path: %s", fileLocation);
+        checkArgument(!localPath.equals(rootPath), "Local file location must contain a path: %s", localPath);
         return localPath;
     }
 
-    private Path toDirectoryPath(String directoryLocation)
+    private Path toDirectoryPath(Location location)
     {
-        ParsedLocation parsedLocation = parseLocalLocation(directoryLocation);
-        Path localPath = toPath(directoryLocation, parsedLocation);
-        return localPath;
+        validateLocalLocation(location);
+        return toPath(location);
     }
 
-    private static ParsedLocation parseLocalLocation(String location)
+    private static void validateLocalLocation(Location location)
     {
-        ParsedLocation parsedLocation = parseLocation(location);
-        checkArgument("local".equals(parsedLocation.scheme()), "Only 'local' scheme is supported: %s", location);
-        checkArgument(parsedLocation.userInfo().isEmpty(), "Local location cannot contain user info: %s", location);
-        checkArgument(parsedLocation.host().isEmpty(), "Local location cannot contain a host: %s", location);
-        return parsedLocation;
+        checkArgument(location.scheme().equals(Optional.of("local")), "Only 'local' scheme is supported: %s", location);
+        checkArgument(location.userInfo().isEmpty(), "Local location cannot contain user info: %s", location);
+        checkArgument(location.host().isEmpty(), "Local location cannot contain a host: %s", location);
     }
 
-    private Path toPath(String location, ParsedLocation parsedLocation)
+    private Path toPath(Location location)
     {
         // ensure path isn't something like '../../data'
-        Path localPath = rootPath.resolve(parsedLocation.path()).normalize();
+        Path localPath = rootPath.resolve(location.path()).normalize();
         checkArgument(localPath.startsWith(rootPath), "Location references data outside of the root: %s", location);
         return localPath;
     }

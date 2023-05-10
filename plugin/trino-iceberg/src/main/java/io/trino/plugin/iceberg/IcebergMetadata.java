@@ -29,6 +29,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
@@ -401,9 +402,6 @@ public class IcebergMetadata
                 DATA,
                 tableSnapshotId,
                 SchemaParser.toJson(tableSchema),
-                table.sortOrder().fields().stream()
-                        .map(TrinoSortField::fromIceberg)
-                        .collect(toImmutableList()),
                 partitionSpec.map(PartitionSpecParser::toJson),
                 table.operations().current().formatVersion(),
                 TupleDomain.all(),
@@ -572,9 +570,20 @@ public class IcebergMetadata
     }
 
     @Override
+    public SchemaTableName getTableName(ConnectorSession session, ConnectorTableHandle table)
+    {
+        if (table instanceof CorruptedIcebergTableHandle corruptedTableHandle) {
+            return corruptedTableHandle.schemaTableName();
+        }
+        return ((IcebergTableHandle) table).getSchemaTableName();
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         IcebergTableHandle tableHandle = checkValidTableHandle(table);
+        // This method does not calculate column metadata for the projected columns
+        checkArgument(tableHandle.getProjectedColumns().isEmpty(), "Unexpected projected columns");
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
         List<ColumnMetadata> columns = getColumnMetadatas(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columns, getIcebergTableProperties(icebergTable), getTableComment(icebergTable));
@@ -722,7 +731,7 @@ public class IcebergMetadata
             throw new SchemaNotFoundException(schemaName);
         }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session);
-        String location = transaction.table().location();
+        Location location = Location.of(transaction.table().location());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
             if (fileSystem.listFiles(location).hasNext()) {
@@ -934,11 +943,11 @@ public class IcebergMetadata
         Set<String> locations = getOutputFilesLocations(writtenFiles);
         Set<String> fileNames = getOutputFilesFileNames(writtenFiles);
         for (String location : locations) {
-            cleanExtraOutputFiles(fileSystem, session.getQueryId(), location, fileNames);
+            cleanExtraOutputFiles(fileSystem, session.getQueryId(), Location.of(location), fileNames);
         }
     }
 
-    private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, String location, Set<String> fileNamesToKeep)
+    private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Location location, Set<String> fileNamesToKeep)
     {
         checkArgument(!queryId.contains("-"), "query ID should not contain hyphens: %s", queryId);
 
@@ -949,7 +958,7 @@ public class IcebergMetadata
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
                 FileEntry entry = iterator.next();
-                String name = fileName(entry.location());
+                String name = entry.location().fileName();
                 if (name.startsWith(queryId + "-") && !fileNamesToKeep.contains(name)) {
                     filesToDelete.add(name);
                 }
@@ -961,14 +970,11 @@ public class IcebergMetadata
 
             log.info("Found %s files to delete and %s to retain in location %s for query %s", filesToDelete.size(), fileNamesToKeep.size(), location, queryId);
             ImmutableList.Builder<String> deletedFilesBuilder = ImmutableList.builder();
-            Iterator<String> filesToDeleteIterator = filesToDelete.iterator();
-            List<String> deleteBatch = new ArrayList<>();
-            while (filesToDeleteIterator.hasNext()) {
-                String fileName = filesToDeleteIterator.next();
+            List<Location> deleteBatch = new ArrayList<>();
+            for (String fileName : filesToDelete) {
                 deletedFilesBuilder.add(fileName);
-                filesToDeleteIterator.remove();
 
-                deleteBatch.add(location + "/" + fileName);
+                deleteBatch.add(location.appendPath(fileName));
                 if (deleteBatch.size() >= DELETE_BATCH_SIZE) {
                     log.debug("Deleting failed attempt files %s for query %s", deleteBatch, queryId);
                     fileSystem.deleteFiles(deleteBatch);
@@ -1037,14 +1043,18 @@ public class IcebergMetadata
         }
 
         return switch (procedureId) {
-            case OPTIMIZE -> getTableHandleForOptimize(tableHandle, executeProperties, retryMode);
+            case OPTIMIZE -> getTableHandleForOptimize(tableHandle, icebergTable, executeProperties, retryMode);
             case DROP_EXTENDED_STATS -> getTableHandleForDropExtendedStats(session, tableHandle);
             case EXPIRE_SNAPSHOTS -> getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
             case REMOVE_ORPHAN_FILES -> getTableHandleForRemoveOrphanFiles(session, tableHandle, executeProperties);
         };
     }
 
-    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(IcebergTableHandle tableHandle, Map<String, Object> executeProperties, RetryMode retryMode)
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForOptimize(
+            IcebergTableHandle tableHandle,
+            Table icebergTable,
+            Map<String, Object> executeProperties,
+            RetryMode retryMode)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
 
@@ -1056,7 +1066,9 @@ public class IcebergMetadata
                         tableHandle.getTableSchemaJson(),
                         tableHandle.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")),
                         getColumns(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager),
-                        tableHandle.getSortOrder(),
+                        icebergTable.sortOrder().fields().stream()
+                                .map(TrinoSortField::fromIceberg)
+                                .collect(toImmutableList()),
                         getFileFormat(tableHandle.getStorageProperties()),
                         tableHandle.getStorageProperties(),
                         maxScannedFileSize,
@@ -1310,10 +1322,10 @@ public class IcebergMetadata
 
         long expireTimestampMillis = session.getStart().toEpochMilli() - retention.toMillis();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        List<String> pathsToDelete = new ArrayList<>();
+        List<Location> pathsToDelete = new ArrayList<>();
         // deleteFunction is not accessed from multiple threads unless .executeDeleteWith() is used
         Consumer<String> deleteFunction = path -> {
-            pathsToDelete.add(path);
+            pathsToDelete.add(Location.of(path));
             if (pathsToDelete.size() == DELETE_BATCH_SIZE) {
                 try {
                     fileSystem.deleteFiles(pathsToDelete);
@@ -1450,12 +1462,12 @@ public class IcebergMetadata
     private void scanAndDeleteInvalidFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Set<String> validFiles, String subfolder)
     {
         try {
-            List<String> filesToDelete = new ArrayList<>();
+            List<Location> filesToDelete = new ArrayList<>();
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            FileIterator allFiles = fileSystem.listFiles(table.location() + "/" + subfolder);
+            FileIterator allFiles = fileSystem.listFiles(Location.of(table.location()).appendPath(subfolder));
             while (allFiles.hasNext()) {
                 FileEntry entry = allFiles.next();
-                if (entry.lastModified().isBefore(expiration) && !validFiles.contains(fileName(entry.location()))) {
+                if (entry.lastModified().isBefore(expiration) && !validFiles.contains(entry.location().fileName())) {
                     filesToDelete.add(entry.location());
                     if (filesToDelete.size() >= DELETE_BATCH_SIZE) {
                         log.debug("Deleting files while removing orphan files for table %s [%s]", schemaTableName, filesToDelete);
@@ -1996,10 +2008,8 @@ public class IcebergMetadata
 
         beginTransaction(icebergTable);
 
-        IcebergTableHandle newTableHandle = table.withRetryMode(retryMode);
         IcebergWritableTableHandle insertHandle = newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
-
-        return new IcebergMergeTableHandle(newTableHandle, insertHandle);
+        return new IcebergMergeTableHandle(table, insertHandle);
     }
 
     @Override
@@ -2147,6 +2157,7 @@ public class IcebergMetadata
                 fileSystem.deleteFiles(fullyDeletedFiles.values().stream()
                         .flatMap(Collection::stream)
                         .map(CommitTaskData::getPath)
+                        .map(Location::of)
                         .collect(toImmutableSet()));
             }
             catch (IOException e) {
@@ -2328,7 +2339,6 @@ public class IcebergMetadata
                         table.getTableType(),
                         table.getSnapshotId(),
                         table.getTableSchemaJson(),
-                        table.getSortOrder(),
                         table.getPartitionSpecJson(),
                         table.getFormatVersion(),
                         newUnenforcedConstraint,
@@ -2475,7 +2485,6 @@ public class IcebergMetadata
                         originalHandle.getTableType(),
                         originalHandle.getSnapshotId(),
                         originalHandle.getTableSchemaJson(),
-                        originalHandle.getSortOrder(),
                         originalHandle.getPartitionSpecJson(),
                         originalHandle.getFormatVersion(),
                         originalHandle.getUnenforcedPredicate(),

@@ -15,36 +15,32 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hudi.model.HoodieFileFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hudi.common.fs.FSUtils;
-import org.apache.hudi.common.model.HoodieBaseFile;
-import org.apache.hudi.common.model.HoodieFileFormat;
+import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
-import org.apache.hudi.hadoop.HoodieParquetInputFormat;
-import org.apache.hudi.hadoop.utils.HoodieInputFormatUtils;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
 import static java.util.stream.Collectors.toList;
 
@@ -52,14 +48,9 @@ public final class HudiUtil
 {
     private HudiUtil() {}
 
-    public static boolean isHudiParquetInputFormat(InputFormat<?, ?> inputFormat)
-    {
-        return inputFormat instanceof HoodieParquetInputFormat;
-    }
-
     public static HoodieFileFormat getHudiFileFormat(String path)
     {
-        final String extension = FSUtils.getFileExtension(path);
+        String extension = getFileExtension(path);
         if (extension.equals(HoodieFileFormat.PARQUET.getFileExtension())) {
             return HoodieFileFormat.PARQUET;
         }
@@ -75,17 +66,21 @@ public final class HudiUtil
         throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, "Hoodie InputFormat not implemented for base file of type " + extension);
     }
 
+    private static String getFileExtension(String fullName)
+    {
+        String fileName = Location.of(fullName).fileName();
+        int dotIndex = fileName.lastIndexOf('.');
+        return dotIndex == -1 ? "" : fileName.substring(dotIndex);
+    }
+
     public static boolean partitionMatchesPredicates(
             SchemaTableName tableName,
             String hivePartitionName,
             List<HiveColumnHandle> partitionColumnHandles,
             TupleDomain<HiveColumnHandle> constraintSummary)
     {
-        List<Type> partitionColumnTypes = partitionColumnHandles.stream()
-                .map(HiveColumnHandle::getType)
-                .collect(toList());
         HivePartition partition = HivePartitionManager.parsePartition(
-                tableName, hivePartitionName, partitionColumnHandles, partitionColumnTypes);
+                tableName, hivePartitionName, partitionColumnHandles);
 
         return partitionMatches(partitionColumnHandles, constraintSummary, partition);
     }
@@ -154,21 +149,11 @@ public final class HudiUtil
         return partitionKeys.build();
     }
 
-    public static HoodieTableMetaClient buildTableMetaClient(Configuration configuration, String basePath)
+    public static HoodieTableMetaClient buildTableMetaClient(HdfsEnvironment hdfsEnvironment, ConnectorSession session, String basePath)
     {
-        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(configuration).setBasePath(basePath).build();
+        HoodieTableMetaClient client = HoodieTableMetaClient.builder().setConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath))).setBasePath(basePath).build();
         // Do not load the bootstrap index, will not read bootstrap base data or a mapping index defined
         client.getTableConfig().setValue("hoodie.bootstrap.index.enable", "false");
         return client;
-    }
-
-    public static FileStatus getFileStatus(HoodieBaseFile baseFile)
-    {
-        try {
-            return HoodieInputFormatUtils.getFileStatus(baseFile);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error getting file status of " + baseFile.getPath(), e);
-        }
     }
 }

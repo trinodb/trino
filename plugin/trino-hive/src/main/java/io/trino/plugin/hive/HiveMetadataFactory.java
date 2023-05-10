@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
@@ -76,7 +77,7 @@ public class HiveMetadataFactory
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
     private final ScheduledExecutorService heartbeatService;
     private final DirectoryLister directoryLister;
-    private final long perTransactionFileStatusCacheMaximumSize;
+    private final DataSize perTransactionFileStatusCacheMaximumDataSize;
     private final PartitionProjectionService partitionProjectionService;
     private final boolean allowTableRename;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
@@ -137,7 +138,7 @@ public class HiveMetadataFactory
                 hiveMaterializedViewMetadataFactory,
                 accessControlMetadataFactory,
                 directoryLister,
-                hiveConfig.getPerTransactionFileStatusCacheMaximumSize(),
+                hiveConfig.getPerTransactionFileStatusCacheMaxRetainedSize(),
                 partitionProjectionService,
                 allowTableRename,
                 hiveConfig.getTimestampPrecision());
@@ -175,7 +176,7 @@ public class HiveMetadataFactory
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
-            long perTransactionFileStatusCacheMaximumSize,
+            DataSize perTransactionFileStatusCacheMaximumDataSize,
             PartitionProjectionService partitionProjectionService,
             boolean allowTableRename,
             HiveTimestampPrecision hiveViewsTimestampPrecision)
@@ -218,7 +219,7 @@ public class HiveMetadataFactory
         this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
-        this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
+        this.perTransactionFileStatusCacheMaximumDataSize = requireNonNull(perTransactionFileStatusCacheMaximumDataSize, "perTransactionFileStatusCacheMaximumDataSize is null");
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
         this.allowTableRename = allowTableRename;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
@@ -231,8 +232,8 @@ public class HiveMetadataFactory
                 memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize)); // per-transaction cache
 
         DirectoryLister directoryLister;
-        if (perTransactionFileStatusCacheMaximumSize > 0) {
-            directoryLister = new TransactionScopeCachingDirectoryLister(this.directoryLister, perTransactionFileStatusCacheMaximumSize);
+        if (perTransactionFileStatusCacheMaximumDataSize.toBytes() > 0) {
+            directoryLister = new TransactionScopeCachingDirectoryLister(this.directoryLister, perTransactionFileStatusCacheMaximumDataSize);
         }
         else {
             directoryLister = this.directoryLister;

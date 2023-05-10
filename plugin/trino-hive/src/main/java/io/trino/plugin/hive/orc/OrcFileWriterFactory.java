@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -37,7 +38,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -126,7 +126,7 @@ public class OrcFileWriterFactory
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
@@ -155,16 +155,15 @@ public class OrcFileWriterFactory
                 .toArray();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            String stringPath = path.toString();
-            OrcDataSink orcDataSink = createOrcDataSink(fileSystem, stringPath);
+            OrcDataSink orcDataSink = createOrcDataSink(fileSystem, location);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
             if (isOrcOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
-                        TrinoInputFile inputFile = fileSystem.newInputFile(stringPath);
+                        TrinoInputFile inputFile = fileSystem.newInputFile(location);
                         return new HdfsOrcDataSource(
-                                new OrcDataSourceId(stringPath),
+                                new OrcDataSourceId(location.toString()),
                                 inputFile.length(),
                                 new OrcReaderOptions(),
                                 inputFile,
@@ -176,7 +175,7 @@ public class OrcFileWriterFactory
                 });
             }
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(stringPath);
+            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
             if (transaction.isInsert() && useAcidSchema) {
                 // Only add the ACID columns if the request is for insert-type operations - - for delete operations,
@@ -219,10 +218,10 @@ public class OrcFileWriterFactory
         }
     }
 
-    public static OrcDataSink createOrcDataSink(TrinoFileSystem fileSystem, String path)
+    public static OrcDataSink createOrcDataSink(TrinoFileSystem fileSystem, Location location)
             throws IOException
     {
-        return OutputStreamOrcDataSink.create(fileSystem.newOutputFile(path));
+        return OutputStreamOrcDataSink.create(fileSystem.newOutputFile(location));
     }
 
     private static CompressionKind getCompression(Properties schema, JobConf configuration)

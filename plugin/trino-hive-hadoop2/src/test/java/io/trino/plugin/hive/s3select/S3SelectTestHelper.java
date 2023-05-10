@@ -26,7 +26,10 @@ import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.hdfs.s3.HiveS3Config;
+import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.AbstractTestHiveFileSystem.TestingHiveMetastore;
 import io.trino.plugin.hive.DefaultHiveMaterializedViewMetadataFactory;
@@ -39,7 +42,6 @@ import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.HiveSplitManager;
 import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.LocationService;
-import io.trino.plugin.hive.NamenodeStats;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.NoneHiveRedirectionsProvider;
 import io.trino.plugin.hive.PartitionUpdate;
@@ -50,8 +52,6 @@ import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -73,6 +73,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.hive.HiveFileSystemTestUtils.filterTable;
 import static io.trino.plugin.hive.HiveFileSystemTestUtils.getSplitsCount;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
@@ -144,7 +145,7 @@ public class S3SelectTestHelper
                 this.hiveConfig,
                 new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new HdfsFileSystemFactory(hdfsEnvironment),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
@@ -168,8 +169,8 @@ public class S3SelectTestHelper
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
-                new HdfsFileSystemFactory(hdfsEnvironment),
-                new NamenodeStats(),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                new HdfsNamenodeStats(),
                 hdfsEnvironment,
                 new BoundedExecutor(executorService, this.hiveConfig.getMaxSplitIteratorThreads()),
                 new CounterStat(),

@@ -16,6 +16,7 @@ package io.trino.filesystem.tracing;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
@@ -40,35 +41,35 @@ final class TracingFileSystem
     }
 
     @Override
-    public TrinoInputFile newInputFile(String location)
+    public TrinoInputFile newInputFile(Location location)
     {
         return new TracingInputFile(tracer, delegate.newInputFile(location), Optional.empty());
     }
 
     @Override
-    public TrinoInputFile newInputFile(String location, long length)
+    public TrinoInputFile newInputFile(Location location, long length)
     {
         return new TracingInputFile(tracer, delegate.newInputFile(location, length), Optional.of(length));
     }
 
     @Override
-    public TrinoOutputFile newOutputFile(String location)
+    public TrinoOutputFile newOutputFile(Location location)
     {
         return new TracingOutputFile(tracer, delegate.newOutputFile(location));
     }
 
     @Override
-    public void deleteFile(String location)
+    public void deleteFile(Location location)
             throws IOException
     {
         Span span = tracer.spanBuilder("FileSystem.deleteFile")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, location)
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
                 .startSpan();
         withTracing(span, () -> delegate.deleteFile(location));
     }
 
     @Override
-    public void deleteFiles(Collection<String> locations)
+    public void deleteFiles(Collection<Location> locations)
             throws IOException
     {
         Span span = tracer.spanBuilder("FileSystem.deleteFiles")
@@ -78,31 +79,31 @@ final class TracingFileSystem
     }
 
     @Override
-    public void deleteDirectory(String location)
+    public void deleteDirectory(Location location)
             throws IOException
     {
         Span span = tracer.spanBuilder("FileSystem.deleteDirectory")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, location)
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
                 .startSpan();
         withTracing(span, () -> delegate.deleteDirectory(location));
     }
 
     @Override
-    public void renameFile(String source, String target)
+    public void renameFile(Location source, Location target)
             throws IOException
     {
         Span span = tracer.spanBuilder("FileSystem.renameFile")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, source)
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, source.toString())
                 .startSpan();
         withTracing(span, () -> delegate.renameFile(source, target));
     }
 
     @Override
-    public FileIterator listFiles(String location)
+    public FileIterator listFiles(Location location)
             throws IOException
     {
         Span span = tracer.spanBuilder("FileSystem.listFiles")
-                .setAttribute(FileSystemAttributes.FILE_LOCATION, location)
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
                 .startSpan();
         return withTracing(span, () -> delegate.listFiles(location));
     }

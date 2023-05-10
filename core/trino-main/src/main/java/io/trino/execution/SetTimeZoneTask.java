@@ -125,14 +125,14 @@ public class SetTimeZoneTask
             timeZoneKey = getTimeZoneKeyForOffset(getZoneOffsetMinutes((Long) timeZoneValue));
         }
         else {
-            throw new IllegalStateException(format("Time Zone expression '%s' not supported", expression));
+            throw new IllegalStateException(format("TIME ZONE expression '%s' not supported", expression));
         }
         return timeZoneKey.getId();
     }
 
     private static long getZoneOffsetMinutes(long interval)
     {
-        checkCondition((interval % 60_000L) == 0L, INVALID_LITERAL, "Invalid time zone offset interval: interval contains seconds");
+        checkCondition((interval % 60_000L) == 0L, INVALID_LITERAL, "Invalid TIME ZONE offset interval: interval contains seconds");
         return interval / 60_000L;
     }
 }

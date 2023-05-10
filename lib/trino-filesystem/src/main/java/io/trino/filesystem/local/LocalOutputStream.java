@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.local;
 
+import io.trino.filesystem.Location;
+
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -24,11 +26,11 @@ import static java.util.Objects.requireNonNull;
 class LocalOutputStream
         extends OutputStream
 {
-    private final String location;
+    private final Location location;
     private final OutputStream stream;
     private boolean closed;
 
-    public LocalOutputStream(String location, OutputStream stream)
+    public LocalOutputStream(Location location, OutputStream stream)
     {
         this.location = requireNonNull(location, "location is null");
         this.stream = new BufferedOutputStream(requireNonNull(stream, "stream is null"), 4 * 1024);

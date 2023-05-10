@@ -183,7 +183,7 @@ public class PinotExpressionRewriter
             String outputFormat = object.getArguments().get(2).getLiteral().getValue().toString().toUpperCase(ENGLISH);
             argumentsBuilder.add(forLiteralContext(stringValue(outputFormat)));
             String granularity = object.getArguments().get(3).getLiteral().getValue().toString().toUpperCase(ENGLISH);
-            BaseDateTimeTransformer dateTimeTransformer = DateTimeTransformerFactory.getDateTimeTransformer(inputFormat, outputFormat, granularity);
+            BaseDateTimeTransformer<?, ?> dateTimeTransformer = DateTimeTransformerFactory.getDateTimeTransformer(inputFormat, outputFormat, granularity);
             // Even if the format is valid, make sure it is not a simple date format: format characters can be ambiguous due to lower casing
             checkState(dateTimeTransformer instanceof EpochToEpochTransformer, "Unsupported date format: simple date format not supported");
             argumentsBuilder.add(forLiteralContext(stringValue(granularity)));

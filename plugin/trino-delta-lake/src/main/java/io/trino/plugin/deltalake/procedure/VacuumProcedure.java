@@ -18,6 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
@@ -213,11 +214,11 @@ public class VacuumProcedure
         long retainedUnknownFiles = 0;
         long removedFiles = 0;
 
-        List<String> filesToDelete = new ArrayList<>();
-        FileIterator listing = fileSystem.listFiles(tableLocation);
+        List<Location> filesToDelete = new ArrayList<>();
+        FileIterator listing = fileSystem.listFiles(Location.of(tableLocation));
         while (listing.hasNext()) {
             FileEntry entry = listing.next();
-            String location = entry.location();
+            String location = entry.location().toString();
             checkState(
                     location.startsWith(commonPathPrefix),
                     "Unexpected path [%s] returned when listing files under [%s]",
@@ -253,7 +254,7 @@ public class VacuumProcedure
             }
 
             log.debug("[%s] deleting file [%s] with modification time %s", queryId, location, modificationTime);
-            filesToDelete.add(location);
+            filesToDelete.add(entry.location());
             if (filesToDelete.size() == DELETE_BATCH_SIZE) {
                 fileSystem.deleteFiles(filesToDelete);
                 removedFiles += filesToDelete.size();

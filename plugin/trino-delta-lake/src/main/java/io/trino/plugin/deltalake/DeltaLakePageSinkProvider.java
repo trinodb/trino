@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.procedure.DeltaLakeTableExecuteHandle;
 import io.trino.plugin.deltalake.procedure.DeltaTableOptimizeHandle;
@@ -37,6 +38,7 @@ import org.joda.time.DateTimeZone;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -49,7 +51,6 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakePageSinkProvider
@@ -101,7 +102,7 @@ public class DeltaLakePageSinkProvider
                 fileSystemFactory,
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
-                tableHandle.getLocation(),
+                Location.of(tableHandle.getLocation()),
                 session,
                 stats,
                 trinoVersion);
@@ -119,7 +120,7 @@ public class DeltaLakePageSinkProvider
                 fileSystemFactory,
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
-                tableHandle.getLocation(),
+                Location.of(tableHandle.getLocation()),
                 session,
                 stats,
                 trinoVersion);
@@ -140,7 +141,7 @@ public class DeltaLakePageSinkProvider
                         fileSystemFactory,
                         maxPartitionsPerWriter,
                         dataFileInfoCodec,
-                        executeHandle.getTableLocation(),
+                        Location.of(executeHandle.getTableLocation()),
                         session,
                         stats,
                         trinoVersion);
@@ -165,7 +166,7 @@ public class DeltaLakePageSinkProvider
                 dataFileInfoCodec,
                 mergeResultJsonCodec,
                 stats,
-                tableHandle.getLocation(),
+                Location.of(tableHandle.getLocation()),
                 pageSink,
                 tableHandle.getInputColumns(),
                 domainCompactionThreshold,
@@ -186,7 +187,8 @@ public class DeltaLakePageSinkProvider
                         metadata.getFieldId(),
                         metadata.getPhysicalName(),
                         metadata.getPhysicalColumnType(),
-                        partitionKeys.contains(metadata.getName()) ? PARTITION_KEY : REGULAR))
+                        partitionKeys.contains(metadata.getName()) ? PARTITION_KEY : REGULAR,
+                        Optional.empty()))
                 .collect(toImmutableList());
         List<DeltaLakeColumnHandle> allColumns = ImmutableList.<DeltaLakeColumnHandle>builder()
                 .addAll(tableColumns)
@@ -196,8 +198,10 @@ public class DeltaLakePageSinkProvider
                         OptionalInt.empty(),
                         CHANGE_TYPE_COLUMN_NAME,
                         VARCHAR,
-                        REGULAR))
+                        REGULAR,
+                        Optional.empty()))
                 .build();
+        Location tableLocation = Location.of(mergeTableHandle.getTableHandle().getLocation());
 
         return new DeltaLakeCdfPageSink(
                 typeManager.getTypeOperators(),
@@ -207,8 +211,8 @@ public class DeltaLakePageSinkProvider
                 fileSystemFactory,
                 maxPartitionsPerWriter,
                 dataFileInfoCodec,
-                format("%s/%s/", mergeTableHandle.getTableHandle().getLocation(), CHANGE_DATA_FOLDER_NAME),
-                mergeTableHandle.getTableHandle().getLocation(),
+                tableLocation,
+                tableLocation.appendPath(CHANGE_DATA_FOLDER_NAME),
                 session,
                 stats,
                 trinoVersion);

@@ -34,10 +34,11 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Optional;
 
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.DROP_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -236,6 +237,18 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertMetastoreInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
                 ImmutableMultiset.builder()
                         .add(GET_TABLE)
+                        .build());
+    }
+
+    @Test
+    public void testDropTable()
+    {
+        assertUpdate("CREATE TABLE test_drop_table AS SELECT 20050910 as a_number", 1);
+
+        assertMetastoreInvocations("DROP TABLE test_drop_table",
+                ImmutableMultiset.builder()
+                        .add(GET_TABLE)
+                        .add(DROP_TABLE)
                         .build());
     }
 

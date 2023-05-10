@@ -331,6 +331,14 @@ supports the following features:
 
 .. include:: alter-table-limitation.fragment
 
+.. _sqlserver-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -349,8 +357,6 @@ are not implemented in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
 .. include:: query-passthrough-warning.fragment
-
-.. include:: polymorphic-table-function-ordering.fragment
 
 For example, query the ``example`` catalog and select the top 10 percent of
 nations by population::
@@ -413,6 +419,8 @@ append the parameter value to the procedure statement::
           query => 'EXECUTE example_schema.employee_sp 0'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

@@ -2,7 +2,7 @@
 Connectors
 **********
 
-This chapter describes the connectors available in Trino to access data
+This section describes the connectors available in Trino to access data
 from different data sources.
 
 .. toctree::
@@ -38,7 +38,7 @@ from different data sources.
     Prometheus      <connector/prometheus>
     Redis           <connector/redis>
     Redshift        <connector/redshift>
-    SingleStore     <connector/memsql>
+    SingleStore     <connector/singlestore>
     SQL Server      <connector/sqlserver>
     System          <connector/system>
     Thrift          <connector/thrift>

@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
@@ -37,7 +38,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.MoreCollectors.toOptional;
-import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
@@ -127,8 +127,8 @@ public class CheckpointWriterManager
             snapshot.getJsonTransactionLogEntries()
                     .forEach(checkpointBuilder::addLogEntry);
 
-            String transactionLogDirectory = getTransactionLogDir(snapshot.getTableLocation());
-            String targetFile = appendPath(transactionLogDirectory, String.format("%020d.checkpoint.parquet", newCheckpointVersion));
+            Location transactionLogDir = Location.of(getTransactionLogDir(snapshot.getTableLocation()));
+            Location targetFile = transactionLogDir.appendPath("%020d.checkpoint.parquet".formatted(newCheckpointVersion));
             CheckpointWriter checkpointWriter = new CheckpointWriter(typeManager, checkpointSchemaManager, trinoVersion);
             CheckpointEntries checkpointEntries = checkpointBuilder.build();
             TrinoOutputFile checkpointFile = fileSystemFactory.create(session).newOutputFile(targetFile);
@@ -136,7 +136,7 @@ public class CheckpointWriterManager
 
             // update last checkpoint file
             LastCheckpoint newLastCheckpoint = new LastCheckpoint(newCheckpointVersion, checkpointEntries.size(), Optional.empty());
-            String checkpointPath = appendPath(transactionLogDirectory, LAST_CHECKPOINT_FILENAME);
+            Location checkpointPath = transactionLogDir.appendPath(LAST_CHECKPOINT_FILENAME);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(checkpointPath);
             try (OutputStream outputStream = outputFile.createOrOverwrite()) {
                 outputStream.write(lastCheckpointCodec.toJsonBytes(newLastCheckpoint));

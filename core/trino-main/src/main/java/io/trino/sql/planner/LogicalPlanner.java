@@ -130,6 +130,7 @@ import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
+import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
@@ -660,7 +661,6 @@ public class LogicalPlanner
             TableStatisticsMetadata statisticsMetadata)
     {
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
-        Optional<PartitioningScheme> preferredPartitioningScheme = Optional.empty();
 
         int maxWriterTasks = target.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
         Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
@@ -683,9 +683,9 @@ public class LogicalPlanner
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
             }
-            else {
+            else if (isUsePreferredWritePartitioning(session)) {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
-                preferredPartitioningScheme = Optional.of(new PartitioningScheme(
+                partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
                         Optional.empty(),
@@ -721,7 +721,6 @@ public class LogicalPlanner
                             symbols,
                             columnNames,
                             partitioningScheme,
-                            preferredPartitioningScheme,
                             Optional.of(partialAggregation),
                             Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
@@ -743,7 +742,6 @@ public class LogicalPlanner
                         symbols,
                         columnNames,
                         partitioningScheme,
-                        preferredPartitioningScheme,
                         Optional.empty(),
                         Optional.empty()),
                 target,
@@ -956,7 +954,6 @@ public class LogicalPlanner
 
         // todo extract common method to be used here and in createTableWriterPlan()
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
-        Optional<PartitioningScheme> preferredPartitioningScheme = Optional.empty();
         if (layout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
             layout.get().getPartitionColumns().stream()
@@ -973,13 +970,13 @@ public class LogicalPlanner
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
             }
-            else {
+            else if (isUsePreferredWritePartitioning(session)) {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
                 int maxWriterTasks = tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
                 Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
                         ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
                         : Optional.empty();
-                preferredPartitioningScheme = Optional.of(new PartitioningScheme(
+                partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout,
                         Optional.empty(),
@@ -1000,8 +997,7 @@ public class LogicalPlanner
                         symbolAllocator.newSymbol("fragment", VARBINARY),
                         symbols,
                         columnNames,
-                        partitioningScheme,
-                        preferredPartitioningScheme),
+                        partitioningScheme),
                 tableExecuteTarget,
                 symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),

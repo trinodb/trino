@@ -190,6 +190,9 @@ configure processing of Parquet files.
     * - ``parquet_writer_batch_size``
       - Maximum number of rows processed by the Parquet writer in a batch.
       - ``10000``
+    * - ``projection_pushdown_enabled``
+      - Read only projected fields from row columns while performing ``SELECT`` queries
+      - ``true``
 
 .. _delta-lake-type-mapping:
 
@@ -713,6 +716,14 @@ directly or used in conditional statements.
 * ``$file_size``
     Size of the file for this row.
 
+.. _delta-lake-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Performance
 -----------
 
@@ -726,10 +737,11 @@ following sections:
 Table statistics
 ^^^^^^^^^^^^^^^^
 
-Use :doc:`/sql/analyze` statements in Trino to populate the table statistics in
-Delta Lake. Data size and number of distinct values (NDV) statistics are
-supported; whereas minimum value, maximum value, and null value count statistics
-are not supported. The :doc:`cost-based optimizer
+Use :doc:`/sql/analyze` statements in Trino to populate data size and
+number of distinct values (NDV) extended table statistics in Delta Lake.
+The minimum value, maximum value, value count, and null value count
+statistics are computed on the fly out of the transaction log of the
+Delta Lake table. The :doc:`cost-based optimizer
 </optimizer/cost-based-optimizations>` then uses these statistics to improve
 query performance.
 
@@ -928,4 +940,7 @@ connector.
         property to ``false`` to disable the optimized parquet reader by default
         for structural data types. The equivalent catalog session property is
         ``parquet_optimized_nested_reader_enabled``.
+      - ``true``
+    * - ``delta.projection-pushdown-enabled``
+      - Read only projected fields from row columns while performing ``SELECT`` queries
       - ``true``

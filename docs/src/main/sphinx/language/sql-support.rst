@@ -144,6 +144,7 @@ Connector roles:
 
 Grants management:
 
+* :doc:`/sql/deny`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 

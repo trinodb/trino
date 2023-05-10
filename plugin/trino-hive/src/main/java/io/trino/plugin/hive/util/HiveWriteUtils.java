@@ -15,8 +15,11 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.rubix.CachingTrinoS3FileSystem;
+import io.trino.hdfs.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.HiveReadOnlyException;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
@@ -28,8 +31,6 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.parquet.ParquetRecordWriter;
-import io.trino.plugin.hive.rubix.CachingTrinoS3FileSystem;
-import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.type.ListTypeInfo;
 import io.trino.plugin.hive.type.MapTypeInfo;
 import io.trino.plugin.hive.type.PrimitiveCategory;
@@ -89,6 +90,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
+import static io.trino.hdfs.s3.HiveS3Module.EMR_FS_CLASS_NAME;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -100,7 +102,6 @@ import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.MATERIALIZED_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
-import static io.trino.plugin.hive.s3.HiveS3Module.EMR_FS_CLASS_NAME;
 import static io.trino.plugin.hive.type.VarcharTypeInfo.MAX_VARCHAR_LENGTH;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
@@ -377,11 +378,11 @@ public final class HiveWriteUtils
 
     public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
     {
-        if (table.getTableType().equals(MATERIALIZED_VIEW.toString())) {
+        if (table.getTableType().equals(MATERIALIZED_VIEW.name())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot write to Hive materialized view");
         }
 
-        if (!writesToNonManagedTablesEnabled && !table.getTableType().equals(MANAGED_TABLE.toString())) {
+        if (!writesToNonManagedTablesEnabled && !table.getTableType().equals(MANAGED_TABLE.name())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
         }
 
@@ -429,7 +430,7 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Location getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
         Database database = metastore.getDatabase(schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
@@ -437,7 +438,7 @@ public final class HiveWriteUtils
         return getTableDefaultLocation(database, context, hdfsEnvironment, schemaName, tableName);
     }
 
-    public static Path getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Location getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
         String location = database.getLocation()
                 .orElseThrow(() -> new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName)));
@@ -452,7 +453,7 @@ public final class HiveWriteUtils
             }
         }
 
-        return new Path(databasePath, tableName);
+        return Location.of(location).appendPath(tableName);
     }
 
     public static boolean pathExists(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
@@ -515,7 +516,7 @@ public final class HiveWriteUtils
         return fileName.startsWith(queryId) || fileName.endsWith(queryId);
     }
 
-    public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
+    public static Location createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
     {
         // use a per-user temporary directory to avoid permission problems
         String temporaryPrefix = getTemporaryStagingDirectoryPath(session)
@@ -536,7 +537,7 @@ public final class HiveWriteUtils
             setDirectoryOwner(context, hdfsEnvironment, temporaryPath, targetPath);
         }
 
-        return temporaryPath;
+        return Location.of(temporaryPath.toString());
     }
 
     private static void setDirectoryOwner(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, Path targetPath)

@@ -327,6 +327,14 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+.. _postgresql-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -345,8 +353,6 @@ are not available in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
 .. include:: query-passthrough-warning.fragment
-
-.. include:: polymorphic-table-function-ordering.fragment
 
 As a simple example, query the ``example`` catalog and select an entire table::
 
@@ -394,6 +400,7 @@ when using window functions::
         )
       );
 
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

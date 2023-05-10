@@ -17,6 +17,7 @@ import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.statistics.FileBasedTableStatisticsProvider;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
@@ -107,12 +108,11 @@ public class DeltaLakeMetadataFactory
                 hiveMetastoreFactory.createMetastore(Optional.of(identity)),
                 perTransactionMetastoreCacheMaximumSize);
         AccessControlMetadata accessControlMetadata = accessControlMetadataFactory.create(cachingHiveMetastore);
-        HiveMetastoreBackedDeltaLakeMetastore deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(
-                cachingHiveMetastore,
-                transactionLogAccess,
+        HiveMetastoreBackedDeltaLakeMetastore deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(cachingHiveMetastore);
+        FileBasedTableStatisticsProvider tableStatisticsProvider = new FileBasedTableStatisticsProvider(
                 typeManager,
-                statisticsAccess,
-                fileSystemFactory);
+                transactionLogAccess,
+                statisticsAccess);
         TrinoViewHiveMetastore trinoViewHiveMetastore = new TrinoViewHiveMetastore(
                 cachingHiveMetastore,
                 accessControlMetadata.isUsingSystemSecurity(),
@@ -120,6 +120,8 @@ public class DeltaLakeMetadataFactory
                 "Trino Delta Lake connector");
         return new DeltaLakeMetadata(
                 deltaLakeMetastore,
+                transactionLogAccess,
+                tableStatisticsProvider,
                 fileSystemFactory,
                 typeManager,
                 accessControlMetadata,

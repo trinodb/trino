@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -26,10 +27,11 @@ import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
+import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
-import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
@@ -110,7 +112,7 @@ public class TestIcebergGcsConnectorSmokeTest
         ConfigurationInitializer configurationInitializer = new GoogleGcsConfigurationInitializer(gcsConfig);
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(configurationInitializer));
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
-        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()));
+        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()), new TrinoHdfsFileSystemStats());
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
@@ -135,7 +137,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-            fileSystem.deleteDirectory(schemaPath());
+            fileSystem.deleteDirectory(Location.of(schemaPath()));
         }
         catch (IOException e) {
             // The GCS bucket should be configured to expire objects automatically. Clean up issues do not need to fail the test.
@@ -173,7 +175,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-            return fileSystem.newInputFile(location).exists();
+            return fileSystem.newInputFile(Location.of(location)).exists();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -218,7 +220,7 @@ public class TestIcebergGcsConnectorSmokeTest
     {
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-            fileSystem.deleteDirectory(location);
+            fileSystem.deleteDirectory(Location.of(location));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -226,7 +228,7 @@ public class TestIcebergGcsConnectorSmokeTest
     }
 
     @Override
-    protected boolean isFileSorted(String path, String sortColumnName)
+    protected boolean isFileSorted(Location path, String sortColumnName)
     {
         return checkOrcFileSorting(fileSystemFactory, path, sortColumnName);
     }

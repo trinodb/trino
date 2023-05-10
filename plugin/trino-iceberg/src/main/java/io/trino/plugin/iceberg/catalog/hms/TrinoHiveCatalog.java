@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.hms;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveSchemaProperties;
@@ -197,9 +198,9 @@ public class TrinoHiveCatalog
                 case LOCATION_PROPERTY -> {
                     String location = (String) value;
                     try {
-                        fileSystemFactory.create(session).newInputFile(location).exists();
+                        fileSystemFactory.create(session).newInputFile(Location.of(location)).exists();
                     }
-                    catch (IOException e) {
+                    catch (IOException | IllegalArgumentException e) {
                         throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + location, e);
                     }
                     database.setLocation(Optional.of(location));
@@ -228,7 +229,7 @@ public class TrinoHiveCatalog
         // If we fail to check the schema location, behave according to fallback.
         boolean deleteData = location.map(path -> {
             try {
-                return !fileSystemFactory.create(session).listFiles(path).hasNext();
+                return !fileSystemFactory.create(session).listFiles(Location.of(path)).hasNext();
             }
             catch (IOException | RuntimeException e) {
                 log.warn(e, "Could not check schema directory '%s'", path);
@@ -378,21 +379,7 @@ public class TrinoHiveCatalog
     @Override
     public void updateViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
     {
-        io.trino.plugin.hive.metastore.Table view = metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
-                .orElseThrow(() -> new ViewNotFoundException(viewName));
-
-        ConnectorViewDefinition definition = TrinoViewUtil.getView(viewName, view.getViewOriginalText(), view.getTableType(), view.getParameters(), view.getOwner())
-                .orElseThrow(() -> new ViewNotFoundException(viewName));
-        ConnectorViewDefinition newDefinition = new ConnectorViewDefinition(
-                definition.getOriginalSql(),
-                definition.getCatalog(),
-                definition.getSchema(),
-                definition.getColumns(),
-                comment,
-                definition.getOwner(),
-                definition.isRunAsInvoker());
-
-        replaceView(session, viewName, view, newDefinition);
+        trinoViewHiveMetastore.updateViewComment(session, viewName, comment);
     }
 
     @Override

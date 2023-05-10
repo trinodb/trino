@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -33,7 +34,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
@@ -90,7 +90,7 @@ public class ParquetFileWriterFactory
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             Properties schema,
@@ -128,11 +128,10 @@ public class ParquetFileWriterFactory
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
 
-        String pathString = path.toString();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(pathString);
+            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
             ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
                     fileColumnTypes,
@@ -144,7 +143,7 @@ public class ParquetFileWriterFactory
             if (isParquetOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
-                        TrinoInputFile inputFile = fileSystem.newInputFile(pathString);
+                        TrinoInputFile inputFile = fileSystem.newInputFile(location);
                         return new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), readStats);
                     }
                     catch (IOException e) {
@@ -154,7 +153,7 @@ public class ParquetFileWriterFactory
             }
 
             return Optional.of(new ParquetFileWriter(
-                    fileSystem.newOutputFile(pathString),
+                    fileSystem.newOutputFile(location),
                     rollbackAction,
                     fileColumnTypes,
                     fileColumnNames,

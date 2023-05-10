@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
+import io.trino.hdfs.s3.TrinoS3FileSystem;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.minio.MinioClient;
 import io.trino.util.AutoCloseableCloser;

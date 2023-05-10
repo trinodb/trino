@@ -32,6 +32,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestPage
@@ -39,7 +40,9 @@ public class TestPage
     @Test
     public void testGetRegion()
     {
-        assertEquals(new Page(10).getRegion(5, 5).getPositionCount(), 5);
+        Page page = new Page(10);
+        assertEquals(page.getRegion(5, 5).getPositionCount(), 5);
+        assertSame(page.getRegion(0, 10), page);
     }
 
     @Test

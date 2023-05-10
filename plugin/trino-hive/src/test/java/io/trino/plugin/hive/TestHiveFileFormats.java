@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hive.formats.compression.CompressionKind;
@@ -96,6 +97,7 @@ import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.createGenericHiveRecordCursorProvider;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
@@ -128,7 +130,7 @@ public class TestHiveFileFormats
     private static final ConnectorSession PARQUET_SESSION = getHiveSession(createParquetHiveConfig(false));
     private static final ConnectorSession PARQUET_SESSION_USE_NAME = getHiveSession(createParquetHiveConfig(true));
 
-    private static final TrinoFileSystemFactory FILE_SYSTEM_FACTORY = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+    private static final TrinoFileSystemFactory FILE_SYSTEM_FACTORY = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
     private static final HivePageSourceFactory PARQUET_PAGE_SOURCE_FACTORY = new ParquetPageSourceFactory(FILE_SYSTEM_FACTORY, STATS, new ParquetReaderConfig(), new HiveConfig());
 
     @DataProvider(name = "rowCount")
@@ -280,7 +282,7 @@ public class TestHiveFileFormats
                 .withColumns(TEST_COLUMNS)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -295,9 +297,9 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCTEXT)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
+                .withFileWriterFactory(new RcFileFileWriterFactory(FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -314,7 +316,7 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCBINARY)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -338,8 +340,8 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 // generic Hive writer corrupts timestamps
                 .withSkipGenericWriterTest()
-                .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()))
+                .withFileWriterFactory(new RcFileFileWriterFactory(FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()))
                 .withColumns(testColumnsNoTimestamps)
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
@@ -569,13 +571,13 @@ public class TestHiveFileFormats
         assertThatFileFormat(RCTEXT)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()))
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()))
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
 
         assertThatFileFormat(RCBINARY)
                 .withWriteColumns(ImmutableList.of(writeColumn))
                 .withReadColumns(ImmutableList.of(readColumn))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()))
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()))
                 .isReadableByRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
 
         assertThatFileFormat(ORC)
@@ -802,7 +804,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withRowsCount(rowCount)
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -834,8 +836,8 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 // generic Hive writer corrupts timestamps
                 .withSkipGenericWriterTest()
-                .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .withFileWriterFactory(new RcFileFileWriterFactory(FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test(dataProvider = "rowCount")
@@ -864,8 +866,8 @@ public class TestHiveFileFormats
                 .withRowsCount(rowCount)
                 // generic Hive writer corrupts timestamps
                 .withSkipGenericWriterTest()
-                .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()));
+                .withFileWriterFactory(new RcFileFileWriterFactory(FILE_SYSTEM_FACTORY, TESTING_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE))
+                .isReadableByPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()));
     }
 
     @Test
@@ -882,12 +884,12 @@ public class TestHiveFileFormats
 
         assertThatFileFormat(RCTEXT)
                 .withColumns(columns)
-                .isFailingForPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()), expectedErrorCode, expectedMessage)
+                .isFailingForPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()), expectedErrorCode, expectedMessage)
                 .isFailingForRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(RCBINARY)
                 .withColumns(columns)
-                .isFailingForPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_ENVIRONMENT, STATS, new HiveConfig()), expectedErrorCode, expectedMessage)
+                .isFailingForPageSource(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, FILE_SYSTEM_FACTORY, STATS, new HiveConfig()), expectedErrorCode, expectedMessage)
                 .isFailingForRecordCursor(createGenericHiveRecordCursorProvider(HDFS_ENVIRONMENT), expectedErrorCode, expectedMessage);
 
         assertThatFileFormat(ORC)
@@ -1005,7 +1007,7 @@ public class TestHiveFileFormats
                 columnHandles,
                 ImmutableList.of(),
                 TableToPartitionMapping.empty(),
-                split.getPath(),
+                split.getPath().toString(),
                 OptionalInt.empty(),
                 fileSize,
                 Instant.now().toEpochMilli());
@@ -1015,7 +1017,7 @@ public class TestHiveFileFormats
                 ImmutableSet.of(cursorProvider),
                 configuration,
                 session,
-                split.getPath(),
+                Location.of(split.getPath().toString()),
                 OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),
@@ -1083,7 +1085,7 @@ public class TestHiveFileFormats
                 columnHandles,
                 ImmutableList.of(),
                 TableToPartitionMapping.empty(),
-                split.getPath(),
+                split.getPath().toString(),
                 OptionalInt.empty(),
                 fileSize,
                 Instant.now().toEpochMilli());
@@ -1093,7 +1095,7 @@ public class TestHiveFileFormats
                 ImmutableSet.of(),
                 newEmptyConfiguration(),
                 session,
-                split.getPath(),
+                Location.of(split.getPath().toString()),
                 OptionalInt.empty(),
                 split.getStart(),
                 split.getLength(),

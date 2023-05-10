@@ -15,6 +15,8 @@ package io.trino.plugin.hudi;
 
 import com.google.common.util.concurrent.Futures;
 import io.airlift.units.DataSize;
+import io.trino.hdfs.HdfsContext;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -29,7 +31,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
@@ -62,15 +64,15 @@ public class HudiSplitSource
             HiveMetastore metastore,
             Table table,
             HudiTableHandle tableHandle,
-            Configuration configuration,
+            HdfsEnvironment hdfsEnvironment,
             Map<String, HiveColumnHandle> partitionColumnHandleMap,
             ExecutorService executor,
             int maxSplitsPerSecond,
             int maxOutstandingSplits)
     {
         boolean metadataEnabled = isHudiMetadataEnabled(session);
-        HoodieTableMetaClient metaClient = buildTableMetaClient(configuration, tableHandle.getBasePath());
-        HoodieEngineContext engineContext = new HoodieLocalEngineContext(configuration);
+        HoodieTableMetaClient metaClient = buildTableMetaClient(hdfsEnvironment, session, tableHandle.getBasePath());
+        HoodieEngineContext engineContext = new HoodieLocalEngineContext(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(tableHandle.getBasePath())));
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
                 .build();

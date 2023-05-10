@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -32,18 +34,20 @@ import static java.util.Objects.requireNonNull;
  */
 final class DirectoryListingCacheKey
 {
-    private final Path path;
+    private static final long INSTANCE_SIZE = instanceSize(DirectoryListingCacheKey.class);
+
+    private final String path;
     private final int hashCode; // precomputed hashCode
     private final boolean recursiveFilesOnly;
 
-    public DirectoryListingCacheKey(Path path, boolean recursiveFilesOnly)
+    public DirectoryListingCacheKey(String path, boolean recursiveFilesOnly)
     {
         this.path = requireNonNull(path, "path is null");
         this.recursiveFilesOnly = recursiveFilesOnly;
         this.hashCode = Objects.hash(path, recursiveFilesOnly);
     }
 
-    public Path getPath()
+    public String getPath()
     {
         return path;
     }
@@ -51,6 +55,11 @@ final class DirectoryListingCacheKey
     public boolean isRecursiveFilesOnly()
     {
         return recursiveFilesOnly;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(path);
     }
 
     @Override
@@ -82,6 +91,6 @@ final class DirectoryListingCacheKey
 
     public static List<DirectoryListingCacheKey> allKeysWithPath(Path path)
     {
-        return ImmutableList.of(new DirectoryListingCacheKey(path, true), new DirectoryListingCacheKey(path, false));
+        return ImmutableList.of(new DirectoryListingCacheKey(path.toString(), true), new DirectoryListingCacheKey(path.toString(), false));
     }
 }

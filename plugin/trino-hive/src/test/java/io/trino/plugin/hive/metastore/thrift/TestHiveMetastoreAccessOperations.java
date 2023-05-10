@@ -28,16 +28,16 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.CREATE_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_PARTITIONS_BY_NAMES;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_PARTITION_NAMES_BY_FILTER;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_PARTITION_STATISTICS;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.GET_TABLE_STATISTICS;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.UPDATE_PARTITION_STATISTICS;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Methods.UPDATE_TABLE_STATISTICS;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITIONS_BY_NAMES;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITION_NAMES_BY_FILTER;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITION_STATISTICS;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE_STATISTICS;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.UPDATE_PARTITION_STATISTICS;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.UPDATE_TABLE_STATISTICS;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 @Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously

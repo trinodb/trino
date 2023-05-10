@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>415-SNAPSHOT</version>
+        <version>417-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -23,7 +23,7 @@
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
                 <type>pom</type>
-                <version>26.1.2</version>
+                <version>26.14.0</version>
                 <scope>import</scope>
             </dependency>
 
@@ -42,7 +42,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
-                <version>4.4.15</version>
+                <version>4.4.16</version>
             </dependency>
 
             <dependency>
@@ -54,7 +54,7 @@
             <dependency>
                 <groupId>org.threeten</groupId>
                 <artifactId>threetenbp</artifactId>
-                <version>1.6.1</version>
+                <version>1.6.8</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -311,6 +311,12 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-exchange-filesystem</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.re2j</groupId>
+                    <artifactId>re2j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

@@ -16,6 +16,7 @@ package io.trino.plugin.hive.parquet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -46,7 +47,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
@@ -163,7 +163,7 @@ public class ParquetPageSourceFactory
     public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location path,
             long start,
             long length,
             long estimatedFileSize,
@@ -182,7 +182,7 @@ public class ParquetPageSourceFactory
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = fileSystem.newInputFile(path.toString(), estimatedFileSize);
+        TrinoInputFile inputFile = fileSystem.newInputFile(path, estimatedFileSize);
 
         return Optional.of(createPageSource(
                 inputFile,
@@ -270,7 +270,7 @@ public class ParquetPageSourceFactory
                 nextStart += block.getRowCount();
             }
 
-            Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
+            Optional<ReaderColumns> readerProjections = projectBaseColumns(columns, useColumnNames);
             List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
                             projection.get().stream()
                                     .map(HiveColumnHandle.class::cast)

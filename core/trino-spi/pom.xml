@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>415-SNAPSHOT</version>
+        <version>417-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -173,12 +173,12 @@
             <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
-                <version>0.14.7</version>
+                <version>0.15.0</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.revapi</groupId>
                         <artifactId>revapi-java</artifactId>
-                        <version>0.27.0</version>
+                        <version>0.28.1</version>
                     </dependency>
                 </dependencies>
                 <executions>

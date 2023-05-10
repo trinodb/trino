@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.event.client.EventClient;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
@@ -256,17 +257,17 @@ public class HiveWriterFactory
         this.dataColumns = dataColumns.build();
         this.isCreateTransactionalTable = isCreateTable && transaction.isTransactional();
 
-        Path writePath;
+        Location writePath;
         if (isCreateTable) {
             this.table = null;
             WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-            checkArgument(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "CREATE TABLE write mode cannot be DIRECT_TO_TARGET_EXISTING_DIRECTORY");
-            writePath = writeInfo.getWritePath();
+            checkArgument(writeInfo.writeMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "CREATE TABLE write mode cannot be DIRECT_TO_TARGET_EXISTING_DIRECTORY");
+            writePath = writeInfo.writePath();
         }
         else {
             this.table = pageSinkMetadataProvider.getTable()
                     .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName)));
-            writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
+            writePath = locationService.getQueryWriteInfo(locationHandle).writePath();
         }
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
@@ -289,12 +290,12 @@ public class HiveWriterFactory
                 .filter(entry -> entry.getValue() != null)
                 .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toString()));
 
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), writePath);
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(writePath.toString()));
         this.conf = toJobConf(conf);
 
         // make sure the FileSystem is created with the correct Configuration object
         try {
-            hdfsEnvironment.getFileSystem(session.getIdentity(), writePath, conf);
+            hdfsEnvironment.getFileSystem(session.getIdentity(), new Path(writePath.toString()), conf);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
@@ -357,10 +358,10 @@ public class HiveWriterFactory
                     // a new partition in a new partitioned table
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
 
-                    if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
+                    if (!writeInfo.writeMode().isWritePathSameAsTargetPath()) {
                         // When target path is different from write path,
                         // verify that the target directory for the partition does not already exist
-                        String writeInfoTargetPath = writeInfo.getTargetPath().toString();
+                        Location writeInfoTargetPath = writeInfo.targetPath();
                         try {
                             if (fileSystem.newInputFile(writeInfoTargetPath).exists()) {
                                 throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(
@@ -368,7 +369,7 @@ public class HiveWriterFactory
                                         partitionName,
                                         schemaName,
                                         tableName,
-                                        writeInfo.getTargetPath()));
+                                        writeInfo.targetPath()));
                             }
                         }
                         catch (IOException e) {
@@ -482,19 +483,14 @@ public class HiveWriterFactory
 
         int bucketToUse = bucketNumber.isEmpty() ? 0 : bucketNumber.getAsInt();
 
-        Path path;
-        String fileNameWithExtension;
+        Location path = writeInfo.writePath();
         if (transaction.isAcidTransactionRunning() && transaction.getOperation() != CREATE_TABLE) {
             String subdir = computeAcidSubdir(transaction);
-            Path subdirPath = new Path(writeInfo.getWritePath(), subdir);
             String nameFormat = table != null && isInsertOnlyTable(table.getParameters()) ? "%05d_0" : "bucket_%05d";
-            path = new Path(subdirPath, format(nameFormat, bucketToUse));
-            fileNameWithExtension = path.getName();
+            path = path.appendPath(subdir).appendPath(nameFormat.formatted(bucketToUse));
         }
         else {
-            String fileName = computeFileName(bucketNumber);
-            fileNameWithExtension = fileName + getFileExtension(outputConf, outputStorageFormat);
-            path = new Path(writeInfo.getWritePath(), fileNameWithExtension);
+            path = path.appendPath(computeFileName(bucketNumber) + getFileExtension(outputConf, outputStorageFormat));
         }
 
         boolean useAcidSchema = isCreateTransactionalTable || (table != null && isFullAcidTable(table.getParameters()));
@@ -506,8 +502,18 @@ public class HiveWriterFactory
                     .filter(factory -> factory instanceof OrcFileWriterFactory)
                     .collect(onlyElement());
             checkArgument(hiveRowtype.isPresent(), "rowTypes not present");
-            RowIdSortingFileWriterMaker fileWriterMaker = (deleteWriter, deletePath) -> makeRowIdSortingWriter(deleteWriter, deletePath);
-            hiveFileWriter = new MergeFileWriter(transaction, 0, bucketNumber, fileWriterMaker, path, orcFileWriterFactory, inputColumns, conf, session, typeManager, hiveRowtype.get());
+            hiveFileWriter = new MergeFileWriter(
+                    transaction,
+                    0,
+                    bucketNumber,
+                    this::makeRowIdSortingWriter,
+                    path.toString(),
+                    orcFileWriterFactory,
+                    inputColumns,
+                    conf,
+                    session,
+                    typeManager,
+                    hiveRowtype.get());
         }
         else {
             for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
@@ -534,7 +540,7 @@ public class HiveWriterFactory
 
         if (hiveFileWriter == null) {
             hiveFileWriter = new RecordFileWriter(
-                    path,
+                    new Path(path.toString()),
                     dataColumns.stream()
                             .map(DataColumn::getName)
                             .collect(toList()),
@@ -547,6 +553,7 @@ public class HiveWriterFactory
                     session);
         }
 
+        String writePath = path.toString();
         String writerImplementation = hiveFileWriter.getClass().getName();
 
         Consumer<HiveWriter> onCommit = hiveWriter -> {
@@ -561,7 +568,7 @@ public class HiveWriterFactory
 
             eventClient.post(new WriteCompletedEvent(
                     session.getQueryId(),
-                    path.toString(),
+                    writePath,
                     schemaName,
                     tableName,
                     partitionName.orElse(null),
@@ -577,16 +584,14 @@ public class HiveWriterFactory
         };
 
         if (!sortedBy.isEmpty()) {
-            Path tempFilePath;
+            Location tempFilePath;
             if (sortedWritingTempStagingPathEnabled) {
-                String tempPrefix = sortedWritingTempStagingPath.replace(
-                        "${USER}",
-                        new HdfsContext(session).getIdentity().getUser());
-                tempPrefix = setSchemeToFileIfAbsent(tempPrefix);
-                tempFilePath = new Path(tempPrefix, ".tmp-sort." + path.getParent().getName() + "." + path.getName());
+                String stagingPath = sortedWritingTempStagingPath.replace("${USER}", session.getIdentity().getUser());
+                Location tempPrefix = setSchemeToFileIfAbsent(Location.of(stagingPath));
+                tempFilePath = tempPrefix.appendPath(".tmp-sort.%s.%s".formatted(path.parentDirectory().fileName(), path.fileName()));
             }
             else {
-                tempFilePath = new Path(path.getParent(), ".tmp-sort." + path.getName());
+                tempFilePath = path.parentDirectory().appendPath(".tmp-sort." + path.fileName());
             }
 
             List<Type> types = dataColumns.stream()
@@ -611,7 +616,7 @@ public class HiveWriterFactory
 
             hiveFileWriter = new SortingFileWriter(
                     fileSystem,
-                    tempFilePath.toString(),
+                    tempFilePath,
                     hiveFileWriter,
                     sortBufferSize,
                     maxOpenSortFiles,
@@ -627,22 +632,22 @@ public class HiveWriterFactory
                 hiveFileWriter,
                 partitionName,
                 updateMode,
-                fileNameWithExtension,
-                writeInfo.getWritePath().toString(),
-                writeInfo.getTargetPath().toString(),
+                path.fileName(),
+                writeInfo.writePath().toString(),
+                writeInfo.targetPath().toString(),
                 onCommit,
                 hiveWriterStats);
     }
 
     public interface RowIdSortingFileWriterMaker
     {
-        SortingFileWriter makeFileWriter(FileWriter deleteFileWriter, Path path);
+        SortingFileWriter makeFileWriter(FileWriter deleteFileWriter, Location path);
     }
 
-    public SortingFileWriter makeRowIdSortingWriter(FileWriter deleteFileWriter, Path path)
+    public SortingFileWriter makeRowIdSortingWriter(FileWriter deleteFileWriter, Location path)
     {
-        String parentPath = setSchemeToFileIfAbsent(path.getParent().toString());
-        Path tempFilePath = new Path(parentPath, ".tmp-sort." + path.getName());
+        Location parentPath = setSchemeToFileIfAbsent(path.parentDirectory());
+        Location tempFilePath = parentPath.appendPath(".tmp-sort." + path.fileName());
         // The ORC columns are: operation, originalTransaction, bucket, rowId, row
         // The deleted rows should be sorted by originalTransaction, then by rowId
         List<Integer> sortFields = ImmutableList.of(1, 3);
@@ -652,7 +657,7 @@ public class HiveWriterFactory
 
         return new SortingFileWriter(
                 fileSystem,
-                tempFilePath.toString(),
+                tempFilePath,
                 deleteFileWriter,
                 sortBufferSize,
                 maxOpenSortFiles,
@@ -803,14 +808,12 @@ public class HiveWriterFactory
     }
 
     @VisibleForTesting
-    static String setSchemeToFileIfAbsent(String pathString)
+    static Location setSchemeToFileIfAbsent(Location location)
     {
-        Path path = new Path(pathString);
-        String scheme = path.toUri().getScheme();
-        if (scheme == null || scheme.equals("")) {
-            return "file:///" + pathString;
+        if (location.scheme().isPresent()) {
+            return location;
         }
-        return pathString;
+        return Location.of("file:///" + location.path());
     }
 
     private static class DataColumn

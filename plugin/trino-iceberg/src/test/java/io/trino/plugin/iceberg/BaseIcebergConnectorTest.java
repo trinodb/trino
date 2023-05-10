@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -101,13 +102,14 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -191,7 +193,7 @@ public abstract class BaseIcebergConnectorTest
     @BeforeClass
     public void initFileSystemFactory()
     {
-        this.fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        this.fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
     }
 
     @BeforeClass
@@ -4202,7 +4204,7 @@ public abstract class BaseIcebergConnectorTest
             throws IOException
     {
         Path tempFile = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve(randomUUID() + "-manifest-copy");
-        try (InputStream inputStream = fileSystemFactory.create(SESSION).newInputFile(location).newStream()) {
+        try (InputStream inputStream = fileSystemFactory.create(SESSION).newInputFile(Location.of(location)).newStream()) {
             Files.copy(inputStream, tempFile);
         }
         return new DataFileReader<>(tempFile.toFile(), new GenericDatumReader<>());
@@ -4545,16 +4547,10 @@ public abstract class BaseIcebergConnectorTest
     public Object[][] repartitioningDataProvider()
     {
         Session defaultSession = getSession();
-        // For identity-only partitioning, Iceberg connector returns ConnectorTableLayout with partitionColumns set, but without partitioning.
-        // This is treated by engine as "preferred", but not mandatory partitioning, and gets ignored if stats suggest number of partitions
-        // written is low. Without partitioning, number of files created is nondeterministic, as a writer (worker node) may or may not receive data.
-        Session obeyConnectorPartitioning = Session.builder(defaultSession)
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
-                .build();
 
         return new Object[][] {
                 // identity partitioning column
-                {obeyConnectorPartitioning, "'orderstatus'", 3},
+                {defaultSession, "'orderstatus'", 3},
                 // bucketing
                 {defaultSession, "'bucket(custkey, 13)'", 13},
                 // varchar-based
@@ -4580,17 +4576,14 @@ public abstract class BaseIcebergConnectorTest
 
     private void testStatsBasedRepartitionData(boolean ctas)
     {
-        Session sessionRepartitionSmall = Session.builder(getSession())
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "2")
-                .build();
         Session sessionRepartitionMany = Session.builder(getSession())
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "5")
                 .setSystemProperty(SCALE_WRITERS, "false")
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
                 .build();
         // Use DISTINCT to add data redistribution between source table and the writer. This makes it more likely that all writers get some data.
         String sourceRelation = "(SELECT DISTINCT orderkey, custkey, orderstatus FROM tpch.tiny.orders)";
         testRepartitionData(
-                sessionRepartitionSmall,
+                getSession(),
                 sourceRelation,
                 ctas,
                 "'orderstatus'",
@@ -5051,7 +5044,6 @@ public abstract class BaseIcebergConnectorTest
                 .setCatalog(getQueryRunner().getDefaultSession().getCatalog())
                 .setSchema(getQueryRunner().getDefaultSession().getSchema())
                 .setSystemProperty("use_preferred_write_partitioning", "true")
-                .setSystemProperty("preferred_write_partitioning_min_number_of_partitions", "100")
                 .build();
         String tableName = "test_repartitiong_during_optimize_" + randomNameSuffix();
         assertUpdate(session, "CREATE TABLE " + tableName + " (key varchar, value integer) WITH (format_version = " + formatVersion + ", partitioning = ARRAY['key'])");
@@ -6708,7 +6700,7 @@ public abstract class BaseIcebergConnectorTest
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
         String tableLocation = getTableLocation(tableName);
-        String metadataLocation = getLatestMetadataLocation(trinoFileSystem, tableLocation);
+        Location metadataLocation = Location.of(getLatestMetadataLocation(trinoFileSystem, tableLocation));
 
         // Delete current metadata file
         trinoFileSystem.deleteFile(metadataLocation);
@@ -6717,7 +6709,7 @@ public abstract class BaseIcebergConnectorTest
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(trinoFileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertFalse(trinoFileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
     }
 
     @Test
@@ -6731,7 +6723,7 @@ public abstract class BaseIcebergConnectorTest
         String tableLocation = getTableLocation(tableName);
         String metadataLocation = getLatestMetadataLocation(trinoFileSystem, tableLocation);
         TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(trinoFileSystem), metadataLocation);
-        String currentSnapshotFile = tableMetadata.currentSnapshot().manifestListLocation();
+        Location currentSnapshotFile = Location.of(tableMetadata.currentSnapshot().manifestListLocation());
 
         // Delete current snapshot file
         trinoFileSystem.deleteFile(currentSnapshotFile);
@@ -6740,7 +6732,7 @@ public abstract class BaseIcebergConnectorTest
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(trinoFileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertFalse(trinoFileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
     }
 
     @Test
@@ -6755,7 +6747,7 @@ public abstract class BaseIcebergConnectorTest
         String metadataLocation = getLatestMetadataLocation(trinoFileSystem, tableLocation);
         FileIO fileIo = new ForwardingFileIo(trinoFileSystem);
         TableMetadata tableMetadata = TableMetadataParser.read(fileIo, metadataLocation);
-        String manifestListFile = tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path();
+        Location manifestListFile = Location.of(tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path());
 
         // Delete Manifest List file
         trinoFileSystem.deleteFile(manifestListFile);
@@ -6764,7 +6756,7 @@ public abstract class BaseIcebergConnectorTest
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(trinoFileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertFalse(trinoFileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
     }
 
     @Test
@@ -6776,11 +6768,11 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'POLAND')", 1);
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
-        String tableLocation = getTableLocation(tableName);
-        String tableDataPath = String.format("%s/%s", tableLocation, "data");
+        Location tableLocation = Location.of(getTableLocation(tableName));
+        Location tableDataPath = tableLocation.appendPath("data");
         FileIterator fileIterator = trinoFileSystem.listFiles(tableDataPath);
         assertTrue(fileIterator.hasNext());
-        String dataFile = fileIterator.next().location();
+        Location dataFile = fileIterator.next().location();
 
         // Delete data file
         trinoFileSystem.deleteFile(dataFile);
@@ -6801,7 +6793,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'POLAND')", 1);
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
-        String tableLocation = getTableLocation(tableName);
+        Location tableLocation = Location.of(getTableLocation(tableName));
 
         // Delete table location
         trinoFileSystem.deleteDirectory(tableLocation);
@@ -6822,8 +6814,8 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'INDIA', ROW ('Aug', 1947)), (2, 'POLAND', ROW ('Nov', 1918)), (3, 'USA', ROW ('Jul', 1776))", 3);
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
-        String tableLocation = getTableLocation(tableName);
-        String metadataLocation = tableLocation + "/metadata";
+        Location tableLocation = Location.of(getTableLocation(tableName));
+        Location metadataLocation = tableLocation.appendPath("metadata");
 
         // break the table by deleting all metadata files
         trinoFileSystem.deleteDirectory(metadataLocation);
@@ -6912,8 +6904,8 @@ public abstract class BaseIcebergConnectorTest
                 .containsAll(queryRunner.execute("TABLE " + icebergTableName));
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
-        String tableLocation = (String) queryRunner.execute("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName).getOnlyValue();
-        String metadataLocation = tableLocation + "/metadata";
+        Location tableLocation = Location.of((String) queryRunner.execute("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName).getOnlyValue());
+        Location metadataLocation = tableLocation.appendPath("metadata");
 
         // break the table by deleting all metadata files
         trinoFileSystem.deleteDirectory(metadataLocation);
@@ -6982,9 +6974,9 @@ public abstract class BaseIcebergConnectorTest
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
         ImmutableList.Builder<String> files = ImmutableList.builder();
-        FileIterator listing = fileSystem.listFiles(directory);
+        FileIterator listing = fileSystem.listFiles(Location.of(directory));
         while (listing.hasNext()) {
-            String location = listing.next().location();
+            String location = listing.next().location().toString();
             if (location.matches(".*/\\..*\\.crc")) {
                 continue;
             }
@@ -6997,14 +6989,14 @@ public abstract class BaseIcebergConnectorTest
             throws IOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-        return fileSystem.newInputFile(location).length();
+        return fileSystem.newInputFile(Location.of(location)).length();
     }
 
     protected void createFile(String location)
             throws IOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
-        fileSystem.newOutputFile(location).create().close();
+        fileSystem.newOutputFile(Location.of(location)).create().close();
     }
 
     private List<Long> getSnapshotIds(String tableName)

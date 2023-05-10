@@ -48,7 +48,7 @@ public final class DeltaLakeSessionProperties
     public static final String VACUUM_MIN_RETENTION = "vacuum_min_retention";
     private static final String HIVE_CATALOG_NAME = "hive_catalog_name";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
-    private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet.max_read_block_row_count";
+    private static final String PARQUET_MAX_READ_BLOCK_ROW_COUNT = "parquet_max_read_block_row_count";
     private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String PARQUET_OPTIMIZED_NESTED_READER_ENABLED = "parquet_optimized_nested_reader_enabled";
@@ -64,6 +64,7 @@ public final class DeltaLakeSessionProperties
     public static final String EXTENDED_STATISTICS_ENABLED = "extended_statistics_enabled";
     public static final String EXTENDED_STATISTICS_COLLECT_ON_WRITE = "extended_statistics_collect_on_write";
     public static final String LEGACY_CREATE_TABLE_WITH_EXISTING_LOCATION_ENABLED = "legacy_create_table_with_existing_location_enabled";
+    private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -185,6 +186,11 @@ public final class DeltaLakeSessionProperties
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, "Unsupported codec: LZ4");
                             }
                         },
+                        false),
+                booleanProperty(
+                        PROJECTION_PUSHDOWN_ENABLED,
+                        "Read only required fields from a struct",
+                        deltaLakeConfig.isProjectionPushdownEnabled(),
                         false));
     }
 
@@ -283,5 +289,10 @@ public final class DeltaLakeSessionProperties
     public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
+    }
+
+    public static boolean isProjectionPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
     }
 }

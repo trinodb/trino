@@ -15,6 +15,7 @@ package io.trino.filesystem.local;
 
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputStream;
 
 import java.io.BufferedInputStream;
@@ -30,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 class LocalInputStream
         extends TrinoInputStream
 {
-    private final String location;
+    private final Location location;
     private final File file;
     private final long fileLength;
 
@@ -38,7 +39,7 @@ class LocalInputStream
     private long position;
     private boolean closed;
 
-    public LocalInputStream(String location, File file)
+    public LocalInputStream(Location location, File file)
             throws FileNotFoundException
     {
         this.location = requireNonNull(location, "location is null");

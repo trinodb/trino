@@ -61,7 +61,7 @@ import java.util.Optional;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -158,7 +158,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 DATA,
                 Optional.of(1L),
                 "",
-                ImmutableList.of(),
                 Optional.of(""),
                 1,
                 TupleDomain.all(),
@@ -239,7 +238,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 DATA,
                 Optional.of(snapshotId),
                 "",
-                ImmutableList.of(),
                 Optional.of(""),
                 1,
                 TupleDomain.all(),
@@ -287,7 +285,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 DATA,
                 Optional.empty(),
                 "",
-                ImmutableList.of(),
                 Optional.of(""),
                 1,
                 TupleDomain.all(),
@@ -346,7 +343,6 @@ public class TestConnectorPushdownRulesWithIceberg
                 DATA,
                 Optional.of(1L),
                 "",
-                ImmutableList.of(),
                 Optional.of(""),
                 1,
                 TupleDomain.all(),

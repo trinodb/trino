@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>137</version>
+        <version>138</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>415-SNAPSHOT</version>
+    <version>417-SNAPSHOT</version>
 
     <name>trino-root</name>
     <description>Trino</description>
@@ -48,12 +48,12 @@
 
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
-        <dep.antlr.version>4.11.1</dep.antlr.version>
+        <dep.antlr.version>4.12.0</dep.antlr.version>
         <dep.airlift.version>230</dep.airlift.version>
-        <dep.arrow.version>9.0.0</dep.arrow.version>
+        <dep.arrow.version>11.0.0</dep.arrow.version>
         <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.aws-sdk.version>1.12.445</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.464</dep.aws-sdk.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
@@ -70,8 +70,9 @@
         <dep.iceberg.version>1.2.1</dep.iceberg.version>
         <dep.protobuf.version>3.22.2</dep.protobuf.version>
         <dep.wire.version>4.5.0</dep.wire.version>
-        <dep.netty.version>4.1.91.Final</dep.netty.version>
+        <dep.netty.version>4.1.92.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
+        <dep.okio.version>3.3.0</dep.okio.version>
 
         <dep.docker.images.version>79</dep.docker.images.version>
 
@@ -741,7 +742,7 @@
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
-                <version>0.24</version>
+                <version>0.25</version>
             </dependency>
 
             <dependency>
@@ -840,7 +841,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>bytecode</artifactId>
-                <version>1.4</version>
+                <version>1.5</version>
             </dependency>
 
             <dependency>
@@ -1068,7 +1069,7 @@
             <dependency>
                 <groupId>com.databricks</groupId>
                 <artifactId>databricks-jdbc</artifactId>
-                <version>2.6.29</version>
+                <version>2.6.32</version>
             </dependency>
 
             <dependency>
@@ -1104,7 +1105,7 @@
             <dependency>
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
-                <version>3.0.5</version>
+                <version>3.1.6</version>
             </dependency>
 
             <dependency>
@@ -1122,7 +1123,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.4.1</version>
+                <version>6.4.2</version>
             </dependency>
 
             <dependency>
@@ -1249,14 +1250,20 @@
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>okhttp-bom</artifactId>
                 <type>pom</type>
-                <version>4.10.0</version>
+                <version>4.11.0</version>
                 <scope>import</scope>
             </dependency>
 
             <dependency>
                 <groupId>com.squareup.okio</groupId>
+                <artifactId>okio</artifactId>
+                <version>${dep.okio.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okio</groupId>
                 <artifactId>okio-jvm</artifactId>
-                <version>3.3.0</version>
+                <version>${dep.okio.version}</version>
             </dependency>
 
             <dependency>
@@ -1286,13 +1293,13 @@
             <dependency>
                 <groupId>dev.failsafe</groupId>
                 <artifactId>failsafe</artifactId>
-                <version>3.3.0</version>
+                <version>3.3.1</version>
             </dependency>
 
             <dependency>
                 <groupId>info.picocli</groupId>
                 <artifactId>picocli</artifactId>
-                <version>4.7.0</version>
+                <version>4.7.3</version>
             </dependency>
 
             <dependency>
@@ -1532,7 +1539,7 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.14.1</version>
+                <version>1.14.4</version>
             </dependency>
 
             <dependency>
@@ -1563,7 +1570,7 @@
             <dependency>
                 <groupId>org.alluxio</groupId>
                 <artifactId>alluxio-shaded-client</artifactId>
-                <version>2.8.1</version>
+                <version>2.9.3</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
@@ -1764,13 +1771,13 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.31.0</version>
+                <version>3.33.0</version>
             </dependency>
 
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
-                <version>3.4.1</version>
+                <version>3.5.1</version>
             </dependency>
 
             <dependency>
@@ -1796,7 +1803,7 @@
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
                 <type>pom</type>
-                <version>3.37.1</version>
+                <version>3.38.2</version>
                 <scope>import</scope>
             </dependency>
 
@@ -1833,7 +1840,7 @@
             <dependency>
                 <groupId>org.openjdk.jol</groupId>
                 <artifactId>jol-core</artifactId>
-                <version>0.16</version>
+                <version>0.17</version>
             </dependency>
 
             <dependency>
@@ -1937,7 +1944,7 @@
                 <plugin>
                     <groupId>org.skife.maven</groupId>
                     <artifactId>really-executable-jar-maven-plugin</artifactId>
-                    <version>1.0.5</version>
+                    <version>2.1.1</version>
                 </plugin>
 
                 <plugin>
@@ -1949,7 +1956,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>
-                    <version>1.6.0</version>
+                    <version>3.1.0</version>
                 </plugin>
 
                 <plugin>
@@ -2032,23 +2039,21 @@
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
                                     <include>org.yaml:snakeyaml:2.0</include>
-                                    <!-- allow in test scope (tempto and benchto are using old versions) -->
-                                    <include>org.yaml:snakeyaml:*:jar:test</include>
                                 </includes>
                             </bannedDependencies>
-                            <requireProfileIdsExist/>
+                            <requireProfileIdsExist />
                         </rules>
                     </configuration>
                     <dependencies>
                         <dependency>
                             <groupId>com.github.ferstl</groupId>
                             <artifactId>pedantic-pom-enforcers</artifactId>
-                            <version>2.0.0</version>
+                            <version>2.1.0</version>
                         </dependency>
                         <dependency>
                             <groupId>de.skuzzle.enforcer</groupId>
                             <artifactId>restrict-imports-enforcer-rule</artifactId>
-                            <version>2.1.0</version>
+                            <version>2.2.0</version>
                         </dependency>
                     </dependencies>
                 </plugin>
@@ -2348,7 +2353,7 @@
                     <plugin>
                         <groupId>io.github.gitflow-incremental-builder</groupId>
                         <artifactId>gitflow-incremental-builder</artifactId>
-                        <version>4.1.1</version>
+                        <version>4.4.1</version>
                         <extensions>true</extensions>
                         <configuration>
                             <disableIfBranchMatches>master</disableIfBranchMatches>

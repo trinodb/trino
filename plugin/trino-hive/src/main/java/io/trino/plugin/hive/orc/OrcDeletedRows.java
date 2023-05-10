@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -29,7 +30,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -295,7 +295,7 @@ public class OrcDeletedRows
         @Nullable
         private ConnectorPageSource currentPageSource;
         @Nullable
-        private Path currentPath;
+        private Location currentPath;
         @Nullable
         private Page currentPage;
         private int currentPagePosition;
@@ -313,7 +313,7 @@ public class OrcDeletedRows
                     if (currentPageSource == null) {
                         String deleteDeltaDirectory = deleteDeltaDirectories.next();
                         currentPath = createPath(acidInfo, deleteDeltaDirectory, sourceFileName);
-                        TrinoInputFile inputFile = fileSystem.newInputFile(currentPath.toString());
+                        TrinoInputFile inputFile = fileSystem.newInputFile(currentPath);
                         if (inputFile.exists()) {
                             currentPageSource = pageSourceFactory.createPageSource(inputFile).orElseGet(EmptyPageSource::new);
                         }
@@ -388,21 +388,21 @@ public class OrcDeletedRows
         return sizeOfObjectArray(rowCount) + ((long) rowCount * RowId.INSTANCE_SIZE) + pageSize;
     }
 
-    private static Path createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
+    private static Location createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
     {
-        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaDirectory);
+        Location directory = Location.of(acidInfo.getPartitionLocation()).appendPath(deleteDeltaDirectory);
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
         if (hasAttemptId(fileName)) {
-            return new Path(directory, fileName.substring(0, fileName.lastIndexOf('_')));
+            return directory.appendPath(fileName.substring(0, fileName.lastIndexOf('_')));
         }
 
         if (!acidInfo.getOriginalFiles().isEmpty()) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
             return bucketFileName(directory, acidInfo.getBucketId());
         }
-        return new Path(directory, fileName);
+        return directory.appendPath(fileName);
     }
 
     private static class RowId

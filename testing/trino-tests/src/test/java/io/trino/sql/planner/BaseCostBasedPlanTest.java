@@ -20,8 +20,7 @@ import com.google.common.io.Resources;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
@@ -336,15 +335,10 @@ public abstract class BaseCostBasedPlanTest
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            TableMetadata tableMetadata = getTableMetadata(node.getTable());
-            output(indent, "scan %s", tableMetadata.getTable().getTableName());
+            CatalogSchemaTableName tableName = getQueryRunner().getMetadata().getTableName(session, node.getTable());
+            output(indent, "scan %s", tableName.getSchemaTableName().getTableName());
 
             return null;
-        }
-
-        private TableMetadata getTableMetadata(TableHandle tableHandle)
-        {
-            return getQueryRunner().getMetadata().getTableMetadata(session, tableHandle);
         }
 
         @Override

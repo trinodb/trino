@@ -316,11 +316,11 @@ public class CheckpointWriter
     {
         RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
         RowType valuesFieldType = (RowType) valuesField.getType();
-        BlockBuilder fieldBlockBuilder = blockBuilder.beginBlockEntry();
         if (values.isEmpty()) {
             blockBuilder.appendNull();
         }
         else {
+            BlockBuilder fieldBlockBuilder = blockBuilder.beginBlockEntry();
             for (RowType.Field valueField : valuesFieldType.getFields()) {
                 // anonymous row fields are not expected here
                 Object value = values.get().get(valueField.getName().orElseThrow());
@@ -343,8 +343,8 @@ public class CheckpointWriter
                     writeNativeValue(valueField.getType(), fieldBlockBuilder, value);
                 }
             }
+            blockBuilder.closeEntry();
         }
-        blockBuilder.closeEntry();
     }
 
     private Optional<Map<String, Object>> preprocessMinMaxValues(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson)
@@ -379,16 +379,16 @@ public class CheckpointWriter
     {
         return valuesOptional.map(
                 values ->
-                    values.entrySet().stream()
-                            .collect(toMap(
-                                    Map.Entry::getKey,
-                                    entry -> {
-                                        Object value = entry.getValue();
-                                        if (value instanceof Integer) {
-                                            return (long) (int) value;
-                                        }
-                                        return value;
-                                    })));
+                        values.entrySet().stream()
+                                .collect(toMap(
+                                        Map.Entry::getKey,
+                                        entry -> {
+                                            Object value = entry.getValue();
+                                            if (value instanceof Integer) {
+                                                return (long) (int) value;
+                                            }
+                                            return value;
+                                        })));
     }
 
     private void writeRemoveFileEntry(PageBuilder pageBuilder, RowType entryType, RemoveFileEntry removeFileEntry)
@@ -457,7 +457,7 @@ public class CheckpointWriter
                 mapBuilder.appendNull();
             }
             else {
-                mapType.getKeyType().writeSlice(mapBuilder, utf8Slice(entry.getValue()));
+                mapType.getValueType().writeSlice(mapBuilder, utf8Slice(entry.getValue()));
             }
         }
         blockBuilder.closeEntry();

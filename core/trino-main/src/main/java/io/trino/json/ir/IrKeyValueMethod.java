@@ -13,34 +13,19 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Optional;
-
 import static java.util.Objects.requireNonNull;
 
-public class IrKeyValueMethod
-        extends IrPathNode
+public record IrKeyValueMethod(IrPathNode base)
+        implements IrPathNode
 {
-    private final IrPathNode base;
-
-    @JsonCreator
-    public IrKeyValueMethod(@JsonProperty("base") IrPathNode base)
+    public IrKeyValueMethod
     {
-        super(Optional.empty());
-        this.base = requireNonNull(base, "keyvalue() method base is null");
+        requireNonNull(base, "keyvalue() method base is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrKeyValueMethod(this, context);
-    }
-
-    @JsonProperty
-    public IrPathNode getBase()
-    {
-        return base;
     }
 }

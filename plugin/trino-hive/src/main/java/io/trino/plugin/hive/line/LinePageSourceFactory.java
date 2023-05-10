@@ -17,6 +17,7 @@ import com.google.common.collect.Maps;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -30,16 +31,15 @@ import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.MonitoredTrinoInputFile;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.fs.MonitoredInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 
 import java.io.InputStream;
 import java.util.List;
@@ -91,7 +91,7 @@ public abstract class LinePageSourceFactory
     public Optional<ReaderPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location path,
             long start,
             long length,
             long estimatedFileSize,
@@ -142,7 +142,7 @@ public abstract class LinePageSourceFactory
 
         // buffer file if small
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
-        TrinoInputFile inputFile = new MonitoredTrinoInputFile(stats, trinoFileSystem.newInputFile(path.toString()));
+        TrinoInputFile inputFile = new MonitoredInputFile(stats, trinoFileSystem.newInputFile(path));
         try {
             length = min(inputFile.length() - start, length);
             if (!inputFile.exists()) {
@@ -151,7 +151,7 @@ public abstract class LinePageSourceFactory
             if (estimatedFileSize < SMALL_FILE_SIZE.toBytes()) {
                 try (InputStream inputStream = inputFile.newStream()) {
                     byte[] data = inputStream.readAllBytes();
-                    inputFile = new MemoryInputFile(path.toString(), Slices.wrappedBuffer(data));
+                    inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
                 }
             }
         }
@@ -169,7 +169,7 @@ public abstract class LinePageSourceFactory
 
         try {
             LineReader lineReader = lineReaderFactory.createLineReader(inputFile, start, length, headerCount, footerCount);
-            LinePageSource pageSource = new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path.toString());
+            LinePageSource pageSource = new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path);
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));
         }
         catch (TrinoException e) {
@@ -180,7 +180,7 @@ public abstract class LinePageSourceFactory
         }
     }
 
-    private static String splitError(Throwable t, Path path, long start, long length)
+    private static String splitError(Throwable t, Location path, long start, long length)
     {
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }

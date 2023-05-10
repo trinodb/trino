@@ -16,7 +16,7 @@ package io.trino.plugin.hive.fs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
-import io.trino.plugin.hive.NamenodeStats;
+import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FileSystem;
@@ -49,7 +49,7 @@ public class HiveFileIterator
     private final Table table;
     private final FileSystem fileSystem;
     private final DirectoryLister directoryLister;
-    private final NamenodeStats namenodeStats;
+    private final HdfsNamenodeStats namenodeStats;
     private final NestedDirectoryPolicy nestedDirectoryPolicy;
     private final boolean ignoreAbsentPartitions;
     private final Iterator<TrinoFileStatus> remoteIterator;
@@ -59,7 +59,7 @@ public class HiveFileIterator
             Path path,
             FileSystem fileSystem,
             DirectoryLister directoryLister,
-            NamenodeStats namenodeStats,
+            HdfsNamenodeStats namenodeStats,
             NestedDirectoryPolicy nestedDirectoryPolicy,
             boolean ignoreAbsentPartitions)
     {
@@ -82,11 +82,11 @@ public class HiveFileIterator
             // Ignore hidden files and directories
             if (nestedDirectoryPolicy == RECURSE) {
                 // Search the full sub-path under the listed prefix for hidden directories
-                if (isHiddenOrWithinHiddenParentDirectory(status.getPath(), pathPrefix)) {
+                if (isHiddenOrWithinHiddenParentDirectory(new Path(status.getPath()), pathPrefix)) {
                     continue;
                 }
             }
-            else if (isHiddenFileOrDirectory(status.getPath())) {
+            else if (isHiddenFileOrDirectory(new Path(status.getPath()))) {
                 continue;
             }
 
@@ -175,10 +175,10 @@ public class HiveFileIterator
             implements Iterator<TrinoFileStatus>
     {
         private final Path path;
-        private final NamenodeStats namenodeStats;
+        private final HdfsNamenodeStats namenodeStats;
         private final RemoteIterator<TrinoFileStatus> fileStatusIterator;
 
-        private FileStatusIterator(Table table, Path path, FileSystem fileSystem, DirectoryLister directoryLister, NamenodeStats namenodeStats, boolean recursive)
+        private FileStatusIterator(Table table, Path path, FileSystem fileSystem, DirectoryLister directoryLister, HdfsNamenodeStats namenodeStats, boolean recursive)
         {
             this.path = path;
             this.namenodeStats = namenodeStats;
@@ -230,15 +230,15 @@ public class HiveFileIterator
     public static class NestedDirectoryNotAllowedException
             extends RuntimeException
     {
-        private final Path nestedDirectoryPath;
+        private final String nestedDirectoryPath;
 
-        public NestedDirectoryNotAllowedException(Path nestedDirectoryPath)
+        public NestedDirectoryNotAllowedException(String nestedDirectoryPath)
         {
             super("Nested sub-directories are not allowed: " + nestedDirectoryPath);
             this.nestedDirectoryPath = requireNonNull(nestedDirectoryPath, "nestedDirectoryPath is null");
         }
 
-        public Path getNestedDirectoryPath()
+        public String getNestedDirectoryPath()
         {
             return nestedDirectoryPath;
         }

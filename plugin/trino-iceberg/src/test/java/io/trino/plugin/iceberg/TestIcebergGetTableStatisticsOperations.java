@@ -41,7 +41,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -116,8 +116,8 @@ public class TestIcebergGetTableStatisticsOperations
                 "FROM iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 2)
+                ImmutableMultiset.<CountingAccessMetadata.Method>builder()
+                        .addCopies(CountingAccessMetadata.Method.GET_TABLE_STATISTICS, 2)
                         .build());
     }
 
@@ -128,8 +128,8 @@ public class TestIcebergGetTableStatisticsOperations
                 "FROM iceberg.tiny.customer c, iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
         assertThat(metadata.getMethodInvocations()).containsExactlyInAnyOrderElementsOf(
-                ImmutableMultiset.<CountingAccessMetadata.Methods>builder()
-                        .addCopies(CountingAccessMetadata.Methods.GET_TABLE_STATISTICS, 3)
+                ImmutableMultiset.<CountingAccessMetadata.Method>builder()
+                        .addCopies(CountingAccessMetadata.Method.GET_TABLE_STATISTICS, 3)
                         .build());
     }
 

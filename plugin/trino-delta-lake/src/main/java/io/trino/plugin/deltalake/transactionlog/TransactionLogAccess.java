@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.log.Logger;
 import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -414,7 +415,7 @@ public class TransactionLogAccess
     {
         ImmutableList.Builder<Long> result = ImmutableList.builder();
         for (long version = lastVersion; version >= 0; version--) {
-            String entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version);
+            Location entryPath = getTransactionLogJsonEntryPath(transactionLogDir, version);
             TrinoInputFile inputFile = fileSystem.newInputFile(entryPath);
             try {
                 if (inputFile.lastModified().isBefore(startAt)) {
