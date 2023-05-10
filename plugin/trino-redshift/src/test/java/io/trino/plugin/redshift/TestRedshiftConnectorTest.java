@@ -76,6 +76,7 @@ public class TestRedshiftConnectorTest
                 return false;
 
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
@@ -196,6 +197,15 @@ public class TestRedshiftConnectorTest
                 {"TIME", "time(6)"},
                 {"TIMESTAMP", "timestamp(6)"},
                 {"TIMESTAMPTZ", "timestamp(6) with time zone"}};
+    }
+
+    @Test
+    public void testRedshiftAddNotNullColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, TEST_SCHEMA + ".test_add_column_", "(col int)")) {
+            assertThatThrownBy(() -> onRemoteDatabase().execute("ALTER TABLE " + table.getName() + " ADD COLUMN new_col int NOT NULL"))
+                    .hasMessageContaining("ERROR: ALTER TABLE ADD COLUMN defined as NOT NULL must have a non-null default expression");
+        }
     }
 
     @Override
