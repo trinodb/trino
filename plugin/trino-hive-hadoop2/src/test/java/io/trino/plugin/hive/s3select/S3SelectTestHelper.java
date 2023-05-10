@@ -49,6 +49,7 @@ import io.trino.plugin.hive.PartitionsSystemTableProvider;
 import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
+import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
@@ -162,6 +163,7 @@ public class S3SelectTestHelper
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
+                new TransactionScopeCachingDirectoryListerFactory(hiveConfig),
                 new PartitionProjectionService(this.hiveConfig, ImmutableMap.of(), new TestingTypeManager()),
                 true);
         transactionManager = new HiveTransactionManager(metadataFactory);
