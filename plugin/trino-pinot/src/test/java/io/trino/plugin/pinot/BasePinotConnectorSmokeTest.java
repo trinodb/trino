@@ -55,7 +55,6 @@ import org.apache.pinot.spi.data.DateTimeFormatSpec;
 import org.apache.pinot.spi.data.readers.GenericRow;
 import org.apache.pinot.spi.data.readers.RecordReader;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
-import org.testcontainers.shaded.org.bouncycastle.util.encoders.Hex;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -70,6 +69,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -762,7 +762,7 @@ public abstract class BasePinotConnectorSmokeTest
         return new GenericRecordBuilder(schema)
                 .set("string_col", stringArrayColumn.get(0))
                 .set("bool_col", booleanColumn)
-                .set("bytes_col", Hex.toHexString(stringArrayColumn.get(0).getBytes(StandardCharsets.UTF_8)))
+                .set("bytes_col", HexFormat.of().formatHex(stringArrayColumn.get(0).getBytes(StandardCharsets.UTF_8)))
                 .set("string_array_col", stringArrayColumn)
                 .set("int_array_col", intArrayColumn)
                 .set("int_array_col_with_pinot_default", intArrayColumn)
