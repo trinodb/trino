@@ -1051,7 +1051,7 @@ public abstract class BaseConnectorTest
                 "SELECT table_name, table_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "'"))
                 .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.getObjectName() + "', 'BASE TABLE')"); // TODO table_type should probably be "* VIEW"
+                .containsAll("VALUES ('" + view.getObjectName() + "', 'BASE TABLE')");
         // information_schema.tables with table_name filter
         assertQuery(
                 "SELECT table_name, table_type FROM information_schema.tables " +
@@ -1104,7 +1104,10 @@ public abstract class BaseConnectorTest
                                 "CROSS JOIN UNNEST(ARRAY['nationkey', 'name', 'regionkey', 'comment'])");
 
         // view-specific listings
-        checkInformationSchemaViewsForMaterializedView(view.getSchemaName(), view.getObjectName());
+        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.getSchemaName() + "'").getOnlyColumnAsSet())
+                .doesNotContain(view.getObjectName());
+        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + view.getSchemaName() + "' AND table_name = '" + view.getObjectName() + "'"))
+                .returnsEmptyResult();
 
         // system.jdbc.columns without filter
         assertThat(query("SELECT table_schem, table_name, column_name FROM system.jdbc.columns"))
@@ -1882,12 +1885,12 @@ public abstract class BaseConnectorTest
         String materializedViewName = "test_views_together_materialized_" + randomNameSuffix();
         assertUpdate("CREATE MATERIALIZED VIEW " + materializedViewName + " AS SELECT * FROM nation");
 
-        // both should be accessible via information_schema.views
-        // TODO: actually it is not the cased now hence overridable `checkInformationSchemaViewsForMaterializedView`
-        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'"))
-                .skippingTypesCheck()
-                .containsAll("VALUES '" + regularViewName + "'");
-        checkInformationSchemaViewsForMaterializedView(schemaName, materializedViewName);
+        // only the regular view should be accessible via information_schema.views
+        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "' AND table_name IN ('" + regularViewName + "', '" + materializedViewName + "')"))
+                .matches("VALUES VARCHAR '" + regularViewName + "'");
+        assertThat(computeActual("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'").getOnlyColumnAsSet())
+                .contains(regularViewName)
+                .doesNotContain(materializedViewName);
 
         // check we can query from both
         assertThat(query("SELECT * FROM " + regularViewName)).containsAll("SELECT * FROM region");
@@ -1895,14 +1898,6 @@ public abstract class BaseConnectorTest
 
         assertUpdate("DROP VIEW " + regularViewName);
         assertUpdate("DROP MATERIALIZED VIEW " + materializedViewName);
-    }
-
-    // TODO inline when all implementations fixed
-    protected void checkInformationSchemaViewsForMaterializedView(String schemaName, String viewName)
-    {
-        assertThat(query("SELECT table_name FROM information_schema.views WHERE table_schema = '" + schemaName + "'"))
-                .skippingTypesCheck()
-                .containsAll("VALUES '" + viewName + "'");
     }
 
     /**
