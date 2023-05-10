@@ -45,7 +45,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static io.trino.hive.formats.avro.AvroTypeUtils.UNION_FIELD_TAG_TYPE;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_TYPE;
 import static io.trino.hive.formats.avro.AvroTypeUtils.isSimpleNullableUnion;
 import static io.trino.hive.formats.avro.AvroTypeUtils.typeFromAvro;
 import static io.trino.spi.type.BigintType.BIGINT;
