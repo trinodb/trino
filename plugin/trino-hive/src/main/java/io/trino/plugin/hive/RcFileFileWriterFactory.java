@@ -19,7 +19,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.encodings.ColumnEncodingFactory;
 import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
 import io.trino.hive.formats.encodings.text.TextColumnEncodingFactory;
@@ -31,8 +30,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -94,8 +91,8 @@ public class RcFileFileWriterFactory
             Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
             Properties schema,
-            JobConf configuration,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
@@ -116,9 +113,6 @@ public class RcFileFileWriterFactory
         else {
             return Optional.empty();
         }
-
-        Optional<CompressionKind> compressionKind = Optional.ofNullable(configuration.get(FileOutputFormat.COMPRESS_CODEC))
-                .map(CompressionKind::fromHadoopClassName);
 
         // existing tables and partitions may have columns in a different order than the writer is providing, so build
         // an index to rearrange columns in the proper order
@@ -149,7 +143,7 @@ public class RcFileFileWriterFactory
                     rollbackAction,
                     columnEncodingFactory,
                     fileColumnTypes,
-                    compressionKind,
+                    compressionCodec.getHiveCompressionKind(),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

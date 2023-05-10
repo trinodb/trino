@@ -561,9 +561,6 @@ public abstract class AbstractTestHiveFileFormats
         }
         Page page = pageBuilder.build();
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
-        configureCompression(jobConf, compressionCodec);
-
         Properties tableProperties = new Properties();
         tableProperties.setProperty(
                 "columns",
@@ -583,8 +580,8 @@ public abstract class AbstractTestHiveFileFormats
                         .map(TestColumn::getName)
                         .collect(toList()),
                 StorageFormat.fromHiveStorageFormat(storageFormat),
+                compressionCodec,
                 tableProperties,
-                jobConf,
                 session,
                 OptionalInt.empty(),
                 NO_ACID_TRANSACTION,
