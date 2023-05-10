@@ -103,6 +103,8 @@ public class FileBasedTableStatisticsProvider
         }
 
         Set<String> predicatedColumnNames = tableHandle.getNonPartitionConstraint().getDomains().orElseThrow().keySet().stream()
+                // TODO Statistics for column inside complex type is not collected (https://github.com/trinodb/trino/issues/17164)
+                .filter(DeltaLakeColumnHandle::isBaseColumn)
                 .map(DeltaLakeColumnHandle::getBaseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> predicatedColumns = columnMetadata.stream()
