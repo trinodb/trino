@@ -35,9 +35,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.lenientFormat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.hive.formats.avro.AvroTypeUtils.UNION_FIELD_FIELD_PREFIX;
-import static io.trino.hive.formats.avro.AvroTypeUtils.UNION_FIELD_TAG_NAME;
-import static io.trino.hive.formats.avro.AvroTypeUtils.UNION_FIELD_TAG_TYPE;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_FIELD_PREFIX;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_NAME;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.UNION_FIELD_TAG_TYPE;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
@@ -249,7 +249,7 @@ public final class HiveType
             else if (typeInfo instanceof UnionTypeInfo unionTypeInfo) {
                 try {
                     if (fieldIndex == 0) {
-                        //  union's tag field, defined in {@link io.trino.plugin.hive.util.HiveTypeTranslator#toTypeSignature}
+                        //  union's tag field, defined in {@link io.trino.hive.formats.UnionToRowCoercionUtils}
                         return Optional.of(toHiveType(UNION_FIELD_TAG_TYPE));
                     }
                     else {

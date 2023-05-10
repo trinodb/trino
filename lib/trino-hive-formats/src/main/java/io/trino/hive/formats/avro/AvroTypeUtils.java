@@ -31,19 +31,14 @@ import org.apache.avro.Schema;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeForUnionOfTypes;
 import static java.util.function.Predicate.not;
 
 public final class AvroTypeUtils
 {
-    public static final String UNION_FIELD_TAG_NAME = "tag";
-    public static final String UNION_FIELD_FIELD_PREFIX = "field";
-    public static final Type UNION_FIELD_TAG_TYPE = TINYINT;
-
     private AvroTypeUtils() {}
 
     public static Type typeFromAvro(Schema schema, AvroTypeManager avroTypeManager)
@@ -108,14 +103,12 @@ public final class AvroTypeUtils
             throws AvroTypeException
     {
         verify(schema.isUnion());
-        AtomicInteger fieldSuffix = new AtomicInteger(0);
-        ImmutableList.Builder<RowType.Field> rowFieldTypes = ImmutableList.<RowType.Field>builder()
-                .add(RowType.field(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE));
+        ImmutableList.Builder<Type> unionTypes = ImmutableList.builder();
         for (Schema variant : schema.getTypes()) {
             if (!variant.isNullable()) {
-                rowFieldTypes.add(RowType.field(UNION_FIELD_FIELD_PREFIX + fieldSuffix.getAndIncrement(), typeFromAvro(variant, avroTypeManager, enclosingRecords)));
+                unionTypes.add(typeFromAvro(variant, avroTypeManager, enclosingRecords));
             }
         }
-        return RowType.from(rowFieldTypes.build());
+        return rowTypeForUnionOfTypes(unionTypes.build());
     }
 }
