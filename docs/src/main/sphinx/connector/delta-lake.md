@@ -108,7 +108,7 @@ values. Typical usage does not require you to configure them.
     * `GZIP`
 
     The equivalent catalog session property is `compression_codec`.
-  - `SNAPPY`
+  - `ZSTD`
 * - `delta.max-partitions-per-writer`
   - Maximum number of partitions per writer.
   - `100`
