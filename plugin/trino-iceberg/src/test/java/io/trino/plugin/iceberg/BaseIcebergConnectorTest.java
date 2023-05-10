@@ -114,6 +114,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
@@ -4576,28 +4577,38 @@ public abstract class BaseIcebergConnectorTest
 
     private void testStatsBasedRepartitionData(boolean ctas)
     {
-        Session sessionRepartitionMany = Session.builder(getSession())
-                .setSystemProperty(SCALE_WRITERS, "false")
-                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
-                .build();
-        // Use DISTINCT to add data redistribution between source table and the writer. This makes it more likely that all writers get some data.
-        String sourceRelation = "(SELECT DISTINCT orderkey, custkey, orderstatus FROM tpch.tiny.orders)";
-        testRepartitionData(
-                getSession(),
-                sourceRelation,
-                ctas,
-                "'orderstatus'",
-                3);
-        // Test uses relatively small table (15K rows). When engine doesn't redistribute data for writes,
-        // occasionally a worker node doesn't get any data and fewer files get created.
-        assertEventually(new Duration(3, MINUTES), () -> {
+        String catalog = getSession().getCatalog().orElseThrow();
+        try (TestTable sourceTable = new TestTable(
+                sql -> assertQuerySucceeds(
+                        Session.builder(getSession())
+                                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, "true")
+                                .build(),
+                        sql),
+                "temp_table_analyzed",
+                "AS SELECT orderkey, custkey, orderstatus FROM tpch.\"sf0.03\".orders")) {
+            Session sessionRepartitionMany = Session.builder(getSession())
+                    .setSystemProperty(SCALE_WRITERS, "false")
+                    .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
+                    .build();
+            // Use DISTINCT to add data redistribution between source table and the writer. This makes it more likely that all writers get some data.
+            String sourceRelation = "(SELECT DISTINCT orderkey, custkey, orderstatus FROM " + sourceTable.getName() + ")";
             testRepartitionData(
-                    sessionRepartitionMany,
+                    getSession(),
                     sourceRelation,
                     ctas,
                     "'orderstatus'",
-                    9);
-        });
+                    3);
+            // Test uses relatively small table (45K rows). When engine doesn't redistribute data for writes,
+            // occasionally a worker node doesn't get any data and fewer files get created.
+            assertEventually(new Duration(3, MINUTES), () -> {
+                testRepartitionData(
+                        sessionRepartitionMany,
+                        sourceRelation,
+                        ctas,
+                        "'orderstatus'",
+                        9);
+            });
+        }
     }
 
     private void testRepartitionData(Session session, String sourceRelation, boolean ctas, String partitioning, int expectedFiles)
