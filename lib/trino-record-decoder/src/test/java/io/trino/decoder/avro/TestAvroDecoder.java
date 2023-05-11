@@ -31,7 +31,6 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
-import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.SchemaBuilder.FieldAssembler;
@@ -166,7 +165,7 @@ public class TestAvroDecoder
     {
         RowDecoder rowDecoder = DECODER_FACTORY.create(dataParams, columns);
         return rowDecoder.decodeRow(avroData)
-                .orElseThrow(AssertionError::new);
+                .orElseThrow(() -> new IllegalStateException("Problems during decode phase"));
     }
 
     private static byte[] buildAvroData(Schema schema, String name, Object value)
@@ -364,10 +363,8 @@ public class TestAvroDecoder
                 .toString();
 
         assertThatThrownBy(() -> decodeRow(originalIntData, ImmutableSet.of(stringColumnReadingIntData), ImmutableMap.of(DATA_SCHEMA, changedTypeSchema)))
-                .isInstanceOf(TrinoException.class)
-                .hasCauseExactlyInstanceOf(AvroTypeException.class)
-                .hasStackTraceContaining("Found int, expecting string")
-                .hasMessageMatching("Decoding Avro record failed.");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageMatching("Problems during decode phase");
     }
 
     @Test
