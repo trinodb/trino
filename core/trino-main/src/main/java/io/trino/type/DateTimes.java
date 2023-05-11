@@ -648,10 +648,13 @@ public final class DateTimes
     {
         checkArgument(precision <= TimestampWithTimeZoneType.MAX_PRECISION, "Precision is out of range");
 
-        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(
-                start.toEpochMilli(),
-                (int) round((start.getNano() % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND, (int) (TimestampWithTimeZoneType.MAX_PRECISION - precision)),
-                timeZoneKey);
+        long epochMilli = start.toEpochMilli();
+        int picosOfMilli = (int) round((start.getNano() % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND, (int) (TimestampWithTimeZoneType.MAX_PRECISION - precision));
+        if (picosOfMilli == PICOSECONDS_PER_MILLISECOND) {
+            epochMilli++;
+            picosOfMilli = 0;
+        }
+        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMilli, picosOfMilli, timeZoneKey);
     }
 
     public static LongTimestampWithTimeZone longTimestampWithTimeZone(long epochSecond, long fractionInPicos, ZoneId zoneId)
