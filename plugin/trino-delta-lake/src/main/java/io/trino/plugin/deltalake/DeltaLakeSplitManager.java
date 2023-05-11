@@ -60,6 +60,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.FULL_REFRESH;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.toColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
@@ -169,13 +170,14 @@ public class DeltaLakeSplitManager
 
         Set<String> predicatedColumnNames = Stream.concat(
                 nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
-                columnsCoveredByDynamicFilter.stream()
-                        .map(DeltaLakeColumnHandle.class::cast))
+                        columnsCoveredByDynamicFilter.stream()
+                                .map(DeltaLakeColumnHandle.class::cast))
                 .map(DeltaLakeColumnHandle::getBaseColumnName)
                 .collect(toImmutableSet());
         List<DeltaLakeColumnMetadata> schema = extractSchema(tableHandle.getMetadataEntry(), typeManager);
-        List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
-                .filter(column -> predicatedColumnNames.contains(column.getName()))
+        List<DeltaLakeColumnHandle> predicatedColumns = schema.stream()
+                .filter(column -> predicatedColumnNames.contains(column.getName())) // DeltaLakeColumnMetadata.name is lowercase
+                .map(column -> toColumnHandle(column.getName(), column.getType(), column.getFieldId(), column.getPhysicalName(), column.getPhysicalColumnType(), tableHandle.getMetadataEntry().getOriginalPartitionColumns()))
                 .collect(toImmutableList());
         return validDataFiles.stream()
                 .flatMap(addAction -> {
@@ -205,8 +207,7 @@ public class DeltaLakeSplitManager
 
                     TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
                             addAction,
-                            predicatedColumns,
-                            tableHandle.getMetadataEntry().getLowercasePartitionColumns());
+                            predicatedColumns);
                     if (!nonPartitionConstraint.overlaps(statisticsPredicate)) {
                         return Stream.empty();
                     }

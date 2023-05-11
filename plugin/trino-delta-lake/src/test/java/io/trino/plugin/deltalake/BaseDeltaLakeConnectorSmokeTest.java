@@ -981,12 +981,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(getTableFiles(transactionLogDirectory))
                 .contains(newTransactionFile, newCheckpointFile);
 
+        assertUpdate("INSERT INTO json_stats_on_row_type VALUES (null, null)", 1);
+        assertThat(getTableFiles(transactionLogDirectory))
+                .contains(newTransactionFile, newCheckpointFile);
+
         // The first two entries created by Databricks have column stats.
-        // The last one doesn't have column stats because the connector doesn't support collecting it on row columns.
+        // The last two entries created by trino have column stats
         List<AddFileEntry> addFileEntries = getTableActiveFiles(transactionLogAccess, tableLocation).stream()
                 .sorted(comparing(AddFileEntry::getModificationTime))
                 .toList();
-        assertThat(addFileEntries).hasSize(3);
+        assertThat(addFileEntries).hasSize(4);
         assertJsonStatistics(
                 addFileEntries.get(0),
                 "{" +
@@ -1005,7 +1009,20 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "}");
         assertJsonStatistics(
                 addFileEntries.get(2),
-                "{\"numRecords\":1,\"minValues\":{},\"maxValues\":{},\"nullCount\":{}}");
+                "{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"nested_struct_col\":{\"y\":{\"nested\":\"test insert\"}},\"struct_col\":{\"x\":3}}," +
+                        "\"maxValues\":{\"nested_struct_col\":{\"y\":{\"nested\":\"test insert\"}},\"struct_col\":{\"x\":3}}," +
+                        "\"nullCount\":{\"nested_struct_col\":{\"y\":{\"nested\":0}},\"struct_col\":{\"x\":0}}" +
+                        "}");
+        assertJsonStatistics(
+                addFileEntries.get(3),
+                "{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"nested_struct_col\":{\"y\":{}},\"struct_col\":{}}," +
+                        "\"maxValues\":{\"nested_struct_col\":{\"y\":{}},\"struct_col\":{}}," +
+                        "\"nullCount\":{\"nested_struct_col\":{\"y\":{\"nested\":1}},\"struct_col\":{\"x\":1}}" +
+                        "}");
     }
 
     private static void assertJsonStatistics(AddFileEntry addFileEntry, @Language("JSON") String jsonStatistics)

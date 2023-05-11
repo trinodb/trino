@@ -125,7 +125,7 @@ public class DeltaLakeParquetStatisticsUtils
             return (double) jsonValue;
         }
         if (type instanceof DecimalType decimalType) {
-            BigDecimal decimal = new BigDecimal((String) jsonValue);
+            BigDecimal decimal = new BigDecimal(String.valueOf(jsonValue));
 
             if (decimalType.isShort()) {
                 return Decimals.encodeShortScaledValue(decimal, decimalType.getScale());
@@ -145,7 +145,7 @@ public class DeltaLakeParquetStatisticsUtils
             Map<?, ?> values = (Map<?, ?>) jsonValue;
             List<Type> fieldTypes = rowType.getTypeParameters();
             return buildRowValue(rowType, fields -> {
-                for (int i = 0; i < values.size(); ++i) {
+                for (int i = 0; i < fieldTypes.size(); ++i) {
                     Type fieldType = fieldTypes.get(i);
                     String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
                     Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
@@ -237,9 +237,35 @@ public class DeltaLakeParquetStatisticsUtils
                 .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty())
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> accessor.apply(typeForColumn.get(entry.getKey()), entry.getValue().get())));
 
-        return allStats.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+        return flattenNestedKeyMap(allStats);
+    }
+
+    /**
+     * Converts a map with nested keys and optional values into a new map with flattened keys and unwrapped values.
+     * The keys in the input map are split using dot notation, and the values are unwrapped from Optionals.
+     *
+     * @param map the input map with nested keys and optional values
+     * @return a new map with flattened keys and unwrapped values
+     *
+     * @example:
+     *  map: { "person.name.first" : Optional.of("John"), "person.name.last" : Optional.of("Doe"), "person.age" : Optional.of(30) }
+     *  flattenedMap: { "person": { "name": {"first" : "John", "last" : "Doe" }, "age": 30 } }
+     */
+    public static Map<String, Object> flattenNestedKeyMap(Map<String, Optional<Object>> map)
+    {
+        Map<String, Object> flattenedMap = new HashMap<>();
+        for (Map.Entry<String, Optional<Object>> entry : map.entrySet()) {
+            String[] keys = entry.getKey().split("\\.");
+            Map<String, Object> flattenedNestedMap = flattenedMap;
+            for (int i = 0; i < keys.length - 1; i++) {
+                flattenedNestedMap = (Map<String, Object>) flattenedNestedMap.computeIfAbsent(keys[i], k -> new HashMap<>());
+            }
+            Optional<Object> value = entry.getValue();
+            if (value != null && value.isPresent()) {
+                flattenedNestedMap.put(keys[keys.length - 1], value.get());
+            }
+        }
+        return ImmutableMap.copyOf(flattenedMap);
     }
 
     public static Map<String, Object> toNullCounts(Map<String, Type> columnTypeMapping, Map<String, Object> values)

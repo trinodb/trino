@@ -73,6 +73,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.util.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -624,7 +625,7 @@ public class TestTransactionLogAccess
                 DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(column.getName(), column.getType(), OptionalInt.empty(), column.getName(), column.getType(), REGULAR, Optional.empty());
                 assertEquals(expected.getStats().get().getMinColumnValue(columnHandle), actual.getStats().get().getMinColumnValue(columnHandle));
                 assertEquals(expected.getStats().get().getMaxColumnValue(columnHandle), actual.getStats().get().getMaxColumnValue(columnHandle));
-                assertEquals(expected.getStats().get().getNullCount(columnHandle.getBaseColumnName()), actual.getStats().get().getNullCount(columnHandle.getBaseColumnName()));
+                assertEquals(expected.getStats().get().getNullCount(columnHandle), actual.getStats().get().getNullCount(columnHandle));
                 assertEquals(expected.getStats().get().getNumRecords(), actual.getStats().get().getNumRecords());
             }
         }
@@ -688,17 +689,25 @@ public class TestTransactionLogAccess
                 .put("fl", (long) Float.floatToIntBits(0.123f))
                 .put("dou", 0.321)
                 .put("dat", LocalDate.parse("5000-01-01").toEpochDay())
+                .put("row.s1", 1L)
+                .put("row.s2", utf8Slice("a"))
+                .buildOrThrow();
+
+        Map<String, Optional<DeltaLakeColumnProjectionInfo>> projectionInfo = ImmutableMap.<String, Optional<DeltaLakeColumnProjectionInfo>>builder()
+                .put("row.s1", Optional.of(new DeltaLakeColumnProjectionInfo(IntegerType.INTEGER, ImmutableList.of(0), ImmutableList.of("s1"))))
+                .put("row.s2", Optional.of(new DeltaLakeColumnProjectionInfo(createUnboundedVarcharType(), ImmutableList.of(1), ImmutableList.of("s2"))))
                 .buildOrThrow();
 
         for (String columnName : statsValues.keySet()) {
+            String baseColumnName = columnName.split("\\.")[0];
             // Types would need to be specified properly if stats were being read from JSON but are not can be ignored when reading parsed stats from parquet,
             // so it is safe to use INTEGER as a placeholder
             assertEquals(
-                    fileStats.getMinColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, OptionalInt.empty(), columnName, IntegerType.INTEGER, REGULAR, Optional.empty())),
+                    fileStats.getMinColumnValue(new DeltaLakeColumnHandle(baseColumnName, IntegerType.INTEGER, OptionalInt.empty(), baseColumnName, IntegerType.INTEGER, REGULAR, projectionInfo.getOrDefault(columnName, Optional.empty()))),
                     Optional.of(statsValues.get(columnName)));
 
             assertEquals(
-                    fileStats.getMaxColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, OptionalInt.empty(), columnName, IntegerType.INTEGER, REGULAR, Optional.empty())),
+                    fileStats.getMaxColumnValue(new DeltaLakeColumnHandle(baseColumnName, IntegerType.INTEGER, OptionalInt.empty(), baseColumnName, IntegerType.INTEGER, REGULAR, projectionInfo.getOrDefault(columnName, Optional.empty()))),
                     Optional.of(statsValues.get(columnName)));
         }
     }

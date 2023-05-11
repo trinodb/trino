@@ -273,7 +273,7 @@ public class TestDeltaLakeBasic
         DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
         assertThat(stats.getMinValues().orElseThrow().get(physicalName)).isEqualTo(10);
         assertThat(stats.getMaxValues().orElseThrow().get(physicalName)).isEqualTo(20);
-        assertThat(stats.getNullCount(physicalName).orElseThrow()).isEqualTo(1);
+        assertThat(stats.getNullCount().orElseThrow().get(physicalName)).isEqualTo(1);
 
         // Verify optimized parquet file contains the expected physical id and name
         TrinoInputFile inputFile = new LocalInputFile(tableLocation.resolve(addFileEntry.getPath()).toFile());
@@ -444,7 +444,7 @@ public class TestDeltaLakeBasic
         DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
         assertThat(stats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(10);
         assertThat(stats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
-        assertThat(stats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
+        assertThat(stats.getNullCount().orElseThrow().get("UPPER_CASE")).isEqualTo(1);
 
         assertUpdate("UPDATE " + tableName + " SET upper_case = upper_case + 10", 3);
 
@@ -454,7 +454,7 @@ public class TestDeltaLakeBasic
         DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
         assertThat(updateStats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
         assertThat(updateStats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(30);
-        assertThat(updateStats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
+        assertThat(updateStats.getNullCount().orElseThrow().get("UPPER_CASE")).isEqualTo(1);
 
         assertQuery(
                 "SHOW STATS FOR " + tableName,

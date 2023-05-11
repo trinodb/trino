@@ -41,6 +41,9 @@ public class TestDeltaLakeTableStatistics
         String dataPath = Resources.getResource("databricks/person").toExternalForm();
         getQueryRunner().execute(
                 format("CALL system.register_table('%s', 'person', '%s')", getSession().getSchema().orElseThrow(), dataPath));
+        dataPath = Resources.getResource("databricks/pruning/nested_fields").toExternalForm();
+        getQueryRunner().execute(
+                format("CALL system.register_table('%s', 'nested_fields', '%s')", getSession().getSchema().orElseThrow(), dataPath));
     }
 
     @Test
@@ -175,5 +178,18 @@ public class TestDeltaLakeTableStatistics
                         //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
                         "('col', 0.0, 0.0, 1.0, null, null, null)," +
                         "(null, null, null, null, 1.0, null, null)");
+    }
+
+    @Test
+    public void testShowStatsNestedFields()
+    {
+        assertQuery(
+                "SHOW STATS FOR nested_fields",
+                "VALUES " +
+                        //  column_name | data_size | distinct_values_count | nulls_fraction | row_count | low_value | high_value
+                        "('id', null, null, 0.0, null, 1, 10)," +
+                        "('parent', null, null, null, null, null, null)," +
+                        "('grandparent', null, null, null, null, null, null)," +
+                        "(null, null, null, null, 10.0, null, null)");
     }
 }

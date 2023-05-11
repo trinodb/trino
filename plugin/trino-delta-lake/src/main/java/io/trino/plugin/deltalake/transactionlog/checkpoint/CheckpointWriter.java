@@ -67,6 +67,7 @@ import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHECK
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.multiplyExact;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -310,7 +311,7 @@ public class CheckpointWriter
                 writeLong(fieldBuilders.get(0), statsType, 0, "numRecords", stats.getNumRecords().orElse(null));
                 writeMinMaxMapAsFields(fieldBuilders.get(1), statsType, 1, "minValues", stats.getMinValues(), false);
                 writeMinMaxMapAsFields(fieldBuilders.get(2), statsType, 2, "maxValues", stats.getMaxValues(), false);
-                writeNullCountAsFields(fieldBuilders.get(3), statsType, 3, "nullCount", stats.getNullCount());
+                writeNullCountAsFields(fieldBuilders.get(3), statsType, 3, "nullCount", stats.getNullCount(), false);
             }
             else {
                 int internalFieldId = 0;
@@ -326,7 +327,7 @@ public class CheckpointWriter
                     writeMinMaxMapAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "maxValues", stats.getMaxValues(), true);
                     internalFieldId++;
                 }
-                writeNullCountAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "nullCount", stats.getNullCount());
+                writeNullCountAsFields(fieldBuilders.get(internalFieldId), statsType, internalFieldId, "nullCount", stats.getNullCount(), true);
             }
         });
     }
@@ -338,9 +339,11 @@ public class CheckpointWriter
         writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson));
     }
 
-    private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
+    private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values, boolean isJson)
     {
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessNullCount(values));
+        RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
+        RowType valuesFieldType = (RowType) valuesField.getType();
+        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessNullCount(valuesFieldType, values, isJson));
     }
 
     private void writeObjectMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
@@ -409,20 +412,28 @@ public class CheckpointWriter
                 });
     }
 
-    private Optional<Map<String, Object>> preprocessNullCount(Optional<Map<String, Object>> valuesOptional)
+    private Optional<Map<String, Object>> preprocessNullCount(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson)
     {
+        Map<String, Type> fieldTypes = valuesType.getFields().stream()
+                .collect(toMap(
+                        field -> field.getName().orElseThrow(), // anonymous row fields are not expected here
+                        RowType.Field::getType));
         return valuesOptional.map(
                 values ->
                         values.entrySet().stream()
-                                .collect(toMap(
-                                        Map.Entry::getKey,
-                                        entry -> {
-                                            Object value = entry.getValue();
-                                            if (value instanceof Integer) {
-                                                return (long) (int) value;
-                                            }
-                                            return value;
-                                        })));
+                        .collect(toMap(
+                                Map.Entry::getKey,
+                                entry -> {
+                                    Object value = entry.getValue();
+                                    if (value instanceof Integer) {
+                                        return (long) (int) value;
+                                    }
+                                    if (isJson) {
+                                        Type type = fieldTypes.get(entry.getKey().toLowerCase(ENGLISH));
+                                        return jsonValueToTrinoValue(type, value);
+                                    }
+                                    return value;
+                                })));
     }
 
     private void writeRemoveFileEntry(PageBuilder pageBuilder, RowType entryType, RemoveFileEntry removeFileEntry)

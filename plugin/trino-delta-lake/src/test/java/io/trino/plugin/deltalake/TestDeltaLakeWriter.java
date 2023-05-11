@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.VarcharType;
 import org.apache.parquet.column.EncodingStats;
 import org.apache.parquet.column.statistics.Statistics;
@@ -64,7 +65,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(intColumn), Optional.of(-200L));
         assertEquals(fileStats.getMaxColumnValue(intColumn), Optional.of(250L));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(13L));
+        assertEquals(fileStats.getNullCount(intColumn), Optional.of(13L));
     }
 
     @Test
@@ -83,7 +84,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(floatColumn), Optional.of((long) floatToRawIntBits(-2.001f)));
         assertEquals(fileStats.getMaxColumnValue(floatColumn), Optional.of((long) floatToRawIntBits(1.0f)));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(13L));
+        assertEquals(fileStats.getNullCount(floatColumn), Optional.of(13L));
     }
 
     @Test
@@ -104,7 +105,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(floatColumn), Optional.empty());
         assertEquals(fileStats.getMaxColumnValue(floatColumn), Optional.empty());
-        assertEquals(fileStats.getNullCount(columnName), Optional.empty());
+        assertEquals(fileStats.getNullCount(floatColumn), Optional.empty());
     }
 
     @Test
@@ -125,7 +126,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(doubleColumn), Optional.empty());
         assertEquals(fileStats.getMaxColumnValue(doubleColumn), Optional.empty());
-        assertEquals(fileStats.getNullCount(columnName), Optional.empty());
+        assertEquals(fileStats.getNullCount(doubleColumn), Optional.empty());
     }
 
     @Test
@@ -144,7 +145,7 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(varcharColumn), Optional.of(utf8Slice("aba")));
         assertEquals(fileStats.getMaxColumnValue(varcharColumn), Optional.of(utf8Slice("ab⌘")));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(12L));
+        assertEquals(fileStats.getNullCount(varcharColumn), Optional.of(12L));
     }
 
     @Test
@@ -163,7 +164,27 @@ public class TestDeltaLakeWriter
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
         assertEquals(fileStats.getMinColumnValue(varcharColumn), Optional.of(utf8Slice("aba")));
         assertEquals(fileStats.getMaxColumnValue(varcharColumn), Optional.of(utf8Slice("ab\uD83D\uDD74")));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(12L));
+        assertEquals(fileStats.getNullCount(varcharColumn), Optional.of(12L));
+    }
+
+    @Test
+    public void testMergeNestedFieldStatistics()
+    {
+        String columnName = "t_parent.t_int";
+        PrimitiveType nestedColumnType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT32, columnName);
+        List<ColumnChunkMetaData> metadata = ImmutableList.of(
+                createMetaData(columnName, nestedColumnType, 10,
+                        Statistics.getBuilderForReading(nestedColumnType).withMin(getIntByteArray(-100)).withMax(getIntByteArray(250)).withNumNulls(6).build()),
+                createMetaData(columnName, nestedColumnType, 10,
+                        Statistics.getBuilderForReading(nestedColumnType).withMin(getIntByteArray(-200)).withMax(getIntByteArray(150)).withNumNulls(7).build()));
+        RowType rowType = RowType.rowType(RowType.field("t_int", INTEGER));
+        DeltaLakeColumnHandle nestedColumn = new DeltaLakeColumnHandle("t_parent", rowType, OptionalInt.empty(), "t_parent", rowType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(INTEGER, ImmutableList.of(0), ImmutableList.of("t_int"))));
+
+        DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, INTEGER), 20);
+        assertEquals(fileStats.getNumRecords(), Optional.of(20L));
+        assertEquals(fileStats.getMinColumnValue(nestedColumn), Optional.of(-200L));
+        assertEquals(fileStats.getMaxColumnValue(nestedColumn), Optional.of(250L));
+        assertEquals(fileStats.getNullCount(nestedColumn), Optional.of(13L));
     }
 
     private ColumnChunkMetaData createMetaData(String columnName, PrimitiveType columnType, long valueCount, Statistics<?> statistics)
