@@ -519,7 +519,7 @@ public final class IcebergUtil
                     name));
         }
         // Iceberg tables don't partition by non-primitive-type columns.
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type);
     }
 
     /**
