@@ -45,6 +45,8 @@ public class KuduRecordCursor
 
     private long totalBytes;
 
+    private volatile boolean closed;
+
     public KuduRecordCursor(KuduScanner scanner, KuduTable table, List<Type> columnTypes, Map<Integer, Integer> fieldMapping)
     {
         this.scanner = requireNonNull(scanner, "scanner is null");
@@ -84,6 +86,7 @@ public class KuduRecordCursor
     public boolean advanceNextPosition()
     {
         if (!kuduScannerIterator.hasNext()) {
+            closed = scanner.isClosed();
             return false;
         }
 
@@ -153,12 +156,17 @@ public class KuduRecordCursor
     @Override
     public void close()
     {
-        try {
-            scanner.close();
+        if (!closed) {
+            try {
+                scanner.close();
+            }
+            catch (KuduException e) {
+                throw new RuntimeException(e);
+            }
+            finally {
+                currentRow = null;
+                closed = true;
+            }
         }
-        catch (KuduException e) {
-            throw new RuntimeException(e);
-        }
-        currentRow = null;
     }
 }
