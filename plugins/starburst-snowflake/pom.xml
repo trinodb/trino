@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>416-SNAPSHOT</version>
+        <version>417-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -464,12 +464,12 @@
                             <excludes>
                                 <exclude>**/TestJdbcSnowflakeConnectorTest.java</exclude>
                                 <exclude>**/TestJdbcSnowflakeTypeMapping.java</exclude>
+                                <exclude>**/TestJdbcSnowflakeQueryFailureRecoveryTest.java</exclude>
+                                <exclude>**/TestJdbcSnowflakeTaskFailureRecoveryTest.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeConnectorTest.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeLargeScan.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeTypeMapping.java</exclude>
                                 <exclude>**/TestSnowflakeJmxStats.java</exclude>
-                                <exclude>**/TestJdbcSnowflakeQueryFailureRecoveryTest.java</exclude>
-                                <exclude>**/TestJdbcSnowflakeTaskFailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -487,6 +487,8 @@
                             <includes>
                                 <include>**/TestJdbcSnowflakeConnectorTest.java</include>
                                 <include>**/TestJdbcSnowflakeTypeMapping.java</include>
+                                <include>**/TestJdbcSnowflakeQueryFailureRecoveryTest.java</include>
+                                <include>**/TestJdbcSnowflakeTaskFailureRecoveryTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
@@ -505,23 +507,6 @@
                                 <include>**/TestDistributedSnowflakeConnectorTest.java</include>
                                 <include>**/TestDistributedSnowflakeLargeScan.java</include>
                                 <include>**/TestDistributedSnowflakeTypeMapping.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>fault-tolerant-tests</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <includes>
-                                <include>**/TestJdbcSnowflakeQueryFailureRecoveryTest.java</include>
-                                <include>**/TestJdbcSnowflakeTaskFailureRecoveryTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
