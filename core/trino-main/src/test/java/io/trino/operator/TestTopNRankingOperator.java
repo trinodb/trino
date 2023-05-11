@@ -271,7 +271,7 @@ public class TestTopNRankingOperator
         }
     }
 
-    @Test
+    @Test(invocationCount = 100)
     public void testMemoryReservationYield()
     {
         Type type = BIGINT;

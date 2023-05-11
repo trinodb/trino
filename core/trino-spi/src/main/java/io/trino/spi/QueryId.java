@@ -99,7 +99,11 @@ public final class QueryId
         checkArgument(expectedParts > 0, "expectedParts must be at least 1");
         requireNonNull(name, "name is null");
 
+        debug("before split", id);
         List<String> ids = List.of(id.split("\\."));
+        debug("after split", id);
+        ids.forEach(part -> debug("part", part));
+
         checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);
 
         for (String part : ids) {
@@ -113,5 +117,10 @@ public final class QueryId
         if (!condition) {
             throw new IllegalArgumentException(format(message, messageArgs));
         }
+    }
+
+    public static void debug(String desc, String value)
+    {
+        System.out.println(format("Value %s is %s [length=%d, hashcode=%s]", desc, value, value.length(), value.hashCode()));
     }
 }

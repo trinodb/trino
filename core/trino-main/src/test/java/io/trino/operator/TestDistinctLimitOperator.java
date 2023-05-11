@@ -152,7 +152,7 @@ public class TestDistinctLimitOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, ImmutableList.of(1));
     }
 
-    @Test(dataProvider = "dataType")
+    @Test(dataProvider = "dataType", invocationCount = 100)
     public void testMemoryReservationYield(Type type)
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);

@@ -385,7 +385,7 @@ public class TestGroupByHash
         assertEquals(rehashCount.get(), 2 * log2(length / 0.75, RoundingMode.FLOOR));
     }
 
-    @Test(dataProvider = "dataType")
+    @Test(dataProvider = "dataType", invocationCount = 100)
     public void testMemoryReservationYield(Type type)
     {
         // Create a page with positionCount >> expected size of groupByHash

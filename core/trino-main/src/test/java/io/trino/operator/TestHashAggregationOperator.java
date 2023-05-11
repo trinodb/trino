@@ -392,7 +392,7 @@ public class TestHashAggregationOperator
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "dataType")
+    @Test(dataProvider = "dataType", invocationCount = 100)
     public void testMemoryReservationYield(Type type)
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);

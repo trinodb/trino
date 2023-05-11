@@ -152,7 +152,7 @@ public class TestRowNumberOperator
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expectedResult.getMaterializedRows());
     }
 
-    @Test(dataProvider = "dataType")
+    @Test(dataProvider = "dataType", invocationCount = 100)
     public void testMemoryReservationYield(Type type)
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
