@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
-import static io.trino.plugin.kudu.TestKuduConnectorTest.REGION_COLUMNS;
-import static io.trino.plugin.kudu.TestKuduConnectorTest.createKuduTableForWrites;
+import static io.trino.plugin.kudu.TestKuduConnector.REGION_COLUMNS;
+import static io.trino.plugin.kudu.TestKuduConnector.createKuduTableForWrites;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 

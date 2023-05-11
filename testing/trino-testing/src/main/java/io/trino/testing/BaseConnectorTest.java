@@ -212,7 +212,7 @@ public abstract class BaseConnectorTest
     {
         // Enforce a naming convention to make code navigation easier.
         assertThat(getClass().getName())
-                .endsWith("ConnectorTest");
+                .endsWith("Connector");
     }
 
     /**
