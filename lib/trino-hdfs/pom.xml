@@ -16,6 +16,9 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <!-- e.g. TestFileSystemCache asserts on static global state -->
         <air.test.thread-count>1</air.test.thread-count>
+        <!-- Move TestFileSystemCache to separate profile to isolate it from interactions coming
+             from other threads against the global file system cache, resulting in flaky CI -->
+        <isolatedJvmTests>**/TestFileSystemCache.java</isolatedJvmTests>
     </properties>
 
     <dependencies>
@@ -225,4 +228,44 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>${isolatedJvmTests}</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>test-isolated-jvm-suites</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>${isolatedJvmTests}</include>
+                            </includes>
+                            <reuseForks>false</reuseForks>
+                            <forkCount>1</forkCount>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
