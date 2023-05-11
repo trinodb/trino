@@ -14,20 +14,26 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateTable;
+import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Query;
 import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.function.BiFunction;
 
+import static io.trino.sql.QueryUtil.selectList;
+import static io.trino.sql.QueryUtil.simpleQuery;
+import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,6 +86,28 @@ public class TestSqlFormatter
         assertThat(formatSql(createTable.apply("table_name", "column_name")))
                 .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
         assertThat(formatSql(createTable.apply("exists", "exists")))
+                .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+    }
+
+    @Test
+    public void testCreateTableAsSelect()
+    {
+        BiFunction<String, String, CreateTableAsSelect> createTableAsSelect = (tableName, columnName) -> {
+            Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
+            return new CreateTableAsSelect(
+                    QualifiedName.of(ImmutableList.of(new Identifier(tableName, false))),
+                    query,
+                    FAIL,
+                    ImmutableList.of(),
+                    true,
+                    Optional.of(ImmutableList.of(new Identifier(columnName, false))),
+                    Optional.empty());
+        };
+        String createTableSql = "CREATE TABLE %s( %s ) AS SELECT *\nFROM\n  t\n";
+
+        assertThat(formatSql(createTableAsSelect.apply("table_name", "column_name")))
+                .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
+        assertThat(formatSql(createTableAsSelect.apply("exists", "exists")))
                 .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
     }
 
