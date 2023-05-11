@@ -53,7 +53,7 @@ Binary functions
     negative starting position is interpreted as being relative to the end of
     the string.
 
-.. _function_reverse_varbinary:
+.. _function-reverse-varbinary:
 
 .. function:: reverse(binary) -> varbinary
     :noindex:

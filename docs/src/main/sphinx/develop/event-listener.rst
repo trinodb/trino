@@ -49,14 +49,14 @@ Example configuration file:
     custom-property1=custom-value1
     custom-property2=custom-value2
 
-.. _multiple_listeners:
+.. _multiple-listeners:
 
 Multiple event listeners
 ------------------------
 
 Trino supports multiple instances of the same or different event listeners.
 Install and configure multiple instances by setting
-``event-listener.config-files`` in :ref:`config_properties` to a comma-separated
+``event-listener.config-files`` in :ref:`config-properties` to a comma-separated
 list of the event listener configuration files:
 
 .. code-block:: text

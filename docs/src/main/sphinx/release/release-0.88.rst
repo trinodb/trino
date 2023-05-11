@@ -10,8 +10,8 @@ General
 * Support specifying window frames and correctly implement frames for all :doc:`/functions/window`.
 * Allow :func:`approx_distinct` aggregation function to accept a standard error parameter.
 * Implement :func:`least` and :func:`greatest` with variable number of arguments.
-* :ref:`array_type` is now comparable and can be used as ``GROUP BY`` keys or in ``ORDER BY`` expressions.
-* Implement ``=`` and ``<>`` operators for :ref:`row_type`.
+* :ref:`array-type` is now comparable and can be used as ``GROUP BY`` keys or in ``ORDER BY`` expressions.
+* Implement ``=`` and ``<>`` operators for :ref:`row-type`.
 * Fix excessive garbage creation in the ORC reader.
 * Fix an issue that could cause queries using :func:`row_number()` and ``LIMIT`` to never terminate.
 * Fix an issue that could cause queries with :func:`row_number()` and specific filters to produce incorrect results.

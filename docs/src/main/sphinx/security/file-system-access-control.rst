@@ -463,7 +463,7 @@ function from any catalog:
       ]
     }
 
-.. _verify_rules:
+.. _verify-rules:
 
 Verify configuration
 ^^^^^^^^^^^^^^^^^^^^
@@ -526,7 +526,7 @@ The example below defines the following table access policy:
 .. literalinclude:: session-property-access.json
     :language: json
 
-.. _query_rules:
+.. _query-rules:
 
 Query rules
 -----------
@@ -678,7 +678,7 @@ as ``group@example.net``, you can use the following rules.
       ]
     }
 
-.. _system-file-auth-system_information:
+.. _system-file-auth-system-information:
 
 System information rules
 ------------------------

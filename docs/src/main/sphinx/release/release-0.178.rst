@@ -9,7 +9,7 @@ General
 * Fix a regression that causes queries that use the keyword "stats" to fail to parse.
 * Fix an issue where a query does not get cleaned up on the coordinator after query failure.
 * Add ability to cast to ``JSON`` from ``REAL``, ``TINYINT`` or ``SMALLINT``.
-* Add support for ``GROUPING`` operation to :ref:`complex grouping operations<complex_grouping_operations>`.
+* Add support for ``GROUPING`` operation to :ref:`complex grouping operations<complex-grouping-operations>`.
 * Add support for correlated subqueries in ``IN`` predicates.
 * Add :func:`to_ieee754_32` and :func:`to_ieee754_64` functions.
 

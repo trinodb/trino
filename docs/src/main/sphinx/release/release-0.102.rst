@@ -32,7 +32,7 @@ General
 * Add support for full outer joins.
 * Support returning booleans as numbers in JDBC driver
 * Fix :func:`contains` to return ``NULL`` if the value was not found, but a ``NULL`` was.
-* Fix nested :ref:`row_type` rendering in ``DESCRIBE``.
+* Fix nested :ref:`row-type` rendering in ``DESCRIBE``.
 * Add :func:`array_join`.
 * Optimize map subscript operator.
 * Add :func:`from_utf8` and :func:`to_utf8` functions.

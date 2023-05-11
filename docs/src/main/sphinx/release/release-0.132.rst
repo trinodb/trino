@@ -4,7 +4,7 @@ Release 0.132
 
 .. warning::
 
-   :func:`concat` on :ref:`array_type`, or enabling ``columnar_processing_dictionary``
+   :func:`concat` on :ref:`array-type`, or enabling ``columnar_processing_dictionary``
    may cause queries to fail in this release. This is fixed in :doc:`/release/release-0.133`.
 
 General
@@ -28,7 +28,7 @@ General
 * Perform bounds checks when evaluating :func:`abs`.
 * Improve accuracy of memory accounting for :func:`map_agg` and :func:`array_agg`.
   These functions will now appear to use more memory than before.
-* Various performance optimizations for functions operating on :ref:`array_type`.
+* Various performance optimizations for functions operating on :ref:`array-type`.
 * Add server version to web UI.
 
 CLI

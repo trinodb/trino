@@ -60,7 +60,7 @@ JWT authentication configuration
 --------------------------------
 
 Enable JWT authentication by setting the :doc:`JWT authentication type
-<authentication-types>` in :ref:`etc/config.properties <config_properties>`, and
+<authentication-types>` in :ref:`etc/config.properties <config-properties>`, and
 specifying a URL or path to a key file:
 
 .. code-block:: properties

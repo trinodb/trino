@@ -26,7 +26,7 @@ Keep the following aspects in mind:
 * The ``default`` :doc:`/security/built-in-system-access-control` does not allow
   graceful shutdowns. You can use the ``allow-all`` system access control, or
   configure :ref:`system information rules
-  <system-file-auth-system_information>` with the ``file`` system access
+  <system-file-auth-system-information>` with the ``file`` system access
   control. These configuration must be present on all workers.
 
 

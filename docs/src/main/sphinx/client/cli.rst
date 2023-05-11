@@ -369,7 +369,7 @@ enabled.
 
 Invoking the CLI with Kerberos support enabled requires a number of additional
 command line options. You also need the :ref:`Kerberos configuration files
-<server_kerberos_principals>` for your user on the machine running the CLI. The
+<server-kerberos-principals>` for your user on the machine running the CLI. The
 simplest way to invoke the CLI is with a wrapper script:
 
 .. code-block:: text

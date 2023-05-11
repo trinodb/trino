@@ -54,7 +54,7 @@ values in the ``priority`` field.
 
 The ``resource_groups`` table also contains an ``environment`` field which is
 matched with the value contained in the ``node.environment`` property in
-:ref:`node_properties`. This allows the resource group configuration for different
+:ref:`node-properties`. This allows the resource group configuration for different
 Trino clusters to be stored in the same database if required.
 
 The configuration is reloaded from the database every second, and the changes

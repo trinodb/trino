@@ -9,7 +9,7 @@ General
 * Fix planning bug when the output of ``UNION`` doesn't match the table column order
   in ``INSERT`` queries.
 * Fix error when ``ORDER BY`` clause in window specification refers to the same column multiple times.
-* Add support for :ref:`complex grouping operations<complex_grouping_operations>`
+* Add support for :ref:`complex grouping operations<complex-grouping-operations>`
   - ``CUBE``, ``ROLLUP`` and ``GROUPING SETS``.
 * Add support for ``IF NOT EXISTS`` in ``CREATE TABLE AS`` queries.
 * Add :func:`substring` function.

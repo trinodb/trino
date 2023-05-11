@@ -66,7 +66,7 @@ Certificate authentication configuration
 
 Enable certificate authentication by setting the :doc:`Certificate
 authentication type <authentication-types>` in :ref:`etc/config.properties
-<config_properties>`:
+<config-properties>`:
 
 .. code-block:: properties
 

@@ -258,10 +258,10 @@ deployed in this cluster and the size of the cluster nodes.
    workers, in this case, a coordinator and three worker nodes are deployed.
 #. ``.coordinator.jvm.maxHeapSize`` is set to ``8GB``.
    This sets the maximum heap size in the JVM of the coordinator. See
-   :ref:`jvm_config`.
+   :ref:`jvm-config`.
 #. ``.worker.jvm.maxHeapSize`` is set to ``8GB``.
    This sets the maximum heap size in the JVM of the worker. See
-   :ref:`jvm_config`.
+   :ref:`jvm-config`.
 
 .. warning::
 

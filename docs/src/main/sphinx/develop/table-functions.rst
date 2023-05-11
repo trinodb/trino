@@ -62,7 +62,7 @@ indicated schema, or ignore it.
 - **list of expected arguments**
 
 Three different types of arguments are supported: scalar arguments, descriptor
-arguments, and table arguments. See :ref:`tf_argument_types` for details. You can
+arguments, and table arguments. See :ref:`tf-argument-types` for details. You can
 specify default values for scalar and descriptor arguments. The arguments with
 specified default can be skipped during table function invocation.
 
@@ -93,17 +93,17 @@ pass-through columns, use ``ONLY_PASS_THROUGH`` as the returned row type.
     A table function must return at least one column. It can either be a proper
     column, i.e. produced by the function, or a pass-through column.
 
-.. _tf_argument_types:
+.. _tf-argument-types:
 
 Argument types
 ^^^^^^^^^^^^^^
 
 Table functions take three types of arguments:
-:ref:`scalar arguments<tf_scalar_arguments>`,
-:ref:`descriptor arguments<tf_descriptor_arguments>`, and
-:ref:`table arguments<tf_table_arguments>`.
+:ref:`scalar arguments<tf-scalar-arguments>`,
+:ref:`descriptor arguments<tf-descriptor-arguments>`, and
+:ref:`table arguments<tf-table-arguments>`.
 
-.. _tf_scalar_arguments:
+.. _tf-scalar-arguments:
 
 Scalar arguments
 ++++++++++++++++
@@ -125,7 +125,7 @@ They can be of any supported data type. You can specify a default value.
             .type(INTEGER)
             .build()
 
-.. _tf_descriptor_arguments:
+.. _tf-descriptor-arguments:
 
 Descriptor arguments
 ++++++++++++++++++++
@@ -142,7 +142,7 @@ default values for descriptor arguments. Descriptor argument can be ``null``.
             .defaultValue(null)
             .build()
 
-.. _tf_table_arguments:
+.. _tf-table-arguments:
 
 Table arguments
 +++++++++++++++
@@ -163,7 +163,7 @@ value for a table argument.
             .passThroughColumns()
             .build()
 
-.. _tf_set_or_row_semantics:
+.. _tf-set-or-row-semantics:
 
 Set or row semantics
 ====================

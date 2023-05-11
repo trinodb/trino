@@ -16,7 +16,7 @@ within the SQL query. They can be used for working with external systems as
 well as for enhancing Trino with capabilities going beyond the SQL standard.
 
 For the list of built-in table functions available in Trino, see :ref:`built in
-table functions<built_in_table_functions>`.
+table functions<built-in-table-functions>`.
 
 Trino supports adding custom table functions. They are declared by connectors
 through implementing dedicated interfaces. For guidance on adding new table
@@ -26,7 +26,7 @@ Connectors offer support for different functions on a per-connector basis. For
 more information about supported table functions, refer to the :doc:`connector
 documentation <../../connector>`.
 
-.. _built_in_table_functions:
+.. _built-in-table-functions:
 
 Built-in table functions
 ------------------------
@@ -124,7 +124,7 @@ You can pass a table name, or a query. Use the keyword ``TABLE``::
     input => TABLE(orders)
     data => TABLE(SELECT * FROM region, nation WHERE region.regionkey = nation.regionkey)
 
-If the table argument is declared as :ref:`set semantics<tf_set_or_row_semantics>`,
+If the table argument is declared as :ref:`set semantics<tf-set-or-row-semantics>`,
 you can specify partitioning and ordering. Each partition is processed
 independently by the table function. If you do not specify partitioning, the
 argument is processed as a single partition. You can also specify

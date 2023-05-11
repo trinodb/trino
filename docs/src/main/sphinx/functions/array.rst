@@ -2,7 +2,7 @@
 Array functions and operators
 =============================
 
-.. _subscript_operator:
+.. _subscript-operator:
 
 Subscript operator: []
 ----------------------
@@ -11,7 +11,7 @@ The ``[]`` operator is used to access an element of an array and is indexed star
 
     SELECT my_array[1] AS first_element
 
-.. _concatenation_operator:
+.. _concatenation-operator:
 
 Concatenation operator: ||
 --------------------------
