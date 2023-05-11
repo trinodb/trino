@@ -411,6 +411,14 @@ supports the following statements:
 
 .. include:: alter-table-limitation.fragment
 
+.. _oracle-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
