@@ -482,6 +482,10 @@ jobs:
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests'
+      - name: trino-hdfs isolated JVM tests
+        # Isolate HDFS file system cache concurrency test to avoid flakiness
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-hdfs -P test-isolated-jvm-suites
       - name: Upload test results
         uses: actions/upload-artifact@v3
         # Upload all test reports only on failure, because the artifacts are large
