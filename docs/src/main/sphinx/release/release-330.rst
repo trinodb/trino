@@ -32,7 +32,7 @@ Server
 ------
 
 * Require running on :ref:`Java 11 or above <requirements-java>`. This requirement may be temporarily relaxed by adding
-  ``-Dpresto-temporarily-allow-java8=true`` to the Presto :ref:`jvm_config`.
+  ``-Dpresto-temporarily-allow-java8=true`` to the Presto :ref:`jvm-config`.
   This fallback will be removed in future versions of Presto after March 2020. (:issue:`2751`)
 * Add experimental support for running on Linux aarch64 (ARM64). (:issue:`2809`)
 
@@ -104,7 +104,7 @@ Hive connector
 * Add support for Azure WASB, ADLS Gen1 (ADL) and ADLS Gen2 (ABFS) file systems. (:issue:`2494`)
 * Add experimental support for executing basic Hive views. To enable this feature, the
   ``hive.views-execution.enabled`` configuration property must be set to ``true``. (:issue:`2715`)
-* Add :ref:`register_partition <register_partition>` and :ref:`unregister_partition <unregister_partition>`
+* Add :ref:`register_partition <register-partition>` and :ref:`unregister_partition <unregister-partition>`
   procedures for adding partitions to and removing partitions from a partitioned table. (:issue:`2692`)
 * Allow running :doc:`/sql/analyze` collecting only basic table statistics. (:issue:`2762`)
 

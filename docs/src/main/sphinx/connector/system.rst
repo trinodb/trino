@@ -50,7 +50,7 @@ that can be set when creating a new schema.
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
-.. _system_metadata_materialized_views:
+.. _system-metadata-materialized-views:
 
 ``metadata.materialized_views``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -107,7 +107,7 @@ The table comments table contains the list of table comment.
 The nodes table contains the list of visible nodes in the Trino
 cluster along with their status.
 
-.. _optimizer_rule_stats:
+.. _optimizer-rule-stats:
 
 ``runtime.optimizer_rule_stats``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

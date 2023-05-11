@@ -68,7 +68,7 @@ Hive connector
   ``hive.metastore.glue.endpoint-url`` configuration property. (:issue:`3239`)
 * Add experimental file system caching. This can be enabled with the ``hive.cache.enabled`` configuration property. (:issue:`2679`)
 * Support reading files compressed with newer versions of LZO. (:issue:`3209`)
-* Add support for :ref:`alluxio_catalog_service`. (:issue:`2116`)
+* Add support for :ref:`alluxio-catalog-service`. (:issue:`2116`)
 * Remove unnecessary ``hive.metastore.glue.use-instance-credentials`` configuration property. (:issue:`3265`)
 * Remove unnecessary ``hive.s3.use-instance-credentials`` configuration property. (:issue:`3265`)
 * Add flexible :ref:`hive-s3-security-mapping`, allowing for separate credentials

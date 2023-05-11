@@ -23,7 +23,7 @@ General
 * Remove ``/v1/execute`` resource.
 * Add new column to :doc:`/sql/show-columns` (and :doc:`/sql/describe`)
   to show extra information from connectors.
-* Add :func:`map` to construct an empty :ref:`map_type`.
+* Add :func:`map` to construct an empty :ref:`map-type`.
 
 Hive connector
 --------------

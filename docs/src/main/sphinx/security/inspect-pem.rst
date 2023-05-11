@@ -17,10 +17,10 @@ information, or both in the same file. Certified keys can contain a chain of
 certificates from successive certificate authorities.
 
 Follow the steps in this topic to inspect and validate PEM-encoded key and
-certificate files. See :ref:`troubleshooting_keystore` to validate JKS
+certificate files. See :ref:`troubleshooting-keystore` to validate JKS
 keystores.
 
-.. _inspect_pems:
+.. _inspect-pems:
 
 Inspect PEM file
 ----------------
@@ -76,7 +76,7 @@ The certificate section looks like the following example:
 The file can show a single certificate section, or more than one to express a
 chain of authorities, each certifying the previous.
 
-.. _validate_pems:
+.. _validate-pems:
 
 Validate PEM key section
 ------------------------

@@ -2,7 +2,7 @@
 Decimal functions and operators
 ===============================
 
-.. _decimal_literal:
+.. _decimal-literal:
 
 Decimal literals
 ----------------

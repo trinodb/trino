@@ -110,7 +110,7 @@ not need to configure ``http-server.https.enabled=true`` for a coordinator
 behind a load balancer.
 
 However, to enable processing of such forwarded headers, the server's
-:ref:`config properties file <config_properties>` *must* include the following:
+:ref:`config properties file <config-properties>` *must* include the following:
 
 .. code-block:: text
 
@@ -154,7 +154,7 @@ following types of certificates:
 * **Generated self-signed certificates** — A certificate generated just for
   Trino that is not automatically trusted by any client. Before using, make sure
   you understand the :ref:`limitations of self-signed certificates
-  <self_signed_limits>`.
+  <self-signed-limits>`.
 
 The most convenient option and strongly recommended option is a globally trusted
 certificate. It may require a little more work up front, but it is worth it to
@@ -213,7 +213,7 @@ Configure the coordinator
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 On the coordinator, add the following lines to the :ref:`config properties file
-<config_properties>` to enable TLS/HTTPS support for the server.
+<config-properties>` to enable TLS/HTTPS support for the server.
 
 .. note::
 
@@ -261,7 +261,7 @@ re-enable it by setting:
 
   http-server.authentication.allow-insecure-over-http=true
 
-.. _verify_tls:
+.. _verify-tls:
 
 Verify configuration
 ^^^^^^^^^^^^^^^^^^^^
@@ -297,7 +297,7 @@ Send a query to test the connection:
   Splits: 1 total, 1 done (100.00%)
   0.12 [0 rows, 0B] [0 rows/s, 0B/s]
 
-.. _self_signed_limits:
+.. _self-signed-limits:
 
 Limitations of self-signed certificates
 ---------------------------------------

@@ -52,8 +52,8 @@ Dynamic filtering is enabled by default. It can be disabled by setting either th
 Support for push down of dynamic filters is specific to each connector,
 and the relevant underlying database or storage system. The documentation for
 specific connectors with support for dynamic filtering includes further details,
-for example the :ref:`Hive connector <hive_dynamic_filtering>`
-or the :ref:`Memory connector <memory_dynamic_filtering>`.
+for example the :ref:`Hive connector <hive-dynamic-filtering>`
+or the :ref:`Memory connector <memory-dynamic-filtering>`.
 
 Analysis and confirmation
 -------------------------

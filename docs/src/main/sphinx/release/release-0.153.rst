@@ -28,7 +28,7 @@ General
 * Fix query completion event to log final stats for the query.
 * Fix spurious log messages when queries are torn down.
 * Remove broken ``%w`` specifier for :func:`date_format` and :func:`date_parse`.
-* Improve performance of :ref:`array_type` when underlying data is dictionary encoded.
+* Improve performance of :ref:`array-type` when underlying data is dictionary encoded.
 * Improve performance of outer joins with non-equality criteria.
 * Require task concurrency and task writer count to be a power of two.
 * Use nulls-last ordering for :func:`array_sort`.
@@ -84,7 +84,7 @@ Hive
 ----
 
 * Fix permissions for new tables when using SQL-standard authorization.
-* Improve performance of ORC reader when decoding dictionary encoded :ref:`map_type`.
+* Improve performance of ORC reader when decoding dictionary encoded :ref:`map-type`.
 * Allow certain combinations of queries to be executed in a transaction-ish manner,
   for example, when dropping a partition and then recreating it. Atomicity is not
   guaranteed due to fundamental limitations in the design of Hive.

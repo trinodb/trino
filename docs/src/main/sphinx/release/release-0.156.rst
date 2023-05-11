@@ -14,7 +14,7 @@ General
 * Fix potential correctness issue in queries that contain correlated scalar aggregation subqueries.
 * Fix query failure when using ``AT TIME ZONE`` in ``VALUES`` list.
 * Add support for quantified comparison predicates: ``ALL``, ``ANY``, and ``SOME``.
-* Add support for :ref:`array_type` and :ref:`row_type` that contain ``NULL``
+* Add support for :ref:`array-type` and :ref:`row-type` that contain ``NULL``
   in :func:`checksum` aggregation.
 * Add support for filtered aggregations. Example: ``SELECT sum(a) FILTER (WHERE b > 0) FROM ...``
 * Add a variant of :func:`from_unixtime` function that takes a timezone argument.

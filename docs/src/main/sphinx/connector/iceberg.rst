@@ -1142,7 +1142,7 @@ The output of the query has the following columns:
     - ``bigint``
     - For branch only, the max snapshot age allowed in a branch. Older snapshots in the branch will be expired.
 
-.. _iceberg_metadata_columns:
+.. _iceberg-metadata-columns:
 
 Metadata columns
 """"""""""""""""
@@ -1430,7 +1430,7 @@ statement. This can be disabled using ``iceberg.extended-statistics.enabled``
 catalog configuration property, or the corresponding
 ``extended_statistics_enabled`` session property.
 
-.. _iceberg_analyze:
+.. _iceberg-analyze:
 
 Updating table statistics
 """""""""""""""""""""""""
