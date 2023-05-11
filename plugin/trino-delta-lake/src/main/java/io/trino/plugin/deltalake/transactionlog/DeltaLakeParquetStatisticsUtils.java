@@ -127,7 +127,7 @@ public class DeltaLakeParquetStatisticsUtils
             return (double) jsonValue;
         }
         if (type instanceof DecimalType decimalType) {
-            BigDecimal decimal = new BigDecimal((String) jsonValue);
+            BigDecimal decimal = new BigDecimal(String.valueOf(jsonValue));
 
             if (decimalType.isShort()) {
                 return Decimals.encodeShortScaledValue(decimal, decimalType.getScale());
@@ -148,7 +148,7 @@ public class DeltaLakeParquetStatisticsUtils
             List<Type> fieldTypes = rowType.getTypeParameters();
             BlockBuilder blockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
             BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-            for (int i = 0; i < values.size(); ++i) {
+            for (int i = 0; i < fieldTypes.size(); ++i) {
                 Type fieldType = fieldTypes.get(i);
                 String fieldName = rowType.getFields().get(i).getName().orElseThrow(() -> new IllegalArgumentException("Field name must exist"));
                 Object fieldValue = jsonValueToTrinoValue(fieldType, values.remove(fieldName));
@@ -226,25 +226,40 @@ public class DeltaLakeParquetStatisticsUtils
         throw new UnsupportedOperationException("Unsupported type: " + type);
     }
 
-    public static Map<String, Object> jsonEncodeMin(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn)
+    public static Map<String, Object> jsonEncodeMin(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForProjectedColumn)
     {
-        return jsonEncode(stats, typeForColumn, DeltaLakeParquetStatisticsUtils::getMin);
+        return jsonEncode(stats, typeForProjectedColumn, DeltaLakeParquetStatisticsUtils::getMin);
     }
 
-    public static Map<String, Object> jsonEncodeMax(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn)
+    public static Map<String, Object> jsonEncodeMax(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForProjectedColumn)
     {
-        return jsonEncode(stats, typeForColumn, DeltaLakeParquetStatisticsUtils::getMax);
+        return jsonEncode(stats, typeForProjectedColumn, DeltaLakeParquetStatisticsUtils::getMax);
     }
 
-    private static Map<String, Object> jsonEncode(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForColumn, BiFunction<Type, Statistics<?>, Optional<Object>> accessor)
+    private static Map<String, Object> jsonEncode(Map<String, Optional<Statistics<?>>> stats, Map<String, Type> typeForProjectedColumn, BiFunction<Type, Statistics<?>, Optional<Object>> accessor)
     {
         Map<String, Optional<Object>> allStats = stats.entrySet().stream()
                 .filter(entry -> entry.getValue() != null && entry.getValue().isPresent() && !entry.getValue().get().isEmpty())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> accessor.apply(typeForColumn.get(entry.getKey()), entry.getValue().get())));
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> accessor.apply(typeForProjectedColumn.get(entry.getKey()), entry.getValue().get())));
 
-        return allStats.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && entry.getValue().isPresent())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+        return convertNestedMapKeys(allStats);
+    }
+
+    public static Map<String, Object> convertNestedMapKeys(Map<String, Optional<Object>> map)
+    {
+        Map<String, Object> convertedMap = new HashMap<>();
+        for (Map.Entry<String, Optional<Object>> entry : map.entrySet()) {
+            String[] keys = entry.getKey().split("\\.");
+            Map<String, Object> nestedMap = convertedMap;
+            for (int i = 0; i < keys.length - 1; i++) {
+                nestedMap = (Map<String, Object>) nestedMap.computeIfAbsent(keys[i], k -> new HashMap<>());
+            }
+            Optional<Object> value = entry.getValue();
+            if (value != null && value.isPresent()) {
+                nestedMap.put(keys[keys.length - 1], value.get());
+            }
+        }
+        return ImmutableMap.copyOf(convertedMap);
     }
 
     public static Map<String, Object> toNullCounts(Map<String, Type> columnTypeMapping, Map<String, Object> values)

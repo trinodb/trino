@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
@@ -26,9 +25,13 @@ import org.testng.annotations.Test;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -54,10 +57,10 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .build();
 
         assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, IntegerType.INTEGER)),
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, INTEGER)),
                 ImmutableMap.of(columnName, -100));
         assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, IntegerType.INTEGER)),
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, INTEGER)),
                 ImmutableMap.of(columnName, 150));
     }
 
@@ -171,6 +174,120 @@ public class TestDeltaLakeParquetStatisticsUtils
                 ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
     }
 
+    @Test
+    public void testNestedFieldStatistics()
+    {
+        String stringColumn = "t_grandparent.t_parent.t_string";
+        PrimitiveType stringType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.BINARY, stringColumn);
+        Statistics<?> stringColumnStats = Statistics.getBuilderForReading(stringType)
+                .withMin("abc".getBytes(UTF_8))
+                .withMax("bac".getBytes(UTF_8))
+                .withNumNulls(1)
+                .build();
+
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(stringColumn, Optional.of(stringColumnStats)), ImmutableMap.of(stringColumn, createUnboundedVarcharType())),
+                ImmutableMap.of("t_grandparent", ImmutableMap.of("t_parent", ImmutableMap.of("t_string", "abc"))));
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(stringColumn, Optional.of(stringColumnStats)), ImmutableMap.of(stringColumn, createUnboundedVarcharType())),
+                ImmutableMap.of("t_grandparent", ImmutableMap.of("t_parent", ImmutableMap.of("t_string", "bac"))));
+
+        String booleanColumn = "t_grandparent.t_parent.t_boolean";
+        PrimitiveType booleanType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.BOOLEAN, booleanColumn);
+        Statistics<?> booleanColumnStats = Statistics.getBuilderForReading(booleanType)
+                .withMin(getBooleanByteArray(false))
+                .withMax(getBooleanByteArray(true))
+                .withNumNulls(1)
+                .build();
+
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(booleanColumn, Optional.of(booleanColumnStats)), ImmutableMap.of(booleanColumn, BOOLEAN)),
+                ImmutableMap.of("t_grandparent", ImmutableMap.of("t_parent", ImmutableMap.of())));
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(booleanColumn, Optional.of(booleanColumnStats)), ImmutableMap.of(booleanColumn, BOOLEAN)),
+                ImmutableMap.of("t_grandparent", ImmutableMap.of("t_parent", ImmutableMap.of())));
+
+        String nullColumn = "t_parent.t_null";
+        PrimitiveType nullColumnType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT32, nullColumn);
+        Statistics<?> nullColumnStats = Statistics.getBuilderForReading(nullColumnType)
+                .withMin(null)
+                .withMax(null)
+                .withNumNulls(1)
+                .build();
+
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(nullColumn, Optional.of(nullColumnStats)), ImmutableMap.of(nullColumn, INTEGER)),
+                ImmutableMap.of("t_parent", ImmutableMap.of()));
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(nullColumn, Optional.of(nullColumnStats)), ImmutableMap.of(nullColumn, INTEGER)),
+                ImmutableMap.of("t_parent", ImmutableMap.of()));
+    }
+
+    @Test
+    public void testMultipleNestedFieldStatistics()
+    {
+        String stringColumn = "t_grandparent.t_parent.t_string";
+        PrimitiveType stringType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.BINARY, stringColumn);
+        Statistics<?> stringColumnStats = Statistics.getBuilderForReading(stringType)
+                .withMin("abc".getBytes(UTF_8))
+                .withMax("bac".getBytes(UTF_8))
+                .withNumNulls(1)
+                .build();
+
+        String booleanColumn = "t_grandparent.t_parent.t_boolean";
+        PrimitiveType booleanType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.BOOLEAN, booleanColumn);
+        Statistics<?> booleanColumnStats = Statistics.getBuilderForReading(booleanType)
+                .withMin(getBooleanByteArray(false))
+                .withMax(getBooleanByteArray(true))
+                .withNumNulls(1)
+                .build();
+
+        String timestampColumn = "t_grandparent.t_timestamp";
+        PrimitiveType timestampType = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.INT96, timestampColumn);
+        Statistics<?> timestampColumnStats = Statistics.getBuilderForReading(timestampType)
+                .withMin(toParquetEncoding(LocalDateTime.parse("2020-08-26T01:02:03.123456789")))
+                .withMax(toParquetEncoding(LocalDateTime.parse("2020-08-26T01:02:03.123987654")))
+                .withNumNulls(2)
+                .build();
+
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(
+                        ImmutableMap.of(stringColumn, Optional.of(stringColumnStats), booleanColumn, Optional.of(booleanColumnStats), timestampColumn, Optional.of(timestampColumnStats)),
+                        ImmutableMap.of(stringColumn, createUnboundedVarcharType(), booleanColumn, BOOLEAN, timestampColumn, TIMESTAMP_TZ_MILLIS)),
+                ImmutableMap.of("t_grandparent", ImmutableMap.of("t_parent", ImmutableMap.of("t_string", "abc"), "t_timestamp", "2020-08-26T01:02:03.123Z")));
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(
+                        ImmutableMap.of(stringColumn, Optional.of(stringColumnStats), booleanColumn, Optional.of(booleanColumnStats), timestampColumn, Optional.of(timestampColumnStats)),
+                        ImmutableMap.of(stringColumn, createUnboundedVarcharType(), booleanColumn, BOOLEAN, timestampColumn, TIMESTAMP_TZ_MILLIS)),
+                ImmutableMap.of("t_grandparent", ImmutableMap.of("t_parent", ImmutableMap.of("t_string", "bac"), "t_timestamp", "2020-08-26T01:02:03.124Z")));
+    }
+
+    @Test
+    public void testPopulateNestedStats()
+    {
+        Map<String, Optional<Object>> allStats = new HashMap<>();
+        allStats.put("base1", Optional.of(2));
+        allStats.put("base2", Optional.of("base2Value"));
+        allStats.put("base3", Optional.of(100L));
+        allStats.put("base4", Optional.empty()); // should get discard
+        allStats.put("base5", null); // should get discard
+        allStats.put("base6.f1", Optional.empty()); // should get discard
+        allStats.put("base6.f2", Optional.of(99.99));
+        allStats.put("base6.f3", Optional.of("2020-08-26T01:02:03.123Z"));
+        allStats.put("base7.level1.f4", null); // should get discard
+        allStats.put("base7.level1.f5", Optional.empty()); // should get discard
+        allStats.put("base7.level1.f6", Optional.of("base5Level1F6Value"));
+
+        assertEquals(
+                DeltaLakeParquetStatisticsUtils.convertNestedMapKeys(allStats),
+                ImmutableMap.of(
+                        "base1", 2,
+                        "base2", "base2Value",
+                        "base3", 100L,
+                        "base6", ImmutableMap.of("f2", 99.99, "f3", "2020-08-26T01:02:03.123Z"),
+                        "base7", ImmutableMap.of("level1", ImmutableMap.of("f6", "base5Level1F6Value"))));
+    }
+
     private static byte[] toParquetEncoding(LocalDateTime time)
     {
         long timeOfDayNanos = (long) time.getNano() + (time.toEpochSecond(UTC) - time.toLocalDate().atStartOfDay().toEpochSecond(UTC)) * 1_000_000_000;
@@ -201,5 +318,10 @@ public class TestDeltaLakeParquetStatisticsUtils
     static byte[] getDoubleByteArray(double d)
     {
         return ByteBuffer.allocate(8).order(LITTLE_ENDIAN).putDouble(d).array();
+    }
+
+    static byte[] getBooleanByteArray(boolean b)
+    {
+        return ByteBuffer.allocate(1).put((byte) (b ? 1 : 0)).array();
     }
 }

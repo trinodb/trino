@@ -284,7 +284,7 @@ public class CheckpointWriter
             writeLong(statsBlockBuilder, statsType, 0, "numRecords", stats.getNumRecords().orElse(null));
             writeMinMaxMapAsFields(statsBlockBuilder, statsType, 1, "minValues", stats.getMinValues(), false);
             writeMinMaxMapAsFields(statsBlockBuilder, statsType, 2, "maxValues", stats.getMaxValues(), false);
-            writeNullCountAsFields(statsBlockBuilder, statsType, 3, "nullCount", stats.getNullCount());
+            writeNullCountAsFields(statsBlockBuilder, statsType, 3, "nullCount", stats.getNullCount(), false);
         }
         else {
             int internalFieldId = 0;
@@ -295,7 +295,7 @@ public class CheckpointWriter
             if (statsType.getFields().stream().anyMatch(field -> field.getName().orElseThrow().equals("maxValues"))) {
                 writeMinMaxMapAsFields(statsBlockBuilder, statsType, internalFieldId++, "maxValues", stats.getMaxValues(), true);
             }
-            writeNullCountAsFields(statsBlockBuilder, statsType, internalFieldId++, "nullCount", stats.getNullCount());
+            writeNullCountAsFields(statsBlockBuilder, statsType, internalFieldId++, "nullCount", stats.getNullCount(), true);
         }
         entryBlockBuilder.closeEntry();
     }
@@ -307,9 +307,11 @@ public class CheckpointWriter
         writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessMinMaxValues(valuesFieldType, values, isJson));
     }
 
-    private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
+    private void writeNullCountAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values, boolean isJson)
     {
-        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessNullCount(values));
+        RowType.Field valuesField = validateAndGetField(type, fieldId, fieldName);
+        RowType valuesFieldType = (RowType) valuesField.getType();
+        writeObjectMapAsFields(blockBuilder, type, fieldId, fieldName, preprocessNullCount(valuesFieldType, values, isJson));
     }
 
     private void writeObjectMapAsFields(BlockBuilder blockBuilder, RowType type, int fieldId, String fieldName, Optional<Map<String, Object>> values)
@@ -375,20 +377,28 @@ public class CheckpointWriter
                 });
     }
 
-    private Optional<Map<String, Object>> preprocessNullCount(Optional<Map<String, Object>> valuesOptional)
+    private Optional<Map<String, Object>> preprocessNullCount(RowType valuesType, Optional<Map<String, Object>> valuesOptional, boolean isJson)
     {
+        Map<String, Type> fieldTypes = valuesType.getFields().stream()
+                .collect(toMap(
+                        field -> field.getName().orElseThrow(), // anonymous row fields are not expected here
+                        RowType.Field::getType));
         return valuesOptional.map(
                 values ->
                         values.entrySet().stream()
-                                .collect(toMap(
-                                        Map.Entry::getKey,
-                                        entry -> {
-                                            Object value = entry.getValue();
-                                            if (value instanceof Integer) {
-                                                return (long) (int) value;
-                                            }
-                                            return value;
-                                        })));
+                        .collect(toMap(
+                                Map.Entry::getKey,
+                                entry -> {
+                                    Object value = entry.getValue();
+                                    if (value instanceof Integer) {
+                                        return (long) (int) value;
+                                    }
+                                    if (isJson) {
+                                        Type type = fieldTypes.get(entry.getKey().toLowerCase(ENGLISH));
+                                        return jsonValueToTrinoValue(type, value);
+                                    }
+                                    return value;
+                                })));
     }
 
     private void writeRemoveFileEntry(PageBuilder pageBuilder, RowType entryType, RemoveFileEntry removeFileEntry)

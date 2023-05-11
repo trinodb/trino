@@ -57,10 +57,11 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.convertNestedMapKeys;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.hasInvalidStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMax;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMin;
@@ -200,10 +201,14 @@ public class DeltaLakeWriter
     private static DeltaLakeJsonFileStatistics readStatistics(TrinoInputFile inputFile, List<String> dataColumnNames, List<Type> dataColumnTypes, long rowCount)
             throws IOException
     {
-        ImmutableMap.Builder<String, Type> typeForColumn = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Type> typeForProjectedColumnBuilder = ImmutableMap.builder();
         for (int i = 0; i < dataColumnNames.size(); i++) {
-            typeForColumn.put(dataColumnNames.get(i), dataColumnTypes.get(i));
+            String columnName = dataColumnNames.get(i);
+            Type columnType = dataColumnTypes.get(i);
+            populateType(columnName, columnType, typeForProjectedColumnBuilder);
         }
+
+        Map<String, Type> typeForProjectedColumn = typeForProjectedColumnBuilder.buildOrThrow();
 
         try (TrinoParquetDataSource trinoParquetDataSource = new TrinoParquetDataSource(
                 inputFile,
@@ -214,15 +219,15 @@ public class DeltaLakeWriter
             ImmutableMultimap.Builder<String, ColumnChunkMetaData> metadataForColumn = ImmutableMultimap.builder();
             for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
                 for (ColumnChunkMetaData columnChunkMetaData : blockMetaData.getColumns()) {
-                    if (columnChunkMetaData.getPath().size() != 1) {
-                        continue; // Only base column stats are supported
+                    checkArgument(columnChunkMetaData.getPath().size() > 0, "columnChunkMetaData path must not be empty");
+                    String columnName = columnChunkMetaData.getPath().toDotString();
+                    if (typeForProjectedColumn.containsKey(columnName)) {
+                        metadataForColumn.put(columnName, columnChunkMetaData);
                     }
-                    String columnName = getOnlyElement(columnChunkMetaData.getPath());
-                    metadataForColumn.put(columnName, columnChunkMetaData);
                 }
             }
 
-            return mergeStats(metadataForColumn.build(), typeForColumn.buildOrThrow(), rowCount);
+            return mergeStats(metadataForColumn.build(), typeForProjectedColumn, rowCount);
         }
     }
 
@@ -232,15 +237,18 @@ public class DeltaLakeWriter
         Map<String, Optional<Statistics<?>>> statsForColumn = metadataForColumn.keySet().stream()
                 .collect(toImmutableMap(identity(), key -> mergeMetadataList(metadataForColumn.get(key))));
 
-        Map<String, Object> nullCount = statsForColumn.entrySet().stream()
+        Map<String, Optional<Object>> nullCount = statsForColumn.entrySet().stream()
                 .filter(entry -> entry.getValue().isPresent())
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().get().getNumNulls()));
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> Optional.of(entry.getValue().get().getNumNulls())));
+
+        // TODO Databricks collect nullCount stats for Map and Array type as well, whereas trino does not collect
+        Map<String, Object> convertedNullCount = convertNestedMapKeys(nullCount);
 
         return new DeltaLakeJsonFileStatistics(
                 Optional.of(rowCount),
                 Optional.of(jsonEncodeMin(statsForColumn, typeForColumn)),
                 Optional.of(jsonEncodeMax(statsForColumn, typeForColumn)),
-                Optional.of(nullCount));
+                Optional.of(convertedNullCount));
     }
 
     private static Optional<Statistics<?>> mergeMetadataList(Collection<ColumnChunkMetaData> metadataList)
@@ -255,6 +263,20 @@ public class DeltaLakeWriter
                     statsA.mergeStatistics(statsB);
                     return statsA;
                 });
+    }
+
+    private static void populateType(String name, Type type, ImmutableMap.Builder<String, Type> typeForProjectedColumn)
+    {
+        if (type instanceof RowType rowType) {
+            List<RowType.Field> fields = rowType.getFields();
+            for (RowType.Field field : fields) {
+                String projectedName = name + "." + field.getName().orElseThrow();
+                populateType(projectedName, field.getType(), typeForProjectedColumn);
+            }
+        }
+        else {
+            typeForProjectedColumn.put(name, type);
+        }
     }
 
     @Override

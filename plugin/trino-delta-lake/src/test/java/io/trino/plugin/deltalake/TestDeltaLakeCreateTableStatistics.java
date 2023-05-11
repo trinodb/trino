@@ -19,9 +19,14 @@ import io.trino.Session;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
@@ -41,11 +46,14 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -83,17 +91,18 @@ public class TestDeltaLakeCreateTableStatistics
                 "test_complex_data_types_",
                 ImmutableList.of("a", "b", "c", "d"),
                 "VALUES (CAST(ROW(1, 2) AS ROW(x BIGINT, y BIGINT)), ARRAY[1, 2, 3], MAP(ARRAY[1, 2], ARRAY['a', 'b']), 'foo'), " +
-                        "(CAST(ROW(3, 4) AS ROW(x BIGINT, y BIGINT)), ARRAY[4, 5], MAP(ARRAY[3], ARRAY['c']), 'moo')")) {
+                        "(CAST(ROW(null, 4) AS ROW(x BIGINT, y BIGINT)), ARRAY[-1, -2, -3], MAP(ARRAY[4], ARRAY['d']), null), " +
+                        "(CAST(ROW(3, null) AS ROW(x BIGINT, y BIGINT)), ARRAY[4, 5], MAP(ARRAY[3], ARRAY['c']), 'moo')")) {
             List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
             AddFileEntry entry = getOnlyElement(addFileEntries);
             assertThat(entry.getStats()).isPresent();
             DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
 
             DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("d", createUnboundedVarcharType(), OptionalInt.empty(), "d", createUnboundedVarcharType(), REGULAR, Optional.empty());
-            assertEquals(fileStatistics.getNumRecords(), Optional.of(2L));
+            assertEquals(fileStatistics.getNumRecords(), Optional.of(3L));
             assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(utf8Slice("foo")));
             assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(utf8Slice("moo")));
-            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.of(0L));
+            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.of(1L));
 
             for (String complexColumn : ImmutableList.of("a", "b", "c")) {
                 columnHandle = new DeltaLakeColumnHandle(complexColumn, createUnboundedVarcharType(), OptionalInt.empty(), complexColumn, createUnboundedVarcharType(), REGULAR, Optional.empty());
@@ -101,6 +110,74 @@ public class TestDeltaLakeCreateTableStatistics
                 assertThat(fileStatistics.getMinColumnValue(columnHandle)).isEmpty();
                 assertThat(fileStatistics.getNullCount(columnHandle)).isEmpty();
             }
+
+            // dereference column statistics
+            Type rowBaseType = RowType.rowType(RowType.field("x", BIGINT), RowType.field("x", BIGINT));
+
+            columnHandle = new DeltaLakeColumnHandle("a", rowBaseType, OptionalInt.empty(), "a", rowBaseType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(BIGINT, ImmutableList.of(0), ImmutableList.of("x"))));
+            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(1L));
+            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(3L));
+            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.of(1L));
+
+            columnHandle = new DeltaLakeColumnHandle("a", rowBaseType, OptionalInt.empty(), "a", rowBaseType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(BIGINT, ImmutableList.of(1), ImmutableList.of("y"))));
+            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(2L));
+            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(4L));
+            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.of(1L));
+        }
+    }
+
+    @Test
+    public void testPrimitiveTypeInsideRowColumn()
+            throws Exception
+    {
+        try (TestTable table = new TestTable(
+                "test_primitive_type_inside_row_column_",
+                ImmutableList.of("x"),
+                "VALUES " +
+                        "ROW(CAST(ROW(1, 'stringValue', ARRAY[1, 2, 3], true, MAP(ARRAY[1], ARRAY['mapValue1'])) AS ROW(a BIGINT, b VARCHAR, c ARRAY(BIGINT), d BOOLEAN, e MAP(BIGINT, VARCHAR)))), " +
+                        "ROW(CAST(ROW(2, null, ARRAY[4, null, 6], true, MAP(ARRAY[2], ARRAY[null])) AS ROW(a BIGINT, b VARCHAR, c ARRAY(BIGINT), d BOOLEAN, e MAP(BIGINT, VARCHAR)))), " +
+                        "ROW(CAST(null AS ROW(a BIGINT, b VARCHAR, c ARRAY(BIGINT), d BOOLEAN, e MAP(BIGINT, VARCHAR))))")) {
+            List<AddFileEntry> addFileEntries = getAddFileEntries(table.getName());
+            AddFileEntry entry = getOnlyElement(addFileEntries);
+            assertThat(entry.getStats()).isPresent();
+            DeltaLakeFileStatistics fileStatistics = entry.getStats().get();
+
+            Type rowBaseType = RowType.rowType(
+                    RowType.field("a", BIGINT),
+                    RowType.field("b", createUnboundedVarcharType()),
+                    RowType.field("c", new ArrayType(BIGINT)),
+                    RowType.field("d", BOOLEAN),
+                    RowType.field("e", new MapType(BIGINT, VARCHAR, new TypeOperators())));
+
+            // x.a
+            DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle("x", rowBaseType, OptionalInt.empty(), "x", rowBaseType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(BIGINT, ImmutableList.of(0), ImmutableList.of("a"))));
+            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(1L));
+            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(2L));
+            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.of(1L));
+
+            // x.b
+            columnHandle = new DeltaLakeColumnHandle("x", rowBaseType, OptionalInt.empty(), "x", rowBaseType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(createUnboundedVarcharType(), ImmutableList.of(1), ImmutableList.of("b"))));
+            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.of(utf8Slice("stringValue")));
+            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.of(utf8Slice("stringValue")));
+            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.of(2L));
+
+            // x.c
+            columnHandle = new DeltaLakeColumnHandle("x", rowBaseType, OptionalInt.empty(), "x", rowBaseType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(new ArrayType(BIGINT), ImmutableList.of(2), ImmutableList.of("c"))));
+            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
+            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
+            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.empty());
+
+            // x.d
+            columnHandle = new DeltaLakeColumnHandle("x", rowBaseType, OptionalInt.empty(), "x", rowBaseType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(BOOLEAN, ImmutableList.of(3), ImmutableList.of("d"))));
+            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
+            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
+            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.of(1L));
+
+            // x.e
+            columnHandle = new DeltaLakeColumnHandle("x", rowBaseType, OptionalInt.empty(), "x", rowBaseType, REGULAR, Optional.of(new DeltaLakeColumnProjectionInfo(new MapType(BIGINT, VARCHAR, new TypeOperators()), ImmutableList.of(4), ImmutableList.of("e"))));
+            assertEquals(fileStatistics.getMinColumnValue(columnHandle), Optional.empty());
+            assertEquals(fileStatistics.getMaxColumnValue(columnHandle), Optional.empty());
+            assertEquals(fileStatistics.getNullCount(columnHandle), Optional.empty());
         }
     }
 

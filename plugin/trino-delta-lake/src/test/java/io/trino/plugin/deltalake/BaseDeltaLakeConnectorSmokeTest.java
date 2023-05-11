@@ -948,11 +948,16 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertUpdate("INSERT INTO json_stats_on_row_type SELECT CAST(row(3) AS row(x bigint)), CAST(row(row('test insert')) AS row(y row(nested varchar)))", 1);
         assertThat(getTableFiles(transactionLogDirectory))
                 .contains(newTransactionFile, newCheckpointFile);
-        assertThat(getAddFileEntries("json_stats_on_row_type")).hasSize(3);
 
-        // The first two entries created by Databricks have column stats. The last one doesn't have column stats because the connector doesn't support collecting it on row columns.
+        assertUpdate("INSERT INTO json_stats_on_row_type VALUES (null, null)", 1);
+        assertThat(getTableFiles(transactionLogDirectory))
+                .contains(newTransactionFile, newCheckpointFile);
+
+        assertThat(getAddFileEntries("json_stats_on_row_type")).hasSize(4);
+
+        // The first two entries created by Databricks have column stats. The last two entries created by trino have column stats
         List<AddFileEntry> addFileEntries = getAddFileEntries("json_stats_on_row_type").stream().sorted(comparing(AddFileEntry::getModificationTime)).collect(toImmutableList());
-        assertThat(addFileEntries).hasSize(3);
+        assertThat(addFileEntries).hasSize(4);
         assertJsonStatistics(
                 addFileEntries.get(0),
                 "{" +
@@ -971,7 +976,20 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "}");
         assertJsonStatistics(
                 addFileEntries.get(2),
-                "{\"numRecords\":1,\"minValues\":{},\"maxValues\":{},\"nullCount\":{}}");
+                "{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"nested_struct_col\":{\"y\":{\"nested\":\"test insert\"}},\"struct_col\":{\"x\":3}}," +
+                        "\"maxValues\":{\"nested_struct_col\":{\"y\":{\"nested\":\"test insert\"}},\"struct_col\":{\"x\":3}}," +
+                        "\"nullCount\":{\"nested_struct_col\":{\"y\":{\"nested\":0}},\"struct_col\":{\"x\":0}}" +
+                        "}");
+        assertJsonStatistics(
+                addFileEntries.get(3),
+                "{" +
+                        "\"numRecords\":1," +
+                        "\"minValues\":{\"nested_struct_col\":{\"y\":{}},\"struct_col\":{}}," +
+                        "\"maxValues\":{\"nested_struct_col\":{\"y\":{}},\"struct_col\":{}}," +
+                        "\"nullCount\":{\"nested_struct_col\":{\"y\":{\"nested\":1}},\"struct_col\":{\"x\":1}}" +
+                        "}");
     }
 
     private List<AddFileEntry> getAddFileEntries(String tableName)
