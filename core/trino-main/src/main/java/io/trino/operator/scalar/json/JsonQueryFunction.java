@@ -45,6 +45,7 @@ import io.trino.type.JsonPath2016Type;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
@@ -66,10 +67,6 @@ public class JsonQueryFunction
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonQueryFunction.class, "jsonQuery", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, long.class, long.class);
     private static final JsonNode EMPTY_ARRAY_RESULT = new ArrayNode(JsonNodeFactory.instance);
     private static final JsonNode EMPTY_OBJECT_RESULT = new ObjectNode(JsonNodeFactory.instance);
-    private static final TrinoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_QUERY function");
-    private static final TrinoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_QUERY function");
-    private static final TrinoException NO_ITEMS = new JsonOutputConversionError("JSON path found no items");
-    private static final TrinoException MULTIPLE_ITEMS = new JsonOutputConversionError("JSON path found multiple items");
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -135,12 +132,12 @@ public class JsonQueryFunction
             long errorBehavior)
     {
         if (inputExpression.equals(JSON_ERROR)) {
-            return handleSpecialCase(errorBehavior, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
+            return handleSpecialCase(errorBehavior, () -> new JsonInputConversionError("malformed input argument to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
-                return handleSpecialCase(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
+                return handleSpecialCase(errorBehavior, () -> new JsonInputConversionError("malformed JSON path parameter to JSON_QUERY function")); // ERROR ON ERROR was already handled by the input function
             }
         }
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
@@ -156,12 +153,12 @@ public class JsonQueryFunction
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }
         catch (PathEvaluationError e) {
-            return handleSpecialCase(errorBehavior, e);
+            return handleSpecialCase(errorBehavior, () -> e);
         }
 
         // handle empty sequence
         if (pathResult.isEmpty()) {
-            return handleSpecialCase(emptyBehavior, NO_ITEMS);
+            return handleSpecialCase(emptyBehavior, () -> new JsonOutputConversionError("JSON path found no items"));
         }
 
         // translate sequence to JSON items
@@ -170,7 +167,7 @@ public class JsonQueryFunction
             if (item instanceof TypedValue) {
                 Optional<JsonNode> jsonNode = getJsonNode((TypedValue) item);
                 if (jsonNode.isEmpty()) {
-                    return handleSpecialCase(errorBehavior, new JsonOutputConversionError(format(
+                    return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionError(format(
                             "JSON path returned a scalar SQL value of type %s that cannot be represented as JSON",
                             ((TypedValue) item).getType())));
                 }
@@ -205,16 +202,16 @@ public class JsonQueryFunction
             // if the only item is a TextNode, need to apply the KEEP / OMIT QUOTES behavior. this is done by the JSON output function
         }
 
-        return handleSpecialCase(errorBehavior, MULTIPLE_ITEMS);
+        return handleSpecialCase(errorBehavior, () -> new JsonOutputConversionError("JSON path found multiple items"));
     }
 
-    private static JsonNode handleSpecialCase(long behavior, TrinoException error)
+    private static JsonNode handleSpecialCase(long behavior, Supplier<TrinoException> error)
     {
         switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
             case NULL:
                 return null;
             case ERROR:
-                throw error;
+                throw error.get();
             case EMPTY_ARRAY:
                 return EMPTY_ARRAY_RESULT;
             case EMPTY_OBJECT:
