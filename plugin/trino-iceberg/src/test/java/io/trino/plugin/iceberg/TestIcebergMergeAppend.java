@@ -48,7 +48,8 @@ public class TestIcebergMergeAppend
     private IcebergTableOperationsProvider tableOperationsProvider;
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         DistributedQueryRunner queryRunner = IcebergQueryRunner.createIcebergQueryRunner();
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();

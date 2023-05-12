@@ -128,7 +128,8 @@ public class EnvironmentDescribe
         }
 
         @Override
-        public Integer call() throws Exception
+        public Integer call()
+                throws Exception
         {
             Optional<Path> environmentLogPath = environmentUpOptions.logsDirBase.map(dir -> dir.resolve(environmentUpOptions.environment));
 
