@@ -22,10 +22,13 @@ import dev.failsafe.event.ExecutionAttemptedEvent;
 import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.HdfsNamenodeStats;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HivePartition;
@@ -35,7 +38,6 @@ import io.trino.plugin.hive.HiveSplitManager;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.HiveTransactionManager;
-import io.trino.plugin.hive.NamenodeStats;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -82,6 +84,7 @@ import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.ge
 import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.validateStageType;
 import static com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeDistributedSessionProperties.retryCanceledQueries;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -172,7 +175,7 @@ public class SnowflakeSplitSource
         }
         // Exported tables are ephemeral, so directory listing cache would not be useful (and can only be harmful).
         // Cache is disabled because the list of tables to cache is empty.
-        this.directoryLister = new CachingDirectoryLister(new Duration(1, SECONDS), 1, ImmutableList.of());
+        this.directoryLister = new CachingDirectoryLister(new Duration(1, SECONDS), DataSize.of(0, MEGABYTE), ImmutableList.of());
     }
 
     @Override
@@ -349,8 +352,8 @@ public class SnowflakeSplitSource
         return new HiveSplitManager(
                 transactionManager,
                 new HivePartitionManager(hiveConfig),
-                new HdfsFileSystemFactory(hdfsEnvironment),
-                new NamenodeStats(),
+                new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()),
+                new HdfsNamenodeStats(),
                 hdfsEnvironment,
                 executorService,
                 new CounterStat(),

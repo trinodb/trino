@@ -14,6 +14,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.ReaderPageSource;
@@ -64,14 +65,16 @@ import static java.util.function.Function.identity;
 public class SnowflakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    private final TrinoHdfsFileSystemStats hdfsFileSystemStats;
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderConfig parquetReaderConfig;
     // TODO should there be a config for this
     private final DateTimeZone parquetTimeZone = DateTimeZone.forID("UTC");
 
     @Inject
-    public SnowflakePageSourceProvider(FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
+    public SnowflakePageSourceProvider(TrinoHdfsFileSystemStats hdfsFileSystemStats, FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
     {
+        this.hdfsFileSystemStats = requireNonNull(hdfsFileSystemStats, "hdfsFileSystemStats is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.parquetReaderConfig = new ParquetReaderConfig().setMaxReadBlockSize(config.getParquetMaxReadBlockSize())
                 .setUseColumnIndex(config.isUseColumnIndex());
@@ -89,7 +92,7 @@ public class SnowflakePageSourceProvider
         SnowflakeSplit snowflakeSplit = (SnowflakeSplit) split;
         validateStageType(snowflakeSplit.getStageAccessInfo().getStageType());
         HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(snowflakeSplit);
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment);
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, hdfsFileSystemStats);
 
         Path path = new Path(snowflakeSplit.getPath());
         Configuration configuration = hdfsEnvironment.getConfiguration(

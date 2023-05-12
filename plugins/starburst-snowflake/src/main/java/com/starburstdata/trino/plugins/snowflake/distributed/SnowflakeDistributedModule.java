@@ -19,13 +19,14 @@ import com.google.inject.Singleton;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeSessionProperties;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
+import io.trino.hdfs.s3.TrinoS3FileSystem;
+import io.trino.hdfs.s3.TrinoS3FileSystemStats;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.s3.TrinoS3FileSystem;
-import io.trino.plugin.hive.s3.TrinoS3FileSystemStats;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcDynamicFilteringSplitManager;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
@@ -97,6 +98,8 @@ public class SnowflakeDistributedModule
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForClassLoaderSafe.class).to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setBinding().to(ClassLoaderSafeConnectorSplitManager.class).in(Scopes.SINGLETON);
 
+        binder.bind(TrinoHdfsFileSystemStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(TrinoHdfsFileSystemStats.class).withGeneratedName();
         newOptionalBinder(binder, Key.get(SnowflakePageSourceProvider.class, ForSnowflake.class))
                 .setDefault()
                 .to(SnowflakePageSourceProvider.class)

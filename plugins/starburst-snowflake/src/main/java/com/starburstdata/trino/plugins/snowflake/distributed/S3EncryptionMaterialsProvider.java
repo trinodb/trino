@@ -21,7 +21,7 @@ import java.util.Map;
 
 import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.getQueryStageMasterKey;
 import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.setQueryStageMasterKey;
-import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static java.util.Objects.requireNonNull;
 
 public class S3EncryptionMaterialsProvider
