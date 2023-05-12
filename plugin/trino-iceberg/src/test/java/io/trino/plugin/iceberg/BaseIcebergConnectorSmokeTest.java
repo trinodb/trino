@@ -598,6 +598,33 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    // Verify the accuracy of Trino metadata tables while retrieving Iceberg table metadata from the underlying `TrinoCatalog` implementation
+    @Test
+    public void testMetadataTables()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_metadata_tables",
+                "(id int, part varchar) WITH (partitioning = ARRAY['part'])",
+                ImmutableList.of("1, 'p1'", "2, 'p1'", "3, 'p2'"))) {
+            List<Long> snapshotIds = computeActual("SELECT snapshot_id FROM \"" + table.getName() + "$snapshots\" ORDER BY committed_at DESC")
+                    .getOnlyColumn()
+                    .map(Long.class::cast)
+                    .collect(toImmutableList());
+            List<Long> historySnapshotIds = computeActual("SELECT snapshot_id FROM \"" + table.getName() + "$history\" ORDER BY made_current_at DESC")
+                    .getOnlyColumn()
+                    .map(Long.class::cast)
+                    .collect(toImmutableList());
+            long filesCount = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$files\"");
+            long partitionsCount = (long) computeScalar("SELECT count(*) FROM \"" + table.getName() + "$partitions\"");
+
+            assertThat(snapshotIds).hasSize(4);
+            assertThat(snapshotIds).hasSameElementsAs(historySnapshotIds);
+            assertThat(filesCount).isEqualTo(3L);
+            assertThat(partitionsCount).isEqualTo(2L);
+        }
+    }
+
     protected abstract boolean isFileSorted(Location path, String sortColumnName);
 
     private String getTableLocation(String tableName)
