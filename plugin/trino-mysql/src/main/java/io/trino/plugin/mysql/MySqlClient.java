@@ -493,6 +493,8 @@ public class MySqlClient
     {
         return new LongReadFunction()
         {
+            private final LongReadFunction delegate = timestampReadFunction(timestampType);
+
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
@@ -506,7 +508,7 @@ public class MySqlClient
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return timestampReadFunction(timestampType).readLong(resultSet, columnIndex);
+                return delegate.readLong(resultSet, columnIndex);
             }
         };
     }
@@ -515,6 +517,8 @@ public class MySqlClient
     {
         return new LongReadFunction()
         {
+            private final LongReadFunction delegate = timeReadFunction(timeType);
+
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
@@ -528,7 +532,7 @@ public class MySqlClient
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return timeReadFunction(timeType).readLong(resultSet, columnIndex);
+                return delegate.readLong(resultSet, columnIndex);
             }
         };
     }
