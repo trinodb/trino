@@ -49,7 +49,8 @@ public class TestIcebergHiveMetastoreTableOperationsReleaseLockFailure
     private File baseDir;
 
     @Override
-    protected LocalQueryRunner createQueryRunner() throws Exception
+    protected LocalQueryRunner createQueryRunner()
+            throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
