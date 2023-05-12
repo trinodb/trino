@@ -161,7 +161,11 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
@@ -169,6 +173,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -197,10 +202,12 @@ public class MySqlClient
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+    private final boolean enforceTimestampMillisPrecision;
 
     @Inject
     public MySqlClient(
             BaseJdbcConfig config,
+            MySqlConfig mySqlConfig,
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
@@ -232,6 +239,7 @@ public class MySqlClient
                         .add(new ImplementVarianceSamp())
                         .add(new ImplementVariancePop())
                         .build());
+        this.enforceTimestampMillisPrecision = mySqlConfig.isEnforceTimestampMillisPrecision();
     }
 
     @Override
@@ -457,6 +465,13 @@ public class MySqlClient
                         timeWriteFunction(timeType.getPrecision())));
 
             case Types.TIMESTAMP:
+                if (enforceTimestampMillisPrecision) {
+                    return Optional.of(ColumnMapping.longMapping(
+                            TIMESTAMP_MILLIS,
+                            timestampMillisReadFunction(),
+                            timestampWriteFunction(TIMESTAMP_MILLIS),
+                            DISABLE_PUSHDOWN));
+                }
                 TimestampType timestampType = createTimestampType(getTimestampPrecision(typeHandle.getRequiredColumnSize()));
                 checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
                 return Optional.of(ColumnMapping.longMapping(
@@ -469,6 +484,17 @@ public class MySqlClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private static LongReadFunction timestampMillisReadFunction()
+    {
+        return (resultSet, columnIndex) -> toTrinoTimestampMillis(resultSet.getObject(columnIndex, LocalDateTime.class));
+    }
+
+    private static long toTrinoTimestampMillis(LocalDateTime localDateTime)
+    {
+        return localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + Math.round(localDateTime.getNano() * 1.0 / NANOSECONDS_PER_MILLISECOND) * MICROSECONDS_PER_MILLISECOND;
     }
 
     private LongWriteFunction mySqlDateWriteFunctionUsingLocalDate()
@@ -598,6 +624,9 @@ public class MySqlClient
         }
 
         if (type instanceof TimestampType timestampType) {
+            if (enforceTimestampMillisPrecision) {
+              return WriteMapping.longMapping("datetime(3)", timestampWriteFunction(TIMESTAMP_MILLIS));
+            }
             if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
                 return WriteMapping.longMapping(format("datetime(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));

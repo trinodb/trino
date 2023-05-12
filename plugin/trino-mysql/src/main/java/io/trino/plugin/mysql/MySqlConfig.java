@@ -31,6 +31,7 @@ public class MySqlConfig
     // implementation, which throw SQL exception when a table disappears during listing.
     // Using `useInformationSchema=false` may provide more diagnostic information (see https://github.com/trinodb/trino/issues/1597)
     private boolean driverUseInformationSchema = true;
+    private boolean enforceTimestampMillisPrecision;
 
     public boolean isAutoReconnect()
     {
@@ -79,6 +80,18 @@ public class MySqlConfig
     public MySqlConfig setDriverUseInformationSchema(boolean driverUseInformationSchema)
     {
         this.driverUseInformationSchema = driverUseInformationSchema;
+        return this;
+    }
+
+    public boolean isEnforceTimestampMillisPrecision()
+    {
+        return enforceTimestampMillisPrecision;
+    }
+
+    @Config("mysql.enforce-millis-timestamp-precision")
+    public MySqlConfig setEnforceTimestampMillisPrecision(boolean enforceTimestampMillisPrecision)
+    {
+        this.enforceTimestampMillisPrecision = enforceTimestampMillisPrecision;
         return this;
     }
 }

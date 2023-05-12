@@ -33,6 +33,7 @@ public class TestMySqlConfig
                 .setAutoReconnect(true)
                 .setMaxReconnects(3)
                 .setConnectionTimeout(new Duration(10, TimeUnit.SECONDS))
+                .setEnforceTimestampMillisPrecision(false)
                 .setDriverUseInformationSchema(true));
     }
 
@@ -44,12 +45,14 @@ public class TestMySqlConfig
                 .put("mysql.max-reconnects", "4")
                 .put("mysql.connection-timeout", "4s")
                 .put("mysql.jdbc.use-information-schema", "false")
+                .put("mysql.enforce-millis-timestamp-precision", "true")
                 .buildOrThrow();
 
         MySqlConfig expected = new MySqlConfig()
                 .setAutoReconnect(false)
                 .setMaxReconnects(4)
                 .setConnectionTimeout(new Duration(4, TimeUnit.SECONDS))
+                .setEnforceTimestampMillisPrecision(true)
                 .setDriverUseInformationSchema(false);
 
         assertFullMapping(properties, expected);
