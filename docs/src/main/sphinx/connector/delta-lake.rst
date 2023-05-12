@@ -411,8 +411,10 @@ schema.
    Using ``CREATE TABLE`` with an existing table content is deprecated, instead
    use the ``system.register_table`` procedure. The ``CREATE TABLE ... WITH
    (location=...)`` syntax can be temporarily re-enabled using the
-   ``delta.legacy-create-table-with-existing-location.enabled`` config property
-   or ``legacy_create_table_with_existing_location_enabled`` session property.
+   ``delta.legacy-create-table-with-existing-location.enabled`` catalog
+   configuration property or
+   ``legacy_create_table_with_existing_location_enabled`` catalog session
+   property.
 
 If the specified location does not already contain a Delta table, the connector
 automatically writes the initial transaction log entries and registers the table
