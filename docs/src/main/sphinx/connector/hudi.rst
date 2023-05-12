@@ -17,6 +17,9 @@ To use the Hudi connector, you need:
 * Network access from the Trino coordinator and workers to the Hudi storage.
 * Access to the Hive metastore service (HMS).
 * Network access from the Trino coordinator to the HMS.
+* Data files stored in the Parquet file format. These can be configured using
+  :ref:`file format configuration properties <hive-parquet-configuration>` per
+  catalog.
 
 General configuration
 ---------------------
@@ -204,15 +207,10 @@ The output of the query has the following columns:
     - Description
   * - ``timestamp``
     - ``VARCHAR``
-    - Instant time is typically a timestamp when the actions performed
+    - Instant time is typically a timestamp when the actions performed.
   * - ``action``
     - ``VARCHAR``
-    - `Type of action <https://hudi.apache.org/docs/concepts/#timeline>`_ performed on the table
+    - `Type of action <https://hudi.apache.org/docs/concepts/#timeline>`_ performed on the table.
   * - ``state``
     - ``VARCHAR``
-    - Current state of the instant
-
-File formats
-------------
-
-The connector supports Parquet file format.
+    - Current state of the instant.

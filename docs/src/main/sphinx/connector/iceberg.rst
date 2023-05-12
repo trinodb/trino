@@ -42,8 +42,11 @@ To use Iceberg, you need:
   :ref:`AWS Glue catalog<iceberg-glue-catalog>`, a :ref:`JDBC catalog
   <iceberg-jdbc-catalog>`, a :ref:`REST catalog<iceberg-rest-catalog>`, or a
   :ref:`Nessie server<iceberg-nessie-catalog>`.
-* Network access from the Trino coordinator to the HMS. Hive metastore access
-  with the Thrift protocol defaults to using port 9083.
+* Data files stored in a supported file format. These can be configured using
+  file format configuration properties per catalog:
+  
+  - :ref:`ORC <hive-orc-configuration>`
+  - :ref:`Parquet <hive-parquet-configuration>` (default)
 
 General configuration
 ---------------------
@@ -1552,52 +1555,3 @@ Table redirection
 
 The connector supports redirection from Iceberg tables to Hive tables with the
 ``iceberg.hive-catalog-name`` catalog configuration property.
-
-File formats
-------------
-
-The following file types and formats are supported for the Iceberg connector:
-
-* ORC
-* Parquet
-* Avro
-
-ORC format configuration
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-The following properties are used to configure the read and write operations
-with ORC files performed by the Iceberg connector.
-
-.. list-table:: ORC format configuration properties
-  :widths: 30, 58, 12
-  :header-rows: 1
-
-  * - Property name
-    - Description
-    - Default
-  * - ``hive.orc.bloom-filters.enabled``
-    - Enable bloom filters for predicate pushdown.
-    - ``false``
-
-Parquet format configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The following properties are used to configure the read and write operations
-with Parquet files performed by the Iceberg connector.
-
-.. list-table:: Parquet format configuration properties
-    :widths: 30, 50, 20
-    :header-rows: 1
-
-    * - Property Name
-      - Description
-      - Default
-    * - ``parquet.max-read-block-row-count``
-      - Sets the maximum number of rows read in a batch.
-      - ``8192``
-    * - ``parquet.use-bloom-filter``
-      - Whether bloom filters are used for predicate pushdown when reading
-        Parquet files. Set this property to ``false`` to disable the usage of
-        bloom filters by default. The equivalent catalog session property is
-        ``parquet_use_bloom_filter``.
-      - ``true``
