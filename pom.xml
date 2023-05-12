@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>138</version>
+        <version>139</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -2211,7 +2211,7 @@
                             <DynamicDependency>
                                 <groupId>org.junit.platform</groupId>
                                 <artifactId>junit-platform-launcher</artifactId>
-                                <version>1.9.2</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>1.9.3</version> <!-- legacy version which Surefire seems to need for some reason -->
                                 <type>jar</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
