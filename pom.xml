@@ -59,7 +59,7 @@
         <dep.drift.version>1.14</dep.drift.version>
         <dep.tempto.version>194</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
-        <dep.errorprone.version>2.18.0</dep.errorprone.version>
+        <dep.errorprone.version>2.19.1</dep.errorprone.version>
         <dep.testcontainers.version>1.18.0</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.coral.version>2.0.153</dep.coral.version>
