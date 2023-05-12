@@ -48,6 +48,7 @@ import io.trino.type.JsonPath2016Type;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
@@ -73,11 +74,6 @@ public class JsonValueFunction
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(JsonValueFunction.class, "jsonValueBoolean", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Boolean.class, long.class, Boolean.class);
     private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(JsonValueFunction.class, "jsonValueSlice", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Slice.class, long.class, Slice.class);
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonValueFunction.class, "jsonValue", FunctionManager.class, Metadata.class, TypeManager.class, Type.class, Type.class, JsonPathInvocationContext.class, ConnectorSession.class, JsonNode.class, IrJsonPath.class, Block.class, long.class, Object.class, long.class, Object.class);
-    private static final TrinoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_VALUE function");
-    private static final TrinoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_VALUE function");
-    private static final TrinoException NO_ITEMS = new JsonValueResultError("JSON path found no items");
-    private static final TrinoException MULTIPLE_ITEMS = new JsonValueResultError("JSON path found multiple items");
-    private static final TrinoException INCONVERTIBLE_ITEM = new JsonValueResultError("JSON path found an item that cannot be converted to an SQL value");
 
     private final FunctionManager functionManager;
     private final Metadata metadata;
@@ -246,12 +242,12 @@ public class JsonValueFunction
             Object errorDefault)
     {
         if (inputExpression.equals(JSON_ERROR)) {
-            return handleSpecialCase(errorBehavior, errorDefault, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
+            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonInputConversionError("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
-                return handleSpecialCase(errorBehavior, errorDefault, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
+                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonInputConversionError("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
             }
         }
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
@@ -267,15 +263,15 @@ public class JsonValueFunction
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }
         catch (PathEvaluationError e) {
-            return handleSpecialCase(errorBehavior, errorDefault, e); // TODO by spec, we should cast the defaults only if they are used
+            return handleSpecialCase(errorBehavior, errorDefault, () -> e); // TODO by spec, we should cast the defaults only if they are used
         }
 
         if (pathResult.isEmpty()) {
-            return handleSpecialCase(emptyBehavior, emptyDefault, NO_ITEMS);
+            return handleSpecialCase(emptyBehavior, emptyDefault, () -> new JsonValueResultError("JSON path found no items"));
         }
 
         if (pathResult.size() > 1) {
-            return handleSpecialCase(errorBehavior, errorDefault, MULTIPLE_ITEMS);
+            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError("JSON path found multiple items"));
         }
 
         Object item = getOnlyElement(pathResult);
@@ -289,10 +285,10 @@ public class JsonValueFunction
                 itemValue = getTypedValue((JsonNode) item);
             }
             catch (JsonLiteralConversionError e) {
-                return handleSpecialCase(errorBehavior, errorDefault, new JsonValueResultError("JSON path found an item that cannot be converted to an SQL value", e));
+                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError("JSON path found an item that cannot be converted to an SQL value", e));
             }
             if (itemValue.isEmpty()) {
-                return handleSpecialCase(errorBehavior, errorDefault, INCONVERTIBLE_ITEM);
+                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError("JSON path found an item that cannot be converted to an SQL value"));
             }
             typedValue = itemValue.get();
         }
@@ -307,7 +303,7 @@ public class JsonValueFunction
             coercion = metadata.getCoercion(((FullConnectorSession) session).getSession(), typedValue.getType(), returnType);
         }
         catch (OperatorNotFoundException e) {
-            return handleSpecialCase(errorBehavior, errorDefault, new JsonValueResultError(format(
+            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError(format(
                     "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
                     typedValue.getType(),
                     returnType)));
@@ -316,20 +312,20 @@ public class JsonValueFunction
             return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, ImmutableList.of(typedValue.getValueAsObject()));
         }
         catch (RuntimeException e) {
-            return handleSpecialCase(errorBehavior, errorDefault, new JsonValueResultError(format(
+            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError(format(
                     "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
                     typedValue.getType(),
                     returnType)));
         }
     }
 
-    private static Object handleSpecialCase(long behavior, Object defaultValue, TrinoException error)
+    private static Object handleSpecialCase(long behavior, Object defaultValue, Supplier<TrinoException> error)
     {
         switch (EmptyOrErrorBehavior.values()[(int) behavior]) {
             case NULL:
                 return null;
             case ERROR:
-                throw error;
+                throw error.get();
             case DEFAULT:
                 return defaultValue;
         }
