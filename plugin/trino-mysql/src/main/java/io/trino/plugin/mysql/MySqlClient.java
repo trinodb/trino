@@ -625,7 +625,7 @@ public class MySqlClient
 
         if (type instanceof TimestampType timestampType) {
             if (enforceTimestampMillisPrecision) {
-              return WriteMapping.longMapping("datetime(3)", timestampWriteFunction(TIMESTAMP_MILLIS));
+                return WriteMapping.longMapping("datetime(3)", timestampWriteFunction(TIMESTAMP_MILLIS));
             }
             if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
