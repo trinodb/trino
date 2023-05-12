@@ -114,7 +114,7 @@ jobs:
       - uses: docker/setup-qemu-action@v2
         with:
           platforms: arm64,ppc64le
-      - name: Test Docker Image
+      - name: Build and Test Docker Image
         run: core/docker/build.sh
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
