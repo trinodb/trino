@@ -19,7 +19,8 @@ public class SystemOutPrintRedirectHandler
         implements RedirectHandler
 {
     @Override
-    public void redirectTo(URI uri) throws RedirectException
+    public void redirectTo(URI uri)
+            throws RedirectException
     {
         System.out.println("External authentication required. Please go to:");
         System.out.println(uri.toString());

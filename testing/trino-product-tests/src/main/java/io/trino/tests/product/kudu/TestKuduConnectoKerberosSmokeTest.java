@@ -28,7 +28,8 @@ import static java.lang.String.format;
 public class TestKuduConnectoKerberosSmokeTest
 {
     @Test(groups = {KUDU, PROFILE_SPECIFIC_TESTS})
-    public void kerberosAuthTicketExpiryTest() throws InterruptedException
+    public void kerberosAuthTicketExpiryTest()
+            throws InterruptedException
     {
         String kuduTable = "kudu.default.nation_" + UUID.randomUUID().toString().replace("-", "");
         String table = "tpch.tiny.nation";

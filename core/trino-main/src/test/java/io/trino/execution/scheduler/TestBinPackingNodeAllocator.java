@@ -704,6 +704,7 @@ public class TestBinPackingNodeAllocator
 
     interface ThrowingRunnable
     {
-        void run() throws Exception;
+        void run()
+                throws Exception;
     }
 }
