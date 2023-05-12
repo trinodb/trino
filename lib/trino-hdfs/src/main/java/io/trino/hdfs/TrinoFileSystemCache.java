@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -76,6 +77,8 @@ public class TrinoFileSystemCache
      * cacheSize should only be updated after acquiring cache's partition lock (eg: from inside cache.compute())
      */
     private final AtomicLong cacheSize = new AtomicLong();
+
+    public static final AtomicLong checkUser = new AtomicLong();
 
     @VisibleForTesting
     TrinoFileSystemCache()
@@ -222,6 +225,17 @@ public class TrinoFileSystemCache
         fileSystem.close();
     }
 
+    @Override
+    public String toString()
+    {
+        ToStringHelper helper = toStringHelper(this);
+        cache.forEach((key, holder) -> {
+            helper.add("key", key);
+            helper.add("value", holder);
+        });
+        return helper.toString();
+    }
+
     private static FileSystemKey createFileSystemKey(URI uri, UserGroupInformation userGroupInformation, long unique)
     {
         String scheme = nullToEmpty(uri.getScheme()).toLowerCase(ENGLISH);
@@ -239,6 +253,9 @@ public class TrinoFileSystemCache
                 proxyUser = userGroupInformation.getUserName();
             }
             default -> throw new IllegalArgumentException("Unsupported authentication method: " + authenticationMethod);
+        }
+        if (checkUser.get() != 0 && realUser.equals("runner") && proxyUser == null) {
+            throw new RuntimeException("Saw user runner with null proxy user");
         }
         return new FileSystemKey(scheme, authority, unique, realUser, proxyUser);
     }

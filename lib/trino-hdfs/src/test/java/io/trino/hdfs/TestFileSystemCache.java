@@ -87,10 +87,13 @@ public class TestFileSystemCache
                 new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication(), SIMPLE_USER_NAME_PROVIDER));
 
         int maxCacheSize = 1000;
+        TrinoFileSystemCache.checkUser.set(1);
         for (int i = 0; i < maxCacheSize; i++) {
             assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), i);
             getFileSystem(environment, ConnectorIdentity.ofUser("user" + i));
         }
+        TrinoFileSystemCache.checkUser.set(0);
+        System.err.println(TrinoFileSystemCache.INSTANCE);
         assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), maxCacheSize);
         assertThatThrownBy(() -> getFileSystem(environment, ConnectorIdentity.ofUser("user" + maxCacheSize)))
                 .isInstanceOf(IOException.class)
@@ -113,8 +116,11 @@ public class TestFileSystemCache
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
         assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), 0);
+        TrinoFileSystemCache.checkUser.set(1);
         executor.invokeAll(callableTasks).forEach(MoreFutures::getFutureValue);
         executor.shutdown();
+        System.err.println(TrinoFileSystemCache.INSTANCE);
+        TrinoFileSystemCache.checkUser.set(0);
         assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), 0, "Cache size is non zero");
     }
 
