@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
@@ -139,7 +140,7 @@ public class SnowflakePageSourceProvider
         }
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
-                fileSystemFactory.create(session).newInputFile(snowflakeSplit.getPath(), unpaddedFileSize),
+                fileSystemFactory.create(session).newInputFile(Location.of(snowflakeSplit.getPath()), unpaddedFileSize),
                 snowflakeSplit.getStart(),
                 snowflakeSplit.getLength(),
                 transformedColumns,
