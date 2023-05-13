@@ -50,8 +50,8 @@ public class HudiFileGroup
     {
         this.fileGroupId = requireNonNull(fileGroupId, "fileGroupId is null");
         this.fileSlices = new TreeMap<>(HudiFileGroup.getReverseCommitTimeComparator());
-        this.timeline = timeline;
         this.lastInstant = timeline.lastInstant();
+        this.timeline = timeline;
     }
 
     public void addNewFileSliceAtInstant(String baseInstantTime)

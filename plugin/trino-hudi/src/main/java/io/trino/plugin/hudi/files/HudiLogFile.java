@@ -14,7 +14,7 @@
 package io.trino.plugin.hudi.files;
 
 import io.trino.filesystem.FileEntry;
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.Location;
 
 import java.util.Comparator;
 import java.util.Objects;
@@ -33,7 +33,7 @@ public class HudiLogFile
 
     public HudiLogFile(FileEntry fileStatus)
     {
-        this.pathStr = fileStatus.location().path();
+        this.pathStr = fileStatus.location().toString();
         this.fileLen = fileStatus.length();
     }
 
@@ -57,9 +57,9 @@ public class HudiLogFile
         return getWriteTokenFromLogPath(getPath());
     }
 
-    public Path getPath()
+    public Location getPath()
     {
-        return new Path(pathStr);
+        return Location.of(pathStr);
     }
 
     public static Comparator<HudiLogFile> getReverseLogFileComparator()

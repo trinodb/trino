@@ -15,8 +15,8 @@ package io.trino.plugin.hudi.compaction;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hudi.files.HudiFileGroupId;
-import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 import java.util.Map;
@@ -74,7 +74,7 @@ public class CompactionOperation
         Optional<String> dataFileName = Optional.ofNullable(operation.getDataFilePath());
         return new CompactionOperation(
                 operation.getBaseInstantTime(),
-                dataFileName.map(path -> getCommitTime(new Path(path).getName())),
+                dataFileName.map(path -> getCommitTime(Location.of(path).fileName())),
                 ImmutableList.copyOf(operation.getDeltaFilePaths()),
                 dataFileName,
                 new HudiFileGroupId(operation.getPartitionPath(), operation.getFileId()),
