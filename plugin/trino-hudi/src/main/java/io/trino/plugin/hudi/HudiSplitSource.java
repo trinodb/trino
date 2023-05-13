@@ -16,7 +16,6 @@ package io.trino.plugin.hudi;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
@@ -60,13 +59,12 @@ public class HudiSplitSource
             Table table,
             HudiTableHandle tableHandle,
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsEnvironment hdfsEnvironment,
             Map<String, HiveColumnHandle> partitionColumnHandleMap,
             ExecutorService executor,
             int maxSplitsPerSecond,
             int maxOutstandingSplits)
     {
-        HudiTableMetaClient metaClient = buildTableMetaClient(hdfsEnvironment, session, fileSystemFactory, tableHandle.getBasePath());
+        HudiTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
 

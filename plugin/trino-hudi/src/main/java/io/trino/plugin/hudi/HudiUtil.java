@@ -18,9 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HivePartitionKey;
@@ -30,13 +27,11 @@ import io.trino.plugin.hudi.model.HudiFileFormat;
 import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.List;
@@ -171,30 +166,13 @@ public final class HudiUtil
         return partitionKeys.build();
     }
 
-    // TODO: replace with buildTrinoHudiTableMetaClient
     public static HudiTableMetaClient buildTableMetaClient(
-            HdfsEnvironment hdfsEnvironment,
-            ConnectorSession session,
-            TrinoFileSystemFactory trinoFileSystemFactory,
+            TrinoFileSystem fileSystem,
             String basePath)
     {
-        HudiTableMetaClient client = HudiTableMetaClient.builder()
-                .setConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath)))
-                .setTrinoFileSystem(trinoFileSystemFactory.create(session))
+        return HudiTableMetaClient.builder()
+                .setTrinoFileSystem(fileSystem)
                 .setBasePath(Location.of(basePath))
                 .build();
-        return client;
-    }
-
-    public static HudiTableMetaClient buildTrinoHudiTableMetaClient(
-            HdfsEnvironment hdfsEnvironment,
-            TrinoFileSystem trinoFileSystem,
-            ConnectorSession session,
-            Location basePath)
-    {
-        return HudiTableMetaClient.builder()
-                .setConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(basePath.toString())))
-                .setTrinoFileSystem(trinoFileSystem)
-                .setBasePath(basePath).build();
     }
 }

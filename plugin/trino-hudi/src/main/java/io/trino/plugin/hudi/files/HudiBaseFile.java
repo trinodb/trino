@@ -49,7 +49,7 @@ public class HudiBaseFile
         return fullPath;
     }
 
-    public Location getHadoopPath()
+    public Location getFullPath()
     {
         if (fileEntry != null) {
             return fileEntry.location();

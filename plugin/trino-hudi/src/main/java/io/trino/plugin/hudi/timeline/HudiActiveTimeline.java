@@ -19,7 +19,6 @@ import io.trino.filesystem.TrinoInputStream;
 import io.trino.plugin.hudi.model.HudiInstant;
 import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.Path;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -69,8 +68,8 @@ public class HudiActiveTimeline
     @Override
     public Optional<byte[]> getInstantDetails(HudiInstant instant)
     {
-        Path detailPath = getInstantFileNamePath(instant.getFileName());
-        return readDataFromPath(detailPath);
+        Location detailLocation = getInstantFileNamePath(instant.getFileName());
+        return readDataFromPath(detailLocation);
     }
 
     //-----------------------------------------------------------------
@@ -81,28 +80,28 @@ public class HudiActiveTimeline
     {
         // Reading from auxiliary location first. In future release, we will cleanup compaction management
         // to only write to timeline and skip auxiliary and this code will be able to handle it.
-        return readDataFromPath(new Path(metaClient.getMetaAuxiliaryPath(), instant.getFileName()));
+        return readDataFromPath(Location.of(metaClient.getMetaAuxiliaryPath()).appendPath(instant.getFileName()));
     }
 
-    private Path getInstantFileNamePath(String fileName)
+    private Location getInstantFileNamePath(String fileName)
     {
-        return new Path(fileName.contains(SCHEMA_COMMIT_ACTION) ? metaClient.getSchemaFolderName() : metaClient.getMetaPath().path(), fileName);
+        return Location.of(fileName.contains(SCHEMA_COMMIT_ACTION) ? metaClient.getSchemaFolderName() : metaClient.getMetaPath().path()).appendPath(fileName);
     }
 
-    private Optional<byte[]> readDataFromPath(Path detailPath)
+    private Optional<byte[]> readDataFromPath(Location detailPath)
     {
-        try (TrinoInputStream inputStream = metaClient.getFileSystem().newInputFile(Location.of(detailPath.toString())).newStream()) {
-            return Optional.of(readAsByteArray(inputStream, 128));
+        try (TrinoInputStream inputStream = metaClient.getFileSystem().newInputFile(detailPath).newStream()) {
+            return Optional.of(readAsByteArray(inputStream));
         }
         catch (IOException e) {
             throw new TrinoException(HUDI_BAD_DATA, "Could not read commit details from " + detailPath, e);
         }
     }
 
-    private static byte[] readAsByteArray(InputStream input, int outputSize)
+    private static byte[] readAsByteArray(InputStream input)
             throws IOException
     {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(outputSize);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream(128);
         copy(input, bos);
         return bos.toByteArray();
     }

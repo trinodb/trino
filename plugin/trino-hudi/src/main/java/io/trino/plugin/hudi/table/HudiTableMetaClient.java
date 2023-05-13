@@ -25,7 +25,6 @@ import io.trino.plugin.hudi.timeline.HudiTimeline;
 import io.trino.plugin.hudi.timeline.TimelineLayout;
 import io.trino.plugin.hudi.timeline.TimelineLayoutVersion;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.conf.Configuration;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,20 +54,19 @@ public class HudiTableMetaClient
     private TimelineLayoutVersion timelineLayoutVersion;
     private HudiTableConfig tableConfig;
     private HudiActiveTimeline activeTimeline;
-    private TrinoFileSystem trinoFileSystem;
+    private TrinoFileSystem fileSystem;
 
     protected HudiTableMetaClient(
-            Configuration conf,
-            TrinoFileSystem trinoFileSystem,
+            TrinoFileSystem fileSystem,
             Location basePath,
             Optional<TimelineLayoutVersion> layoutVersion)
     {
         this.metaPath = requireNonNull(basePath, "basePath is null").appendPath(METAFOLDER_NAME);
-        this.trinoFileSystem = requireNonNull(trinoFileSystem, "trinoFileSystem is null");
-        checkArgument(isHudiTable(trinoFileSystem, basePath), "Could not check if %s is a valid table", basePath);
+        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        checkArgument(isHudiTable(fileSystem, basePath), "Could not check if %s is a valid table", basePath);
         this.basePath = basePath;
 
-        this.tableConfig = new HudiTableConfig(trinoFileSystem, metaPath);
+        this.tableConfig = new HudiTableConfig(fileSystem, metaPath);
         this.tableType = tableConfig.getTableType();
         // TODO: Migrate Timeline objects
         Optional<TimelineLayoutVersion> tableConfigVersion = tableConfig.getTimelineLayoutVersion();
@@ -108,7 +106,6 @@ public class HudiTableMetaClient
     public synchronized HudiActiveTimeline getActiveTimeline()
     {
         if (activeTimeline == null) {
-            // TODO: inline HoodieActiveTimeline
             activeTimeline = new HudiActiveTimeline(this);
         }
         return activeTimeline;
@@ -131,7 +128,7 @@ public class HudiTableMetaClient
 
     public TrinoFileSystem getFileSystem()
     {
-        return trinoFileSystem;
+        return fileSystem;
     }
 
     public String getMetaAuxiliaryPath()
@@ -145,11 +142,10 @@ public class HudiTableMetaClient
     }
 
     private static HudiTableMetaClient newMetaClient(
-            Configuration conf,
-            TrinoFileSystem trinoFileSystem,
+            TrinoFileSystem fileSystem,
             Location basePath)
     {
-        return new HudiTableMetaClient(conf, trinoFileSystem, basePath, Optional.of(TimelineLayoutVersion.CURRENT_LAYOUT_VERSION));
+        return new HudiTableMetaClient(fileSystem, basePath, Optional.of(TimelineLayoutVersion.CURRENT_LAYOUT_VERSION));
     }
 
     public List<HudiInstant> scanHoodieInstantsFromFileSystem(Set<String> includedExtensions,
@@ -170,7 +166,7 @@ public class HudiTableMetaClient
     private List<FileEntry> scanFiles(Predicate<Location> pathPredicate)
             throws IOException
     {
-        FileIterator fileIterator = trinoFileSystem.listFiles(metaPath);
+        FileIterator fileIterator = fileSystem.listFiles(metaPath);
         List<FileEntry> result = new ArrayList<>();
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
@@ -188,19 +184,12 @@ public class HudiTableMetaClient
 
     public static class Builder
     {
-        private Configuration conf;
-        private TrinoFileSystem trinoFileSystem;
+        private TrinoFileSystem fileSystem;
         private Location basePath;
 
-        public Builder setConf(Configuration conf)
+        public Builder setTrinoFileSystem(TrinoFileSystem fileSystem)
         {
-            this.conf = conf;
-            return this;
-        }
-
-        public Builder setTrinoFileSystem(TrinoFileSystem trinoFileSystem)
-        {
-            this.trinoFileSystem = trinoFileSystem;
+            this.fileSystem = fileSystem;
             return this;
         }
 
@@ -212,7 +201,7 @@ public class HudiTableMetaClient
 
         public HudiTableMetaClient build()
         {
-            return newMetaClient(conf, trinoFileSystem, basePath);
+            return newMetaClient(fileSystem, basePath);
         }
     }
 }
