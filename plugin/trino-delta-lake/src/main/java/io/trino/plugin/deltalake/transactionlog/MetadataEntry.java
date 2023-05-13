@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.spi.TrinoException;
 
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
@@ -41,6 +43,12 @@ public class MetadataEntry
     public static final String DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY = "delta.enableChangeDataFeed";
 
     private static final String DELTA_CHECKPOINT_INTERVAL_PROPERTY = "delta.checkpointInterval";
+
+    public static final Set<String> RESERVED_TRINO_PROPERTY_NAMES = ImmutableSet.of(
+            DELTA_CHECKPOINT_WRITE_STATS_AS_JSON_PROPERTY,
+            DELTA_CHECKPOINT_WRITE_STATS_AS_STRUCT_PROPERTY,
+            DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY,
+            DELTA_CHECKPOINT_INTERVAL_PROPERTY);
 
     private final String id;
     private final String name;
@@ -181,7 +189,8 @@ public class MetadataEntry
             Optional<Long> checkpointInterval,
             Optional<Boolean> changeDataFeedEnabled,
             ColumnMappingMode columnMappingMode,
-            OptionalInt maxFieldId)
+            OptionalInt maxFieldId,
+            Map<String, String> extraProperties)
     {
         ImmutableMap.Builder<String, String> configurationMapBuilder = ImmutableMap.builder();
         checkpointInterval.ifPresent(interval -> configurationMapBuilder.put(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(interval)));
@@ -194,6 +203,7 @@ public class MetadataEntry
             }
             case UNKNOWN -> throw new UnsupportedOperationException();
         }
+        configurationMapBuilder.putAll(extraProperties);
         return configurationMapBuilder.buildOrThrow();
     }
 

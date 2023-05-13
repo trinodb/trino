@@ -36,6 +36,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.minio.MinioClient;
@@ -65,6 +66,7 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDel
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getTableActiveFiles;
+import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
@@ -2159,6 +2161,145 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertQueryFails(session, "SELECT * FROM %s WHERE x='a'".formatted(table.getName()), "Filter required on .*" + table.getName() + " for at least one partition column:.*");
             assertQuery(session, "SELECT * FROM %s WHERE part='part_a'".formatted(table.getName()), "VALUES ('a', 'part_a')");
         }
+    }
+
+    @Test
+    public void testCreateTableWithMultipleExtraProperties()
+    {
+        String tableName = "test_create_table_with_multiple_extra_properties" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c VARCHAR) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'Extra.Property.Two'], ARRAY['one', 'Two']))");
+
+        assertQuery(
+                "SELECT key, value FROM \"%s$properties\"".formatted(tableName),
+                "VALUES ('delta.minReaderVersion', '1'), ('delta.minWriterVersion', '2'), ('extra.property.one', 'one'), ('Extra.Property.Two', 'Two')");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE delta.%s.%s (\n".formatted(SCHEMA, tableName) +
+                        "   c varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   location = '" + getTableLocation(tableName) + "'\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithMultipleExtraProperties()
+    {
+        String tableName = "test_create_table_as_select_with_multiple_extra_properties" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (extra_properties = MAP(ARRAY['extra.property.one', 'Extra.Property.Two'], ARRAY['one', 'Two'])) AS SELECT 'a' AS c", 1);
+
+        assertQuery(
+                "SELECT key, value FROM \"%s$properties\"".formatted(tableName),
+                "VALUES ('delta.minReaderVersion', '1'), ('delta.minWriterVersion', '2'), ('extra.property.one', 'one'), ('Extra.Property.Two', 'Two')");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE delta.%s.%s (\n".formatted(SCHEMA, tableName) +
+                        "   c varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   location = '" + getTableLocation(tableName) + "'\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testAlterTableWithMultipleExtraProperties()
+    {
+        String tableName = "test_alter_table_with_multiple_extra_properties" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c VARCHAR) WITH (extra_properties = MAP(ARRAY['extra.property.one', 'extra.property.two'], ARRAY['one', 'two']))");
+
+        assertQuery(
+                "SELECT key, value FROM \"%s$properties\"".formatted(tableName),
+                "VALUES ('delta.minReaderVersion', '1'), ('delta.minWriterVersion', '2'), ('extra.property.one', 'one'), ('extra.property.two', 'two')");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE delta.%s.%s (\n".formatted(SCHEMA, tableName) +
+                        "   c varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   location = '" + getTableLocation(tableName) + "'\n" +
+                        ")");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
+        assertQuery(
+                "SELECT key, value FROM \"%s$properties\"".formatted(tableName),
+                "VALUES ('delta.minReaderVersion', '1'), ('delta.minWriterVersion', '4'), ('extra.property.one', 'one'), ('extra.property.two', 'two'), ('delta.enableChangeDataFeed', 'true')");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE delta.%s.%s (\n".formatted(SCHEMA, tableName) +
+                        "   c varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   change_data_feed_enabled = true,\n" +
+                        "   location = '" + getTableLocation(tableName) + "'\n" +
+                        ")");
+
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = false");
+        assertQuery(
+                "SELECT key, value FROM \"%s$properties\"".formatted(tableName),
+                "VALUES ('delta.minReaderVersion', '1'), ('delta.minWriterVersion', '4'), ('extra.property.one', 'one'), ('extra.property.two', 'two'), ('delta.enableChangeDataFeed', 'false')");
+        assertThat(computeActual("SHOW CREATE TABLE %s".formatted(tableName)).getOnlyValue())
+                .isEqualTo("CREATE TABLE delta.%s.%s (\n".formatted(SCHEMA, tableName) +
+                        "   c varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   change_data_feed_enabled = false,\n" +
+                        "   location = '" + getTableLocation(tableName) + "'\n" +
+                        ")");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDuplicateExtraProperties()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
+                "Invalid value for catalog 'delta' table property 'extra_properties': Cannot convert.*");
+        assertQueryFails(
+                "CREATE TABLE create_table_select_as_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property', 'extra.property'], ARRAY['true', 'false']))",
+                "Invalid value for catalog 'delta' table property 'extra_properties': Cannot convert.*");
+    }
+
+    @Test
+    public void testAlterExtraPropertiesFail()
+    {
+        String tableName = "alter_table_extra_properties" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer) WITH (extra_properties = MAP(ARRAY['extra.property1', 'extra.property2'], ARRAY['true', 'false']))");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " SET PROPERTIES extra_properties = MAP(ARRAY['extra.property1'], ARRAY['false'])",
+                "The following properties cannot be updated: extra_properties");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testReservedExtraPropertiesFail()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_table_with_reserved_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['" + DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY + "'], ARRAY['true']))",
+                ".*Illegal keys in extra_properties: \\[delta.enableChangeDataFeed\\]");
+    }
+
+    @Test
+    public void testOverwriteExistingPropertyWithExtraProperties()
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE create_table_with_overwrite_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['location'], ARRAY['hello']))"))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Unable to set catalog 'delta' table property 'extra_properties' to [MAP(ARRAY['location'], ARRAY['hello'])]: Illegal keys in extra_properties: [location]");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE create_table_as_select_with_extra_properties WITH (extra_properties = MAP(ARRAY['change_data_feed_enabled'], ARRAY['true'])) AS SELECT 1 AS c1"))
+                .isInstanceOf(QueryFailedException.class)
+                .hasMessage("Unable to set catalog 'delta' table property 'extra_properties' to [MAP(ARRAY['change_data_feed_enabled'], ARRAY['true'])]: Illegal keys in extra_properties: [change_data_feed_enabled]");
+    }
+
+    @Test
+    public void testNullExtraProperty()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_table_with_duplicate_extra_properties (c1 integer) WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null]))",
+                ".*Extra table property value cannot be null '\\{null.property=null}'.*");
+        assertQueryFails(
+                "CREATE TABLE create_table_as_select_with_extra_properties WITH (extra_properties = MAP(ARRAY['null.property'], ARRAY[null])) AS SELECT 1 AS c1",
+                ".*Extra table property value cannot be null '\\{null.property=null}'.*");
     }
 
     private Set<String> getActiveFiles(String tableName)

@@ -643,6 +643,10 @@ The following table properties are available for use:
       * ``NONE``
 
       Defaults to ``NONE``.
+  * - ``extra_properties``
+    - Additional properties added to a Delta table. The properties are not used by Trino,
+      and are available in the ``$properties`` metadata table.
+      The properties are not included in the output of ``SHOW CREATE TABLE`` statements.
 ```
 
 The following example uses all available table properties:
@@ -654,7 +658,8 @@ WITH (
   partitioned_by = ARRAY['regionkey'],
   checkpoint_interval = 5,
   change_data_feed_enabled = false,
-  column_mapping_mode = 'name'
+  column_mapping_mode = 'name',
+  extra_properties = map_from_entries(ARRAY[('key1', 'value1'), ('key2', 'value2')])
 )
 AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 ```

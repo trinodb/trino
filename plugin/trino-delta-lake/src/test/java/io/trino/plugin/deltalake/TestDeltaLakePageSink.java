@@ -42,6 +42,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -180,7 +181,8 @@ public class TestDeltaLakePageSink
                 schemaString,
                 NONE,
                 OptionalInt.empty(),
-                new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()));
+                new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()),
+                Collections.emptyMap());
 
         TypeOperators typeOperators = new TypeOperators();
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(

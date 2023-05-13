@@ -206,6 +206,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPER
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getChangeDataFeedEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getCheckpointInterval;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getExtraProperties;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
 import static io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore.TABLE_PROVIDER_PROPERTY;
@@ -885,7 +886,12 @@ public class DeltaLakeMetadata
                         columnComments,
                         columnsNullability,
                         columnsMetadata.buildOrThrow(),
-                        configurationForNewTable(checkpointInterval, changeDataFeedEnabled, columnMappingMode, maxFieldId),
+                        configurationForNewTable(
+                                checkpointInterval,
+                                changeDataFeedEnabled,
+                                columnMappingMode,
+                                maxFieldId,
+                                getExtraProperties(tableMetadata.getProperties())),
                         CREATE_TABLE_OPERATION,
                         session,
                         tableMetadata.getComment(),
@@ -1047,7 +1053,8 @@ public class DeltaLakeMetadata
                 schemaString,
                 columnMappingMode,
                 maxFieldId,
-                protocolEntryForNewTable(tableMetadata.getProperties()));
+                protocolEntryForNewTable(tableMetadata.getProperties()),
+                getExtraProperties(tableMetadata.getProperties()));
     }
 
     private Optional<String> getSchemaLocation(Database database)
@@ -1181,7 +1188,12 @@ public class DeltaLakeMetadata
                     randomUUID().toString(),
                     schemaString,
                     handle.getPartitionedBy(),
-                    configurationForNewTable(handle.getCheckpointInterval(), handle.getChangeDataFeedEnabled(), columnMappingMode, handle.getMaxColumnId()),
+                    configurationForNewTable(
+                            handle.getCheckpointInterval(),
+                            handle.getChangeDataFeedEnabled(),
+                            columnMappingMode,
+                            handle.getMaxColumnId(),
+                            handle.getExtraTableProperties()),
                     CREATE_TABLE_AS_OPERATION,
                     session,
                     handle.getComment(),

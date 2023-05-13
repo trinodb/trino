@@ -17,11 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -44,6 +46,7 @@ public class DeltaLakeOutputTableHandle
     private final OptionalInt maxColumnId;
     private final String schemaString;
     private final ProtocolEntry protocolEntry;
+    private final Map<String, String> extraTableProperties;
 
     @JsonCreator
     public DeltaLakeOutputTableHandle(
@@ -58,7 +61,8 @@ public class DeltaLakeOutputTableHandle
             @JsonProperty("schemaString") String schemaString,
             @JsonProperty("columnMappingMode") ColumnMappingMode columnMappingMode,
             @JsonProperty("maxColumnId") OptionalInt maxColumnId,
-            @JsonProperty("protocolEntry") ProtocolEntry protocolEntry)
+            @JsonProperty("protocolEntry") ProtocolEntry protocolEntry,
+            @JsonProperty("extraTableProperties") Map<String, String> extraTableProperties)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -72,6 +76,7 @@ public class DeltaLakeOutputTableHandle
         this.columnMappingMode = requireNonNull(columnMappingMode, "columnMappingMode is null");
         this.maxColumnId = requireNonNull(maxColumnId, "maxColumnId is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
+        this.extraTableProperties = ImmutableMap.copyOf(requireNonNull(extraTableProperties, "extraTableProperties is null"));
     }
 
     @JsonProperty
@@ -153,5 +158,11 @@ public class DeltaLakeOutputTableHandle
     public ProtocolEntry getProtocolEntry()
     {
         return protocolEntry;
+    }
+
+    @JsonProperty
+    public Map<String, String> getExtraTableProperties()
+    {
+        return extraTableProperties;
     }
 }

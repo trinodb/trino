@@ -95,4 +95,31 @@ public class TestDeltaLakeSystemTableCompatibility
             dropDeltaTableWithRetry("default." + tableName);
         }
     }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_EXCLUDE_113, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCreateTableWithExtraTablePropertiesOnTrino()
+    {
+        String tableName = "test_trino_create_table_extra_properties" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onTrino().executeQuery(format("CREATE TABLE delta.default.%s (col INT) WITH (location = 's3://%s/%s', extra_properties = MAP(ARRAY['test_key', 'Test_Key'], ARRAY['test_value', 'Test_Mixed_Case']))",
+                tableName,
+                bucketName,
+                tableDirectory));
+
+        List<Row> expectedRows = ImmutableList.of(
+                row("test_key", "test_value"),
+                row("Test_Key", "Test_Mixed_Case"));
+        try {
+            QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);
+            QueryResult trinoResult = onTrino().executeQuery("SELECT * FROM default.\"" + tableName + "$properties\"");
+            assertThat(deltaResult).contains(expectedRows);
+            assertThat(trinoResult).contains(expectedRows);
+            assertThat(trinoResult.rows()).containsExactlyInAnyOrderElementsOf(deltaResult.rows());
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE delta.default." + tableName);
+        }
+    }
 }

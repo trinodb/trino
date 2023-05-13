@@ -500,7 +500,7 @@ public final class DeltaLakeSchemaSupport
 
     public static boolean changeDataFeedEnabled(MetadataEntry metadataEntry)
     {
-        String enableChangeDataFeed = metadataEntry.getConfiguration().getOrDefault("delta.enableChangeDataFeed", "false");
+        String enableChangeDataFeed = metadataEntry.getConfiguration().getOrDefault(MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, "false");
         return parseBoolean(enableChangeDataFeed);
     }
 
