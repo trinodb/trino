@@ -39,12 +39,9 @@ import org.apache.avro.io.DatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificRecordBase;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -164,15 +161,15 @@ public class HudiTableFileSystemView
         checkState(metadataVersion == 1, "Lowest supported metadata version is 1");
         List<HudiCompactionOperation> v2CompactionOperationList = new ArrayList<>();
         if (null != metadata.getOperations()) {
-            v2CompactionOperationList = metadata.getOperations()
-                    .stream().map(compactionOperation ->
+            v2CompactionOperationList = metadata.getOperations().stream()
+                    .map(compactionOperation ->
                             HudiCompactionOperation.newBuilder()
                                     .setBaseInstantTime(compactionOperation.getBaseInstantTime())
                                     .setFileId(compactionOperation.getFileId())
                                     .setPartitionPath(compactionOperation.getPartitionPath())
                                     .setMetrics(compactionOperation.getMetrics())
-                                    .setDataFilePath(compactionOperation.getDataFilePath() == null ? null : new Path(compactionOperation.getDataFilePath()).getName())
-                                    .setDeltaFilePaths(compactionOperation.getDeltaFilePaths().stream().map(path -> new Path(path).getName()).collect(toImmutableList()))
+                                    .setDataFilePath(compactionOperation.getDataFilePath() == null ? null : Location.of(compactionOperation.getDataFilePath()).fileName())
+                                    .setDeltaFilePaths(compactionOperation.getDeltaFilePaths().stream().map(filePath -> Location.of(filePath).fileName()).collect(toImmutableList()))
                                     .build())
                     .collect(toImmutableList());
         }
@@ -359,7 +356,7 @@ public class HudiTableFileSystemView
 
         Map<ImmutablePair<String, String>, List<HudiLogFile>> logFiles = logFileStream
                 .collect(groupingBy((logFile) -> {
-                    String partitionPathStr = getRelativePartitionPath(new Path(metaClient.getBasePath().path()), logFile.getPath().getParent());
+                    String partitionPathStr = getRelativePartitionPath(metaClient.getBasePath(), logFile.getPath().parentDirectory());
                     return ImmutablePair.of(partitionPathStr, logFile.getFileId());
                 }));
 
@@ -394,46 +391,23 @@ public class HudiTableFileSystemView
 
     private String getPartitionPathFor(HudiBaseFile baseFile)
     {
-        return getRelativePartitionPath(new Path(metaClient.getBasePath().path()), new Path(baseFile.getHadoopPath().parentDirectory().path()));
+        return getRelativePartitionPath(metaClient.getBasePath(), baseFile.getFullPath().parentDirectory());
     }
 
-    private String getRelativePartitionPath(Path basePath, Path fullPartitionPath)
+    private String getRelativePartitionPath(Location basePath, Location fullPartitionPath)
     {
-        basePath = getPathWithoutSchemeAndAuthority(basePath);
-        fullPartitionPath = getPathWithoutSchemeAndAuthority(fullPartitionPath);
+        String fullPartitionPathStr = fullPartitionPath.path();
 
-        String fullPartitionPathStr = fullPartitionPath.toString();
-
-        if (!fullPartitionPathStr.startsWith(basePath.toString())) {
+        if (!fullPartitionPathStr.startsWith(basePath.path())) {
             throw new IllegalArgumentException("Partition location does not belong to base-location");
         }
 
-        int partitionStartIndex = fullPartitionPathStr
-                .indexOf(basePath.getName(),
-                        basePath.getParent() == null ? 0 : basePath.getParent().toString().length());
+        int partitionStartIndex = fullPartitionPath.path().indexOf(basePath.fileName(), basePath.parentDirectory().path().length());
         // Partition-Path could be empty for non-partitioned tables
-        if (partitionStartIndex + basePath.getName().length() == fullPartitionPathStr.length()) {
+        if (partitionStartIndex + basePath.fileName().length() == fullPartitionPathStr.length()) {
             return "";
         }
-        return fullPartitionPathStr.substring(partitionStartIndex + basePath.getName().length() + 1);
-    }
-
-    public static Path getPathWithoutSchemeAndAuthority(Path path)
-    {
-        // This code depends on Path.toString() to remove the leading slash before
-        // the drive specification on Windows.
-        return path.isUriPathAbsolute() ? createPathUnsafe(path.toUri().getPath()) : path;
-    }
-
-    public static Path createPathUnsafe(String relativePath)
-    {
-        try {
-            URI uri = new URI(null, null, relativePath, null, null);
-            return new Path(uri);
-        }
-        catch (URISyntaxException e) {
-            throw new TrinoException(HUDI_BAD_DATA, "Failed to instantiate relative location");
-        }
+        return fullPartitionPathStr.substring(partitionStartIndex + basePath.fileName().length() + 1);
     }
 
     protected Optional<ImmutablePair<String, CompactionOperation>> getPendingCompactionOperationWithInstant(HudiFileGroupId fgId)

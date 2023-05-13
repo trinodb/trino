@@ -15,10 +15,10 @@ package io.trino.plugin.hudi.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +33,7 @@ public class HudiReplaceCommitMetadata
     // for ser/deser
     public HudiReplaceCommitMetadata()
     {
-        partitionToReplaceFileIds = new HashMap<>();
+        partitionToReplaceFileIds = ImmutableMap.of();
         compacted = false;
     }
 
@@ -60,8 +60,7 @@ public class HudiReplaceCommitMetadata
     @Override
     public int hashCode()
     {
-        int result = 31 + compacted.hashCode();
-        return result;
+        return compacted.hashCode();
     }
 
     public static <T> T fromBytes(byte[] bytes, ObjectMapper objectMapper, Class<T> clazz)
