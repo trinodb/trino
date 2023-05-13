@@ -15,8 +15,8 @@ package io.trino.parquet.writer;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import org.apache.parquet.bytes.BytesInput;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import static java.util.Objects.requireNonNull;
@@ -29,7 +29,7 @@ public interface ParquetDataOutput
         return new ParquetDataOutput()
         {
             @Override
-            public long size()
+            public int size()
             {
                 return slice.length();
             }
@@ -42,22 +42,22 @@ public interface ParquetDataOutput
         };
     }
 
-    static ParquetDataOutput createDataOutput(BytesInput bytesInput)
+    static ParquetDataOutput createDataOutput(ByteArrayOutputStream byteArrayOutputStream)
     {
-        requireNonNull(bytesInput, "bytesInput is null");
+        requireNonNull(byteArrayOutputStream, "byteArrayOutputStream is null");
         return new ParquetDataOutput()
         {
             @Override
-            public long size()
+            public int size()
             {
-                return bytesInput.size();
+                return byteArrayOutputStream.size();
             }
 
             @Override
             public void writeData(SliceOutput sliceOutput)
             {
                 try {
-                    bytesInput.writeAllTo(sliceOutput);
+                    byteArrayOutputStream.writeTo(sliceOutput);
                 }
                 catch (IOException e) {
                     throw new RuntimeException(e);
@@ -69,7 +69,7 @@ public interface ParquetDataOutput
     /**
      * Number of bytes that will be written.
      */
-    long size();
+    int size();
 
     /**
      * Writes data to the output. The output must be exactly
