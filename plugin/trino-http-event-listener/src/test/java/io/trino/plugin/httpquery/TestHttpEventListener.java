@@ -201,7 +201,7 @@ public class TestHttpEventListener
                 Optional.of(Instant.now()),
                 splitStatistics,
                 Optional.empty(),
-                "payload");
+                Optional.of("payload"));
 
         queryCreatedEvent = new QueryCreatedEvent(
                 Instant.now(),

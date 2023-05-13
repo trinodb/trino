@@ -85,6 +85,7 @@ import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesQueryLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesTaskLowMemoryKiller;
+import io.trino.operator.DriverStats;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
@@ -172,6 +173,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(StatsAndCosts.class);
+        jsonCodecBinder(binder).bindJsonCodec(DriverStats.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
 

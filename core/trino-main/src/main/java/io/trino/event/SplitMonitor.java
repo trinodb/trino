@@ -13,8 +13,7 @@
  */
 package io.trino.event;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.TaskId;
@@ -31,6 +30,7 @@ import javax.inject.Inject;
 import java.time.Duration;
 import java.util.Optional;
 
+import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
 
@@ -38,14 +38,18 @@ public class SplitMonitor
 {
     private static final Logger log = Logger.get(SplitMonitor.class);
 
-    private final ObjectMapper objectMapper;
+    private final JsonCodec<DriverStats> driverStatsJsonCodec;
     private final EventListenerManager eventListenerManager;
+    private final int maxJsonLimit;
 
     @Inject
-    public SplitMonitor(EventListenerManager eventListenerManager, ObjectMapper objectMapper)
+    public SplitMonitor(EventListenerManager eventListenerManager, JsonCodec<DriverStats> driverStatsJsonCodec,
+            QueryMonitorConfig queryMonitorConfig)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.driverStatsJsonCodec = requireNonNull(driverStatsJsonCodec, "objectMapper is null");
+        this.maxJsonLimit = toIntExact(
+                requireNonNull(queryMonitorConfig, "queryMonitorConfig is null").getMaxOutputStageJsonSize().toBytes());
     }
 
     public void splitCompletedEvent(TaskId taskId, DriverStats driverStats)
@@ -84,30 +88,25 @@ public class SplitMonitor
                 .map(info -> info.getCatalogHandle().getCatalogName())
                 .findFirst();
 
-        try {
-            eventListenerManager.splitCompleted(
-                    new SplitCompletedEvent(
-                            taskId.getQueryId().toString(),
-                            taskId.getStageId().toString(),
-                            taskId.toString(),
-                            splitCatalog,
-                            driverStats.getCreateTime().toDate().toInstant(),
-                            Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
-                            Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
-                            new SplitStatistics(
-                                    ofMillis(driverStats.getTotalCpuTime().toMillis()),
-                                    elapsedTime,
-                                    queuedTime,
-                                    ofMillis(driverStats.getRawInputReadTime().toMillis()),
-                                    driverStats.getRawInputPositions(),
-                                    driverStats.getRawInputDataSize().toBytes(),
-                                    queuedTimeIfSplitRan,
-                                    elapsedTimeIfSplitRan),
-                            splitFailureMetadata,
-                            objectMapper.writeValueAsString(driverStats)));
-        }
-        catch (JsonProcessingException e) {
-            log.error(e, "Error processing split completion event for task %s", taskId);
-        }
+        eventListenerManager.splitCompleted(
+                new SplitCompletedEvent(
+                        taskId.getQueryId().toString(),
+                        taskId.getStageId().toString(),
+                        taskId.toString(),
+                        splitCatalog,
+                        driverStats.getCreateTime().toDate().toInstant(),
+                        Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
+                        Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),
+                        new SplitStatistics(
+                                ofMillis(driverStats.getTotalCpuTime().toMillis()),
+                                elapsedTime,
+                                queuedTime,
+                                ofMillis(driverStats.getRawInputReadTime().toMillis()),
+                                driverStats.getRawInputPositions(),
+                                driverStats.getRawInputDataSize().toBytes(),
+                                queuedTimeIfSplitRan,
+                                elapsedTimeIfSplitRan),
+                        splitFailureMetadata,
+                        driverStatsJsonCodec.toJsonWithLengthLimit(driverStats, maxJsonLimit)));
     }
 }

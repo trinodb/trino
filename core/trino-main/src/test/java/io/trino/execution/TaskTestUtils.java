@@ -15,11 +15,13 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
+import io.trino.event.QueryMonitorConfig;
 import io.trino.event.SplitMonitor;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
@@ -32,6 +34,7 @@ import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.index.IndexManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Split;
+import io.trino.operator.DriverStats;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TrinoOperatorFactories;
 import io.trino.operator.index.IndexJoinLookupStats;
@@ -188,8 +191,8 @@ public final class TaskTestUtils
 
     public static SplitMonitor createTestSplitMonitor()
     {
-        return new SplitMonitor(
-                new EventListenerManager(new EventListenerConfig()),
-                new ObjectMapperProvider().get());
+        return new SplitMonitor(new EventListenerManager(new EventListenerConfig()),
+                new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(DriverStats.class),
+                new QueryMonitorConfig());
     }
 }

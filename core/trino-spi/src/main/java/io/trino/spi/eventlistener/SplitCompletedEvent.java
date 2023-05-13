@@ -40,7 +40,7 @@ public class SplitCompletedEvent
     private final SplitStatistics statistics;
     private final Optional<SplitFailureInfo> failureInfo;
 
-    private final String payload;
+    private final Optional<String> payload;
 
     @JsonCreator
     @Unstable
@@ -54,7 +54,7 @@ public class SplitCompletedEvent
             Optional<Instant> endTime,
             SplitStatistics statistics,
             Optional<SplitFailureInfo> failureInfo,
-            String payload)
+            Optional<String> payload)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.stageId = requireNonNull(stageId, "stageId is null");
@@ -117,7 +117,7 @@ public class SplitCompletedEvent
     }
 
     @JsonProperty
-    public String getPayload()
+    public Optional<String> getPayload()
     {
         return payload;
     }
