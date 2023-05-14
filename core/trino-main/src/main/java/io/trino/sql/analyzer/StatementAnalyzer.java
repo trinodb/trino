@@ -632,6 +632,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("INSERT");
             analysis.setUpdateTarget(
+                    targetTableHandle.get().getCatalogHandle().getVersion(),
                     targetTable,
                     Optional.empty(),
                     Optional.of(Streams.zip(
@@ -654,8 +655,10 @@ class StatementAnalyzer
             analysis.setUpdateType("REFRESH MATERIALIZED VIEW");
 
             if (metadata.delegateMaterializedViewRefreshToConnector(session, name)) {
+                CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, refreshMaterializedView, name.getCatalogName());
                 analysis.setDelegatedRefreshMaterializedView(name);
                 analysis.setUpdateTarget(
+                        catalogHandle.getVersion(),
                         name,
                         Optional.empty(),
                         Optional.empty());
@@ -702,6 +705,7 @@ class StatementAnalyzer
                     Column::new);
 
             analysis.setUpdateTarget(
+                    targetTableHandle.getCatalogHandle().getVersion(),
                     targetTable,
                     Optional.empty(),
                     Optional.of(Streams.zip(
@@ -803,7 +807,7 @@ class StatementAnalyzer
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
             analysis.setUpdateType("DELETE");
-            analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
+            analysis.setUpdateTarget(handle.getCatalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
             Scope accessControlScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), analysis.getScope(table).getRelationType())
                     .build();
@@ -820,15 +824,15 @@ class StatementAnalyzer
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
-            analysis.setUpdateType("ANALYZE");
-            analysis.setUpdateTarget(tableName, Optional.empty(), Optional.empty());
-
             if (metadata.isView(session, tableName)) {
                 throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
 
             TableHandle tableHandle = metadata.getTableHandle(session, tableName)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
+
+            analysis.setUpdateType("ANALYZE");
+            analysis.setUpdateTarget(tableHandle.getCatalogHandle().getVersion(), tableName, Optional.empty(), Optional.empty());
 
             validateProperties(node.getProperties(), scope);
             String catalogName = tableName.getCatalogName();
@@ -879,7 +883,7 @@ class StatementAnalyzer
                             node.isWithData(),
                             true));
                     analysis.setUpdateType("CREATE TABLE");
-                    analysis.setUpdateTarget(targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
+                    analysis.setUpdateTarget(targetTableHandle.get().getCatalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
@@ -969,6 +973,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("CREATE TABLE");
             analysis.setUpdateTarget(
+                    catalogHandle.getVersion(),
                     targetTable,
                     Optional.empty(),
                     Optional.of(outputColumns.build()));
@@ -990,8 +995,10 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, viewName.getCatalogName());
             analysis.setUpdateType("CREATE VIEW");
             analysis.setUpdateTarget(
+                    catalogHandle.getVersion(),
                     viewName,
                     Optional.empty(),
                     Optional.of(queryScope.getRelationType().getVisibleFields().stream()
@@ -1217,7 +1224,7 @@ class StatementAnalyzer
             analysis.setTableExecuteHandle(executeHandle);
 
             analysis.setUpdateType("ALTER TABLE EXECUTE");
-            analysis.setUpdateTarget(tableName, Optional.of(table), Optional.empty());
+            analysis.setUpdateTarget(executeHandle.getCatalogHandle().getVersion(), tableName, Optional.of(table), Optional.empty());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -1368,8 +1375,10 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, viewName.getCatalogName());
             analysis.setUpdateType("CREATE MATERIALIZED VIEW");
             analysis.setUpdateTarget(
+                    catalogHandle.getVersion(),
                     viewName,
                     Optional.empty(),
                     Optional.of(
@@ -3309,6 +3318,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("UPDATE");
             analysis.setUpdateTarget(
+                    handle.getCatalogHandle().getVersion(),
                     tableName,
                     Optional.of(table),
                     Optional.of(updatedColumnSchemas.stream()
@@ -3478,7 +3488,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             analysis.setUpdateType("MERGE");
-            analysis.setUpdateTarget(tableName, Optional.of(table), Optional.of(updatedColumns));
+            analysis.setUpdateTarget(targetTableHandle.getCatalogHandle().getVersion(), tableName, Optional.of(table), Optional.of(updatedColumns));
             List<List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, dataColumnSchemas, allColumnHandles);
 
             createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles);
