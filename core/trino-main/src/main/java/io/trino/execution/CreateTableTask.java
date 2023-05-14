@@ -291,6 +291,7 @@ public class CreateTableTask
         }
         outputConsumer.accept(new Output(
                 catalogName,
+                catalogHandle.getVersion(),
                 tableName.getSchemaName(),
                 tableName.getObjectName(),
                 Optional.of(tableMetadata.getColumns().stream()

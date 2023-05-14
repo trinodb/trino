@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.StandardWarningCode;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.EventListener;
@@ -157,6 +158,7 @@ public class TestMysqlEventListener
             List.of(
                     new QueryInputMetadata(
                             "catalog1",
+                            new CatalogVersion("default"),
                             "schema1",
                             "table1",
                             List.of("column1", "column2"),
@@ -166,6 +168,7 @@ public class TestMysqlEventListener
                             OptionalLong.of(202)),
                     new QueryInputMetadata(
                             "catalog2",
+                            new CatalogVersion("default"),
                             "schema2",
                             "table2",
                             List.of("column3", "column4"),
@@ -175,6 +178,7 @@ public class TestMysqlEventListener
                             OptionalLong.of(204))),
             Optional.of(new QueryOutputMetadata(
                     "catalog3",
+                    new CatalogVersion("default"),
                     "schema3",
                     "table3",
                     Optional.of(List.of(
