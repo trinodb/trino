@@ -424,7 +424,6 @@
                 <configuration>
                     <ignoredResourcePatterns>
                         <ignoredResourcePattern>arrow-git.properties</ignoredResourcePattern>
-                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
