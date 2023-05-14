@@ -142,7 +142,7 @@ values. Typical usage does not require you to configure them.
     * - ``delta.extended-statistics.enabled``
       - Enable statistics collection with :doc:`/sql/analyze` and
         use of extended statistics.
-      - ``false``
+      - ``true``
     * - ``delta.per-transaction-metastore-cache-maximum-size``
       - Maximum number of metastore data objects per transaction in
         the Hive metastore cache.
