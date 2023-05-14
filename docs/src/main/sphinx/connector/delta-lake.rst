@@ -143,6 +143,11 @@ values. Typical usage does not require you to configure them.
       - Enable statistics collection with :doc:`/sql/analyze` and
         use of extended statistics.
       - ``true``
+    * - ``delta.extended-statistics.collect-on-write``
+      - Enable collection of extended statistics for write operations.
+        The equivalent catalog session property is
+        ``extended_statistics_collect_on_write``.
+      - ``true``
     * - ``delta.per-transaction-metastore-cache-maximum-size``
       - Maximum number of metastore data objects per transaction in
         the Hive metastore cache.
@@ -1105,6 +1110,10 @@ connector.
         property to ``false`` to disable the optimized parquet reader by default
         for structural data types. The equivalent catalog session property is
         ``parquet_optimized_nested_reader_enabled``.
+      - ``true``
+    * - ``parquet.use-column-index``
+      - Skip reading Parquet pages by using Parquet column indices. The equivalent
+        catalog session property is ``parquet_use_column_index``.
       - ``true``
     * - ``delta.projection-pushdown-enabled``
       - Read only projected fields from row columns while performing ``SELECT`` queries
