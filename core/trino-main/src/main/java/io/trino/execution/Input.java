@@ -49,21 +49,13 @@ public final class Input
             @JsonProperty("fragmentId") PlanFragmentId fragmentId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(schema, "schema is null");
-        requireNonNull(table, "table is null");
-        requireNonNull(connectorInfo, "connectorInfo is null");
-        requireNonNull(columns, "columns is null");
-        requireNonNull(fragmentId, "fragmentId is null");
-        requireNonNull(planNodeId, "planNodeId is null");
-
-        this.catalogName = catalogName;
-        this.schema = schema;
-        this.table = table;
-        this.connectorInfo = connectorInfo;
-        this.columns = ImmutableList.copyOf(columns);
-        this.fragmentId = fragmentId;
-        this.planNodeId = planNodeId;
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.table = requireNonNull(table, "table is null");
+        this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.fragmentId = requireNonNull(fragmentId, "fragmentId is null");
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
     }
 
     @JsonProperty
