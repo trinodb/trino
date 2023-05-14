@@ -16,6 +16,7 @@ package io.trino.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.Unstable;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.metrics.Metrics;
 
 import java.util.List;
@@ -30,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class QueryInputMetadata
 {
     private final String catalogName;
+    private final CatalogVersion catalogVersion;
     private final String schema;
     private final String table;
     private final List<String> columns;
@@ -40,7 +42,9 @@ public class QueryInputMetadata
 
     @JsonCreator
     @Unstable
-    public QueryInputMetadata(String catalogName,
+    public QueryInputMetadata(
+            String catalogName,
+            CatalogVersion catalogVersion,
             String schema,
             String table,
             List<String> columns,
@@ -50,6 +54,7 @@ public class QueryInputMetadata
             OptionalLong physicalInputRows)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.columns = requireNonNull(columns, "columns is null");
@@ -63,6 +68,12 @@ public class QueryInputMetadata
     public String getCatalogName()
     {
         return catalogName;
+    }
+
+    @JsonProperty
+    public CatalogVersion getCatalogVersion()
+    {
+        return catalogVersion;
     }
 
     @JsonProperty

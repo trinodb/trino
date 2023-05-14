@@ -431,6 +431,7 @@ public class QueryMonitor
 
             inputs.add(new QueryInputMetadata(
                     input.getCatalogName(),
+                    input.getCatalogVersion(),
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
@@ -462,6 +463,7 @@ public class QueryMonitor
             output = Optional.of(
                     new QueryOutputMetadata(
                             queryInfo.getOutput().get().getCatalogName(),
+                            queryInfo.getOutput().get().getCatalogVersion(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
                             outputColumnsMetadata,
