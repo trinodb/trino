@@ -25,12 +25,11 @@ import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemModule;
+import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
-import io.trino.hdfs.s3.HiveS3Module;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorAccessControl;
@@ -90,7 +89,6 @@ public final class InternalDeltaLakeConnectorFactory
                     new JsonModule(),
                     new MBeanServerModule(),
                     new HdfsModule(),
-                    new HiveS3Module(),
                     new DeltaLakeS3Module(),
                     new HiveAzureModule(),
                     new DeltaLakeAzureModule(),
@@ -101,6 +99,9 @@ public final class InternalDeltaLakeConnectorFactory
                     metastoreModule.orElse(new DeltaLakeMetastoreModule()),
                     new DeltaLakeModule(),
                     new DeltaLakeSecurityModule(),
+                    fileSystemFactory
+                            .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
+                            .orElseGet(FileSystemModule::new),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                         binder.bind(Tracer.class).toInstance(context.getTracer());
@@ -110,9 +111,6 @@ public final class InternalDeltaLakeConnectorFactory
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         newSetBinder(binder, EventListener.class);
-                        fileSystemFactory.ifPresentOrElse(
-                                factory -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory),
-                                () -> binder.install(new HdfsFileSystemModule()));
                     },
                     module);
 

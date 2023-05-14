@@ -23,12 +23,11 @@ import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
-import io.trino.filesystem.hdfs.HdfsFileSystemModule;
+import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
 import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
-import io.trino.hdfs.s3.HiveS3Module;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
@@ -71,11 +70,10 @@ public final class InternalHudiConnectorFactory
                     new HudiModule(),
                     new HiveMetastoreModule(metastore),
                     new HdfsModule(),
-                    new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
                     new HdfsAuthenticationModule(),
-                    new HdfsFileSystemModule(),
+                    new FileSystemModule(),
                     new MBeanServerModule(),
                     binder -> {
                         binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
