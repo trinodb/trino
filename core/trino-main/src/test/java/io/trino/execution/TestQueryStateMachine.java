@@ -28,6 +28,7 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.type.Type;
@@ -82,6 +83,7 @@ public class TestQueryStateMachine
     private static final URI LOCATION = URI.create("fake://fake-query");
     private static final List<Input> INPUTS = ImmutableList.of(new Input(
             "connector",
+            new CatalogVersion("default"),
             "schema",
             "table",
             Optional.empty(),
