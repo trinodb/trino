@@ -21,8 +21,8 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
-import io.trino.event.QueryMonitorConfig;
 import io.trino.event.SplitMonitor;
+import io.trino.event.SplitMonitorConfig;
 import io.trino.eventlistener.EventListenerConfig;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -193,6 +193,6 @@ public final class TaskTestUtils
     {
         return new SplitMonitor(new EventListenerManager(new EventListenerConfig()),
                 new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(DriverStats.class),
-                new QueryMonitorConfig());
+                new SplitMonitorConfig());
     }
 }

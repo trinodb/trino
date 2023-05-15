@@ -14,7 +14,6 @@
 package io.trino.event;
 
 import io.airlift.json.JsonCodec;
-import io.airlift.log.Logger;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.TaskId;
 import io.trino.operator.DriverStats;
@@ -36,20 +35,19 @@ import static java.util.Objects.requireNonNull;
 
 public class SplitMonitor
 {
-    private static final Logger log = Logger.get(SplitMonitor.class);
-
     private final JsonCodec<DriverStats> driverStatsJsonCodec;
     private final EventListenerManager eventListenerManager;
     private final int maxJsonLimit;
 
     @Inject
     public SplitMonitor(EventListenerManager eventListenerManager, JsonCodec<DriverStats> driverStatsJsonCodec,
-            QueryMonitorConfig queryMonitorConfig)
+            SplitMonitorConfig splitMonitorConfig)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.driverStatsJsonCodec = requireNonNull(driverStatsJsonCodec, "objectMapper is null");
+        this.driverStatsJsonCodec = requireNonNull(driverStatsJsonCodec, "driverStatsJsonCodec is null");
         this.maxJsonLimit = toIntExact(
-                requireNonNull(queryMonitorConfig, "queryMonitorConfig is null").getMaxOutputStageJsonSize().toBytes());
+                requireNonNull(splitMonitorConfig, "splitMonitorConfig is null").getMaxSplitOutputStageJsonSize()
+                        .toBytes());
     }
 
     public void splitCompletedEvent(TaskId taskId, DriverStats driverStats)
