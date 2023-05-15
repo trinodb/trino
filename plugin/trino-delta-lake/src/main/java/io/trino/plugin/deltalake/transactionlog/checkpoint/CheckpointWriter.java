@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetSchemaConverter;
@@ -84,12 +85,20 @@ public class CheckpointWriter
     private final TypeManager typeManager;
     private final CheckpointSchemaManager checkpointSchemaManager;
     private final String trinoVersion;
+    private final ParquetWriterOptions parquetWriterOptions;
 
     public CheckpointWriter(TypeManager typeManager, CheckpointSchemaManager checkpointSchemaManager, String trinoVersion)
+    {
+        this(typeManager, checkpointSchemaManager, trinoVersion, ParquetWriterOptions.builder().build());
+    }
+
+    @VisibleForTesting
+    public CheckpointWriter(TypeManager typeManager, CheckpointSchemaManager checkpointSchemaManager, String trinoVersion, ParquetWriterOptions parquetWriterOptions)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
+        this.parquetWriterOptions = requireNonNull(parquetWriterOptions, "parquetWriterOptions is null");
     }
 
     public void write(CheckpointEntries entries, TrinoOutputFile outputFile)
@@ -127,7 +136,7 @@ public class CheckpointWriter
                 outputFile.create(),
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
-                ParquetWriterOptions.builder().build(),
+                parquetWriterOptions,
                 CompressionCodec.SNAPPY,
                 trinoVersion,
                 false,
