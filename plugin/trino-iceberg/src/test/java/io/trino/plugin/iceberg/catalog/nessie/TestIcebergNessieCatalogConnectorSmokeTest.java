@@ -16,8 +16,6 @@ package io.trino.plugin.iceberg.catalog.nessie;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -25,11 +23,9 @@ import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.containers.NessieContainer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.TestingConnectorSession;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,8 +34,6 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -47,25 +41,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestIcebergNessieCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private static NessieContainer nessieContainer;
-    private static Path tempDir;
-    private final TrinoFileSystem fileSystem;
+    private Path tempDir;
 
     public TestIcebergNessieCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
-        this.fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(TestingConnectorSession.SESSION);
-    }
-
-    @BeforeClass
-    @Override
-    public void init()
-            throws Exception
-    {
-        nessieContainer = NessieContainer.builder().build();
-        nessieContainer.start();
-        tempDir = Files.createTempDirectory("test_trino_nessie_catalog");
-        super.init();
     }
 
     @AfterClass(alwaysRun = true)
@@ -73,15 +53,17 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
             throws IOException
     {
         deleteRecursively(tempDir, ALLOW_INSECURE);
-        if (nessieContainer != null) {
-            nessieContainer.close();
-        }
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        NessieContainer nessieContainer = closeAfterClass(NessieContainer.builder().build());
+        nessieContainer.start();
+
+        tempDir = Files.createTempDirectory("test_trino_nessie_catalog");
+
         return IcebergQueryRunner.builder()
                 .setBaseDataDir(Optional.of(tempDir))
                 .setIcebergProperties(
