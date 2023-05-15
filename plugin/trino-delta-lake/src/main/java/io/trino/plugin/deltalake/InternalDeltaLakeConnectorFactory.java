@@ -148,6 +148,7 @@ public final class InternalDeltaLakeConnectorFactory
             FunctionProvider functionProvider = injector.getInstance(FunctionProvider.class);
 
             return new DeltaLakeConnector(
+                    injector,
                     lifeCycleManager,
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     new ClassLoaderSafeConnectorPageSourceProvider(connectorPageSource, classLoader),
