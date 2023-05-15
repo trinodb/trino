@@ -105,7 +105,7 @@ public class TestPreparedStatements
             throws SQLException
     {
         String prepareSql = "PREPARE ps1 from SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
-        final int testValue = 2147483647;
+        int testValue = 2147483647;
         String executeSql = "EXECUTE ps1 using ";
 
         try (Statement statement = connection().createStatement()) {
