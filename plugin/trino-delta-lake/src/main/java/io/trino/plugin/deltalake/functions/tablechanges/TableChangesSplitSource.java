@@ -18,7 +18,7 @@ import io.trino.filesystem.Locations;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
-import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
+import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.spi.TrinoException;
@@ -92,15 +92,15 @@ public class TableChangesSplitSource
             boolean containsCdcEntry = false;
             boolean containsRemoveEntry = false;
             for (DeltaLakeTransactionLogEntry entry : entries) {
-                CdfFileEntry cdfFileEntry = entry.getCDC();
-                if (cdfFileEntry != null) {
+                CdcEntry cdcEntry = entry.getCDC();
+                if (cdcEntry != null) {
                     containsCdcEntry = true;
                     splits.add(mapToDeltaLakeTableChangesSplit(
                             commitInfo,
                             CDF_FILE,
-                            cdfFileEntry.getSize(),
-                            cdfFileEntry.getPath(),
-                            cdfFileEntry.getCanonicalPartitionValues()));
+                            cdcEntry.getSize(),
+                            cdcEntry.getPath(),
+                            cdcEntry.getCanonicalPartitionValues()));
                 }
                 if (entry.getRemove() != null && entry.getRemove().isDataChange()) {
                     containsRemoveEntry = true;
