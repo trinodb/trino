@@ -50,6 +50,7 @@ public class Minio
     // defaults
     public static final String MINIO_ACCESS_KEY = "accesskey";
     public static final String MINIO_SECRET_KEY = "secretkey";
+    public static final String MINIO_REGION = "us-east-1";
 
     public static Builder builder()
     {
