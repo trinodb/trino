@@ -13,6 +13,7 @@
  */
 package io.trino.sql.rewrite;
 
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
@@ -32,8 +33,6 @@ import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Statement;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

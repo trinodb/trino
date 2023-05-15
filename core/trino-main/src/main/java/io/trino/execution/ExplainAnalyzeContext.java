@@ -13,7 +13,7 @@
  */
 package io.trino.execution;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

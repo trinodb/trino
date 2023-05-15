@@ -13,14 +13,13 @@
  */
 package io.trino.operator;
 
+import com.google.inject.Inject;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

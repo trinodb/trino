@@ -14,9 +14,8 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 

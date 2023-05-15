@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system.jdbc;
 
+import com.google.inject.Inject;
 import io.trino.metadata.TypeRegistry;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -24,8 +25,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
-
-import javax.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;

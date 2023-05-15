@@ -16,14 +16,13 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.base.security.UserNameProvider;
 import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.thrift.TException;
-
-import javax.inject.Inject;
 
 import java.time.Duration;
 import java.util.Optional;

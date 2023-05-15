@@ -17,11 +17,10 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.http.ByteArr
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.Storage;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.model.StorageObject;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.gcsio.StorageResourceId;
+import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.GcsStorageFactory;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

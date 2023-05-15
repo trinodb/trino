@@ -19,6 +19,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.function.OperatorType;
@@ -38,7 +39,6 @@ import io.trino.type.Re2JRegexpType;
 import io.trino.type.VarcharParametricType;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;

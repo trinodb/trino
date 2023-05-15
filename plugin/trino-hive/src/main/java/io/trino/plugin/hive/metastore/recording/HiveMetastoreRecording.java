@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableCache;
@@ -39,7 +40,6 @@ import io.trino.spi.security.RoleGrant;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.Immutable;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.nio.file.Files;

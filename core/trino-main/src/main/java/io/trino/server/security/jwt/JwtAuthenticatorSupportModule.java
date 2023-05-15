@@ -17,11 +17,10 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.client.HttpClient;
 import io.jsonwebtoken.SigningKeyResolver;
-
-import javax.inject.Singleton;
 
 import java.net.URI;
 

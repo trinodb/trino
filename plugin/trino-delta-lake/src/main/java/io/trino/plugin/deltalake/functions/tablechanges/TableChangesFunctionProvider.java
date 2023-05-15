@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.deltalake.functions.tablechanges;
 
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.spi.ptf.ConnectorTableFunction;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import static java.util.Objects.requireNonNull;
 

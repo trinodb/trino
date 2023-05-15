@@ -13,13 +13,12 @@
  */
 package io.trino.cost;
 
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.operator.RetryPolicy;
-
-import javax.inject.Inject;
 
 import java.util.Set;
 import java.util.function.IntSupplier;

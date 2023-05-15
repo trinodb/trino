@@ -22,13 +22,12 @@ import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import com.google.common.cache.CacheBuilder;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.function.Supplier;

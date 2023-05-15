@@ -14,13 +14,12 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimestampWithTimeZoneType;
-
-import javax.inject.Inject;
 
 import java.time.Instant;
 import java.util.Collection;

@@ -13,7 +13,7 @@
  */
 package io.trino.server.security.oauth2;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.net.URI;
 

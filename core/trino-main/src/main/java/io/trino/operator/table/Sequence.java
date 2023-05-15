@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Provider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
@@ -40,8 +41,6 @@ import io.trino.spi.ptf.TableFunctionAnalysis;
 import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.ptf.TableFunctionProcessorState;
 import io.trino.spi.ptf.TableFunctionSplitProcessor;
-
-import javax.inject.Provider;
 
 import java.math.BigInteger;
 import java.util.List;

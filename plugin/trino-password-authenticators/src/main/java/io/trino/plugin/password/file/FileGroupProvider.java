@@ -17,10 +17,9 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.GroupProvider;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.Connector;
@@ -22,8 +23,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
 
 import static io.trino.plugin.prometheus.PrometheusTransactionHandle.INSTANCE;
 import static java.util.Objects.requireNonNull;

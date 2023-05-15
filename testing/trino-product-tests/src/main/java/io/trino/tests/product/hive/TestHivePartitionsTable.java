@@ -14,6 +14,7 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.math.IntMath;
+import com.google.inject.Inject;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
@@ -26,8 +27,6 @@ import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.math.RoundingMode;
 import java.util.Optional;

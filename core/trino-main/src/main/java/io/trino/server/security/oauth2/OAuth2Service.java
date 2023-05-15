@@ -14,13 +14,13 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.io.Resources;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
 
-import javax.inject.Inject;
 import javax.ws.rs.core.Response;
 
 import java.io.IOException;

@@ -13,11 +13,10 @@
  */
 package io.trino.plugin.kafka;
 
+import com.google.inject.Inject;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Properties;

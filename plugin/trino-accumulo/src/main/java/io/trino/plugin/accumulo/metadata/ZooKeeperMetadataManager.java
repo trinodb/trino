@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.base.TypeDeserializer;
@@ -28,8 +29,6 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryForever;
 import org.apache.zookeeper.KeeperException;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.HashSet;

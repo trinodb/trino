@@ -16,6 +16,7 @@ package io.trino.plugin.raptor.legacy.storage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -59,7 +60,6 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.File;

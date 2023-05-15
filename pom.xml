@@ -2030,6 +2030,9 @@
                             <exclusion>com/google/common/collect/Iterables.getOnlyElement:(Ljava/lang/Iterable;Ljava/lang/Object;)Ljava/lang/Object;</exclusion>
                             <!-- com.google.common.io.BaseEncoding.base64 provides more reach interfaces than java.util.Base64 -->
                             <exclusion>com/google/common/io/BaseEncoding.base64:()Lcom/google/common/io/BaseEncoding;</exclusion>
+
+                            <!-- disable default modernizer violation -->
+                            <exclusion>com/google/inject/Provider</exclusion>
                         </exclusions>
                     </configuration>
                 </plugin>

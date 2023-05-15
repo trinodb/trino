@@ -22,9 +22,11 @@ import com.datastax.oss.driver.internal.core.loadbalancing.DefaultLoadBalancingP
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.cassandra.ptf.Query;
 import io.trino.spi.TrinoException;
@@ -33,8 +35,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
 import javax.net.ssl.SSLContext;
 
 import java.io.File;

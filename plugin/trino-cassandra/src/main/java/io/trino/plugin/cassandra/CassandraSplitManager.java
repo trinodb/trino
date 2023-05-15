@@ -21,6 +21,7 @@ import com.datastax.oss.driver.internal.core.metadata.token.RandomToken;
 import com.datastax.oss.driver.internal.core.metadata.token.RandomTokenRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.cassandra.util.HostAddressFactory;
 import io.trino.spi.HostAddress;
@@ -34,8 +35,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.HashSet;

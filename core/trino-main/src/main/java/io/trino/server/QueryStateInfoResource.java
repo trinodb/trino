@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.inject.Inject;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.security.AccessControl;
@@ -21,7 +22,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.AccessDeniedException;
 
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;

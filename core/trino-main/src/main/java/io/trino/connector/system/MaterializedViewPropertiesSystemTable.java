@@ -13,11 +13,10 @@
  */
 package io.trino.connector.system;
 
+import com.google.inject.Inject;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-
-import javax.inject.Inject;
 
 public class MaterializedViewPropertiesSystemTable
         extends AbstractPropertiesSystemTable

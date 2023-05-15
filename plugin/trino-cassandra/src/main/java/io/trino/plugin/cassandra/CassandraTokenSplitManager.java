@@ -17,9 +17,8 @@ import com.datastax.oss.driver.api.core.metadata.Node;
 import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;

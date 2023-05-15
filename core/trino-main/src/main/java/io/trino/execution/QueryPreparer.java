@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.QueryType;
@@ -24,8 +25,6 @@ import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

@@ -16,13 +16,13 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.net.HostAndPort;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.FailureAwareThriftMetastoreClient.Callback;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import org.apache.thrift.TException;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Comparator;

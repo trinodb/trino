@@ -13,11 +13,10 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.inject.Inject;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.accumulo;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.TrinoException;
 import org.apache.accumulo.core.client.AccumuloException;
@@ -26,8 +27,6 @@ import org.apache.accumulo.core.client.TableExistsException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.iterators.IteratorUtil.IteratorScope;
 import org.apache.hadoop.io.Text;
-
-import javax.inject.Inject;
 
 import java.util.EnumSet;
 import java.util.Map;

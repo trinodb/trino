@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.redis;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.HostAddress;
@@ -20,7 +21,6 @@ import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

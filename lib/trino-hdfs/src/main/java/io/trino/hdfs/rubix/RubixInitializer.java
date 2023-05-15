@@ -16,6 +16,7 @@ package io.trino.hdfs.rubix;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
+import com.google.inject.Inject;
 import com.qubole.rubix.bookkeeper.BookKeeper;
 import com.qubole.rubix.bookkeeper.BookKeeperServer;
 import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
@@ -41,7 +42,6 @@ import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.time.Duration;

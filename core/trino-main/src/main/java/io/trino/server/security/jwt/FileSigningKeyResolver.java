@@ -14,6 +14,7 @@
 package io.trino.server.security.jwt;
 
 import com.google.common.base.CharMatcher;
+import com.google.inject.Inject;
 import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwsHeader;
@@ -23,7 +24,6 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.SecurityException;
 
 import javax.crypto.spec.SecretKeySpec;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

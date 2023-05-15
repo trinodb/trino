@@ -17,13 +17,12 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.hdfs.DynamicConfigurationProvider;
 import io.trino.hdfs.HdfsContext;
 import io.trino.spi.security.AccessDeniedException;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Optional;

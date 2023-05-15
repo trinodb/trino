@@ -13,13 +13,13 @@
  */
 package io.trino.server;
 
+import com.google.inject.Inject;
 import com.sun.management.OperatingSystemMXBean;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.server.security.ResourceSecurity;
 
-import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.HEAD;
 import javax.ws.rs.Path;

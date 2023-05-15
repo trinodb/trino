@@ -15,11 +15,10 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.plugin.kafka.security.ForKafkaSsl;
 import io.trino.plugin.kafka.security.KafkaSslConfig;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.Properties;
 

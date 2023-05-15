@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -30,7 +31,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.concurrent.ExecutorService;

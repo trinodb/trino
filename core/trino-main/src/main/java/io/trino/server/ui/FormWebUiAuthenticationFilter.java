@@ -15,13 +15,13 @@ package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
+import com.google.inject.Inject;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.trino.server.security.AuthenticationException;
 import io.trino.server.security.Authenticator;
 import io.trino.spi.security.Identity;
 
-import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.NewCookie;

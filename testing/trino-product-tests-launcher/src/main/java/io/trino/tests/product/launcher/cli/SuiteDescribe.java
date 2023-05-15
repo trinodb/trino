@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
@@ -34,8 +35,6 @@ import io.trino.tests.product.launcher.suite.SuiteModule;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileDescriptor;

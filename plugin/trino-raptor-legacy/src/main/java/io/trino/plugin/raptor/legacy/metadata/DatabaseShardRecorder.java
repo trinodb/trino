@@ -13,11 +13,10 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;

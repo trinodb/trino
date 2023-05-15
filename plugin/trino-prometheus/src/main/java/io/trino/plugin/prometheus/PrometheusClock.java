@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.prometheus;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.time.Clock;
 import java.time.Instant;

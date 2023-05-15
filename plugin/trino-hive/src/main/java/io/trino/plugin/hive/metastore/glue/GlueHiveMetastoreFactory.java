@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
+import com.google.inject.Inject;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

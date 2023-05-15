@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.inject.Inject;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.client.PinotDataFetcher;
 import io.trino.plugin.pinot.query.DynamicTable;
@@ -25,8 +26,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;

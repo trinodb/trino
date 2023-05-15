@@ -18,13 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.FileOutputStream;

@@ -15,6 +15,7 @@ package io.trino.plugin.hive.rcfile;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -48,8 +49,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.joda.time.DateTimeZone;
-
-import javax.inject.Inject;
 
 import java.io.InputStream;
 import java.util.List;

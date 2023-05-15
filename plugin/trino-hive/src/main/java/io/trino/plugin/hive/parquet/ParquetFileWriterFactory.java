@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.parquet;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -38,8 +39,6 @@ import io.trino.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.IOException;

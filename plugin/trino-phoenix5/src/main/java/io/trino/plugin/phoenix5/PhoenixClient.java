@@ -16,6 +16,7 @@ package io.trino.plugin.phoenix5;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -97,8 +98,6 @@ import org.apache.phoenix.schema.TableProperty;
 import org.apache.phoenix.schema.types.PDataType;
 import org.apache.phoenix.schema.types.PhoenixArray;
 import org.apache.phoenix.util.SchemaUtil;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.sql.Connection;

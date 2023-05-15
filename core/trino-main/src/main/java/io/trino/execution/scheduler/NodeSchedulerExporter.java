@@ -14,6 +14,7 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.stats.CounterStat;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExport;
@@ -21,7 +22,6 @@ import org.weakref.jmx.MBeanExporter;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;

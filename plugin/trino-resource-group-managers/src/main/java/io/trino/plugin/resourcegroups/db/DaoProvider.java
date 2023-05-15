@@ -13,11 +13,10 @@
  */
 package io.trino.plugin.resourcegroups.db;
 
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 public class DaoProvider
         implements Provider<ResourceGroupsDao>

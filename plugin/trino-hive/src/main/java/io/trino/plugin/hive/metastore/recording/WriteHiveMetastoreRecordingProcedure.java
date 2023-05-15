@@ -15,10 +15,9 @@ package io.trino.plugin.hive.metastore.recording;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.RateLimiter;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.spi.procedure.Procedure;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;

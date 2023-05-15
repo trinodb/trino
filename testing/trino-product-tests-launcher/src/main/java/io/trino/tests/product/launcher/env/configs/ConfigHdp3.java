@@ -13,10 +13,9 @@
  */
 package io.trino.tests.product.launcher.env.configs;
 
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
-
-import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TRINO;

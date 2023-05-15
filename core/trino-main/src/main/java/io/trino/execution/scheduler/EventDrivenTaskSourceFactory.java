@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.ForQueryExecution;
@@ -32,8 +33,6 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Set;

@@ -15,10 +15,10 @@ package io.trino.plugin.mongodb;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.trino.spi.TrinoException;
 
-import javax.inject.Singleton;
 import javax.net.ssl.SSLContext;
 
 import java.io.File;

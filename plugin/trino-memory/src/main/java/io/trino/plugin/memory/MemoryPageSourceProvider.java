@@ -14,6 +14,7 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
@@ -29,8 +30,6 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeUtils;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
