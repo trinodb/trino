@@ -19,8 +19,8 @@ import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.NoSuchFileException;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -102,11 +102,11 @@ public class MemoryInputFile
     }
 
     private MemoryBlob getBlobRequired()
-            throws NoSuchFileException
+            throws FileNotFoundException
     {
         MemoryBlob data = dataSupplier.get();
         if (data == null) {
-            throw new NoSuchFileException(toString());
+            throw new FileNotFoundException(toString());
         }
         return data;
     }
