@@ -23,7 +23,7 @@ import java.util.Optional;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static java.lang.String.format;
 
-public class CdfFileEntry
+public class CdcEntry
 {
     private final String path;
     private final Map<String, String> partitionValues;
@@ -32,7 +32,7 @@ public class CdfFileEntry
     private final boolean dataChange;
 
     @JsonCreator
-    public CdfFileEntry(
+    public CdcEntry(
             @JsonProperty("path") String path,
             @JsonProperty("partitionValues") Map<String, String> partitionValues,
             @JsonProperty("size") long size)
@@ -77,7 +77,7 @@ public class CdfFileEntry
     @Override
     public String toString()
     {
-        return format("CdfFileEntry{path=%s, partitionValues=%s, size=%d, dataChange=%b}",
+        return format("CdcEntry{path=%s, partitionValues=%s, size=%d, dataChange=%b}",
                 path, partitionValues, size, dataChange);
     }
 }

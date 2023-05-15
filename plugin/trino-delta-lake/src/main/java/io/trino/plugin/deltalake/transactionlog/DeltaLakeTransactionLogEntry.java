@@ -28,7 +28,7 @@ public class DeltaLakeTransactionLogEntry
     private final MetadataEntry metaData;
     private final ProtocolEntry protocol;
     private final CommitInfoEntry commitInfo;
-    private final CdfFileEntry cdfFileEntry;
+    private final CdcEntry cdcEntry;
 
     private DeltaLakeTransactionLogEntry(
             TransactionEntry txn,
@@ -37,7 +37,7 @@ public class DeltaLakeTransactionLogEntry
             MetadataEntry metaData,
             ProtocolEntry protocol,
             CommitInfoEntry commitInfo,
-            CdfFileEntry cdfFileEntry)
+            CdcEntry cdcEntry)
     {
         this.txn = txn;
         this.add = add;
@@ -45,7 +45,7 @@ public class DeltaLakeTransactionLogEntry
         this.metaData = metaData;
         this.protocol = protocol;
         this.commitInfo = commitInfo;
-        this.cdfFileEntry = cdfFileEntry;
+        this.cdcEntry = cdcEntry;
     }
 
     @JsonCreator
@@ -56,9 +56,9 @@ public class DeltaLakeTransactionLogEntry
             @JsonProperty("metaData") MetadataEntry metaData,
             @JsonProperty("protocol") ProtocolEntry protocol,
             @JsonProperty("commitInfo") CommitInfoEntry commitInfo,
-            @JsonProperty("cdc") CdfFileEntry cdfFileEntry) // TODO rename CdfFileEntry to CdcEntry https://github.com/trinodb/trino/issues/17183
+            @JsonProperty("cdc") CdcEntry cdcEntry)
     {
-        return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdfFileEntry);
+        return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
     }
 
     public static DeltaLakeTransactionLogEntry transactionEntry(TransactionEntry transaction)
@@ -97,10 +97,10 @@ public class DeltaLakeTransactionLogEntry
         return new DeltaLakeTransactionLogEntry(null, null, removeFileEntry, null, null, null, null);
     }
 
-    public static DeltaLakeTransactionLogEntry cdfFileEntry(CdfFileEntry cdfFileEntry)
+    public static DeltaLakeTransactionLogEntry cdcEntry(CdcEntry cdcEntry)
     {
-        requireNonNull(cdfFileEntry, "cdfFileEntry is null");
-        return new DeltaLakeTransactionLogEntry(null, null, null, null, null, null, cdfFileEntry);
+        requireNonNull(cdcEntry, "cdcEntry is null");
+        return new DeltaLakeTransactionLogEntry(null, null, null, null, null, null, cdcEntry);
     }
 
     @Nullable
@@ -147,19 +147,19 @@ public class DeltaLakeTransactionLogEntry
 
     @Nullable
     @JsonProperty
-    public CdfFileEntry getCDC()
+    public CdcEntry getCDC()
     {
-        return cdfFileEntry;
+        return cdcEntry;
     }
 
     public DeltaLakeTransactionLogEntry withCommitInfo(CommitInfoEntry commitInfo)
     {
-        return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdfFileEntry);
+        return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
     }
 
     @Override
     public String toString()
     {
-        return String.format("DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s, %s}", txn, add, remove, metaData, protocol, commitInfo, cdfFileEntry);
+        return String.format("DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s, %s}", txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
     }
 }
