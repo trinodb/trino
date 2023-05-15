@@ -133,6 +133,7 @@ public final class InternalIcebergConnectorFactory
                     .collect(toImmutableList());
 
             return new IcebergConnector(
+                    injector,
                     lifeCycleManager,
                     transactionManager,
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
