@@ -45,7 +45,7 @@ import io.trino.plugin.deltalake.statistics.DeltaLakeColumnStatistics;
 import io.trino.plugin.deltalake.statistics.DeltaLakeTableStatisticsProvider;
 import io.trino.plugin.deltalake.statistics.ExtendedStatistics;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
-import io.trino.plugin.deltalake.transactionlog.CdfFileEntry;
+import io.trino.plugin.deltalake.transactionlog.CdcEntry;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
@@ -1554,7 +1554,7 @@ public class DeltaLakeMetadata
                 .collect(partitioningBy(dataFile -> dataFile.getDataFileType() == DATA));
 
         List<DataFileInfo> newFiles = ImmutableList.copyOf(split.get(true));
-        List<DataFileInfo> cdfFiles = ImmutableList.copyOf(split.get(false));
+        List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
 
         if (mergeHandle.getInsertTableHandle().isRetriesEnabled()) {
             cleanExtraOutputFilesForUpdate(session, handle.getLocation(), allFiles);
@@ -1581,8 +1581,8 @@ public class DeltaLakeMetadata
 
             long writeTimestamp = Instant.now().toEpochMilli();
 
-            if (!cdfFiles.isEmpty()) {
-                appendCdfFileEntries(transactionLogWriter, cdfFiles, handle.getMetadataEntry().getOriginalPartitionColumns());
+            if (!cdcFiles.isEmpty()) {
+                appendCdcFilesInfos(transactionLogWriter, cdcFiles, handle.getMetadataEntry().getOriginalPartitionColumns());
             }
 
             for (String file : oldFiles) {
@@ -1608,12 +1608,12 @@ public class DeltaLakeMetadata
         }
     }
 
-    private static void appendCdfFileEntries(
+    private static void appendCdcFilesInfos(
             TransactionLogWriter transactionLogWriter,
-            List<DataFileInfo> cdfFilesInfos,
+            List<DataFileInfo> cdcFilesInfos,
             List<String> partitionColumnNames)
     {
-        for (DataFileInfo info : cdfFilesInfos) {
+        for (DataFileInfo info : cdcFilesInfos) {
             // using Hashmap because partition values can be null
             Map<String, String> partitionValues = new HashMap<>();
             for (int i = 0; i < partitionColumnNames.size(); i++) {
@@ -1621,8 +1621,8 @@ public class DeltaLakeMetadata
             }
             partitionValues = unmodifiableMap(partitionValues);
 
-            transactionLogWriter.appendCdfFileEntry(
-                    new CdfFileEntry(
+            transactionLogWriter.appendCdcEntry(
+                    new CdcEntry(
                             toUriFormat(info.getPath()),
                             partitionValues,
                             info.getSize()));
