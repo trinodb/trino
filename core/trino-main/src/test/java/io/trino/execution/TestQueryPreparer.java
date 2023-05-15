@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import io.trino.Session;
 import io.trino.execution.QueryPreparer.PreparedQuery;
+import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.QualifiedName;
@@ -28,6 +29,7 @@ import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryPreparer
@@ -55,10 +57,34 @@ public class TestQueryPreparer
     }
 
     @Test
+    public void testExecuteImmediateStatement()
+    {
+        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT * FROM foo'");
+        assertEquals(preparedQuery.getStatement(),
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
+    }
+
+    @Test
     public void testExecuteStatementDoesNotExist()
     {
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "execute my_query"))
                 .hasErrorCode(NOT_FOUND);
+    }
+
+    @Test
+    public void testExecuteImmediateInvalidStatement()
+    {
+        assertThatThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT FROM'"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 1:27: mismatched input 'FROM'. Expecting: .*");
+    }
+
+    @Test
+    public void testExecuteImmediateInvalidMultilineStatement()
+    {
+        assertThatThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE\nIMMEDIATE 'SELECT\n FROM'"))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line 3:2: mismatched input 'FROM'. Expecting: .*");
     }
 
     @Test
@@ -68,6 +94,8 @@ public class TestQueryPreparer
                 .addPreparedStatement("my_query", "SELECT * FROM foo where col1 = ?")
                 .build();
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1,2"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT * FROM foo where col1 = ?' USING 1,2"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
     }
 
@@ -79,6 +107,8 @@ public class TestQueryPreparer
                 .build();
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT ? FROM foo where col1 = ?' USING 1"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
     }
 
     @Test
@@ -89,7 +119,12 @@ public class TestQueryPreparer
                 .build();
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT ? FROM foo OFFSET ? ROWS' USING 1"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1, 2, 3, 4, 5, 6"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT ? FROM foo OFFSET ? ROWS' USING 1, 2, 3, 4, 5, 6"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
     }
 
@@ -101,7 +136,12 @@ public class TestQueryPreparer
                 .build();
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT ? FROM foo LIMIT ?' USING 1"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1, 2, 3, 4, 5, 6"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT ? FROM foo LIMIT ?' USING 1, 2, 3, 4, 5, 6"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
     }
 
@@ -111,9 +151,15 @@ public class TestQueryPreparer
         Session session = testSessionBuilder()
                 .addPreparedStatement("my_query", "SELECT ? FROM foo FETCH FIRST ? ROWS ONLY")
                 .build();
+
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT ? FROM foo FETCH FIRST ? ROWS ONLY' USING 1"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+
         assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1, 2, 3, 4, 5, 6"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertTrinoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT ? FROM foo FETCH FIRST ? ROWS ONLY' USING 1, 2, 3, 4, 5, 6"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
     }
 }

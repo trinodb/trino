@@ -16,10 +16,13 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateTable;
+import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -77,5 +80,22 @@ public class TestSqlFormatter
                 .isEqualTo(String.format(createTableSql, "table_name", "column_name"));
         assertThat(formatSql(createTable.apply("exists", "exists")))
                 .isEqualTo(String.format(createTableSql, "\"exists\"", "\"exists\""));
+    }
+
+    @Test
+    public void testExecuteImmediate()
+    {
+        assertThat(formatSql(
+                new ExecuteImmediate(
+                        new NodeLocation(1, 1),
+                        new StringLiteral(new NodeLocation(1, 19), "SELECT * FROM foo WHERE col1 = ? AND col2 = ?"),
+                        ImmutableList.of(new LongLiteral("42"), new StringLiteral("bar")))))
+                .isEqualTo("EXECUTE IMMEDIATE\n'SELECT * FROM foo WHERE col1 = ? AND col2 = ?'\nUSING 42, 'bar'");
+        assertThat(formatSql(
+                new ExecuteImmediate(
+                        new NodeLocation(1, 1),
+                        new StringLiteral(new NodeLocation(1, 19), "SELECT * FROM foo WHERE col1 = 'bar'"),
+                        ImmutableList.of())))
+                .isEqualTo("EXECUTE IMMEDIATE\n'SELECT * FROM foo WHERE col1 = ''bar'''");
     }
 }
