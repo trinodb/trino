@@ -1605,6 +1605,23 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testExecuteImmediateWithSubqueries()
+    {
+        List<QueryTemplate.Parameter> leftValues = parameter("left").of(
+                "", "1 = ",
+                "EXISTS",
+                "1 IN",
+                "1 = ANY", "1 = ALL",
+                "2 <> ANY", "2 <> ALL",
+                "0 < ALL", "0 < ANY",
+                "1 <= ALL", "1 <= ANY");
+
+        queryTemplate("SELECT %left% (SELECT 1 WHERE 2 = ?)")
+                .replaceAll(leftValues)
+                .forEach(query -> assertQuery("EXECUTE IMMEDIATE '" + query + "' USING 2", "SELECT true"));
+    }
+
+    @Test
     public void testFunctionNotRegistered()
     {
         assertQueryFails(

@@ -20,6 +20,7 @@ import io.trino.spi.resourcegroups.QueryType;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Statement;
@@ -65,19 +66,29 @@ public class QueryPreparer
             prepareSql = Optional.of(session.getPreparedStatementFromExecute(executeStatement));
             statement = sqlParser.createStatement(prepareSql.get(), createParsingOptions(session));
         }
-
-        if (statement instanceof ExplainAnalyze explainAnalyzeStatement) {
+        else if (statement instanceof ExecuteImmediate executeImmediateStatement) {
+            statement = sqlParser.createStatement(
+                    executeImmediateStatement.getStatement().getValue(),
+                    executeImmediateStatement.getStatement().getLocation().orElseThrow(() -> new ParsingException("Missing location for embedded statement")),
+                    createParsingOptions(session));
+        }
+        else if (statement instanceof ExplainAnalyze explainAnalyzeStatement) {
             Statement innerStatement = explainAnalyzeStatement.getStatement();
             Optional<QueryType> innerQueryType = getQueryType(innerStatement);
             if (innerQueryType.isEmpty() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
                 throw new TrinoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
             }
         }
+
         List<Expression> parameters = ImmutableList.of();
         if (wrappedStatement instanceof Execute executeStatement) {
             parameters = executeStatement.getParameters();
         }
+        else if (wrappedStatement instanceof ExecuteImmediate executeImmediateStatement) {
+            parameters = executeImmediateStatement.getParameters();
+        }
         validateParameters(statement, parameters);
+
         return new PreparedQuery(statement, parameters, prepareSql);
     }
 
