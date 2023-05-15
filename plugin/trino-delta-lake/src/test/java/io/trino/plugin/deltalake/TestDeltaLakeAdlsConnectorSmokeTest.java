@@ -97,12 +97,18 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    protected Map<String, String> storageConfiguration()
+    protected Map<String, String> hiveStorageConfiguration()
     {
         return ImmutableMap.<String, String>builder()
                 .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-account"))
                 .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-access-key"))
                 .buildOrThrow();
+    }
+
+    @Override
+    protected Map<String, String> deltaStorageConfiguration()
+    {
+        return hiveStorageConfiguration();
     }
 
     @AfterClass(alwaysRun = true)

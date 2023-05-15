@@ -131,12 +131,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected abstract HiveMinioDataLake createHiveMinioDataLake()
             throws Exception;
 
-    protected abstract Map<String, String> storageConfiguration();
+    protected abstract Map<String, String> hiveStorageConfiguration();
 
-    protected Map<String, String> deltaStorageConfiguration()
-    {
-        return Map.of();
-    }
+    protected abstract Map<String, String> deltaStorageConfiguration();
 
     protected abstract void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner);
 
@@ -198,7 +195,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                     ImmutableMap.<String, String>builder()
                             .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                             .put("hive.allow-drop-table", "true")
-                            .putAll(storageConfiguration())
+                            .putAll(hiveStorageConfiguration())
                             .buildOrThrow());
 
             return queryRunner;
@@ -223,7 +220,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
-                        .putAll(storageConfiguration())
                         .putAll(deltaStorageConfiguration())
                         .buildOrThrow(),
                 hiveMinioDataLake.getHiveHadoop(),
