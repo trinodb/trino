@@ -21,6 +21,7 @@ import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 
@@ -42,7 +43,7 @@ public class TestDeltaLakeUpdate
     {
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),

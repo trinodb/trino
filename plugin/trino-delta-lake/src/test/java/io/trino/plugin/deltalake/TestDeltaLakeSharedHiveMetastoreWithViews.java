@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
@@ -44,7 +45,7 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         this.hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         this.hiveMinioDataLake.start();
 
-        DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                 "delta",
                 schema,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
