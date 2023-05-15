@@ -319,10 +319,12 @@ class AstBuilder
 {
     private int parameterPosition;
     private final ParsingOptions parsingOptions;
+    private final Optional<NodeLocation> baseLocation;
 
-    AstBuilder(ParsingOptions parsingOptions)
+    AstBuilder(Optional<NodeLocation> baseLocation, ParsingOptions parsingOptions)
     {
         this.parsingOptions = requireNonNull(parsingOptions, "parsingOptions is null");
+        this.baseLocation = requireNonNull(baseLocation, "location is null");
     }
 
     @Override
@@ -3785,22 +3787,26 @@ class AstBuilder
         }
     }
 
-    public static NodeLocation getLocation(TerminalNode terminalNode)
+    private NodeLocation getLocation(TerminalNode terminalNode)
     {
         requireNonNull(terminalNode, "terminalNode is null");
         return getLocation(terminalNode.getSymbol());
     }
 
-    public static NodeLocation getLocation(ParserRuleContext parserRuleContext)
+    private NodeLocation getLocation(ParserRuleContext parserRuleContext)
     {
         requireNonNull(parserRuleContext, "parserRuleContext is null");
         return getLocation(parserRuleContext.getStart());
     }
 
-    public static NodeLocation getLocation(Token token)
+    private NodeLocation getLocation(Token token)
     {
         requireNonNull(token, "token is null");
-        return new NodeLocation(token.getLine(), token.getCharPositionInLine() + 1);
+        return baseLocation
+                .map(location -> new NodeLocation(
+                        token.getLine() + location.getLineNumber() - 1,
+                        token.getCharPositionInLine() + 1 + (token.getLine() == 1 ? location.getColumnNumber() : 0)))
+                .orElse(new NodeLocation(token.getLine(), token.getCharPositionInLine() + 1));
     }
 
     private static ParsingException parseError(String message, ParserRuleContext context)
