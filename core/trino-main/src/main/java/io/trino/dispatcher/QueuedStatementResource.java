@@ -335,8 +335,6 @@ public class QueuedStatementResource
             this.queryInfoUrl = queryInfoUrlFactory.getQueryInfoUrl(queryId);
             requireNonNull(tracer, "tracer is null");
             this.querySpan = tracer.spanBuilder("query")
-                    .addLink(Span.current().getSpanContext())
-                    .setNoParent()
                     .setAttribute(TrinoAttributes.QUERY_ID, queryId.toString())
                     .startSpan();
         }
