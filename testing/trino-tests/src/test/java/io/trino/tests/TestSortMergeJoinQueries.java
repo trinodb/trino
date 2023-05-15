@@ -15,9 +15,7 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.testing.AbstractTestJoinQueries;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
