@@ -297,6 +297,20 @@ public class OracleClient
     }
 
     @Override
+    protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName, boolean temporaryTable)
+    {
+        String sql = "DROP TABLE " + quoted(remoteTableName);
+        // Oracle puts dropped tables into a recycling bin, which keeps them accessible for a period of time.
+        // PURGE will bypass the bin and completely delete the table immediately.
+        // We should only PURGE the table if it is a temporary table that trino created,
+        // as purging all dropped tables may be unexpected behavior for our clients.
+        if (temporaryTable) {
+            sql += " PURGE";
+        }
+        execute(session, sql);
+    }
+
+    @Override
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
