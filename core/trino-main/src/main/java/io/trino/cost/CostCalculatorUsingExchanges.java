@@ -15,6 +15,7 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -38,7 +39,6 @@ import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;

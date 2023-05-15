@@ -15,6 +15,7 @@ package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -28,8 +29,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Arrays;

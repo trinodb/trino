@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.accumulo.io;
 
+import com.google.inject.Inject;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.model.AccumuloSplit;
@@ -25,8 +26,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.RecordSet;
 import org.apache.accumulo.core.client.Connector;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

@@ -14,6 +14,7 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
@@ -23,7 +24,6 @@ import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
-import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.net.URI;

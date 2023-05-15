@@ -18,6 +18,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.collect.cache.NonEvictableLoadingCache;
@@ -30,8 +31,6 @@ import io.trino.spi.TrinoException;
 import io.trino.sql.relational.RowExpression;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;

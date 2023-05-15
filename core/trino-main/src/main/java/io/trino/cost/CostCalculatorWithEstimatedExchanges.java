@@ -14,6 +14,7 @@
 
 package io.trino.cost;
 
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
@@ -28,7 +29,6 @@ import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.UnionNode;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Objects;
 import java.util.Optional;

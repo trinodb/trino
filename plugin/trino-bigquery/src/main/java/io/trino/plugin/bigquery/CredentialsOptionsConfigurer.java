@@ -19,9 +19,8 @@ import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQueryOptions;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

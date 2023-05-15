@@ -18,6 +18,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.EvictableCacheBuilder;
@@ -44,8 +45,6 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.Type;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;

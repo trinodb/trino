@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system.jdbc;
 
+import com.google.inject.Inject;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -26,8 +27,6 @@ import io.trino.spi.connector.InMemoryRecordSet.Builder;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;

@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.Extensions;
@@ -29,8 +30,6 @@ import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import org.testcontainers.DockerClientFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
-
-import javax.inject.Inject;
 
 import java.nio.file.Path;
 import java.util.HashMap;

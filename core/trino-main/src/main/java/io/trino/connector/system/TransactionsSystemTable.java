@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -31,8 +32,6 @@ import io.trino.spi.type.VarcharType;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
 import org.joda.time.DateTime;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;

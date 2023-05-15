@@ -14,6 +14,7 @@
 package io.trino.plugin.pinot.client;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.pinot.PinotConfig;
 import io.trino.plugin.pinot.PinotErrorCode;
@@ -37,8 +38,6 @@ import org.apache.pinot.spi.metrics.PinotMetricsRegistry;
 import org.apache.pinot.spi.utils.builder.TableNameBuilder;
 import org.apache.pinot.sql.parsers.CalciteSqlCompiler;
 import org.apache.pinot.sql.parsers.SqlCompilationException;
-
-import javax.inject.Inject;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;

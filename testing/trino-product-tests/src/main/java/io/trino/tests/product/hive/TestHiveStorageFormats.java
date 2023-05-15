@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.ProductTest;
@@ -33,8 +34,6 @@ import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import javax.inject.Named;
 
 import java.sql.Connection;
 import java.sql.JDBCType;

@@ -16,6 +16,7 @@ package io.trino.tests.product.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import com.google.inject.Inject;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.trino.tempto.AfterMethodWithContext;
@@ -32,8 +33,6 @@ import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.math.BigDecimal;
 import java.net.URI;

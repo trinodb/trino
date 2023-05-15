@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.log.Logger;
 import io.trino.collect.cache.EvictableCacheBuilder;
@@ -45,8 +46,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarbinaryType;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;

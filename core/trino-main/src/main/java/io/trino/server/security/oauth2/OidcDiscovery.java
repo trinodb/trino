@@ -16,6 +16,7 @@ package io.trino.server.security.oauth2;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 import com.nimbusds.oauth2.sdk.id.Issuer;
@@ -25,8 +26,6 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.time.Duration;

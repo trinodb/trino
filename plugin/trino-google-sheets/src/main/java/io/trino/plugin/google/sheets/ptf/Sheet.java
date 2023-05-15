@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.google.sheets.SheetsClient;
 import io.trino.plugin.google.sheets.SheetsColumnHandle;
@@ -36,8 +37,6 @@ import io.trino.spi.ptf.Descriptor;
 import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.ptf.ScalarArgumentSpecification;
 import io.trino.spi.ptf.TableFunctionAnalysis;
-
-import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;

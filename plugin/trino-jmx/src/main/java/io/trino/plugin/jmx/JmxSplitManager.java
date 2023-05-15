@@ -15,6 +15,7 @@ package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -28,8 +29,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

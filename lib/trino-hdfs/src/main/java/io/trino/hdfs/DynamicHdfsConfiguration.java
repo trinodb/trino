@@ -14,9 +14,8 @@
 package io.trino.hdfs;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.Set;

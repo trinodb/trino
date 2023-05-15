@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.Hashing;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
@@ -25,7 +26,6 @@ import io.trino.server.security.InternalPrincipal;
 import io.trino.server.security.SecurityConfig;
 import io.trino.spi.security.Identity;
 
-import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 

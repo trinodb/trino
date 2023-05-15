@@ -14,6 +14,7 @@
 package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
@@ -27,7 +28,6 @@ import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
-import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 

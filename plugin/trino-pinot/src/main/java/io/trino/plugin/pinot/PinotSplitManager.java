@@ -14,6 +14,7 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.Iterables;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.ErrorCode;
@@ -30,8 +31,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import org.apache.pinot.spi.config.table.TableType;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;

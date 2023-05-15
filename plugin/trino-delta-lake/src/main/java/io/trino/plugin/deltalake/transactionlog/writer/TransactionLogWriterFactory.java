@@ -14,9 +14,8 @@
 
 package io.trino.plugin.deltalake.transactionlog.writer;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

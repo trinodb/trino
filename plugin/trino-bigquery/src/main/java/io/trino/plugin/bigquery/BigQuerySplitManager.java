@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.TableInfo;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.NodeManager;
@@ -36,8 +37,6 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

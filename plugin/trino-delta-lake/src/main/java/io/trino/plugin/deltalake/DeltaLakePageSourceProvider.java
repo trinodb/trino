@@ -17,6 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -55,8 +56,6 @@ import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
 import org.joda.time.DateTimeZone;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

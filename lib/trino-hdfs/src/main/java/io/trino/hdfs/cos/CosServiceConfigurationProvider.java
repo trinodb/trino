@@ -14,11 +14,10 @@
 package io.trino.hdfs.cos;
 
 import com.google.common.base.Splitter;
+import com.google.inject.Inject;
 import io.trino.hdfs.DynamicConfigurationProvider;
 import io.trino.hdfs.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;

@@ -16,6 +16,8 @@ package io.trino.plugin.mongodb.ptf;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.mongodb.MongoColumnHandle;
 import io.trino.plugin.mongodb.MongoMetadata;
@@ -41,9 +43,6 @@ import io.trino.spi.ptf.ScalarArgumentSpecification;
 import io.trino.spi.ptf.TableFunctionAnalysis;
 import org.bson.Document;
 import org.bson.json.JsonParseException;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;

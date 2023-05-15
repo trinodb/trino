@@ -18,12 +18,11 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.util.List;

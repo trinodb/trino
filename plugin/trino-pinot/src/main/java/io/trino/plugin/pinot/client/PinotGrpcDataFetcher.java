@@ -17,6 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
+import com.google.inject.Inject;
 import io.trino.plugin.pinot.PinotErrorCode;
 import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotSplit;
@@ -30,7 +31,6 @@ import org.apache.pinot.spi.utils.CommonConstants.Query.Response.MetadataKeys;
 import org.apache.pinot.spi.utils.CommonConstants.Query.Response.ResponseType;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

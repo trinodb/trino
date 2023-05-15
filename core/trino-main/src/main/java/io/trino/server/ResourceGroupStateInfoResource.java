@@ -13,11 +13,11 @@
  */
 package io.trino.server;
 
+import com.google.inject.Inject;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
-import javax.inject.Inject;
 import javax.ws.rs.Encoded;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;

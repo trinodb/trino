@@ -16,6 +16,8 @@ package io.trino.plugin.jdbc.ptf;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -36,9 +38,6 @@ import io.trino.spi.ptf.Descriptor.Field;
 import io.trino.spi.ptf.ScalarArgument;
 import io.trino.spi.ptf.ScalarArgumentSpecification;
 import io.trino.spi.ptf.TableFunctionAnalysis;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;

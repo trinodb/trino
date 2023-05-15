@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.Resources;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.http.server.HttpServerInfo;
@@ -52,7 +53,6 @@ import org.testng.annotations.Test;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.crypto.SecretKey;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;

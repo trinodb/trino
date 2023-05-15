@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.cli;
  */
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import io.trino.tests.product.launcher.Extensions;
 import io.trino.tests.product.launcher.LauncherModule;
@@ -26,8 +27,6 @@ import io.trino.tests.product.launcher.suite.SuiteModule;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
-
-import javax.inject.Inject;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;

@@ -16,6 +16,7 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -66,8 +67,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleTypes;
-
-import javax.inject.Inject;
 
 import java.math.RoundingMode;
 import java.sql.Connection;

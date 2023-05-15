@@ -13,6 +13,7 @@
  */
 package io.trino.connector;
 
+import com.google.inject.Inject;
 import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
@@ -40,7 +41,6 @@ import io.trino.transaction.TransactionManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;

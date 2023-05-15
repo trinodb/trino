@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
@@ -28,7 +29,6 @@ import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Iterator;

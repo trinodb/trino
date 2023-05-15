@@ -14,13 +14,13 @@
 package io.trino.server;
 
 import com.google.common.reflect.TypeToken;
+import com.google.inject.Inject;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
 
-import javax.inject.Inject;
 import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;

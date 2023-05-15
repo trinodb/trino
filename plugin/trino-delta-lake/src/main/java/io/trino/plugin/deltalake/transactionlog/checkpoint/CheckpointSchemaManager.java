@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.spi.type.ArrayType;
@@ -28,8 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

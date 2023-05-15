@@ -15,6 +15,8 @@ package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
@@ -33,9 +35,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.ArrayType;
 import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;

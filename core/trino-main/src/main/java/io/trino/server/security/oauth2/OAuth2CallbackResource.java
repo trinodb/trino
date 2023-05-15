@@ -13,10 +13,10 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.ResourceSecurity;
 
-import javax.inject.Inject;
 import javax.ws.rs.CookieParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;

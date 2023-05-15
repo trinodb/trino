@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy.systemtables;
 
+import com.google.inject.Inject;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -21,8 +22,6 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Inject;
 
 import static io.trino.plugin.raptor.legacy.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;

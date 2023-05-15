@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -39,8 +40,6 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;

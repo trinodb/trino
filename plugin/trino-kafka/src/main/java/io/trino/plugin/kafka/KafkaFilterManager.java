@@ -15,6 +15,7 @@ package io.trino.plugin.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.plugin.kafka.KafkaInternalFieldManager.InternalFieldId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -34,8 +35,6 @@ import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigResource;
-
-import javax.inject.Inject;
 
 import java.util.Collections;
 import java.util.List;

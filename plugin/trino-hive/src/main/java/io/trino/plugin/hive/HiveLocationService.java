@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
@@ -23,8 +24,6 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

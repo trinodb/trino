@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env.common;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Debug;
@@ -25,8 +26,6 @@ import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

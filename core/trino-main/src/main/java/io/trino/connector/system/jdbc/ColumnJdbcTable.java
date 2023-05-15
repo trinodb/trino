@@ -15,6 +15,7 @@ package io.trino.connector.system.jdbc;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
@@ -46,8 +47,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;

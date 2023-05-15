@@ -20,6 +20,7 @@ import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.math.LongMath;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -34,7 +35,6 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;

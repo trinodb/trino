@@ -16,6 +16,7 @@ package io.trino.sql.gen;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -56,8 +57,6 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.assertj.core.util.VisibleForTesting;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Constructor;

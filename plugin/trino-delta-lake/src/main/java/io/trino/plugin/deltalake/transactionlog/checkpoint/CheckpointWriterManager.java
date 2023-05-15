@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.transactionlog.checkpoint;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -27,8 +28,6 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.OutputStream;

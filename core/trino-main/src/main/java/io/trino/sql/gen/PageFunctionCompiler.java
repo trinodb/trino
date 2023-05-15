@@ -19,6 +19,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -60,7 +61,6 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;

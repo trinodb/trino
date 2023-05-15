@@ -15,9 +15,8 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

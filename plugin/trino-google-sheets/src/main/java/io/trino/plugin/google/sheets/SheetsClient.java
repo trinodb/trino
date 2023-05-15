@@ -26,14 +26,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;

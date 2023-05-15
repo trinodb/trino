@@ -13,6 +13,7 @@
  */
 package io.trino.server.remotetask;
 
+import com.google.inject.Inject;
 import io.airlift.http.server.HttpServerInfo;
 import io.trino.execution.LocationFactory;
 import io.trino.execution.TaskId;
@@ -20,8 +21,6 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.spi.QueryId;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 

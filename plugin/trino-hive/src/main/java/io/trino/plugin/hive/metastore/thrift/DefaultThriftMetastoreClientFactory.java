@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
+import com.google.inject.Inject;
 import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient.TransportSupplier;
@@ -21,7 +22,6 @@ import io.trino.spi.NodeManager;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
-import javax.inject.Inject;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;

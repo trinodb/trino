@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.dispatcher.DispatchExecutor;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.security.oauth2.OAuth2TokenExchange.TokenPoll;
 
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.DELETE;

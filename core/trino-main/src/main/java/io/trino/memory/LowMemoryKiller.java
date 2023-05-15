@@ -15,12 +15,11 @@
 package io.trino.memory;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.BindingAnnotation;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskInfo;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.QueryId;
-
-import javax.inject.Qualifier;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -93,11 +92,11 @@ public interface LowMemoryKiller
 
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
+    @BindingAnnotation
     @interface ForQueryLowMemoryKiller {}
 
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
+    @BindingAnnotation
     @interface ForTaskLowMemoryKiller {}
 }

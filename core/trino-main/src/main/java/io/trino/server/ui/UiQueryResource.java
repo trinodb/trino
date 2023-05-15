@@ -14,6 +14,7 @@
 package io.trino.server.ui;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
@@ -26,7 +27,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
 
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;

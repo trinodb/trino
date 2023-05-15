@@ -15,6 +15,7 @@ package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import com.google.inject.Inject;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.DynamicMessage;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
@@ -25,8 +26,6 @@ import io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema;
 import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.decoder.protobuf.DynamicMessageProvider;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

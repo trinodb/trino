@@ -16,6 +16,7 @@ package io.trino.plugin.accumulo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -44,8 +45,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;

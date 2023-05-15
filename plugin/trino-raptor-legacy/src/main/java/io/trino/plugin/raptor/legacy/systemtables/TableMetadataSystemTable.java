@@ -16,6 +16,7 @@ package io.trino.plugin.raptor.legacy.systemtables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.raptor.legacy.metadata.ColumnMetadataRow;
 import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
@@ -37,8 +38,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeManager;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;

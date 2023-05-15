@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.net.HostAndPort;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.JsonResponseHandler;
@@ -55,8 +56,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
 import org.apache.pinot.spi.data.Schema;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;

@@ -16,10 +16,9 @@ package io.trino.verifier;
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.google.inject.Inject;
 import io.airlift.event.client.AbstractEventClient;
 import io.airlift.event.client.JsonEventSerializer;
-
-import javax.inject.Inject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;

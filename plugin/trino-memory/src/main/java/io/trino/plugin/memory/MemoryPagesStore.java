@@ -14,13 +14,13 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
@@ -29,8 +30,6 @@ import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.NodeManager;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

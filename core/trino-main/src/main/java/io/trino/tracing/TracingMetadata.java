@@ -15,6 +15,7 @@ package io.trino.tracing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
@@ -88,8 +89,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.QualifiedName;
-
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;

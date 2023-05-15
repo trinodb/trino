@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system;
 
+import com.google.inject.Inject;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
@@ -26,8 +27,6 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-
-import javax.inject.Inject;
 
 import java.util.Locale;
 import java.util.Set;

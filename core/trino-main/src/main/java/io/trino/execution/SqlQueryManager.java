@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
@@ -37,7 +38,6 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.NoSuchElementException;

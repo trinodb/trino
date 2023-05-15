@@ -19,6 +19,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -34,7 +35,6 @@ import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

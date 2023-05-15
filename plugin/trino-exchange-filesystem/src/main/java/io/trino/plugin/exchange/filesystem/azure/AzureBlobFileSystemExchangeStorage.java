@@ -36,6 +36,7 @@ import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -51,7 +52,6 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;

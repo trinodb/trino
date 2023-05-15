@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.inject.Inject;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -23,8 +24,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

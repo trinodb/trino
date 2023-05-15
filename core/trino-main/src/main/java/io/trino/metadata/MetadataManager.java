@@ -22,6 +22,7 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
@@ -113,7 +114,6 @@ import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;

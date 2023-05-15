@@ -14,6 +14,7 @@
 package io.trino.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
@@ -34,8 +35,6 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

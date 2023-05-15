@@ -14,14 +14,13 @@
 package io.trino.plugin.jdbc;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.util.concurrent.ExecutorService;
 

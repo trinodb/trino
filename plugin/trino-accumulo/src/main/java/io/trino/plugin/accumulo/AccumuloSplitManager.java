@@ -14,6 +14,7 @@
 package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.model.AccumuloSplit;
@@ -33,8 +34,6 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.TupleDomain.ColumnDomain;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

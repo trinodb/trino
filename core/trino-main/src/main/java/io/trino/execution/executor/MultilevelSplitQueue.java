@@ -14,6 +14,7 @@
 package io.trino.execution.executor;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 import io.airlift.stats.CounterStat;
 import io.trino.execution.TaskManagerConfig;
 import org.weakref.jmx.Managed;
@@ -21,7 +22,6 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.PriorityQueue;

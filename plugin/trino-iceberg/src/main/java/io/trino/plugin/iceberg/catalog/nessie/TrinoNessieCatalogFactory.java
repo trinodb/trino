@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.nessie;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -22,8 +23,6 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.nessie.NessieIcebergClient;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

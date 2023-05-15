@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
+import com.google.inject.Inject;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.plugin.kafka.schema.AbstractContentSchemaReader;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Optional;

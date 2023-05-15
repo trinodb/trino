@@ -13,6 +13,7 @@
  */
 package io.trino.split;
 
+import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
@@ -28,8 +29,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.tracing.TrinoAttributes;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.example;
 
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -27,8 +28,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.Types;

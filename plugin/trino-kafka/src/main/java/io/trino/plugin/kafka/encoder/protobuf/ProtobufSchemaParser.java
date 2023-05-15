@@ -15,6 +15,7 @@ package io.trino.plugin.kafka.encoder.protobuf;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
+import com.google.inject.Inject;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -32,8 +33,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

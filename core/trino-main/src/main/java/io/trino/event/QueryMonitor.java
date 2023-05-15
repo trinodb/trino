@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
@@ -74,8 +75,6 @@ import io.trino.sql.planner.planprinter.NoOpAnonymizer;
 import io.trino.sql.planner.planprinter.ValuePrinter;
 import io.trino.transaction.TransactionId;
 import org.joda.time.DateTime;
-
-import javax.inject.Inject;
 
 import java.time.Duration;
 import java.util.Collection;

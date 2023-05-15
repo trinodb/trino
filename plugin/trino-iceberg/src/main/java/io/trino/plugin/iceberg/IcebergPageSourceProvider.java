@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Traverser;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -105,8 +106,6 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

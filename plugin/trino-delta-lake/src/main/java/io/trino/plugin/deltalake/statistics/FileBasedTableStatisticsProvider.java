@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.statistics;
 
+import com.google.inject.Inject;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeTableHandle;
@@ -29,8 +30,6 @@ import io.trino.spi.statistics.DoubleRange;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.util.HashMap;
 import java.util.HashSet;

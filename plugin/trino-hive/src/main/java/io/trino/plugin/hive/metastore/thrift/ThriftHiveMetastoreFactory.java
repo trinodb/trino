@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.spi.security.ConnectorIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;

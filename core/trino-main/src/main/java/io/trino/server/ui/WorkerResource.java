@@ -15,6 +15,7 @@ package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
@@ -33,7 +34,6 @@ import io.trino.spi.Node;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.AccessDeniedException;
 
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;

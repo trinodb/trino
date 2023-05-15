@@ -20,6 +20,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
@@ -51,8 +52,6 @@ import io.trino.plugin.kafka.schema.ContentSchemaReader;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.Map;
