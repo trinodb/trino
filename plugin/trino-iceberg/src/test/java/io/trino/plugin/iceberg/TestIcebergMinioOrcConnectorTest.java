@@ -14,24 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.ConfigurationInitializer;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.TrinoHdfsFileSystemStats;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
-import io.trino.hdfs.s3.HiveS3Config;
-import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -44,7 +31,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
@@ -94,19 +80,6 @@ public class TestIcebergMinioOrcConnectorTest
                                 .withSchemaProperties(Map.of("location", "'s3://" + bucketName + "/iceberg_data/tpch'"))
                                 .build())
                 .build();
-    }
-
-    @Override
-    @BeforeClass
-    public void initFileSystemFactory()
-    {
-        ConfigurationInitializer s3Config = new TrinoS3ConfigurationInitializer(new HiveS3Config()
-                .setS3AwsAccessKey(MINIO_ACCESS_KEY)
-                .setS3AwsSecretKey(MINIO_SECRET_KEY));
-        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
-        fileSystem = new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()).create(SESSION);
     }
 
     @Override

@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg.catalog.file;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -29,11 +28,11 @@ import org.testng.annotations.BeforeClass;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 
@@ -41,7 +40,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
         extends BaseTrinoCatalogTest
 {
     private HiveMetastore metastore;
-    private java.nio.file.Path tempDir;
+    private Path tempDir;
 
     @BeforeClass
     public void setUp()
@@ -62,7 +61,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
+        TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
         CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName("catalog"),

@@ -37,7 +37,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -65,7 +65,7 @@ public abstract class BaseIcebergConnectorSmokeTest
     @BeforeClass
     public void initFileSystem()
     {
-        fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
+        fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -34,6 +35,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
@@ -57,9 +59,9 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -73,6 +75,7 @@ public class TestIcebergSplitSource
         extends AbstractTestQueryFramework
 {
     private File metastoreDir;
+    private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
 
     @Override
@@ -82,22 +85,26 @@ public class TestIcebergSplitSource
         File tempDir = Files.createTempDirectory("test_iceberg_split_source").toFile();
         this.metastoreDir = new File(tempDir, "iceberg_data");
         HiveMetastore metastore = createTestingFileHiveMetastore(metastoreDir);
+
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+                .setInitialTables(NATION)
+                .setMetastoreDirectory(metastoreDir)
+                .build();
+
+        this.fileSystemFactory = getFileSystemFactory(queryRunner);
         CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         this.catalog = new TrinoHiveCatalog(
                 new CatalogName("hive"),
                 cachingHiveMetastore,
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
-                HDFS_FILE_SYSTEM_FACTORY,
+                fileSystemFactory,
                 new TestingTypeManager(),
-                new FileMetastoreTableOperationsProvider(HDFS_FILE_SYSTEM_FACTORY),
+                new FileMetastoreTableOperationsProvider(fileSystemFactory),
                 false,
                 false,
                 false);
 
-        return IcebergQueryRunner.builder()
-                .setInitialTables(NATION)
-                .setMetastoreDirectory(metastoreDir)
-                .build();
+        return queryRunner;
     }
 
     @AfterClass(alwaysRun = true)
@@ -133,7 +140,7 @@ public class TestIcebergSplitSource
                 Optional.empty());
 
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
-                HDFS_FILE_SYSTEM_FACTORY,
+                fileSystemFactory,
                 SESSION,
                 tableHandle,
                 nationTable.newScan(),

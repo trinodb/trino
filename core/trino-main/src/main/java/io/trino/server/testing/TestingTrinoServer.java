@@ -80,6 +80,8 @@ import io.trino.server.security.ServerSecurityModule;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.Connector;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.GroupProvider;
@@ -623,6 +625,17 @@ public class TestingTrinoServer
     public ShutdownAction getShutdownAction()
     {
         return shutdownAction;
+    }
+
+    public Connector getConnector(String catalogName)
+    {
+        checkState(coordinator, "not a coordinator");
+        CatalogHandle catalogHandle = catalogManager.orElseThrow().getCatalog(catalogName)
+                .orElseThrow(() -> new IllegalArgumentException("Catalog does not exist: " + catalogName))
+                .getCatalogHandle();
+        return injector.getInstance(ConnectorServicesProvider.class)
+                .getConnectorServices(catalogHandle)
+                .getConnector();
     }
 
     public boolean isCoordinator()

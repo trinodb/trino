@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -35,10 +34,9 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergMergeAppend
@@ -54,7 +52,7 @@ public class TestIcebergMergeAppend
         DistributedQueryRunner queryRunner = IcebergQueryRunner.createIcebergQueryRunner();
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
         HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
+        TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
         tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
         CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         trinoCatalog = new TrinoHiveCatalog(
