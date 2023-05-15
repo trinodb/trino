@@ -22,12 +22,12 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import java.io.Closeable;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.NoSuchFileException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -97,10 +97,10 @@ public abstract class AbstractTestTrinoFileSystem
 
             // getting length or modified time of non-existent file is an error
             assertThatThrownBy(inputFile::length)
-                    .isInstanceOf(NoSuchFileException.class)
+                    .isInstanceOf(FileNotFoundException.class)
                     .hasMessageContaining(tempBlob.location().toString());
             assertThatThrownBy(inputFile::lastModified)
-                    .isInstanceOf(NoSuchFileException.class)
+                    .isInstanceOf(FileNotFoundException.class)
                     .hasMessageContaining(tempBlob.location().toString());
 
             tempBlob.createOrOverwrite("123456");
@@ -149,7 +149,7 @@ public abstract class AbstractTestTrinoFileSystem
             assertThat(inputFile.length()).isEqualTo(22);
             // modified time of non-existent file is an error
             assertThatThrownBy(inputFile::lastModified)
-                    .isInstanceOf(NoSuchFileException.class)
+                    .isInstanceOf(FileNotFoundException.class)
                     .hasMessageContaining(tempBlob.location().toString());
             // double-check the length did not change in call above
             assertThat(inputFile.length()).isEqualTo(22);
@@ -178,6 +178,35 @@ public abstract class AbstractTestTrinoFileSystem
             throws IOException
     {
         try (TempBlob tempBlob = randomBlobLocation("inputStream")) {
+            // creating an input file for a non-existent file succeeds
+            TrinoInputFile inputFile = getFileSystem().newInputFile(tempBlob.location());
+
+            // reading a non-existent file is an error
+            assertThatThrownBy(
+                    () -> {
+                        try (TrinoInputStream inputStream = inputFile.newStream()) {
+                            inputStream.readAllBytes();
+                        }
+                    })
+                    .isInstanceOf(FileNotFoundException.class)
+                    .hasMessageContaining(tempBlob.location().toString());
+            assertThatThrownBy(
+                    () -> {
+                        try (TrinoInput input = inputFile.newInput()) {
+                            input.readFully(0, 10);
+                        }
+                    })
+                    .isInstanceOf(FileNotFoundException.class)
+                    .hasMessageContaining(tempBlob.location().toString());
+            assertThatThrownBy(
+                    () -> {
+                        try (TrinoInput input = inputFile.newInput()) {
+                            input.readTail(10);
+                        }
+                    })
+                    .isInstanceOf(FileNotFoundException.class)
+                    .hasMessageContaining(tempBlob.location().toString());
+
             // write a 16 MB file
             try (OutputStream outputStream = tempBlob.outputFile().create()) {
                 byte[] bytes = new byte[4];
@@ -189,7 +218,6 @@ public abstract class AbstractTestTrinoFileSystem
             }
 
             int fileSize = 16 * MEGABYTE;
-            TrinoInputFile inputFile = getFileSystem().newInputFile(tempBlob.location());
             assertThat(inputFile.exists()).isTrue();
             assertThat(inputFile.length()).isEqualTo(fileSize);
 
@@ -525,7 +553,7 @@ public abstract class AbstractTestTrinoFileSystem
         try (TempBlob tempBlob = randomBlobLocation("delete")) {
             // deleting a non-existent file is an error
             assertThatThrownBy(() -> getFileSystem().deleteFile(tempBlob.location()))
-                    .isInstanceOf(NoSuchFileException.class)
+                    .isInstanceOf(FileNotFoundException.class)
                     .hasMessageContaining(tempBlob.location().toString());
 
             tempBlob.createOrOverwrite("delete me");

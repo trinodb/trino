@@ -15,6 +15,7 @@ package io.trino.filesystem.local;
 
 import io.trino.filesystem.Location;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.NoSuchFileException;
@@ -27,7 +28,7 @@ final class LocalUtils
             throws IOException
     {
         if (exception instanceof NoSuchFileException) {
-            throw new NoSuchFileException(location.toString());
+            throw new FileNotFoundException(location.toString());
         }
         if (exception instanceof FileAlreadyExistsException) {
             throw new FileAlreadyExistsException(location.toString());
