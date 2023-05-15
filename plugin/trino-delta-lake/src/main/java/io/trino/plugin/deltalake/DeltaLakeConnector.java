@@ -13,8 +13,10 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -53,6 +55,7 @@ import static java.util.Objects.requireNonNull;
 public class DeltaLakeConnector
         implements Connector
 {
+    private final Injector injector;
     private final LifeCycleManager lifeCycleManager;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
@@ -74,6 +77,7 @@ public class DeltaLakeConnector
     private final FunctionProvider functionProvider;
 
     public DeltaLakeConnector(
+            Injector injector,
             LifeCycleManager lifeCycleManager,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
@@ -92,6 +96,7 @@ public class DeltaLakeConnector
             Set<ConnectorTableFunction> tableFunctions,
             FunctionProvider functionProvider)
     {
+        this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -242,5 +247,11 @@ public class DeltaLakeConnector
     public Optional<FunctionProvider> getFunctionProvider()
     {
         return Optional.of(functionProvider);
+    }
+
+    @VisibleForTesting
+    public Injector getInjector()
+    {
+        return injector;
     }
 }
