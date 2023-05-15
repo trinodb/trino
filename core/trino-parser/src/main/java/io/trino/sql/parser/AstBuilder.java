@@ -80,6 +80,7 @@ import io.trino.sql.tree.EmptyTableTreatment.Treatment;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.ExcludedPattern;
 import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
@@ -939,6 +940,15 @@ class AstBuilder
         return new Execute(
                 getLocation(context),
                 (Identifier) visit(context.identifier()),
+                visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitExecuteImmediate(SqlBaseParser.ExecuteImmediateContext context)
+    {
+        return new ExecuteImmediate(
+                getLocation(context),
+                ((StringLiteral) visit(context.string())),
                 visit(context.expression(), Expression.class));
     }
 

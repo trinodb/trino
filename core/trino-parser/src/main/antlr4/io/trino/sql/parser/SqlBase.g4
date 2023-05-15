@@ -171,6 +171,7 @@ statement
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
     | EXECUTE identifier (USING expression (',' expression)*)?         #execute
+    | EXECUTE IMMEDIATE string (USING expression (',' expression)*)?   #executeImmediate
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
@@ -846,7 +847,7 @@ nonReserved
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
+    | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | KEEP | KEY | KEYS
     | LAST | LATERAL | LEADING | LEVEL | LIMIT | LOCAL | LOGICAL
@@ -962,6 +963,7 @@ HAVING: 'HAVING';
 HOUR: 'HOUR';
 IF: 'IF';
 IGNORE: 'IGNORE';
+IMMEDIATE: 'IMMEDIATE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
 INITIAL: 'INITIAL';

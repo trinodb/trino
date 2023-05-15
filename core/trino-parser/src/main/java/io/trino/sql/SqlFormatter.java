@@ -47,6 +47,7 @@ import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
@@ -401,6 +402,21 @@ public final class SqlFormatter
             List<Expression> parameters = node.getParameters();
             if (!parameters.isEmpty()) {
                 builder.append(" USING ");
+                builder.append(parameters.stream()
+                        .map(SqlFormatter::formatExpression)
+                        .collect(joining(", ")));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitExecuteImmediate(ExecuteImmediate node, Integer indent)
+        {
+            append(indent, "EXECUTE IMMEDIATE\n")
+                    .append(formatStringLiteral(node.getStatement().getValue()));
+            List<Expression> parameters = node.getParameters();
+            if (!parameters.isEmpty()) {
+                builder.append("\nUSING ");
                 builder.append(parameters.stream()
                         .map(SqlFormatter::formatExpression)
                         .collect(joining(", ")));
