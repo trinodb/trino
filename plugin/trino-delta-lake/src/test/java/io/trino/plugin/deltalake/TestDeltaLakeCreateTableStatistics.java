@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -41,6 +43,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getTableActiveFiles;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.Decimals.encodeScaledValue;
@@ -60,6 +65,7 @@ public class TestDeltaLakeCreateTableStatistics
     private static final String SCHEMA = "default";
 
     private String bucketName;
+    private TransactionLogAccess transactionLogAccess;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -68,12 +74,14 @@ public class TestDeltaLakeCreateTableStatistics
         this.bucketName = "delta-test-create-table-statistics-" + randomNameSuffix();
         HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
+        DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
                 SCHEMA,
                 ImmutableMap.of("delta.enable-non-concurrent-writes", "true"),
                 hiveMinioDataLake.getMinio().getMinioAddress(),
                 hiveMinioDataLake.getHiveHadoop());
+        this.transactionLogAccess = getConnectorService(queryRunner, TransactionLogAccess.class);
+        return queryRunner;
     }
 
     @Test
@@ -482,6 +490,6 @@ public class TestDeltaLakeCreateTableStatistics
     protected List<AddFileEntry> getAddFileEntries(String tableName)
             throws IOException
     {
-        return TestingDeltaLakeUtils.getAddFileEntries(format("s3://%s/%s", bucketName, tableName));
+        return getTableActiveFiles(transactionLogAccess, format("s3://%s/%s", bucketName, tableName));
     }
 }
