@@ -13,12 +13,11 @@
  */
 package io.trino.hdfs.s3;
 
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.hdfs.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.util.List;

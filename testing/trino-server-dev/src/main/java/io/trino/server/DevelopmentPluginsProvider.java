@@ -15,12 +15,11 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.inject.Inject;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
 import io.trino.server.PluginManager.PluginsProvider;
 import org.sonatype.aether.artifact.Artifact;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

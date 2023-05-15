@@ -15,13 +15,12 @@ package io.trino.verifier;
 
 import com.google.inject.Binder;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.event.client.EventClient;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Provider;
 
 import java.util.Set;
 

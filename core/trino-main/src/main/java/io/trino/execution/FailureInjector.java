@@ -14,14 +14,13 @@
 package io.trino.execution;
 
 import com.google.common.cache.CacheBuilder;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.util.Objects;
 import java.util.Optional;

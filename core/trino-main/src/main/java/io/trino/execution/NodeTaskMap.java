@@ -14,12 +14,12 @@
 package io.trino.execution;
 
 import com.google.common.collect.Sets;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.metadata.InternalNode;
 import io.trino.util.FinalizerService;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;

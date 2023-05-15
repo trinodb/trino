@@ -14,9 +14,8 @@
 package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
-
-import javax.inject.Inject;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;

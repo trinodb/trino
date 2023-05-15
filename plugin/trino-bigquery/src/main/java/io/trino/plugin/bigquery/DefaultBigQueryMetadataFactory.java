@@ -14,8 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
-
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import static io.trino.plugin.bigquery.BigQueryConnectorModule.ForBigQuery;
 import static java.util.Objects.requireNonNull;

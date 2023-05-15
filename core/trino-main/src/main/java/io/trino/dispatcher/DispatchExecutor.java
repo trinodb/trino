@@ -16,6 +16,7 @@ package io.trino.dispatcher;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.spi.VersionEmbedder;
@@ -24,7 +25,6 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;

@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.inject.Inject;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.security.ConnectorIdentity;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;

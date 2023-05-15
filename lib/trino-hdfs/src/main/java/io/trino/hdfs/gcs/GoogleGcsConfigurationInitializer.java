@@ -15,10 +15,9 @@ package io.trino.hdfs.gcs;
 
 import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
 import com.google.cloud.hadoop.util.AccessTokenProvider;
+import com.google.inject.Inject;
 import io.trino.hdfs.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystemConfiguration.GCS_CONFIG_PREFIX;
 import static com.google.cloud.hadoop.fs.gcs.HadoopCredentialConfiguration.ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX;

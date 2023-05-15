@@ -14,6 +14,7 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMultimap;
+import com.google.inject.Inject;
 import com.nimbusds.jose.util.Resource;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
@@ -25,7 +26,6 @@ import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.ResponseHandlerUtils;
 import io.airlift.http.client.StringResponseHandler;
 
-import javax.inject.Inject;
 import javax.ws.rs.core.UriBuilder;
 
 import java.io.IOException;

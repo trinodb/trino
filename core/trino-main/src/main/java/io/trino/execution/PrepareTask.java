@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.SqlParser;
@@ -22,8 +23,6 @@ import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Statement;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

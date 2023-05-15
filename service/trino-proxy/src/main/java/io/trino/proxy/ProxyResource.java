@@ -22,6 +22,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
@@ -29,7 +30,6 @@ import io.airlift.units.Duration;
 import io.trino.proxy.ProxyResponseHandler.ProxyResponse;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;

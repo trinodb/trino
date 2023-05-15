@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.operator.table.Sequence.SequenceFunctionHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
@@ -29,8 +30,6 @@ import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;
 import io.trino.transaction.TransactionId;
-
-import javax.inject.Inject;
 
 import java.util.Set;
 

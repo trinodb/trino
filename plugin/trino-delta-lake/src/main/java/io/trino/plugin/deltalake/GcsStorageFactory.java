@@ -22,6 +22,7 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.gcsio.Goog
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.CredentialFactory;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HttpTransportFactory;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.RetryHttpInitializer;
+import com.google.inject.Inject;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.gcs.HiveGcsConfig;
@@ -30,7 +31,6 @@ import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;

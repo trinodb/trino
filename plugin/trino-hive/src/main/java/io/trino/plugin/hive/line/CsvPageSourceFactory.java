@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.hive.line;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hive.formats.line.csv.CsvDeserializerFactory;
 import io.trino.hive.formats.line.text.TextLineReaderFactory;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveSessionProperties;
-
-import javax.inject.Inject;
 
 import static java.lang.Math.toIntExact;
 

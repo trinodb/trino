@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.functions.tablechanges;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
@@ -24,8 +25,6 @@ import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.ptf.TableFunctionSplitProcessor;
 import org.joda.time.DateTimeZone;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

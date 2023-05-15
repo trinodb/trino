@@ -13,11 +13,10 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;

@@ -13,6 +13,7 @@
  */
 package io.trino.server.security;
 
+import com.google.inject.Inject;
 import io.trino.security.AccessControl;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.InternalAuthenticationManager;
@@ -24,7 +25,6 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
 
 import javax.annotation.Priority;
-import javax.inject.Inject;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.Priorities;
 import javax.ws.rs.ServiceUnavailableException;

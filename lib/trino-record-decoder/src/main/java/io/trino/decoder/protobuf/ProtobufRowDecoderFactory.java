@@ -13,13 +13,12 @@
  */
 package io.trino.decoder.protobuf;
 
+import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
 import io.trino.decoder.protobuf.DynamicMessageProvider.Factory;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;

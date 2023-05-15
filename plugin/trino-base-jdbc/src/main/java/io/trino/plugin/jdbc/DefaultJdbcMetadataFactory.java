@@ -14,9 +14,8 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
-
-import javax.inject.Inject;
 
 import java.util.Set;
 

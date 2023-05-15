@@ -14,12 +14,11 @@
 package io.trino.plugin.hive.metastore.alluxio;
 
 import alluxio.client.table.TableMasterClient;
+import com.google.inject.Inject;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.security.ConnectorIdentity;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

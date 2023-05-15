@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;

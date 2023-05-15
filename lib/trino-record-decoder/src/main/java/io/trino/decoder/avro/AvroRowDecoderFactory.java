@@ -13,14 +13,13 @@
  */
 package io.trino.decoder.avro;
 
+import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
 import io.trino.decoder.dummy.DummyRowDecoderFactory;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Set;

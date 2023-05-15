@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
+import com.google.inject.Inject;
 import io.trino.plugin.base.io.ByteBuffers;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.connector.ConnectorSession;
@@ -44,8 +45,6 @@ import org.apache.iceberg.puffin.StandardBlobTypes;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.Pair;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

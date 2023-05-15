@@ -33,11 +33,6 @@
             <artifactId>guice</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-        </dependency>
-
         <!-- Druid JDBC Connector -->
         <dependency>
             <groupId>org.apache.calcite.avatica</groupId>

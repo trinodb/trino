@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.airlift.log.Logger;
 import io.trino.tempto.BeforeMethodWithContext;
@@ -20,8 +21,6 @@ import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.sql.SQLException;
 import java.util.function.Supplier;

@@ -16,6 +16,7 @@ package io.trino.plugin.prometheus;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.TrinoException;
@@ -30,7 +31,6 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

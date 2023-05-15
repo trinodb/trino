@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -20,7 +21,6 @@ import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TaskInfo;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;

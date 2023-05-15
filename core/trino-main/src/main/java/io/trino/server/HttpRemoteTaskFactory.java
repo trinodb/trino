@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.common.collect.Multimap;
+import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.http.client.HttpClient;
@@ -46,7 +47,6 @@ import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;

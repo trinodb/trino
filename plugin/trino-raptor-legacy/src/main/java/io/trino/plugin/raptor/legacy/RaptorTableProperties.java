@@ -14,11 +14,10 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignatureParameter;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

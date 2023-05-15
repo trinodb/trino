@@ -14,9 +14,9 @@
 package io.trino.server;
 
 import com.google.common.base.Throwables;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;

@@ -13,6 +13,7 @@
  */
 package io.trino.server.security;
 
+import com.google.inject.Inject;
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
 import io.trino.spi.security.Identity;
@@ -24,7 +25,6 @@ import org.ietf.jgss.GSSName;
 import org.ietf.jgss.Oid;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosPrincipal;
 import javax.security.auth.login.AppConfigurationEntry;

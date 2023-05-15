@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import dev.failsafe.Failsafe;
 import dev.failsafe.Timeout;
@@ -36,8 +37,6 @@ import io.trino.tests.product.launcher.testcontainers.ExistingNetwork;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

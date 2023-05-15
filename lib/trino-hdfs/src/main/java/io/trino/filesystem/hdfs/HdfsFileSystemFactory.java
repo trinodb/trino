@@ -13,14 +13,13 @@
  */
 package io.trino.filesystem.hdfs;
 
+import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.spi.security.ConnectorIdentity;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

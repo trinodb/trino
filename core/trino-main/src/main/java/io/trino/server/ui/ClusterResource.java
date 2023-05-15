@@ -14,13 +14,13 @@
 package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.inject.Inject;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.trino.client.NodeVersion;
 import io.trino.server.security.ResourceSecurity;
 
 import javax.annotation.concurrent.Immutable;
-import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;

@@ -13,11 +13,10 @@
  */
 package io.trino.hdfs.rubix;
 
+import com.google.inject.Inject;
 import io.trino.hdfs.DynamicConfigurationProvider;
 import io.trino.hdfs.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 

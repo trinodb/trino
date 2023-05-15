@@ -14,6 +14,7 @@
 package io.trino.plugin.raptor.legacy.backup;
 
 import com.google.common.io.Files;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -24,7 +25,6 @@ import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

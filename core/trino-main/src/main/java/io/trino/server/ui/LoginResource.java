@@ -14,9 +14,9 @@
 package io.trino.server.ui;
 
 import com.google.common.io.Resources;
+import com.google.inject.Inject;
 import io.trino.server.security.ResourceSecurity;
 
-import javax.inject.Inject;
 import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;

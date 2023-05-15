@@ -13,14 +13,13 @@
  */
 package io.trino.sql;
 
+import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

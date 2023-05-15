@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.http.client.HttpClient;
@@ -27,7 +28,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import javax.inject.Qualifier;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
@@ -91,7 +91,7 @@ public class TestGenerateTokenFilter
 
     @Retention(RUNTIME)
     @Target(ElementType.PARAMETER)
-    @Qualifier
+    @BindingAnnotation
     private @interface GenerateTokenFilterTest {}
 
     @Path("/testing")

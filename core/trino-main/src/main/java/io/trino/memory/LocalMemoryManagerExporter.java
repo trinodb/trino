@@ -13,12 +13,12 @@
  */
 package io.trino.memory;
 
+import com.google.inject.Inject;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

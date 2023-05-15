@@ -14,10 +14,9 @@
 package io.trino.tests.product.hive;
 
 import com.google.inject.Module;
+import com.google.inject.Singleton;
 import io.trino.tempto.configuration.Configuration;
 import io.trino.tempto.initialization.SuiteModuleProvider;
-
-import javax.inject.Singleton;
 
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;

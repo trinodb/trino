@@ -15,6 +15,7 @@ package io.trino.plugin.exchange.hdfs;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.trino.plugin.exchange.filesystem.ExchangeSourceFile;
@@ -31,7 +32,6 @@ import org.apache.hadoop.fs.RemoteIterator;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

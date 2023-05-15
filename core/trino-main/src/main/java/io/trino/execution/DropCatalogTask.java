@@ -14,14 +14,13 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.Expression;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

@@ -17,9 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.net.InetAddresses;
+import com.google.inject.Inject;
 import io.trino.spi.HostAddress;
-
-import javax.inject.Inject;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;

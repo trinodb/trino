@@ -15,14 +15,14 @@ package io.trino.transaction;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import io.trino.metadata.CatalogManager;
 import io.trino.spi.VersionEmbedder;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;

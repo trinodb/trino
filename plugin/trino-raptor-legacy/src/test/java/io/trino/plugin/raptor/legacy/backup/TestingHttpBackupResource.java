@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.raptor.legacy.backup;
 
+import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.NodeManager;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;

@@ -14,12 +14,11 @@
 package io.trino.hdfs.azure;
 
 import com.google.common.net.HostAndPort;
+import com.google.inject.Inject;
 import io.trino.hdfs.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.adl.AdlFileSystem;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
-
-import javax.inject.Inject;
 
 import java.net.InetSocketAddress;
 import java.net.Proxy;

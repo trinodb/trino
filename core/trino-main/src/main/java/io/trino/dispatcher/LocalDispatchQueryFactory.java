@@ -15,6 +15,7 @@ package io.trino.dispatcher;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
@@ -40,8 +41,6 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;

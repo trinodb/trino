@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -40,8 +41,6 @@ import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 import org.weakref.jmx.Managed;
-
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.IOException;

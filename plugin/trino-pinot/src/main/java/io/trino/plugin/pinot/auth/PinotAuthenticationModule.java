@@ -16,13 +16,12 @@ package io.trino.plugin.pinot.auth;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import io.trino.plugin.pinot.auth.password.PinotPasswordAuthenticationProvider;
 import io.trino.plugin.pinot.auth.password.inline.PinotPasswordBrokerAuthenticationConfig;
 import io.trino.plugin.pinot.auth.password.inline.PinotPasswordControllerAuthenticationConfig;
-
-import javax.inject.Singleton;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;

@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -32,7 +33,6 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Provider;
 
 import java.util.concurrent.ExecutorService;
 

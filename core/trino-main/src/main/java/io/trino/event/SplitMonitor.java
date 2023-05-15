@@ -15,6 +15,7 @@ package io.trino.event;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.TaskId;
@@ -26,7 +27,6 @@ import io.trino.spi.eventlistener.SplitFailureInfo;
 import io.trino.spi.eventlistener.SplitStatistics;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.time.Duration;
 import java.util.Optional;

@@ -15,6 +15,7 @@ package io.trino.operator.table;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.inject.Provider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -33,8 +34,6 @@ import io.trino.spi.ptf.TableFunctionAnalysis;
 import io.trino.spi.ptf.TableFunctionDataProcessor;
 import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.type.RowType;
-
-import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;
