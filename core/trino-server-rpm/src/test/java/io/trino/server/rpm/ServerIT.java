@@ -43,15 +43,17 @@ import static org.testng.Assert.assertEquals;
 public class ServerIT
 {
     private static final String BASE_IMAGE_PREFIX = "eclipse-temurin:";
-    private static final String BASE_IMAGE_SUFFIX = "-jre-centos7";
+    private static final String BASE_IMAGE_SUFFIX = "-jre-ubi9-minimal";
 
     @Test(dataProvider = "rpmJavaTestDataProvider")
     public void testInstall(String rpmHostPath, String javaVersion)
     {
         String rpm = "/" + new File(rpmHostPath).getName();
         String command = "" +
+                // install required dependencies that are missing in UBI9-minimal
+                "microdnf install -y python sudo\n" +
                 // install RPM
-                "yum localinstall -q -y " + rpm + "\n" +
+                "rpm -i " + rpm + "\n" +
                 // create Hive catalog file
                 "mkdir /etc/trino/catalog\n" +
                 "echo CONFIG_ENV[HMS_PORT]=9083 >> /etc/trino/env.sh\n" +
@@ -93,8 +95,10 @@ public class ServerIT
     {
         String rpm = "/" + new File(rpmHostPath).getName();
         String installAndStartTrino = "" +
+                // install required dependencies that are missing in UBI9-minimal
+                "microdnf install -y python sudo\n" +
                 // install RPM
-                "yum localinstall -q -y " + rpm + "\n" +
+                "rpm -i " + rpm + "\n" +
                 "/etc/init.d/trino start\n" +
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/trino/server.log\n";
@@ -124,7 +128,7 @@ public class ServerIT
         String rpmHostPath = requireNonNull(System.getProperty("rpm"), "rpm is null");
         return new Object[][]{
                 {rpmHostPath, "17"},
-                {rpmHostPath, "19"}};
+                {rpmHostPath, "21"}};
     }
 
     private static void assertPathDeleted(GenericContainer<?> container, String path)
