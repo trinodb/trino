@@ -11,12 +11,15 @@ package com.starburstdata.trino.plugins.oracle;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.starburstdata.managed.statistics.connector.ConnectorStatisticsProvider;
+import com.google.inject.Singleton;
 import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
-import com.starburstdata.presto.plugin.jdbc.statistics.JdbcManagedStatisticsModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.CatalogName;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcClient;
@@ -25,11 +28,22 @@ import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.plugin.oracle.OracleSessionProperties;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.ptf.ConnectorTableFunction;
+import oracle.jdbc.driver.OracleDriver;
+
+import javax.inject.Qualifier;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+import java.util.Optional;
+import java.util.Properties;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -39,13 +53,16 @@ import static io.trino.plugin.jdbc.JdbcModule.bindProcedure;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.oracle.OracleClient.ORACLE_MAX_LIST_EXPRESSIONS;
 import static java.util.Objects.requireNonNull;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_REPORT_REMARKS;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_RESTRICT_GETTABLES;
 
-public class OracleClientModule
+public class StarburstOracleClientModule
         extends AbstractConfigurationAwareModule
 {
     private final LicenseManager licenseManager;
 
-    public OracleClientModule(LicenseManager licenseManager)
+    public StarburstOracleClientModule(LicenseManager licenseManager)
     {
         this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
     }
@@ -61,6 +78,7 @@ public class OracleClientModule
 
         bindProcedure(binder, AnalyzeProcedure.class);
 
+        binder.bind(LicenseManager.class).toInstance(licenseManager);
         bindSessionPropertiesProvider(binder, StarburstOracleSessionProperties.class);
         bindSessionPropertiesProvider(binder, OracleSessionProperties.class);
 
@@ -68,17 +86,56 @@ public class OracleClientModule
         configBinder(binder).bindConfig(StarburstOracleConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
-        install(new OracleAuthenticationModule());
-        install(new JdbcManagedStatisticsModule());
-        newOptionalBinder(binder, ConnectorStatisticsProvider.class).setBinding().to(OracleCollectingStatisticsProvider.class).in(Scopes.SINGLETON);
-
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(licenseManager.hasLicense()));
 
         install(new JdbcJoinPushdownSupportModule());
-        install(new JdbcTableScanRedirectionModule());
+
+        newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
+                .setDefault()
+                .to(Key.get(ConnectionFactory.class, DefaultOracleBinding.class))
+                .in(Scopes.SINGLETON);
 
         @SuppressWarnings("TrinoExperimentalSpi")
         Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
         newSetBinder(binder, clazz).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
+
+    @Provides
+    @Singleton
+    @DefaultOracleBinding
+    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OracleConfig oracleConfig, CatalogName catalogName)
+    {
+        if (oracleConfig.isConnectionPoolEnabled()) {
+            return new OraclePoolingConnectionFactory(
+                    catalogName,
+                    config,
+                    getConnectionProperties(oracleConfig),
+                    Optional.of(credentialProvider),
+                    oracleConfig);
+        }
+
+        return new DriverConnectionFactory(
+                new OracleDriver(),
+                config.getConnectionUrl(),
+                getConnectionProperties(oracleConfig),
+                credentialProvider);
+    }
+
+    public static Properties getConnectionProperties(OracleConfig oracleConfig)
+    {
+        Properties properties = new Properties();
+        if (oracleConfig.isSynonymsEnabled()) {
+            properties.setProperty(CONNECTION_PROPERTY_INCLUDE_SYNONYMS, "true");
+            properties.setProperty(CONNECTION_PROPERTY_RESTRICT_GETTABLES, "true");
+        }
+        if (oracleConfig.isRemarksReportingEnabled()) {
+            properties.setProperty(CONNECTION_PROPERTY_REPORT_REMARKS, "true");
+        }
+        return properties;
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+    @Qualifier
+    public @interface DefaultOracleBinding {}
 }

@@ -22,17 +22,14 @@ public class OracleTestUsers
     public static final String ALICE_USER = "alice";
     public static final String BOB_USER = "bob";
     public static final String CHARLIE_USER = "charlie";
-    public static final String UNKNOWN_USER = "non_existing_user";
-    public static final String KERBERIZED_USER = "test";
 
     private OracleTestUsers() {}
 
     public static void createStandardUsers()
     {
-        createKerberizedUser(KERBERIZED_USER);
-        createUser(ALICE_USER, KERBERIZED_USER);
-        createUser(BOB_USER, KERBERIZED_USER);
-        createUser(CHARLIE_USER, KERBERIZED_USER);
+        createUser(ALICE_USER);
+        createUser(BOB_USER);
+        createUser(CHARLIE_USER);
 
         executeInOracle(
                 "CREATE OR REPLACE VIEW user_context AS " +
@@ -47,26 +44,7 @@ public class OracleTestUsers
         executeInOracle(format("GRANT SELECT ON user_context to %s", BOB_USER));
     }
 
-    public static void createKerberizedUser(String user)
-    {
-        try {
-            executeInOracle(format("CREATE USER %s IDENTIFIED EXTERNALLY AS '%s@TESTING-KRB.STARBURSTDATA.COM'", user, user));
-        }
-        catch (RuntimeException e) {
-            propagateUnlessUserAlreadyExists(e);
-        }
-        executeInOracle("GRANT CONNECT,RESOURCE TO " + user);
-        executeInOracle("GRANT UNLIMITED TABLESPACE TO " + user);
-        executeInOracle("GRANT CREATE ANY TABLE TO " + user);
-        executeInOracle("GRANT DROP ANY TABLE TO " + user);
-        executeInOracle("GRANT INSERT ANY TABLE TO " + user);
-        executeInOracle("GRANT SELECT ANY TABLE TO " + user);
-        executeInOracle("GRANT ALTER ANY TABLE TO " + user);
-        executeInOracle("GRANT LOCK ANY TABLE TO " + user);
-        executeInOracle("GRANT ANALYZE ANY TO " + user);
-    }
-
-    public static void createUser(String user, String kerberizedUser)
+    public static void createUser(String user)
     {
         try {
             executeInOracle(format("CREATE USER %s IDENTIFIED BY \"vier1Str0ngP@55vvord\"", user));
@@ -75,7 +53,6 @@ public class OracleTestUsers
             propagateUnlessUserAlreadyExists(e);
         }
         executeInOracle(format("ALTER USER %s GRANT CONNECT THROUGH %s", user, USER));
-        executeInOracle(format("ALTER USER %s GRANT CONNECT THROUGH %s", user, kerberizedUser));
         executeInOracle(format("ALTER USER %s QUOTA UNLIMITED ON USERS", user));
         executeInOracle(format("GRANT CREATE SESSION TO %s", user));
     }

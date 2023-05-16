@@ -10,9 +10,6 @@
 package com.starburstdata.trino.plugins.oracle;
 
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
-import com.starburstdata.presto.redirection.NoneRedirectionsProvider;
-import com.starburstdata.presto.redirection.RedirectionStats;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
@@ -43,7 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
+import static com.starburstdata.trino.plugins.oracle.OracleQueryRunner.NOOP_LICENSE_MANAGER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -73,7 +70,6 @@ public class TestStarburstOracleClient
             new BaseJdbcConfig(),
             new JdbcMetadataConfig().setAggregationPushdownEnabled(true),
             new JdbcStatisticsConfig(),
-            new TableScanRedirection(new NoneRedirectionsProvider(), NOOP_LICENSE_MANAGER, new RedirectionStats()),
             new OracleConfig(),
             session -> {
                 throw new UnsupportedOperationException();

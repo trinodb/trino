@@ -13,7 +13,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -62,7 +61,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.TableNotFoundException;
-import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
@@ -108,7 +106,6 @@ public class StarburstOracleClient
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ParameterizedExpression> aggregateFunctionRewriter;
     private final boolean statisticsEnabled;
-    private final TableScanRedirection tableScanRedirection;
 
     @Inject
     public StarburstOracleClient(
@@ -116,7 +113,6 @@ public class StarburstOracleClient
             BaseJdbcConfig config,
             JdbcMetadataConfig jdbcMetadataConfig,
             JdbcStatisticsConfig statisticsConfig,
-            TableScanRedirection tableScanRedirection,
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
@@ -148,8 +144,6 @@ public class StarburstOracleClient
                         .add(new ImplementCovariancePop())
                         .build());
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
-        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
-
         if (jdbcMetadataConfig.isAggregationPushdownEnabled()) {
             licenseManager.checkLicense();
         }
@@ -354,12 +348,6 @@ public class StarburstOracleClient
     public boolean isTopNGuaranteed(ConnectorSession session)
     {
         return StarburstOracleSessionProperties.getParallelismType(session) == OracleParallelismType.NO_PARALLELISM;
-    }
-
-    @Override
-    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
-    {
-        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override

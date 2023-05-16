@@ -15,8 +15,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.starburstdata.trino.plugins.oracle.OracleAuthenticationType.KERBEROS;
-import static com.starburstdata.trino.plugins.oracle.OracleAuthenticationType.PASSWORD;
 import static com.starburstdata.trino.plugins.oracle.OracleParallelismType.NO_PARALLELISM;
 import static com.starburstdata.trino.plugins.oracle.OracleParallelismType.PARTITIONS;
 import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
@@ -28,9 +26,7 @@ public class TestStarburstOracleConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(StarburstOracleConfig.class)
-                .setImpersonationEnabled(false)
                 .setParallelismType(NO_PARALLELISM)
-                .setAuthenticationType(OracleAuthenticationType.PASSWORD)
                 .setMaxSplitsPerScan(10));
     }
 
@@ -38,17 +34,13 @@ public class TestStarburstOracleConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("oracle.impersonation.enabled", "true")
-                .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .buildOrThrow();
 
         StarburstOracleConfig expected = new StarburstOracleConfig()
-                .setAuthenticationType(OracleAuthenticationType.KERBEROS)
                 .setParallelismType(PARTITIONS)
-                .setMaxSplitsPerScan(42)
-                .setImpersonationEnabled(true);
+                .setMaxSplitsPerScan(42);
 
         assertFullMapping(properties, expected);
     }
@@ -57,15 +49,11 @@ public class TestStarburstOracleConfig
     public void testExplicitPropertyMappingsForLegacyValues()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("oracle.impersonation.enabled", "true")
-                .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .buildOrThrow();
 
         StarburstOracleConfig expected = new StarburstOracleConfig()
-                .setImpersonationEnabled(true)
-                .setAuthenticationType(OracleAuthenticationType.KERBEROS)
                 .setParallelismType(PARTITIONS)
                 .setMaxSplitsPerScan(42);
 
@@ -76,15 +64,11 @@ public class TestStarburstOracleConfig
     public void testLegacyPropertyMappings()
     {
         Map<String, String> oldProperties = ImmutableMap.<String, String>builder()
-                .put("oracle.impersonation.enabled", "true")
-                .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.concurrency-type", "PARTITIONS")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
                 .buildOrThrow();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("oracle.impersonation.enabled", "true")
-                .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .buildOrThrow();
@@ -96,15 +80,11 @@ public class TestStarburstOracleConfig
     public void testLegacyPropertyMappings2()
     {
         Map<String, String> oldProperties = ImmutableMap.<String, String>builder()
-                .put("oracle.impersonation.enabled", "true")
-                .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.concurrency-type", "NO_CONCURRENCY")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
                 .buildOrThrow();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("oracle.impersonation.enabled", "true")
-                .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "NO_PARALLELISM")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .buildOrThrow();

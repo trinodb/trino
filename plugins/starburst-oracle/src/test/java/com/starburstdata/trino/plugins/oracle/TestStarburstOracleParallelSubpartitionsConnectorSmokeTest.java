@@ -15,7 +15,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 
 import static com.starburstdata.trino.plugins.oracle.OracleQueryRunner.createSession;
-import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.KERBERIZED_USER;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.createStandardUsers;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.createUser;
 import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.executeInOracle;
@@ -31,7 +30,7 @@ public class TestStarburstOracleParallelSubpartitionsConnectorSmokeTest
             throws Exception
     {
         return OracleQueryRunner.builder()
-                .withUnlockEnterpriseFeatures(true) // parallelism is license protected
+                .withUnlockEnterpriseFeatures(true) // parallelism is license protected in SEP
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.parallelism-type", "PARTITIONS")
@@ -44,10 +43,10 @@ public class TestStarburstOracleParallelSubpartitionsConnectorSmokeTest
                 .build();
     }
 
-    private static void createUsers()
+    protected static void createUsers()
     {
         createStandardUsers();
-        createUser(SUBPARTITIONED_USER, KERBERIZED_USER);
+        createUser(SUBPARTITIONED_USER);
         executeInOracle(format("GRANT SELECT ON user_context to %s", SUBPARTITIONED_USER));
     }
 

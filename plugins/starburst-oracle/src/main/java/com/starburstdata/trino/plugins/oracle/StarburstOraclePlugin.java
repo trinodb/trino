@@ -9,19 +9,14 @@
  */
 package com.starburstdata.trino.plugins.oracle;
 
-import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.license.LicenseManagerProvider;
-import io.trino.spi.Plugin;
-import io.trino.spi.connector.ConnectorFactory;
-
-import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
+import com.starburstdata.presto.license.LicenseManager;
+import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class StarburstOraclePlugin
-        implements Plugin
+        extends JdbcPlugin
 {
-    @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public StarburstOraclePlugin(LicenseManager licenseManager)
     {
-        return ImmutableList.of(withManagedStatistics(OracleConnectorFactory.create(new LicenseManagerProvider().get())));
+        super("oracle", new StarburstOracleClientModule(licenseManager));
     }
 }

@@ -26,7 +26,6 @@ import java.util.function.Consumer;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
 
 public final class TestingStarburstOracleServer
 {
@@ -38,9 +37,6 @@ public final class TestingStarburstOracleServer
             .withEnv("ORACLE_PDB", "testdb")
             .withEnv("ORACLE_PWD", "secret")
             .withCreateContainerCmdModifier(cmd -> cmd.withHostName("oracle-master"))
-            .withClasspathResourceMapping("krb/server/sqlnet.ora", "/opt/oracle/oradata/dbconfig/testdbsid/sqlnet.ora", READ_ONLY)
-            .withClasspathResourceMapping("krb/server/oracle_oracle-master.keytab", "/etc/server.keytab", READ_ONLY)
-            .withClasspathResourceMapping("krb/krb5.conf", "/etc/krb5.conf", READ_ONLY)
             // Recommended ulimits for running Oracle on Linux
             // https://docs.oracle.com/en/database/oracle/oracle-database/12.2/ladbi/checking-resource-limits-for-oracle-software-installation-users.html
             .withCreateContainerCmdModifier(cmd ->

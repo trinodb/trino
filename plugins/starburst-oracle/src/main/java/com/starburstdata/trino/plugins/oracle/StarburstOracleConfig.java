@@ -16,41 +16,12 @@ import io.airlift.configuration.LegacyConfig;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
-import static com.starburstdata.trino.plugins.oracle.OracleAuthenticationType.PASSWORD;
 import static com.starburstdata.trino.plugins.oracle.OracleParallelismType.NO_PARALLELISM;
 
 public class StarburstOracleConfig
 {
-    private boolean impersonationEnabled;
-    private OracleAuthenticationType authenticationType = PASSWORD;
     private OracleParallelismType parallelismType = NO_PARALLELISM;
     private int maxSplitsPerScan = 10; // Oracle always has a limit for number of concurrent connections
-
-    public boolean isImpersonationEnabled()
-    {
-        return impersonationEnabled;
-    }
-
-    @Config("oracle.impersonation.enabled")
-    public StarburstOracleConfig setImpersonationEnabled(boolean impersonationEnabled)
-    {
-        this.impersonationEnabled = impersonationEnabled;
-        return this;
-    }
-
-    @NotNull
-    public OracleAuthenticationType getAuthenticationType()
-    {
-        return authenticationType;
-    }
-
-    @Config("oracle.authentication.type")
-    @ConfigDescription("Oracle authentication mechanism type")
-    public StarburstOracleConfig setAuthenticationType(OracleAuthenticationType authenticationType)
-    {
-        this.authenticationType = authenticationType;
-        return this;
-    }
 
     @NotNull
     public OracleParallelismType getParallelismType()

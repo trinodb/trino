@@ -44,6 +44,6 @@ public class TestOracleLicenseProtection
                 .build();
 
         assertQuery(noParallelismSession, "SELECT * FROM nation");
-        assertQueryFails(partitionsParallelismSession, "SELECT * FROM nation", "Starburst Enterprise requires valid license");
+        assertQuery(partitionsParallelismSession, "SELECT * FROM nation");
     }
 }

@@ -13,19 +13,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Runnables;
-import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
-import com.starburstdata.presto.server.StarburstEngineQueryRunner;
+import com.starburstdata.presto.license.LicenseManager;
 import io.airlift.log.Logger;
-import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Plugin;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import java.util.Map;
 import java.util.Set;
@@ -36,8 +34,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.ALICE_USER;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.USER;
 import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.connectionProperties;
-import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
-import static io.airlift.log.Level.DEBUG;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTable;
@@ -48,6 +44,8 @@ import static java.util.Objects.requireNonNull;
 
 public final class OracleQueryRunner
 {
+    public static final LicenseManager NOOP_LICENSE_MANAGER = () -> true;
+
     private static final Logger LOG = Logger.get(OracleQueryRunner.class);
 
     private static final String ORACLE_CATALOG = "oracle";
@@ -56,6 +54,7 @@ public final class OracleQueryRunner
 
     private static QueryRunner createOracleQueryRunner(
             boolean unlockEnterpriseFeatures,
+            Plugin licensedPlugin,
             Map<String, String> connectorProperties,
             Function<Session, Session> sessionModifier,
             Iterable<TpchTable<?>> tables,
@@ -65,11 +64,8 @@ public final class OracleQueryRunner
             Runnable provisionTables)
             throws Exception
     {
-        Logging logging = Logging.initialize();
-        logging.setLevel(KerberosConnectionFactory.class.getName(), DEBUG);
-
         Session session = sessionModifier.apply(createSession(ALICE_USER));
-        QueryRunner queryRunner = StarburstEngineQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(nodesCount)
                 .setCoordinatorProperties(coordinatorProperties)
                 .build();
@@ -81,10 +77,10 @@ public final class OracleQueryRunner
             createUsers.run();
 
             if (unlockEnterpriseFeatures) {
-                queryRunner.installPlugin(new TestingStarburstOraclePlugin());
+                queryRunner.installPlugin(new TestingStarburstOraclePlugin(NOOP_LICENSE_MANAGER));
             }
             else {
-                queryRunner.installPlugin(new StarburstOraclePlugin());
+                queryRunner.installPlugin(licensedPlugin);
             }
 
             queryRunner.createCatalog(ORACLE_CATALOG, ORACLE_CATALOG, connectorProperties);
@@ -111,7 +107,7 @@ public final class OracleQueryRunner
 
         Streams.stream(tables)
                 .filter(table -> !existingTables.contains(table.getTableName().toLowerCase(ENGLISH)))
-                .forEach(table -> copyTable(queryRunner, "tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), redirectionDisabled(session)));
+                .forEach(table -> copyTable(queryRunner, "tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), session));
     }
 
     public static Session createSession(String user)
@@ -136,6 +132,7 @@ public final class OracleQueryRunner
     public static class Builder
     {
         private boolean unlockEnterpriseFeatures;
+        private Plugin licensedPlugin = new StarburstOraclePlugin(NOOP_LICENSE_MANAGER);
         private Map<String, String> connectorProperties = emptyMap();
         private Function<Session, Session> sessionModifier = Function.identity();
         private Iterable<TpchTable<?>> tables = ImmutableList.of();
@@ -149,6 +146,12 @@ public final class OracleQueryRunner
         public Builder withUnlockEnterpriseFeatures(boolean unlockEnterpriseFeatures)
         {
             this.unlockEnterpriseFeatures = unlockEnterpriseFeatures;
+            return this;
+        }
+
+        public Builder withLicensedPlugin(Plugin plugin)
+        {
+            this.licensedPlugin = requireNonNull(plugin, "licensedPlugin is null");
             return this;
         }
 
@@ -183,22 +186,6 @@ public final class OracleQueryRunner
             return this;
         }
 
-        public Builder withStarburstStorage(JdbcDatabaseContainer<?> starburstStorage)
-        {
-            return withCoordinatorProperties(ImmutableMap.of(
-                    "insights.jdbc.url", starburstStorage.getJdbcUrl(),
-                    "insights.jdbc.user", starburstStorage.getUsername(),
-                    "insights.jdbc.password", starburstStorage.getPassword()));
-        }
-
-        public Builder withManagedStatistics()
-        {
-            return withCoordinatorProperties(ImmutableMap.of("starburst.managed-statistics.enabled", "true"))
-                    .withConnectorProperties(ImmutableMap.of(
-                            "internal-communication.shared-secret", "internal-shared-secret", // This is required for the internal communication in the managed statistics
-                            "managed-statistics.enabled", "true"));
-        }
-
         public Builder withCreateUsers(Runnable runnable)
         {
             this.createUsers = requireNonNull(runnable, "createUsers is null");
@@ -214,7 +201,7 @@ public final class OracleQueryRunner
         public QueryRunner build()
                 throws Exception
         {
-            return createOracleQueryRunner(unlockEnterpriseFeatures, connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables);
+            return createOracleQueryRunner(unlockEnterpriseFeatures, licensedPlugin, connectorProperties, sessionModifier, tables, nodesCount, coordinatorProperties, createUsers, provisionTables);
         }
     }
 
@@ -229,9 +216,6 @@ public final class OracleQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        Logging logging = Logging.initialize();
-        logging.setLevel(KerberosConnectionFactory.class.getName(), DEBUG);
-
         // using single node so JMX stats can be queried
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) OracleQueryRunner.builder()
                 .withConnectorProperties(connectionProperties())

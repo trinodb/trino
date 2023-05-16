@@ -30,7 +30,7 @@ public class TestStarburstOracleParallelConnectorSmokeTest
             throws Exception
     {
         return OracleQueryRunner.builder()
-                .withUnlockEnterpriseFeatures(true) // parallelism is license protected
+                .withUnlockEnterpriseFeatures(true) // parallelism is license protected in SEP
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.parallelism-type", "PARTITIONS")
@@ -43,10 +43,10 @@ public class TestStarburstOracleParallelConnectorSmokeTest
                 .build();
     }
 
-    private static void createUsers()
+    protected static void createUsers()
     {
         createStandardUsers();
-        createUser(PARTITIONED_USER, OracleTestUsers.KERBERIZED_USER);
+        createUser(PARTITIONED_USER);
         executeInOracle(format("GRANT SELECT ON user_context to %s", PARTITIONED_USER));
     }
 
