@@ -18,6 +18,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.HIGH_TO_LOW;
+import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.LOW_TO_HIGH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -34,6 +36,8 @@ public class TestUpdateablePriorityQueue
     public void testIndexedPriorityQueue()
     {
         assertEquals(populateAndExtract(new IndexedPriorityQueue<>()), ImmutableList.of(3, 2, 1));
+        assertEquals(populateAndExtract(new IndexedPriorityQueue<>(HIGH_TO_LOW)), ImmutableList.of(3, 2, 1));
+        assertEquals(populateAndExtract(new IndexedPriorityQueue<>(LOW_TO_HIGH)), ImmutableList.of(1, 2, 3));
     }
 
     @Test

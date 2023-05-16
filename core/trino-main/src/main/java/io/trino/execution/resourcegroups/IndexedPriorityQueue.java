@@ -21,6 +21,8 @@ import java.util.TreeSet;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterators.transform;
+import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.HIGH_TO_LOW;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -30,16 +32,36 @@ import static java.util.Objects.requireNonNull;
 public final class IndexedPriorityQueue<E>
         implements UpdateablePriorityQueue<E>
 {
+    public enum PriorityOrdering {
+        LOW_TO_HIGH,
+        HIGH_TO_LOW
+    }
+
     private final Map<E, Entry<E>> index = new HashMap<>();
-    private final Set<Entry<E>> queue = new TreeSet<>((entry1, entry2) -> {
-        int priorityComparison = Long.compare(entry2.getPriority(), entry1.getPriority());
-        if (priorityComparison != 0) {
-            return priorityComparison;
-        }
-        return Long.compare(entry1.getGeneration(), entry2.getGeneration());
-    });
+    private final Set<Entry<E>> queue;
 
     private long generation;
+
+    public IndexedPriorityQueue()
+    {
+        this(HIGH_TO_LOW);
+    }
+
+    public IndexedPriorityQueue(PriorityOrdering priorityOrdering)
+    {
+        queue = switch (priorityOrdering) {
+            case LOW_TO_HIGH -> new TreeSet<>(
+                    comparingLong((Entry<E> entry) -> entry.getPriority())
+                            .thenComparingLong(Entry::getGeneration));
+            case HIGH_TO_LOW -> new TreeSet<>((entry1, entry2) -> {
+                int priorityComparison = Long.compare(entry2.getPriority(), entry1.getPriority());
+                if (priorityComparison != 0) {
+                    return priorityComparison;
+                }
+                return Long.compare(entry1.getGeneration(), entry2.getGeneration());
+            });
+        };
+    }
 
     @Override
     public boolean addOrUpdate(E element, long priority)
