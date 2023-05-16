@@ -156,7 +156,12 @@ public class MemoryFileSystem
 
     @Override
     public Optional<Boolean> directoryExists(Location location)
+            throws IOException
     {
+        validateMemoryLocation(location);
+        if (location.path().isEmpty() || listFiles(location).hasNext()) {
+            return Optional.of(true);
+        }
         return Optional.empty();
     }
 
