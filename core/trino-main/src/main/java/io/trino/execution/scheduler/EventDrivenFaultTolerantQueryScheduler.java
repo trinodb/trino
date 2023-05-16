@@ -2094,7 +2094,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             IndexedPriorityQueue.Prioritized<ScheduledTask> task = queue.peekPrioritized();
             checkState(task != null, "queue is empty");
-            return new PrioritizedScheduledTask(task.getValue(), toIntExact(task.getPriority()));
+            return getPrioritizedTask(task);
         }
 
         public void addOrUpdate(PrioritizedScheduledTask prioritizedTask)
