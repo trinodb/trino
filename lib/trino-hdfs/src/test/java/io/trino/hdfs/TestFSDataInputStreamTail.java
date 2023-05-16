@@ -38,6 +38,7 @@ import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true) // e.g. test methods operate on shared, mutated tempFile
 public class TestFSDataInputStreamTail
 {
     private File tempRoot;
