@@ -83,6 +83,7 @@ public class TestIcebergMinioOrcConnectorTest
                                 .put("hive.s3.endpoint", minio.getMinioAddress())
                                 .put("hive.s3.path-style-access", "true")
                                 .put("hive.s3.streaming.part-size", "5MB") // minimize memory usage
+                                .put("hive.s3.max-connections", "8") // verify no leaks
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 // Allows testing the sorting writer flushing to the file system with smaller tables
                                 .put("iceberg.writer-sort-buffer-size", "1MB")

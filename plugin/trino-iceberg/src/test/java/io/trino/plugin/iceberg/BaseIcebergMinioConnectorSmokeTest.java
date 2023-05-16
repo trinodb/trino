@@ -96,6 +96,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
                                 .put("hive.s3.path-style-access", "true")
                                 .put("hive.s3.streaming.part-size", "5MB")
+                                .put("hive.s3.max-connections", "2") // verify no leaks
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .buildOrThrow())
