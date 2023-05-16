@@ -36,6 +36,7 @@ env:
   # used by actions/cache to retry the download after this time: https://github.com/actions/cache/blob/main/workarounds.md#cache-segment-restore-timeout
   SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
   CI_SKIP_SECRETS_PRESENCE_CHECKS: ${{ secrets.CI_SKIP_SECRETS_PRESENCE_CHECKS }}
+  PTL_TMP_DOWNLOAD_PATH: /tmp/pt_java_downloads
 
 # Cancel previous PR builds.
 concurrency:
@@ -56,7 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         java-version:
-          - 17
+          - 17 # Keep testing on JDK 17 to ensure basic backward compatibility
           - 21
     timeout-minutes: 45
     steps:
@@ -571,7 +572,6 @@ jobs:
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
             - { modules: core/trino-main }
-            - { modules: core/trino-main, jdk: 21 }
             - { modules: lib/trino-filesystem-s3, profile: cloud-tests }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: plugin/trino-accumulo }
@@ -642,8 +642,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           cache: restore
-          java-version: ${{ matrix.jdk != '' && matrix.jdk || '17' }}
           cleanup-node: ${{ format('{0}', matrix.modules == 'plugin/trino-singlestore') }}
+          java-version: ${{ matrix.jdk != '' && matrix.jdk || '21' }}
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
