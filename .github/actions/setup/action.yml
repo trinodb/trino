@@ -3,7 +3,7 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 17
+    default: 21
   cache:
     description: "Cache Maven repo (true/false/restore)"
     default: true
@@ -50,7 +50,9 @@ runs:
         if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v3
         with:
-          path: ~/.m2/repository
+          path: | 
+            ~/.m2/repository
+            /tmp/pt_java_downloads
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
