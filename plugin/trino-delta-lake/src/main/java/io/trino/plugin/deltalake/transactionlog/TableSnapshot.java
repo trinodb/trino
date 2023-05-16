@@ -60,7 +60,7 @@ public class TableSnapshot
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final int domainCompactionThreshold;
 
-    private Optional<MetadataEntry> cachedMetadata = Optional.empty();
+    private Optional<MetadataEntry> cachedMetadata;
 
     private TableSnapshot(
             SchemaTableName table,
@@ -69,7 +69,8 @@ public class TableSnapshot
             String tableLocation,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            Optional<MetadataEntry> cachedMetadata)
     {
         this.table = requireNonNull(table, "table is null");
         this.lastCheckpoint = requireNonNull(lastCheckpoint, "lastCheckpoint is null");
@@ -78,6 +79,7 @@ public class TableSnapshot
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.cachedMetadata = cachedMetadata;
     }
 
     public static TableSnapshot load(
@@ -100,7 +102,8 @@ public class TableSnapshot
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                transactionLogTail.getMetadataEntry());
     }
 
     public Optional<TableSnapshot> getUpdatedSnapshot(TrinoFileSystem fileSystem)
@@ -111,11 +114,14 @@ public class TableSnapshot
         long cachedLastCheckpointVersion = getLastCheckpointVersion().orElse(0L);
 
         Optional<TransactionLogTail> updatedLogTail;
+        Optional<MetadataEntry> metadataEntry;
         if (cachedLastCheckpointVersion == lastCheckpointVersion) {
             updatedLogTail = logTail.getUpdatedTail(fileSystem, tableLocation);
+            metadataEntry = cachedMetadata;
         }
         else {
             updatedLogTail = Optional.of(TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(lastCheckpointVersion)));
+            metadataEntry = Optional.empty();
         }
 
         return updatedLogTail.map(transactionLogTail -> new TableSnapshot(
@@ -125,7 +131,8 @@ public class TableSnapshot
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                transactionLogTail.getMetadataEntry().or(() -> metadataEntry)));
     }
 
     public long getVersion()

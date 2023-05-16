@@ -18,6 +18,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.MissingTransactionLogException;
 
 import java.io.BufferedReader;
@@ -25,6 +26,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.parseJson;
@@ -40,10 +42,13 @@ public class TransactionLogTail
     private final List<DeltaLakeTransactionLogEntry> entries;
     private final long version;
 
-    private TransactionLogTail(List<DeltaLakeTransactionLogEntry> entries, long version)
+    private final Optional<MetadataEntry> metadataEntry;
+
+    private TransactionLogTail(List<DeltaLakeTransactionLogEntry> entries, long version, Optional<MetadataEntry> metadataEntry)
     {
         this.entries = ImmutableList.copyOf(requireNonNull(entries, "entries is null"));
         this.version = version;
+        this.metadataEntry = metadataEntry;
     }
 
     public static TransactionLogTail loadNewTail(
@@ -70,12 +75,16 @@ public class TransactionLogTail
 
         String transactionLogDir = getTransactionLogDir(tableLocation);
         Optional<List<DeltaLakeTransactionLogEntry>> results;
+        MetadataEntry metadataEntry = null;
 
         boolean endOfTail = false;
         while (!endOfTail) {
             results = getEntriesFromJson(entryNumber, transactionLogDir, fileSystem);
             if (results.isPresent()) {
                 entriesBuilder.addAll(results.get());
+                // There is at most one metadata entry per commit https://github.com/delta-io/delta/blob/d74cc6897730f4effb5d7272c21bd2554bdfacdb/PROTOCOL.md#delta-log-entries-1
+                metadataEntry = results.get().stream().map(DeltaLakeTransactionLogEntry::getMetaData)
+                        .filter(Objects::nonNull).findAny().orElse(metadataEntry);
                 version = entryNumber;
                 entryNumber++;
             }
@@ -91,7 +100,7 @@ public class TransactionLogTail
             }
         }
 
-        return new TransactionLogTail(entriesBuilder.build(), version);
+        return new TransactionLogTail(entriesBuilder.build(), version, Optional.ofNullable(metadataEntry));
     }
 
     public Optional<TransactionLogTail> getUpdatedTail(TrinoFileSystem fileSystem, String tableLocation)
@@ -100,6 +109,7 @@ public class TransactionLogTail
         ImmutableList.Builder<DeltaLakeTransactionLogEntry> entriesBuilder = ImmutableList.builder();
 
         long newVersion = version;
+        MetadataEntry newMetadataEntry = metadataEntry.orElse(null);
 
         Optional<List<DeltaLakeTransactionLogEntry>> results;
         boolean endOfTail = false;
@@ -110,6 +120,9 @@ public class TransactionLogTail
                     // initialize entriesBuilder with entries we have already read
                     entriesBuilder.addAll(entries);
                 }
+                // There is at most one metadata entry per file https://github.com/delta-io/delta/blob/d74cc6897730f4effb5d7272c21bd2554bdfacdb/PROTOCOL.md#delta-log-entries-1
+                newMetadataEntry = results.get().stream().map(DeltaLakeTransactionLogEntry::getMetaData)
+                        .filter(Objects::nonNull).findAny().orElse(newMetadataEntry);
                 entriesBuilder.addAll(results.get());
                 newVersion++;
             }
@@ -121,7 +134,7 @@ public class TransactionLogTail
         if (newVersion == version) {
             return Optional.empty();
         }
-        return Optional.of(new TransactionLogTail(entriesBuilder.build(), newVersion));
+        return Optional.of(new TransactionLogTail(entriesBuilder.build(), newVersion, Optional.ofNullable(newMetadataEntry)));
     }
 
     public static Optional<List<DeltaLakeTransactionLogEntry>> getEntriesFromJson(long entryNumber, String transactionLogDir, TrinoFileSystem fileSystem)
@@ -154,6 +167,11 @@ public class TransactionLogTail
     public List<DeltaLakeTransactionLogEntry> getFileEntries()
     {
         return entries;
+    }
+
+    public Optional<MetadataEntry> getMetadataEntry()
+    {
+        return metadataEntry;
     }
 
     public long getVersion()

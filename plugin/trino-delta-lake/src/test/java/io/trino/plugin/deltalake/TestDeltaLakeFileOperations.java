@@ -115,7 +115,7 @@ public class TestDeltaLakeFileOperations
                         .addCopies(new FileOperation(DATA, "key=p2/", INPUT_FILE_NEW_STREAM), 1)
                         .build());
         trackingFileSystemFactory.reset();
-        // reads of checkpoint, commits and metadata are partially cached
+        // reads of checkpoint and commits are cached
         assertFileSystemAccesses(
                 "SELECT * FROM test_checkpoint_file_operations",
                 ImmutableMultiset.<FileOperation>builder()
@@ -136,8 +136,8 @@ public class TestDeltaLakeFileOperations
                         .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_NEW_STREAM), 2)
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 2) // read metadata and protocol entries
-                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 4)
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_NEW_STREAM), 1) // read protocol entries
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000002.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 2)
                         .addCopies(new FileOperation(DATA, "key=p1/", INPUT_FILE_GET_LENGTH), 1)
                         .addCopies(new FileOperation(DATA, "key=p1/", INPUT_FILE_NEW_STREAM), 1)
                         .addCopies(new FileOperation(DATA, "key=p2/", INPUT_FILE_GET_LENGTH), 1)
