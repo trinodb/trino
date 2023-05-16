@@ -42,11 +42,8 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class ServerIT
 {
-    private static final String BASE_IMAGE_PREFIX = "eclipse-temurin:";
-    private static final String BASE_IMAGE_SUFFIX = "-jre-centos7";
-
-    @Test(dataProvider = "rpmJavaTestDataProvider")
-    public void testInstall(String rpmHostPath, String javaVersion)
+    @Test(dataProvider = "rpmJavaDockerTestDataProvider")
+    public void testInstall(String rpmHostPath, String dockerImage, String javaVersion)
     {
         String rpm = "/" + new File(rpmHostPath).getName();
         String command = "" +
@@ -70,7 +67,7 @@ public class ServerIT
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/trino/server.log\n";
 
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + javaVersion + BASE_IMAGE_SUFFIX)) {
+        try (GenericContainer<?> container = new GenericContainer<>(dockerImage)) {
             container.withExposedPorts(8080)
                     // the RPM is hundreds MB and file system bind is much more efficient
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
@@ -87,8 +84,8 @@ public class ServerIT
         }
     }
 
-    @Test(dataProvider = "rpmJavaTestDataProvider")
-    public void testUninstall(String rpmHostPath, String javaVersion)
+    @Test(dataProvider = "rpmJavaDockerTestDataProvider")
+    public void testUninstall(String rpmHostPath, String dockerImage, String javaVersion)
             throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
@@ -98,7 +95,7 @@ public class ServerIT
                 "/etc/init.d/trino start\n" +
                 // allow tail to work with Docker's non-local file system
                 "tail ---disable-inotify -F /var/log/trino/server.log\n";
-        try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE_PREFIX + javaVersion + BASE_IMAGE_SUFFIX)) {
+        try (GenericContainer<?> container = new GenericContainer<>(dockerImage)) {
             container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", installAndStartTrino)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
@@ -119,12 +116,14 @@ public class ServerIT
     }
 
     @DataProvider
-    public static Object[][] rpmJavaTestDataProvider()
+    public static Object[][] rpmJavaDockerTestDataProvider()
     {
         String rpmHostPath = requireNonNull(System.getProperty("rpm"), "rpm is null");
+
+        // It's expected that the provided docker images are Centos7-based, so that
+        // the rpm installation method is common.
         return new Object[][]{
-                {rpmHostPath, "17"},
-                {rpmHostPath, "19"}};
+                {rpmHostPath, "openjdk:21-rc-oraclelinux7", "21"}};
     }
 
     private static void assertPathDeleted(GenericContainer<?> container, String path)
