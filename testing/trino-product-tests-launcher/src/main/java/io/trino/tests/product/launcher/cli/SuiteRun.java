@@ -28,6 +28,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.trino.tests.product.launcher.env.EnvironmentFactory;
 import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
+import io.trino.tests.product.launcher.env.jdk.JdkProviderFactory;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteFactory;
 import io.trino.tests.product.launcher.suite.SuiteModule;
@@ -148,6 +149,7 @@ public class SuiteRun
         // TODO do not store mutable state
         private final EnvironmentOptions environmentOptions;
         private final SuiteFactory suiteFactory;
+        private final JdkProviderFactory jdkProviderFactory;
         private final EnvironmentFactory environmentFactory;
         private final EnvironmentConfigFactory configFactory;
         private final long suiteStartTime;
@@ -157,12 +159,14 @@ public class SuiteRun
                 SuiteRunOptions suiteRunOptions,
                 EnvironmentOptions environmentOptions,
                 SuiteFactory suiteFactory,
+                JdkProviderFactory jdkProviderFactory,
                 EnvironmentFactory environmentFactory,
                 EnvironmentConfigFactory configFactory)
         {
             this.suiteRunOptions = requireNonNull(suiteRunOptions, "suiteRunOptions is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
+            this.jdkProviderFactory = requireNonNull(jdkProviderFactory, "jdkProviderFactory is null");
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
             this.suiteStartTime = System.nanoTime();
@@ -298,7 +302,7 @@ public class SuiteRun
 
         private int runTest(String runId, EnvironmentConfig environmentConfig, TestRun.TestRunOptions testRunOptions)
         {
-            TestRun.Execution execution = new TestRun.Execution(environmentFactory, environmentOptions, environmentConfig, testRunOptions);
+            TestRun.Execution execution = new TestRun.Execution(environmentFactory, jdkProviderFactory, environmentOptions, environmentConfig, testRunOptions);
 
             log.info("Test run %s started", runId);
             int exitCode = execution.call();

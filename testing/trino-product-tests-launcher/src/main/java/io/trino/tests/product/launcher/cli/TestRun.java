@@ -33,6 +33,7 @@ import io.trino.tests.product.launcher.env.EnvironmentFactory;
 import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import io.trino.tests.product.launcher.env.jdk.JdkProvider;
+import io.trino.tests.product.launcher.env.jdk.JdkProviderFactory;
 import io.trino.tests.product.launcher.testcontainers.ExistingNetwork;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
@@ -179,13 +180,13 @@ public final class TestRun
         public static final Integer ENVIRONMENT_SKIPPED_EXIT_CODE = 98;
 
         @Inject
-        public Execution(EnvironmentFactory environmentFactory, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
+        public Execution(EnvironmentFactory environmentFactory, JdkProviderFactory jdkProviderFactory, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
             this.debugSuspend = testRunOptions.debugSuspend;
-            this.jdkProvider = requireNonNull(environmentOptions.jdkProvider, "environmentOptions.jdkProvider is null");
+            this.jdkProvider = jdkProviderFactory.get(requireNonNull(environmentOptions.jdkProvider, "environmentOptions.jdkProvider is null"));
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
             this.cliJar = requireNonNull(testRunOptions.cliJar, "testRunOptions.cliJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testRunOptions.testArguments is null"));
@@ -336,7 +337,9 @@ public final class TestRun
                 if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
                     container.withEnv("CONTINUOUS_INTEGRATION", "true");
                 }
-                container
+
+                // Install Java distribution if necessary
+                jdkProvider.applyTo(container)
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
