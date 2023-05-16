@@ -726,18 +726,23 @@ public abstract class AbstractTestTrinoFileSystem
         try (Closer closer = Closer.create()) {
             String directoryName = "testDirectoryExistsDir";
             String fileName = "file.csv";
-            createBlob(closer, createLocation(directoryName).appendPath(fileName).path());
-            TrinoFileSystem fileSystem = getFileSystem();
+
+            assertThat(listPath("")).isEmpty();
+            assertThat(getFileSystem().directoryExists(getRootLocation())).contains(true);
 
             if (isHierarchical()) {
-                assertThat(fileSystem.directoryExists(createLocation(directoryName))).contains(true);
-                assertThat(fileSystem.directoryExists(createLocation(UUID.randomUUID().toString()))).contains(false);
-                assertThat(fileSystem.directoryExists(createLocation(directoryName).appendPath(fileName))).contains(false);
+                assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(false);
+                createBlob(closer, createLocation(directoryName).appendPath(fileName).path());
+                assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(true);
+                assertThat(getFileSystem().directoryExists(createLocation(UUID.randomUUID().toString()))).contains(false);
+                assertThat(getFileSystem().directoryExists(createLocation(directoryName).appendPath(fileName))).contains(false);
             }
             else {
-                assertThat(fileSystem.directoryExists(createLocation(directoryName))).isEmpty();
-                assertThat(fileSystem.directoryExists(createLocation(UUID.randomUUID().toString()))).isEmpty();
-                assertThat(fileSystem.directoryExists(createLocation(directoryName).appendPath(fileName))).isEmpty();
+                assertThat(getFileSystem().directoryExists(createLocation(directoryName))).isEmpty();
+                createBlob(closer, createLocation(directoryName).appendPath(fileName).path());
+                assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(true);
+                assertThat(getFileSystem().directoryExists(createLocation(UUID.randomUUID().toString()))).isEmpty();
+                assertThat(getFileSystem().directoryExists(createLocation(directoryName).appendPath(fileName))).isEmpty();
             }
         }
     }

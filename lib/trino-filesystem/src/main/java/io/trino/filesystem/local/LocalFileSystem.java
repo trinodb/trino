@@ -153,9 +153,8 @@ public class LocalFileSystem
 
     @Override
     public Optional<Boolean> directoryExists(Location location)
-            throws IOException
     {
-        return Optional.of(Files.isDirectory(toFilePath(location)));
+        return Optional.of(Files.isDirectory(toDirectoryPath(location)));
     }
 
     private Path toFilePath(Location location)
