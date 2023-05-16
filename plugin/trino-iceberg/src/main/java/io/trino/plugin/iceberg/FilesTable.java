@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
@@ -34,7 +35,10 @@ import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableGroup;
@@ -44,6 +48,7 @@ import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.StructLikeWrapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -53,9 +58,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
+import static io.trino.plugin.iceberg.IcebergUtil.partitionTypes;
+import static io.trino.plugin.iceberg.PartitionTable.getAllPartitionFields;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -71,29 +78,39 @@ public class FilesTable
     private final TypeManager typeManager;
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
+    private final Optional<IcebergPartitionColumn> partitionColumnType;
+    private final List<PartitionField> partitionFields;
+    private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
 
     public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
-        tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
-                ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("content", INTEGER))
-                        .add(new ColumnMetadata("file_path", VARCHAR))
-                        .add(new ColumnMetadata("file_format", VARCHAR))
-                        .add(new ColumnMetadata("record_count", BIGINT))
-                        .add(new ColumnMetadata("file_size_in_bytes", BIGINT))
-                        .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("key_metadata", VARBINARY))
-                        .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
-                        .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
-                        .build());
+        this.partitionFields = getAllPartitionFields(icebergTable);
+
+        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema(), typeManager);
+
+        List<ColumnMetadata> connectorMetadata = Lists.newArrayList(
+                new ColumnMetadata("content", INTEGER),
+                new ColumnMetadata("file_path", VARCHAR),
+                new ColumnMetadata("file_format", VARCHAR),
+                new ColumnMetadata("record_count", BIGINT),
+                new ColumnMetadata("file_size_in_bytes", BIGINT),
+                new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))),
+                new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))),
+                new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))),
+                new ColumnMetadata("nan_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))),
+                new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))),
+                new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))),
+                new ColumnMetadata("key_metadata", VARBINARY),
+                new ColumnMetadata("split_offsets", new ArrayType(BIGINT)),
+                new ColumnMetadata("equality_ids", new ArrayType(INTEGER)));
+        partitionColumnType.ifPresent(icebergPartitionColumn ->
+                connectorMetadata.add(new ColumnMetadata("partition", icebergPartitionColumn.rowType())));
+
+        idToPrimitiveTypeMapping = IcebergUtil.primitiveFieldTypes(icebergTable.schema());
+        tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), connectorMetadata);
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
     }
 
@@ -124,7 +141,8 @@ public class FilesTable
                 .useSnapshot(snapshotId.get())
                 .includeColumnStats();
 
-        PlanFilesIterable planFilesIterable = new PlanFilesIterable(tableScan.planFiles(), idToTypeMapping, types, typeManager);
+        PlanFilesIterable planFilesIterable = new
+                PlanFilesIterable(tableScan.planFiles(), idToTypeMapping, types, typeManager, partitionColumnType, partitionFields, idToPrimitiveTypeMapping);
         return planFilesIterable.cursor();
     }
 
@@ -134,18 +152,32 @@ public class FilesTable
     {
         private final CloseableIterable<FileScanTask> planFiles;
         private final Map<Integer, Type> idToTypeMapping;
+        private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
         private final List<io.trino.spi.type.Type> types;
         private boolean closed;
         private final MapType integerToBigintMapType;
         private final MapType integerToVarcharMapType;
+        private TypeManager typeManager;
+        Optional<IcebergPartitionColumn> partitionColumnType;
+        private final List<PartitionField> partitionFields;
 
-        public PlanFilesIterable(CloseableIterable<FileScanTask> planFiles, Map<Integer, Type> idToTypeMapping, List<io.trino.spi.type.Type> types, TypeManager typeManager)
+        public PlanFilesIterable(CloseableIterable<FileScanTask> planFiles,
+                                 Map<Integer, Type> idToTypeMapping,
+                                 List<io.trino.spi.type.Type> types,
+                                 TypeManager typeManager,
+                                 Optional<IcebergPartitionColumn> partitionColumnType,
+                                 List<PartitionField> partitionFields,
+                                 Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping)
         {
             this.planFiles = requireNonNull(planFiles, "planFiles is null");
             this.idToTypeMapping = ImmutableMap.copyOf(requireNonNull(idToTypeMapping, "idToTypeMapping is null"));
+            this.idToPrimitiveTypeMapping = idToPrimitiveTypeMapping;
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.integerToBigintMapType = new MapType(INTEGER, BIGINT, typeManager.getTypeOperators());
             this.integerToVarcharMapType = new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators());
+            this.typeManager = typeManager;
+            this.partitionColumnType = partitionColumnType;
+            this.partitionFields = partitionFields;
             addCloseable(planFiles);
         }
 
@@ -182,7 +214,8 @@ public class FilesTable
                 @Override
                 public List<Object> next()
                 {
-                    return getRecord(planFilesIterator.next().file());
+                    FileScanTask fileScanTask = planFilesIterator.next();
+                    return getRecord(fileScanTask.file(), fileScanTask.spec());
                 }
 
                 @Override
@@ -195,7 +228,8 @@ public class FilesTable
             };
         }
 
-        private List<Object> getRecord(DataFile dataFile)
+        private List<Object> getRecord(DataFile dataFile,
+                                       PartitionSpec spec)
         {
             List<Object> columns = new ArrayList<>();
             columns.add(dataFile.content().id());
@@ -212,7 +246,18 @@ public class FilesTable
             columns.add(toVarbinarySlice(dataFile.keyMetadata()));
             columns.add(toBigintArrayBlock(dataFile.splitOffsets()));
             columns.add(toIntegerArrayBlock(dataFile.equalityFieldIds()));
-            checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
+
+            Types.StructType structType = spec.partitionType();
+            StructLike partitionStruct = dataFile.partition();
+            StructLikeWrapper partitionWrapper = StructLikeWrapper.forType(structType).set(partitionStruct);
+            StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = new StructLikeWrapperWithFieldIdToIndex(partitionWrapper, structType);
+            List<Type> partitionTypes = partitionTypes(partitionFields, idToPrimitiveTypeMapping);
+            List<? extends Class<?>> partitionColumnClass = partitionTypes.stream()
+                    .map(type -> type.typeId().javaClass())
+                    .collect(toImmutableList());
+
+            // add data for partition columns
+            IcebergUtil.addPartitionColumn(partitionColumnType, partitionTypes, partitionColumnClass, structLikeWrapperWithFieldIdToIndex, columns);
             return columns;
         }
 

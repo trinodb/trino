@@ -37,6 +37,7 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
@@ -111,6 +112,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.getOrcBloomFilterFp
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
@@ -124,6 +126,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -137,6 +140,7 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -762,5 +766,60 @@ public final class IcebergUtil
         return mapWithIndex(schema.columns().stream(),
                 (column, position) -> immutableEntry(column.name(), Long.valueOf(position).intValue()))
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+    }
+
+    public static Optional<IcebergPartitionColumn> getPartitionColumnType(List<PartitionField> fields, Schema schema, TypeManager typeManager)
+    {
+        if (fields.isEmpty()) {
+            return Optional.empty();
+        }
+        List<RowType.Field> partitionFields = fields.stream()
+                .map(field -> RowType.field(
+                        field.name(),
+                        toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
+                .collect(toImmutableList());
+        List<Integer> fieldIds = fields.stream()
+                .map(PartitionField::fieldId)
+                .collect(toImmutableList());
+        return Optional.of(new IcebergPartitionColumn(RowType.from(partitionFields), fieldIds));
+    }
+
+    public static void addPartitionColumn(Optional<IcebergPartitionColumn> partitionColumn,
+                                          List<org.apache.iceberg.types.Type> partitionTypes,
+                                          List<? extends Class<?>> partitionColumnClass,
+                                          StructLikeWrapperWithFieldIdToIndex partitionStruct,
+                                          List<Object> row)
+    {
+        partitionColumn.ifPresent(partitionColumnType -> {
+            row.add(buildRowValue(partitionColumnType.rowType(), fields -> {
+                List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.rowType().getFields().stream()
+                        .map(RowType.Field::getType)
+                        .collect(toImmutableList());
+                for (int i = 0; i < partitionColumnTypes.size(); i++) {
+                    io.trino.spi.type.Type trinoType = partitionColumnType.rowType().getFields().get(i).getType();
+                    Object value = null;
+                    Integer fieldId = partitionColumnType.fieldIds().get(i);
+                    if (partitionStruct.fieldIdToIndex().containsKey(fieldId)) {
+                        value = convertIcebergValueToTrino(
+                                partitionTypes.get(i),
+                                partitionStruct.structLikeWrapper().get().get(partitionStruct.fieldIdToIndex().get(fieldId), partitionColumnClass.get(i)));
+                    }
+                    writeNativeValue(trinoType, fields.get(i), value);
+                }
+            }));
+        });
+    }
+
+    public static List<org.apache.iceberg.types.Type> partitionTypes(
+            List<PartitionField> partitionFields,
+            Map<Integer, org.apache.iceberg.types.Type.PrimitiveType> idToPrimitiveTypeMapping)
+    {
+        ImmutableList.Builder<org.apache.iceberg.types.Type> partitionTypeBuilder = ImmutableList.builder();
+        for (PartitionField partitionField : partitionFields) {
+            org.apache.iceberg.types.Type.PrimitiveType sourceType = idToPrimitiveTypeMapping.get(partitionField.sourceId());
+            org.apache.iceberg.types.Type type = partitionField.transform().getResultType(sourceType);
+            partitionTypeBuilder.add(type);
+        }
+        return partitionTypeBuilder.build();
     }
 }

@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -31,7 +29,6 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
-import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -48,16 +45,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
+import static io.trino.plugin.iceberg.IcebergUtil.addPartitionColumn;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.block.RowValueBuilder.buildRowValue;
@@ -94,9 +90,9 @@ public class PartitionTable
 
         ImmutableList.Builder<ColumnMetadata> columnMetadataBuilder = ImmutableList.builder();
 
-        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema());
+        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema(), typeManager);
         partitionColumnType.ifPresent(icebergPartitionColumn ->
-                columnMetadataBuilder.add(new ColumnMetadata("partition", icebergPartitionColumn.rowType)));
+                columnMetadataBuilder.add(new ColumnMetadata("partition", icebergPartitionColumn.rowType())));
 
         Stream.of("record_count", "file_count", "total_size")
                 .forEach(metric -> columnMetadataBuilder.add(new ColumnMetadata(metric, BIGINT)));
@@ -140,7 +136,7 @@ public class PartitionTable
         return connectorTableMetadata;
     }
 
-    private static List<PartitionField> getAllPartitionFields(Table icebergTable)
+    static List<PartitionField> getAllPartitionFields(Table icebergTable)
     {
         Set<Integer> existingColumnsIds = icebergTable.schema()
                 .columns().stream()
@@ -168,22 +164,6 @@ public class PartitionTable
             }
         }
         return result;
-    }
-
-    private Optional<IcebergPartitionColumn> getPartitionColumnType(List<PartitionField> fields, Schema schema)
-    {
-        if (fields.isEmpty()) {
-            return Optional.empty();
-        }
-        List<RowType.Field> partitionFields = fields.stream()
-                .map(field -> RowType.field(
-                        field.name(),
-                        toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
-                .collect(toImmutableList());
-        List<Integer> fieldIds = fields.stream()
-                .map(PartitionField::fieldId)
-                .collect(toImmutableList());
-        return Optional.of(new IcebergPartitionColumn(RowType.from(partitionFields), fieldIds));
     }
 
     private Optional<RowType> getMetricsColumnType(List<NestedField> columns)
@@ -228,8 +208,8 @@ public class PartitionTable
                 StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = new StructLikeWrapperWithFieldIdToIndex(partitionWrapper, structType);
 
                 partitions.computeIfAbsent(
-                        structLikeWrapperWithFieldIdToIndex,
-                        ignored -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
+                                structLikeWrapperWithFieldIdToIndex,
+                                ignored -> new IcebergStatistics.Builder(icebergTable.schema().columns(), typeManager))
                         .acceptDataFile(dataFile, fileScanTask.spec());
             }
 
@@ -256,24 +236,7 @@ public class PartitionTable
             List<Object> row = new ArrayList<>();
 
             // add data for partition columns
-            partitionColumnType.ifPresent(partitionColumnType -> {
-                row.add(buildRowValue(partitionColumnType.rowType, fields -> {
-                    List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.rowType.getFields().stream()
-                            .map(RowType.Field::getType)
-                            .collect(toImmutableList());
-                    for (int i = 0; i < partitionColumnTypes.size(); i++) {
-                        io.trino.spi.type.Type trinoType = partitionColumnType.rowType.getFields().get(i).getType();
-                        Object value = null;
-                        Integer fieldId = partitionColumnType.fieldIds.get(i);
-                        if (partitionStruct.fieldIdToIndex.containsKey(fieldId)) {
-                            value = convertIcebergValueToTrino(
-                                    partitionTypes.get(i),
-                                    partitionStruct.structLikeWrapper.get().get(partitionStruct.fieldIdToIndex.get(fieldId), partitionColumnClass.get(i)));
-                        }
-                        writeNativeValue(trinoType, fields.get(i), value);
-                    }
-                }));
-            });
+            addPartitionColumn(partitionColumnType, partitionTypes, partitionColumnClass, partitionStruct, row);
 
             // add the top level metrics.
             row.add(icebergStatistics.getRecordCount());
@@ -334,73 +297,5 @@ public class PartitionTable
             writeNativeValue(fields.get(2).getType(), fieldBuilders.get(2), nullCount);
             writeNativeValue(fields.get(3).getType(), fieldBuilders.get(3), nanCount);
         });
-    }
-
-    @VisibleForTesting
-    static class StructLikeWrapperWithFieldIdToIndex
-    {
-        private final StructLikeWrapper structLikeWrapper;
-        private final Map<Integer, Integer> fieldIdToIndex;
-
-        public StructLikeWrapperWithFieldIdToIndex(StructLikeWrapper structLikeWrapper, Types.StructType structType)
-        {
-            this.structLikeWrapper = structLikeWrapper;
-            ImmutableMap.Builder<Integer, Integer> fieldIdToIndex = ImmutableMap.builder();
-            List<NestedField> fields = structType.fields();
-            IntStream.range(0, fields.size())
-                    .forEach(i -> fieldIdToIndex.put(fields.get(i).fieldId(), i));
-            this.fieldIdToIndex = fieldIdToIndex.buildOrThrow();
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            StructLikeWrapperWithFieldIdToIndex that = (StructLikeWrapperWithFieldIdToIndex) o;
-            // Due to bogus implementation of equals in StructLikeWrapper https://github.com/apache/iceberg/issues/5064 order here matters.
-            return Objects.equals(fieldIdToIndex, that.fieldIdToIndex) && Objects.equals(structLikeWrapper, that.structLikeWrapper);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(fieldIdToIndex, structLikeWrapper);
-        }
-    }
-
-    private static class IcebergPartitionColumn
-    {
-        private final RowType rowType;
-        private final List<Integer> fieldIds;
-
-        public IcebergPartitionColumn(RowType rowType, List<Integer> fieldIds)
-        {
-            this.rowType = rowType;
-            this.fieldIds = fieldIds;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            IcebergPartitionColumn that = (IcebergPartitionColumn) o;
-            return Objects.equals(rowType, that.rowType) && Objects.equals(fieldIds, that.fieldIds);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(rowType, fieldIds);
-        }
     }
 }
