@@ -134,6 +134,7 @@ import static io.trino.SystemSessionProperties.getTaskRetryAttemptsPerTask;
 import static io.trino.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.trino.execution.StageState.ABORTED;
 import static io.trino.execution.StageState.PLANNED;
+import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.LOW_TO_HIGH;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
@@ -2065,7 +2066,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
     private static class SchedulingQueue
     {
-        private final IndexedPriorityQueue<ScheduledTask> queue = new IndexedPriorityQueue<>();
+        private final IndexedPriorityQueue<ScheduledTask> queue = new IndexedPriorityQueue<>(LOW_TO_HIGH);
         private int nonSpeculativeTaskCount;
 
         public boolean isEmpty()
@@ -2093,8 +2094,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             IndexedPriorityQueue.Prioritized<ScheduledTask> task = queue.peekPrioritized();
             checkState(task != null, "queue is empty");
-            // negate priority to reverse operation we do in addOrUpdate
-            return new PrioritizedScheduledTask(task.getValue(), toIntExact(-task.getPriority()));
+            return new PrioritizedScheduledTask(task.getValue(), toIntExact(task.getPriority()));
         }
 
         public void addOrUpdate(PrioritizedScheduledTask prioritizedTask)
@@ -2110,14 +2110,12 @@ public class EventDrivenFaultTolerantQueryScheduler
                 nonSpeculativeTaskCount++;
             }
 
-            // using negative priority here as will return entries with the lowest priority first and here we use bigger number for tasks with lower priority
-            queue.addOrUpdate(prioritizedTask.task(), -prioritizedTask.priority());
+            queue.addOrUpdate(prioritizedTask.task(), prioritizedTask.priority());
         }
 
         private static PrioritizedScheduledTask getPrioritizedTask(IndexedPriorityQueue.Prioritized<ScheduledTask> task)
         {
-            // negate priority to reverse operation we do in addOrUpdate
-            return new PrioritizedScheduledTask(task.getValue(), toIntExact(-task.getPriority()));
+            return new PrioritizedScheduledTask(task.getValue(), toIntExact(task.getPriority()));
         }
     }
 
