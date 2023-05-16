@@ -24,10 +24,8 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -125,15 +123,28 @@ public class JoinProbe
             boolean isRle)
     {
         int positionCount = page.getPositionCount();
-        List<Block> nullableBlocks = IntStream.range(0, probePage.getChannelCount())
-                .mapToObj(i -> probePage.getBlock(i))
-                .filter(Block::mayHaveNull)
-                .collect(toImmutableList());
+
+        Block[] nullableBlocks = new Block[probePage.getChannelCount()];
+        int nullableBlocksCount = 0;
+        for (int channel = 0; channel < probePage.getChannelCount(); channel++) {
+            Block probeBlock = probePage.getBlock(channel);
+            if (probeBlock.mayHaveNull()) {
+                nullableBlocks[nullableBlocksCount++] = probeBlock;
+            }
+        }
 
         if (isRle) {
             long[] joinPositionCache;
             // Null values cannot be joined, so if any column contains null, there is no match
-            if (nullableBlocks.stream().anyMatch(block -> block.isNull(0))) {
+            boolean anyAllNullsBlock = false;
+            for (int i = 0; i < nullableBlocksCount; i++) {
+                Block nullableBlock = nullableBlocks[i];
+                if (nullableBlock.isNull(0)) {
+                    anyAllNullsBlock = true;
+                    break;
+                }
+            }
+            if (anyAllNullsBlock) {
                 joinPositionCache = new long[1];
                 joinPositionCache[0] = -1;
             }
@@ -147,10 +158,10 @@ public class JoinProbe
         }
 
         long[] joinPositionCache = new long[positionCount];
-        if (!nullableBlocks.isEmpty()) {
+        if (nullableBlocksCount > 0) {
             Arrays.fill(joinPositionCache, -1);
             boolean[] isNull = new boolean[positionCount];
-            int nonNullCount = getIsNull(nullableBlocks, positionCount, isNull);
+            int nonNullCount = getIsNull(nullableBlocks, nullableBlocksCount, positionCount, isNull);
             if (nonNullCount < positionCount) {
                 // We only store positions that are not null
                 int[] positions = new int[nonNullCount];
@@ -193,17 +204,17 @@ public class JoinProbe
         return joinPositionCache;
     }
 
-    private static int getIsNull(List<Block> nullableBlocks, int positionCount, boolean[] isNull)
+    private static int getIsNull(Block[] nullableBlocks, int nullableBlocksCount, int positionCount, boolean[] isNull)
     {
-        for (int i = 0; i < nullableBlocks.size() - 1; i++) {
-            Block block = nullableBlocks.get(i);
+        for (int i = 0; i < nullableBlocksCount - 1; i++) {
+            Block block = nullableBlocks[i];
             for (int position = 0; position < positionCount; position++) {
                 isNull[position] |= block.isNull(position);
             }
         }
         // Last block will also calculate `nonNullCount`
         int nonNullCount = 0;
-        Block lastBlock = nullableBlocks.get(nullableBlocks.size() - 1);
+        Block lastBlock = nullableBlocks[nullableBlocksCount - 1];
         for (int position = 0; position < positionCount; position++) {
             isNull[position] |= lastBlock.isNull(position);
             nonNullCount += isNull[position] ? 0 : 1;
