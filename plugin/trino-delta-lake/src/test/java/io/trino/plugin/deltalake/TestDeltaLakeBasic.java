@@ -21,11 +21,22 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.filesystem.local.LocalInputFile;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.reader.MetadataReader;
+import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.apache.parquet.hadoop.metadata.FileMetaData;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.PrimitiveType;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -38,6 +49,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -69,11 +81,15 @@ public class TestDeltaLakeBasic
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
+    private static final TrinoFileSystem FILE_SYSTEM = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of("delta.register-table-procedure.enabled", "true"));
+        return createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), ImmutableMap.of(
+                "delta.register-table-procedure.enabled", "true",
+                "delta.enable-non-concurrent-writes", "true"));
     }
 
     @BeforeClass
@@ -206,6 +222,66 @@ public class TestDeltaLakeBasic
         Assertions.assertThat(thirdMetadata.getSchemaString())
                 .containsPattern("(delta\\.columnMapping\\.id.*?){11}")
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){11}");
+    }
+
+    /**
+     * @see deltalake.column_mapping_mode_id
+     * @see deltalake.column_mapping_mode_name
+     */
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testOptimizeWithColumnMappingMode(String columnMappingMode)
+            throws Exception
+    {
+        // The table contains 'x' column with column mapping mode
+        String tableName = "test_optimize_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("DESCRIBE " + tableName)).projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        MetadataEntry originalMetadata = loadMetadataEntry(0, tableLocation);
+        JsonNode schema = OBJECT_MAPPER.readTree(originalMetadata.getSchemaString());
+        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
+        Assertions.assertThat(fields).hasSize(1);
+        JsonNode column = fields.get(0);
+        String physicalName = column.get("metadata").get("delta.columnMapping.physicalName").asText();
+        int id = column.get("metadata").get("delta.columnMapping.id").asInt();
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 10", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES 20", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES NULL", 1);
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+        // Verify 'add' entry contains the expected physical name in the stats
+        List<DeltaLakeTransactionLogEntry> transactionLog = getEntriesFromJson(4, tableLocation.resolve("_delta_log").toString(), FILE_SYSTEM).orElseThrow();
+        assertThat(transactionLog).hasSize(5);
+        assertThat(transactionLog.get(0).getCommitInfo()).isNotNull();
+        assertThat(transactionLog.get(1).getRemove()).isNotNull();
+        assertThat(transactionLog.get(2).getRemove()).isNotNull();
+        assertThat(transactionLog.get(3).getRemove()).isNotNull();
+        assertThat(transactionLog.get(4).getAdd()).isNotNull();
+        AddFileEntry addFileEntry = transactionLog.get(4).getAdd();
+        DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
+        assertThat(stats.getMinValues().orElseThrow().get(physicalName)).isEqualTo(10);
+        assertThat(stats.getMaxValues().orElseThrow().get(physicalName)).isEqualTo(20);
+        assertThat(stats.getNullCount(physicalName).orElseThrow()).isEqualTo(1);
+
+        // Verify optimized parquet file contains the expected physical id and name
+        TrinoInputFile inputFile = new LocalInputFile(tableLocation.resolve(addFileEntry.getPath()).toFile());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(
+                    new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
+                    Optional.empty());
+        FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
+        PrimitiveType physicalType = getOnlyElement(fileMetaData.getSchema().getColumns().iterator()).getPrimitiveType();
+        assertThat(physicalType.getName()).isEqualTo(physicalName);
+        if (columnMappingMode.equals("id")) {
+            assertThat(physicalType.getId().intValue()).isEqualTo(id);
+        }
+        else {
+            assertThat(physicalType.getId()).isNull();
+        }
     }
 
     @DataProvider
