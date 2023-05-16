@@ -1582,7 +1582,7 @@ public class TestCassandraConnectorTest
         }
     }
 
-    private MaterializedResult execute(String sql)
+    private MaterializedResult execute(@Language("SQL") String sql)
     {
         return getQueryRunner().execute(SESSION, sql);
     }
