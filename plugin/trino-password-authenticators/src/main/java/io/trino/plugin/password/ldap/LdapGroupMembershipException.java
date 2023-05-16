@@ -13,28 +13,20 @@
  */
 package io.trino.plugin.password.ldap;
 
-import com.google.common.io.Closer;
-import org.testcontainers.containers.Network;
+import io.trino.spi.TrinoException;
 
-import java.io.Closeable;
-import java.io.IOException;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 
-public class TestingOpenLdapServer
-        extends TestingOpenLdapServerBase
-        implements Closeable
+public class LdapGroupMembershipException
+        extends TrinoException
 {
-    private final Closer closer = Closer.create();
-
-    TestingOpenLdapServer(Network network)
+    public LdapGroupMembershipException(String message)
     {
-        super(network, "ghcr.io/trinodb/testing/centos7-oj17-openldap");
-        closer.register(openLdapServer::close);
+        this(message, null);
     }
 
-    @Override
-    public void close()
-            throws IOException
+    public LdapGroupMembershipException(String message, Throwable cause)
     {
-        closer.close();
+        super(CONFIGURATION_INVALID, message, cause);
     }
 }

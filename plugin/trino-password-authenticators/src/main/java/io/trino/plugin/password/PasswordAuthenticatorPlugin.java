@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.password.file.FileAuthenticatorFactory;
 import io.trino.plugin.password.file.FileGroupProviderFactory;
 import io.trino.plugin.password.ldap.LdapAuthenticatorFactory;
+import io.trino.plugin.password.ldap.LdapGroupProviderFactory;
 import io.trino.plugin.password.salesforce.SalesforceAuthenticatorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.security.GroupProviderFactory;
@@ -38,6 +39,9 @@ public class PasswordAuthenticatorPlugin
     @Override
     public Iterable<GroupProviderFactory> getGroupProviderFactories()
     {
-        return ImmutableList.of(new FileGroupProviderFactory());
+        return ImmutableList.<GroupProviderFactory>builder()
+                .add(new FileGroupProviderFactory())
+                .add(new LdapGroupProviderFactory())
+                .build();
     }
 }

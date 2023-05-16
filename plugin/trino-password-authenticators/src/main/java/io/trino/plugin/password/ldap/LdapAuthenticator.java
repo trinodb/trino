@@ -65,7 +65,8 @@ public class LdapAuthenticator
         this.client = requireNonNull(client, "client is null");
 
         this.userBindSearchPatterns = ldapAuthenticatorConfig.getUserBindSearchPatterns();
-        this.groupAuthorizationSearchPattern = Optional.ofNullable(ldapAuthenticatorConfig.getGroupAuthorizationSearchPattern());
+        this.groupAuthorizationSearchPattern =
+                Optional.ofNullable(ldapAuthenticatorConfig.getGroupAuthorizationSearchPattern());
         this.userBaseDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getUserBaseDistinguishedName());
         this.bindDistinguishedName = Optional.ofNullable(ldapAuthenticatorConfig.getBindDistingushedName());
         this.bindPassword = Optional.ofNullable(ldapAuthenticatorConfig.getBindPassword());
@@ -94,7 +95,8 @@ public class LdapAuthenticator
     @VisibleForTesting
     void invalidateCache()
     {
-        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github.com/google/guava/issues/1881)
+        // Note: this may not invalidate ongoing loads (https://github.com/trinodb/trino/issues/10512, https://github
+        // .com/google/guava/issues/1881)
         // This is acceptable, since this operation is invoked in tests only, and not relied upon for correctness.
         authenticationCache.invalidateAll();
     }
@@ -125,7 +127,8 @@ public class LdapAuthenticator
                     // user password is also validated as user DN and password is used for querying LDAP
                     String searchBase = userBaseDistinguishedName.orElseThrow();
                     String groupSearch = replaceUser(groupAuthorizationSearchPattern.get(), user);
-                    if (!client.isGroupMember(searchBase, groupSearch, userDistinguishedName, credential.getPassword())) {
+                    if (!client.isGroupMember(searchBase, groupSearch, userDistinguishedName,
+                            credential.getPassword())) {
                         String message = format("User [%s] not a member of an authorized group", user);
                         log.debug("%s", message);
                         throw new AccessDeniedException(message);
@@ -170,7 +173,9 @@ public class LdapAuthenticator
      * Returns {@code true} when parameter contains a character that has a special meaning in
      * LDAP search or bind name (DN).
      * <p>
-     * Based on <a href="https://www.owasp.org/index.php/Preventing_LDAP_Injection_in_Java">Preventing_LDAP_Injection_in_Java</a> and
+     * Based on
+     * <a href="https://www.owasp.org/index.php/Preventing_LDAP_Injection_in_Java">Preventing_LDAP_Injection_in_Java</a>
+     * and
      * {@link javax.naming.ldap.Rdn#escapeValue(Object) escapeValue} method.
      */
     @VisibleForTesting
@@ -187,7 +192,8 @@ public class LdapAuthenticator
     {
         String searchBase = userBaseDistinguishedName.orElseThrow();
         String searchFilter = replaceUser(groupAuthorizationSearchPattern.orElseThrow(), user);
-        Set<String> userDistinguishedNames = client.lookupUserDistinguishedNames(searchBase, searchFilter, bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow());
+        Set<String> userDistinguishedNames = client.lookupUserDistinguishedNames(searchBase, searchFilter,
+                bindDistinguishedName.orElseThrow(), bindPassword.orElseThrow());
 
         if (userDistinguishedNames.isEmpty()) {
             String message = format("User [%s] not a member of an authorized group", user);
@@ -195,14 +201,15 @@ public class LdapAuthenticator
             throw new AccessDeniedException(message);
         }
         if (userDistinguishedNames.size() > 1) {
-            String message = format("Multiple group membership results for user [%s]: %s", user, userDistinguishedNames);
+            String message = format("Multiple group membership results for user [%s]: %s", user,
+                    userDistinguishedNames);
             log.debug("%s", message);
             throw new AccessDeniedException(message);
         }
         return getOnlyElement(userDistinguishedNames);
     }
 
-    private static String replaceUser(String pattern, String user)
+    static String replaceUser(String pattern, String user)
     {
         return pattern.replace("${USER}", user);
     }

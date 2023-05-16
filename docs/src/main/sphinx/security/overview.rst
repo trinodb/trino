@@ -115,6 +115,8 @@ providers to Trino user names.
   (``alice``).
 * :doc:`File group provider <group-file>` provides a way to assign a set
   of user names to a group name to ease access control.
+* :doc:`LDAP group provider <group-ldap>` uses LDAP to query user names
+  and find their group membership's to ease access control.
 
 .. _cl-access-control:
 

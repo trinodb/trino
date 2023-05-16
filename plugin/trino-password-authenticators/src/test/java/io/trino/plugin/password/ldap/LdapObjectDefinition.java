@@ -14,10 +14,10 @@
 package io.trino.plugin.password.ldap;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,14 +25,14 @@ public class LdapObjectDefinition
 {
     private final String id;
     private final String distinguishedName;
-    private final Map<String, String> attributes;
+    private final Multimap<String, String> attributes;
     private final List<String> objectClasses;
 
-    private LdapObjectDefinition(String id, String distinguishedName, Map<String, String> attributes, List<String> objectClasses)
+    private LdapObjectDefinition(String id, String distinguishedName, Multimap<String, String> attributes, List<String> objectClasses)
     {
         this.id = requireNonNull(id, "id is null");
         this.distinguishedName = requireNonNull(distinguishedName, "distinguishedName is null");
-        this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
+        this.attributes = ImmutableMultimap.copyOf(requireNonNull(attributes, "attributes is null"));
         this.objectClasses = ImmutableList.copyOf(requireNonNull(objectClasses, "objectClasses is null"));
     }
 
@@ -46,7 +46,7 @@ public class LdapObjectDefinition
         return objectClasses;
     }
 
-    public Map<String, String> getAttributes()
+    public Multimap<String, String> getAttributes()
     {
         return attributes;
     }
@@ -66,7 +66,7 @@ public class LdapObjectDefinition
         private String id;
         private String distinguishedName;
         private List<String> objectClasses;
-        private Map<String, String> attributes;
+        private Multimap<String, String> attributes;
 
         private LdapObjectDefinitionBuilder(String id)
         {
@@ -84,9 +84,9 @@ public class LdapObjectDefinition
             return this;
         }
 
-        public LdapObjectDefinitionBuilder setAttributes(Map<String, String> attributes)
+        public LdapObjectDefinitionBuilder setAttributes(Multimap<String, String> attributes)
         {
-            this.attributes = ImmutableMap.copyOf(attributes);
+            this.attributes = ImmutableMultimap.copyOf(attributes);
             return this;
         }
 

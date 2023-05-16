@@ -17,7 +17,6 @@ import com.google.common.io.Closer;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.ldap.JdkLdapClient;
 import io.trino.plugin.base.ldap.LdapClientConfig;
-import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.BasicPrincipal;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.ToxiproxyContainer;

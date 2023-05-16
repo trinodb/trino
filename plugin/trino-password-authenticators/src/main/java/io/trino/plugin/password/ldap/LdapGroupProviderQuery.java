@@ -13,28 +13,12 @@
  */
 package io.trino.plugin.password.ldap;
 
-import com.google.common.io.Closer;
-import org.testcontainers.containers.Network;
+import io.trino.spi.security.AccessDeniedException;
 
-import java.io.Closeable;
-import java.io.IOException;
+import java.util.Set;
 
-public class TestingOpenLdapServer
-        extends TestingOpenLdapServerBase
-        implements Closeable
+public interface LdapGroupProviderQuery
 {
-    private final Closer closer = Closer.create();
-
-    TestingOpenLdapServer(Network network)
-    {
-        super(network, "ghcr.io/trinodb/testing/centos7-oj17-openldap");
-        closer.register(openLdapServer::close);
-    }
-
-    @Override
-    public void close()
-            throws IOException
-    {
-        closer.close();
-    }
+    Set<String> getGroupsWithBindDistinguishedName(LdapGroupProvider ldapGroupProvider, String userSearchFilter)
+            throws AccessDeniedException;
 }
