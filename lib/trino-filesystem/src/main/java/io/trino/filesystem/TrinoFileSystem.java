@@ -153,11 +153,19 @@ public interface TrinoFileSystem
             throws IOException;
 
     /**
-     * Checks if a directory exists at the specified location. For non-hierarchical file systems
-     * an empty Optional is returned.
+     * Checks if a directory exists at the specified location. For all file system types,
+     * this returns <tt>true</tt> if the location is empty (the root of the file system)
+     * or if any files exist within the directory, as determined by {@link #listFiles(Location)}.
+     * Otherwise:
+     * <ul>
+     * <li>For hierarchical file systems, this returns <tt>true</tt> if the
+     *     location is an empty directory, else it returns <tt>false</tt>.
+     * <li>For non-hierarchical file systems, an <tt>Optional.empty()</tt> is returned,
+     *     indicating that the file system has no concept of an empty directory.
+     * </ul>
      *
      * @param location the location to check for a directory
-     * @throws IOException if the location is not valid for this file system
+     * @throws IllegalArgumentException if the location is not valid for this file system
      */
     Optional<Boolean> directoryExists(Location location)
             throws IOException;
