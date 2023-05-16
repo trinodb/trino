@@ -157,7 +157,8 @@ public final class Standard
         else {
             container.withHealthCheck(dockerFiles.getDockerFilesHostPath("health-checks/health.sh"));
         }
-        return container;
+
+        return jdkProvider.applyTo(container);
     }
 
     private static void enableTrinoJavaDebugger(DockerContainer dockerContainer)

@@ -17,21 +17,27 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 
 import static io.trino.tests.product.launcher.Configurations.nameForJdkProvider;
 
-public interface JdkProvider
+public class BuiltInJdkProvider
+        implements JdkProvider
 {
-    DockerContainer applyTo(DockerContainer container);
+    public static final String BUILT_IN_NAME = nameForJdkProvider(BuiltInJdkProvider.class);
 
-    String getJavaHome();
-
-    String getDescription();
-
-    default String getJavaCommand()
+    @Override
+    public DockerContainer applyTo(DockerContainer container)
     {
-        return getJavaHome() + "/bin/java";
+        return container;
     }
 
-    default String getName()
+    @Override
+    public String getJavaHome()
     {
-        return nameForJdkProvider(this.getClass());
+        // This is provided by docker image
+        return "/usr/lib/jvm/zulu-17";
+    }
+
+    @Override
+    public String getDescription()
+    {
+        return "JDK provider by base image";
     }
 }
