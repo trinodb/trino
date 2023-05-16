@@ -14,8 +14,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <!-- e.g. TestFileSystemCache asserts on static global state -->
-        <air.test.thread-count>1</air.test.thread-count>
         <!-- Move TestFileSystemCache to separate profile to isolate it from interactions coming
              from other threads against the global file system cache, resulting in flaky CI -->
         <isolatedJvmTests>**/TestFileSystemCache.java</isolatedJvmTests>
