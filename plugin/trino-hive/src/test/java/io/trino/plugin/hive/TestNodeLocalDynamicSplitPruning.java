@@ -245,6 +245,12 @@ public class TestNodeLocalDynamicSplitPruning
             {
                 return tupleDomain;
             }
+
+            @Override
+            public long getPreferredDynamicFilterTimeout()
+            {
+                return 0;
+            }
         };
     }
 }

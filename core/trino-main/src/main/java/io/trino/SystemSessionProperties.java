@@ -139,6 +139,8 @@ public final class SystemSessionProperties
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION = "enable_coordinator_dynamic_filters_distribution";
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
+    public static final String SMALL_DYNAMIC_FILTER_WAIT_TIMEOUT = "small_dynamic_filter_wait_timeout";
+    public static final String SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT = "small_dynamic_filter_max_row_count";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
@@ -683,6 +685,16 @@ public final class SystemSessionProperties
                         ENABLE_LARGE_DYNAMIC_FILTERS,
                         "Enable collection of large dynamic filters",
                         dynamicFilterConfig.isEnableLargeDynamicFilters(),
+                        false),
+                durationProperty(
+                        SMALL_DYNAMIC_FILTER_WAIT_TIMEOUT,
+                        "Maximum time to wait for small dynamic filter before table scan is started",
+                        dynamicFilterConfig.getSmallDynamicFilterWaitTimeout(),
+                        false),
+                longProperty(
+                        SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT,
+                        "Maximum number of rows for dynamic filter to be considered small",
+                        dynamicFilterConfig.getSmallDynamicFilterMaxRowCount(),
                         false),
                 dataSizeProperty(
                         QUERY_MAX_MEMORY_PER_NODE,
@@ -1560,6 +1572,16 @@ public final class SystemSessionProperties
     public static boolean isEnableLargeDynamicFilters(Session session)
     {
         return session.getSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, Boolean.class);
+    }
+
+    public static Duration getSmallDynamicFilterWaitTimeout(Session session)
+    {
+        return session.getSystemProperty(SMALL_DYNAMIC_FILTER_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static long getSmallDynamicFilterMaxRowCount(Session session)
+    {
+        return session.getSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, Long.class);
     }
 
     public static DataSize getQueryMaxMemoryPerNode(Session session)

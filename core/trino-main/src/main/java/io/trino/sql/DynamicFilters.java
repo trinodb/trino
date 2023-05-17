@@ -22,12 +22,14 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
@@ -38,6 +40,8 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 
@@ -51,11 +55,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.StandardTypes.BOOLEAN;
+import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.StandardTypes.VARCHAR;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class DynamicFilters
@@ -80,12 +86,33 @@ public final class DynamicFilters
             ComparisonExpression.Operator operator,
             boolean nullAllowed)
     {
+        return createDynamicFilterExpression(metadata, id, inputType, input, operator, nullAllowed, Optional.empty());
+    }
+
+    @VisibleForTesting
+    public static Expression createDynamicFilterExpression(
+            Metadata metadata,
+            DynamicFilterId id,
+            Type inputType,
+            Expression input,
+            ComparisonExpression.Operator operator,
+            boolean nullAllowed,
+            Optional<Long> minDynamicFilterTimeout)
+    {
+        Expression timeoutExpression;
+        if (minDynamicFilterTimeout.isEmpty()) {
+            timeoutExpression = new NullLiteral();
+        }
+        else {
+            timeoutExpression = new LongLiteral(Long.toString(minDynamicFilterTimeout.get()));
+        }
         return BuiltinFunctionCallBuilder.resolve(metadata)
                 .setName(nullAllowed ? NullableFunction.NAME : Function.NAME)
                 .addArgument(inputType, input)
                 .addArgument(VarcharType.VARCHAR, new StringLiteral(operator.toString()))
                 .addArgument(VarcharType.VARCHAR, new StringLiteral(id.toString()))
                 .addArgument(BooleanType.BOOLEAN, nullAllowed ? TRUE_LITERAL : FALSE_LITERAL)
+                .addArgument(IntegerType.INTEGER, timeoutExpression)
                 .build();
     }
 
@@ -124,7 +151,8 @@ public final class DynamicFilters
                                 descriptor.getId(),
                                 extractSourceSymbol(descriptor).toSymbolReference(),
                                 descriptor.getOperator(),
-                                descriptor.isNullAllowed())));
+                                descriptor.isNullAllowed(),
+                                descriptor.getPreferredTimeout())));
     }
 
     private static Symbol extractSourceSymbol(DynamicFilters.Descriptor descriptor)
@@ -153,7 +181,29 @@ public final class DynamicFilters
                         dynamicFilterFunctionCall.getArguments().get(0),
                         dynamicFilterFunctionCall.getArguments().get(1),
                         new StringLiteral(newId.toString()), // dynamic filter id is the 3rd argument
-                        dynamicFilterFunctionCall.getArguments().get(3)));
+                        dynamicFilterFunctionCall.getArguments().get(3),
+                        dynamicFilterFunctionCall.getArguments().get(4)));
+    }
+
+    public static Expression replaceDynamicFilterTimeout(FunctionCall dynamicFilterFunctionCall, long timeout)
+    {
+        LongLiteral timeoutArgument = new LongLiteral(Long.toString(timeout));
+
+        return new FunctionCall(
+                dynamicFilterFunctionCall.getLocation(),
+                dynamicFilterFunctionCall.getName(),
+                dynamicFilterFunctionCall.getWindow(),
+                dynamicFilterFunctionCall.getFilter(),
+                dynamicFilterFunctionCall.getOrderBy(),
+                dynamicFilterFunctionCall.isDistinct(),
+                dynamicFilterFunctionCall.getNullTreatment(),
+                dynamicFilterFunctionCall.getProcessingMode(),
+                ImmutableList.of(
+                        dynamicFilterFunctionCall.getArguments().get(0),
+                        dynamicFilterFunctionCall.getArguments().get(1),
+                        dynamicFilterFunctionCall.getArguments().get(2),
+                        dynamicFilterFunctionCall.getArguments().get(3),
+                        timeoutArgument));
     }
 
     public static boolean isDynamicFilter(Expression expression)
@@ -172,7 +222,7 @@ public final class DynamicFilters
         }
 
         List<Expression> arguments = functionCall.getArguments();
-        checkArgument(arguments.size() == 4, "invalid arguments count: %s", arguments.size());
+        checkArgument(arguments.size() == 5, "invalid arguments count: %s", arguments.size());
 
         Expression probeSymbol = arguments.get(0);
 
@@ -188,7 +238,20 @@ public final class DynamicFilters
         Expression nullAllowedExpression = arguments.get(3);
         checkArgument(nullAllowedExpression instanceof BooleanLiteral, "nullAllowedExpression is expected to be an instance of BooleanLiteral: %s", nullAllowedExpression.getClass().getSimpleName());
         boolean nullAllowed = ((BooleanLiteral) nullAllowedExpression).getValue();
-        return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed));
+
+        Expression timeoutExpression = arguments.get(4);
+        Optional<Long> timeout;
+        if (timeoutExpression instanceof NullLiteral) {
+            timeout = Optional.empty();
+        }
+        else if (timeoutExpression instanceof LongLiteral longTimeoutLiteral) {
+            timeout = Optional.of(longTimeoutLiteral.getParsedValue());
+        }
+        else {
+            throw new IllegalArgumentException(format("timeout is expected to be an instance of LongLiteral or NullLiteral: %s", timeoutExpression.getClass().getSimpleName()));
+        }
+
+        return Optional.of(new Descriptor(new DynamicFilterId(id), probeSymbol, operator, nullAllowed, timeout));
     }
 
     private static boolean isDynamicFilterFunction(FunctionCall functionCall)
@@ -225,19 +288,21 @@ public final class DynamicFilters
         private final Expression input;
         private final ComparisonExpression.Operator operator;
         private final boolean nullAllowed;
+        private final Optional<Long> preferredTimeout;
 
-        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator, boolean nullAllowed)
+        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator, boolean nullAllowed, Optional<Long> preferredTimeout)
         {
             this.id = requireNonNull(id, "id is null");
             this.input = requireNonNull(input, "input is null");
             this.operator = requireNonNull(operator, "operator is null");
             checkArgument(!nullAllowed || operator == EQUAL, "nullAllowed should be true only with EQUAL operator");
             this.nullAllowed = nullAllowed;
+            this.preferredTimeout = requireNonNull(preferredTimeout, "preferredTimeout is null");
         }
 
         public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator)
         {
-            this(id, input, operator, false);
+            this(id, input, operator, false, Optional.empty());
         }
 
         public Descriptor(DynamicFilterId id, Expression input)
@@ -265,6 +330,11 @@ public final class DynamicFilters
             return nullAllowed;
         }
 
+        public Optional<Long> getPreferredTimeout()
+        {
+            return preferredTimeout;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -278,7 +348,8 @@ public final class DynamicFilters
             return Objects.equals(id, that.id) &&
                     Objects.equals(input, that.input) &&
                     Objects.equals(operator, that.operator) &&
-                    nullAllowed == that.nullAllowed;
+                    nullAllowed == that.nullAllowed &&
+                    preferredTimeout.equals(that.preferredTimeout);
         }
 
         @Override
@@ -295,6 +366,7 @@ public final class DynamicFilters
                     .add("input", input)
                     .add("operator", operator)
                     .add("nullAllowed", nullAllowed)
+                    .add("timeout", preferredTimeout.orElse(null))
                     .toString();
         }
 
@@ -349,28 +421,28 @@ public final class DynamicFilters
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") Object input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        public static boolean dynamicFilter(@SqlType("T") Object input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed, @SqlNullable @SqlType(INTEGER) Long timeout)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") long input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        public static boolean dynamicFilter(@SqlType("T") long input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed, @SqlNullable @SqlType(INTEGER) Long timeout)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") boolean input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        public static boolean dynamicFilter(@SqlType("T") boolean input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed, @SqlNullable @SqlType(INTEGER) Long timeout)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") double input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        public static boolean dynamicFilter(@SqlType("T") double input, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed, @SqlNullable @SqlType(INTEGER) Long timeout)
         {
             throw new UnsupportedOperationException();
         }
@@ -389,28 +461,28 @@ public final class DynamicFilters
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") Object input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        public static boolean dynamicFilter(@SqlType("T") Object input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed, @SqlNullable @SqlType(INTEGER) Long timeout)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") long input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        public static boolean dynamicFilter(@SqlType("T") long input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed, @SqlNullable @SqlType(INTEGER) Long timeout)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") boolean input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        public static boolean dynamicFilter(@SqlType("T") boolean input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed, @SqlNullable @SqlType(INTEGER) Long timeout)
         {
             throw new UnsupportedOperationException();
         }
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType("T") double input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed)
+        public static boolean dynamicFilter(@SqlType("T") double input, @IsNull boolean inputNull, @SqlType(VARCHAR) Slice operator, @SqlType(VARCHAR) Slice id, @SqlType(BOOLEAN) boolean nullAllowed, @SqlNullable @SqlType(INTEGER) Long timeout)
         {
             throw new UnsupportedOperationException();
         }

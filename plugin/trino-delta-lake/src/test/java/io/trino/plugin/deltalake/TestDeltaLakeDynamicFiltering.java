@@ -195,6 +195,12 @@ public class TestDeltaLakeDynamicFiltering
         {
             return TupleDomain.all();
         }
+
+        @Override
+        public long getPreferredDynamicFilterTimeout()
+        {
+            return 0;
+        }
     }
 
     private static class QueryInputStats

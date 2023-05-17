@@ -28,26 +28,25 @@ import io.trino.testing.TestingSplitManager;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
+import static java.lang.Thread.sleep;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJdbcDynamicFilteringSplitManager
 {
     private static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create();
-    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
-            .setPropertyMetadata(new JdbcDynamicFilteringSessionProperties(new JdbcDynamicFilteringConfig()).getSessionProperties())
-            .setPropertyValues(ImmutableMap.of(
-                    DYNAMIC_FILTERING_WAIT_TIMEOUT, "3s",
-                    DYNAMIC_FILTERING_ENABLED, true))
-            .build();
     private static final JdbcTableHandle TABLE_HANDLE = new JdbcTableHandle(
             new SchemaTableName("schema", "table"),
             new RemoteTableName(Optional.empty(), Optional.empty(), "table"),
@@ -83,27 +82,138 @@ public class TestJdbcDynamicFilteringSplitManager
         {
             return TupleDomain.all();
         }
+
+        @Override
+        public long getPreferredDynamicFilterTimeout()
+        {
+            return 0;
+        }
     };
 
     @Test
     public void testBlockingTimeout()
             throws Exception
     {
-        JdbcDynamicFilteringSplitManager manager = new JdbcDynamicFilteringSplitManager(
-                new TestingSplitManager(ImmutableList.of()),
-                new DynamicFilteringStats());
-        ConnectorSplitSource splitSource = manager.getSplits(
-                TRANSACTION_HANDLE,
-                SESSION,
-                TABLE_HANDLE,
-                BLOCKED_DYNAMIC_FILTER,
-                alwaysTrue());
-
+        TestingConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(new JdbcDynamicFilteringSessionProperties(new JdbcDynamicFilteringConfig()).getSessionProperties())
+                .setPropertyValues(ImmutableMap.of(
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT, "3s",
+                        DYNAMIC_FILTERING_ENABLED, true))
+                .build();
+        ConnectorSplitSource splitSource = getConnectorSplitSource(session, BLOCKED_DYNAMIC_FILTER);
         // verify that getNextBatch() future completes after a timeout
         CompletableFuture<?> future = splitSource.getNextBatch(100);
         assertThat(future.isDone()).isFalse();
         future.get(10, SECONDS);
         assertThat(splitSource.isFinished()).isTrue();
         splitSource.close();
+    }
+
+    @Test
+    public void testMinDynamicFilterBlockingTimeout()
+            throws Exception
+    {
+        TestingConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(new JdbcDynamicFilteringSessionProperties(new JdbcDynamicFilteringConfig()).getSessionProperties())
+                .setPropertyValues(ImmutableMap.of(
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT, "0s",
+                        DYNAMIC_FILTERING_ENABLED, true))
+                .build();
+
+        ConnectorSplitSource splitSource = getConnectorSplitSource(session,
+                new DynamicFilter()
+                {
+                    final List<CompletableFuture<Void>> lazyDynamicFilterFutures = List.of(
+                            createCompletableFuture(1),
+                            createCompletableFuture(2));
+
+                    @Override
+                    public Set<ColumnHandle> getColumnsCovered()
+                    {
+                        return ImmutableSet.of();
+                    }
+
+                    @Override
+                    public CompletableFuture<?> isBlocked()
+                    {
+                        return unmodifiableFuture(CompletableFuture.anyOf(getUndoneFutures().toArray(new CompletableFuture[0])));
+                    }
+
+                    @Override
+                    public boolean isComplete()
+                    {
+                        return getUndoneFutures().isEmpty();
+                    }
+
+                    @Override
+                    public boolean isAwaitable()
+                    {
+                        return !isComplete();
+                    }
+
+                    @Override
+                    public TupleDomain<ColumnHandle> getCurrentPredicate()
+                    {
+                        return TupleDomain.all();
+                    }
+
+                    @Override
+                    public long getPreferredDynamicFilterTimeout()
+                    {
+                        return getUndoneFutures().isEmpty() ? 0L : 3000L;
+                    }
+
+                    private List<CompletableFuture<Void>> getUndoneFutures()
+                    {
+                        return lazyDynamicFilterFutures.stream()
+                                .filter(future -> !future.isDone())
+                                .collect(toImmutableList());
+                    }
+                });
+
+        // verify that getNextBatch() future completes after a min dynamic filter timeout
+        CompletableFuture<?> future = splitSource.getNextBatch(100);
+        assertFalse(future.isDone());
+        future.get(10, SECONDS);
+        // first narrow down of DF is completed
+        assertTrue(future.isDone());
+        // whole DF is not completed, still min dynamic filter timeout remains
+        assertFalse(splitSource.isFinished());
+        future = splitSource.getNextBatch(100);
+        // second narrow down of DF is ongoing
+        assertFalse(future.isDone());
+        future.get(10, SECONDS);
+        // second narrow down of DF is completed
+        assertTrue(future.isDone());
+        assertTrue(splitSource.isFinished());
+
+        splitSource.close();
+    }
+
+    private static ConnectorSplitSource getConnectorSplitSource(ConnectorSession session, DynamicFilter blockedDynamicFilter)
+    {
+        JdbcDynamicFilteringSplitManager manager = new JdbcDynamicFilteringSplitManager(
+                new TestingSplitManager(ImmutableList.of()),
+                new DynamicFilteringStats());
+
+        return manager.getSplits(
+                TRANSACTION_HANDLE,
+                session,
+                TABLE_HANDLE,
+                blockedDynamicFilter,
+                alwaysTrue());
+    }
+
+    private CompletableFuture<Void> createCompletableFuture(long completionTimeSeconds)
+    {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                sleep(SECONDS.toMillis(completionTimeSeconds));
+            }
+            catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return null;
+        });
     }
 }

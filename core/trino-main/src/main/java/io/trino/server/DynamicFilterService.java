@@ -71,6 +71,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -288,10 +289,10 @@ public class DynamicFilterService
             return EMPTY;
         }
 
-        List<ListenableFuture<Void>> lazyDynamicFilterFutures = dynamicFilters.stream()
-                .map(context.getLazyDynamicFilters()::get)
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
+        Map<DynamicFilterId, ListenableFuture<Void>> lazyDynamicFilterFutures = dynamicFilters.stream()
+                .filter(dynamicFilterId -> context.getLazyDynamicFilters().containsKey(dynamicFilterId))
+                .collect(toImmutableMap(Function.identity(), dynamicFilterId -> context.getLazyDynamicFilters().get(dynamicFilterId)));
+
         AtomicReference<CurrentDynamicFilter> currentDynamicFilter = new AtomicReference<>(new CurrentDynamicFilter(0, TupleDomain.all()));
 
         Set<ColumnHandle> columnsCovered = symbolsMap.values().stream()
@@ -299,6 +300,12 @@ public class DynamicFilterService
                 .map(Symbol::from)
                 .map(probeSymbol -> requireNonNull(columnHandles.get(probeSymbol), () -> "Missing probe column for " + probeSymbol))
                 .collect(toImmutableSet());
+
+        Map<DynamicFilterId, Long> dynamicFilterTimeouts = dynamicFilterDescriptors.stream()
+                .collect(toImmutableMap(
+                        DynamicFilters.Descriptor::getId,
+                        descriptor -> descriptor.getPreferredTimeout().orElse(0L),
+                        Long::max));
 
         return new DynamicFilter()
         {
@@ -312,7 +319,7 @@ public class DynamicFilterService
             public CompletableFuture<?> isBlocked()
             {
                 // wait for any of the requested dynamic filter domains to be completed
-                List<ListenableFuture<Void>> undoneFutures = lazyDynamicFilterFutures.stream()
+                List<ListenableFuture<Void>> undoneFutures = lazyDynamicFilterFutures.values().stream()
                         .filter(future -> !future.isDone())
                         .collect(toImmutableList());
 
@@ -333,7 +340,7 @@ public class DynamicFilterService
             @Override
             public boolean isAwaitable()
             {
-                return lazyDynamicFilterFutures.stream()
+                return lazyDynamicFilterFutures.values().stream()
                         .anyMatch(future -> !future.isDone());
             }
 
@@ -364,6 +371,18 @@ public class DynamicFilterService
                 // will be updated again with most accurate dynamic filter.
                 currentDynamicFilter.set(new CurrentDynamicFilter(completedDynamicFilters.size(), dynamicFilter));
                 return dynamicFilter;
+            }
+
+            @Override
+            public long getPreferredDynamicFilterTimeout()
+            {
+                Optional<Long> additionalTimeout = lazyDynamicFilterFutures.entrySet().stream()
+                        .filter(entry -> !entry.getValue().isDone())
+                        .map(entry -> dynamicFilterTimeouts.get(entry.getKey()))
+                        .filter(Objects::nonNull)
+                        .max(Long::compareTo);
+
+                return additionalTimeout.orElse(0L);
             }
         };
     }

@@ -1065,6 +1065,11 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method java.lang.String io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext::getVersion()</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method long io.trino.spi.connector.DynamicFilter::getPreferredDynamicFilterTimeout()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

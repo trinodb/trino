@@ -207,6 +207,12 @@ public class TestIcebergSplitSource
                     {
                         return TupleDomain.all();
                     }
+
+                    @Override
+                    public long getPreferredDynamicFilterTimeout()
+                    {
+                        return 0;
+                    }
                 },
                 new Duration(2, SECONDS),
                 alwaysTrue(),

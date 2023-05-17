@@ -53,6 +53,12 @@ public interface DynamicFilter
         {
             return TupleDomain.all();  // no filtering
         }
+
+        @Override
+        public long getPreferredDynamicFilterTimeout()
+        {
+            return 0;
+        }
     };
 
     /**
@@ -81,4 +87,12 @@ public interface DynamicFilter
     boolean isAwaitable();
 
     TupleDomain<ColumnHandle> getCurrentPredicate();
+
+    /**
+     * Returns preferred timeout in milliseconds that connector should wait
+     * for the dynamic filter to be narrowed down since split enumeration started.
+     * Future from {@link DynamicFilter#isBlocked()} method should be acquired before getting preferred dynamic filter timeout.
+     * This timeout needs to be re-checked whenever connector decides to wait for dynamic filter.
+     */
+    long getPreferredDynamicFilterTimeout();
 }

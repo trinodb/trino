@@ -28,11 +28,13 @@ import io.trino.spi.connector.DynamicFilter;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.Duration.succinctNanos;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.dynamicFilteringEnabled;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -116,7 +118,8 @@ public class JdbcDynamicFilteringSplitManager
         @Override
         public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
         {
-            long remainingTimeoutNanos = getRemainingTimeoutNanos();
+            CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+            long remainingTimeoutNanos = getRemainingTimeoutNanos(dynamicFilter);
             if (remainingTimeoutNanos > 0 && dynamicFilter.isAwaitable()) {
                 log.debug(
                         "Waiting for dynamic filter (query: %s, table: %s, remaining timeout: %s)",
@@ -124,7 +127,7 @@ public class JdbcDynamicFilteringSplitManager
                         table,
                         succinctNanos(remainingTimeoutNanos));
                 // wait for dynamic filter and yield
-                return dynamicFilter.isBlocked()
+                return blocked
                         .thenApply(ignored -> EMPTY_BATCH)
                         .completeOnTimeout(EMPTY_BATCH, remainingTimeoutNanos, NANOSECONDS);
             }
@@ -149,16 +152,17 @@ public class JdbcDynamicFilteringSplitManager
         @Override
         public boolean isFinished()
         {
-            if (getRemainingTimeoutNanos() > 0 && dynamicFilter.isAwaitable()) {
+            if (getRemainingTimeoutNanos(dynamicFilter) > 0 && dynamicFilter.isAwaitable()) {
                 return false;
             }
 
             return getDelegateSplitSource().isFinished();
         }
 
-        private long getRemainingTimeoutNanos()
+        private long getRemainingTimeoutNanos(DynamicFilter dynamicFilter)
         {
-            return dynamicFilteringTimeoutNanos - (System.nanoTime() - startNanos);
+            long preferredDynamicFilterTimeoutNanos = TimeUnit.MILLISECONDS.toNanos(dynamicFilter.getPreferredDynamicFilterTimeout());
+            return max(dynamicFilteringTimeoutNanos, preferredDynamicFilterTimeoutNanos) - (System.nanoTime() - startNanos);
         }
 
         private synchronized ConnectorSplitSource getDelegateSplitSource()

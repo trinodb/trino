@@ -15,9 +15,11 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -43,6 +45,8 @@ public class TestDynamicFilterConfig
                 .setSmallPartitionedRangeRowLimitPerDriver(500)
                 .setSmallPartitionedMaxSizePerOperator(DataSize.of(500, KILOBYTE))
                 .setSmallMaxSizePerFilter(DataSize.of(5, MEGABYTE))
+                .setSmallDynamicFilterWaitTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setSmallDynamicFilterMaxRowCount(100_000)
                 .setLargeMaxDistinctValuesPerDriver(10_000)
                 .setLargeMaxSizePerDriver(DataSize.of(2, MEGABYTE))
                 .setLargeRangeRowLimitPerDriver(20_000)
@@ -61,6 +65,8 @@ public class TestDynamicFilterConfig
                 .put("enable-dynamic-filtering", "false")
                 .put("enable-coordinator-dynamic-filters-distribution", "false")
                 .put("enable-large-dynamic-filters", "true")
+                .put("small-dynamic-filter.wait-timeout", "50s")
+                .put("small-dynamic-filter.max-row-count", "500000")
                 .put("dynamic-filtering.small.max-distinct-values-per-driver", "256")
                 .put("dynamic-filtering.small.max-size-per-driver", "64kB")
                 .put("dynamic-filtering.small.range-row-limit-per-driver", "20000")
@@ -85,6 +91,8 @@ public class TestDynamicFilterConfig
                 .setEnableDynamicFiltering(false)
                 .setEnableCoordinatorDynamicFiltersDistribution(false)
                 .setEnableLargeDynamicFilters(true)
+                .setSmallDynamicFilterMaxRowCount(500_000)
+                .setSmallDynamicFilterWaitTimeout(new Duration(50, TimeUnit.SECONDS))
                 .setSmallMaxDistinctValuesPerDriver(256)
                 .setSmallMaxSizePerDriver(DataSize.of(64, KILOBYTE))
                 .setSmallRangeRowLimitPerDriver(20000)

@@ -174,7 +174,7 @@ public class TestDynamicFiltersChecker
                         ImmutableMap.of(new DynamicFilterId("DF"), ordersOrderKeySymbol)));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
-                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false\\}\\] present in filter predicate whose source is not a table scan.");
+                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false, timeout=null\\}\\] present in filter predicate whose source is not a table scan.");
     }
 
     @Test
@@ -344,7 +344,7 @@ public class TestDynamicFiltersChecker
                 Optional.of(new DynamicFilterId("DF")));
         assertThatThrownBy(() -> validatePlan(root))
                 .isInstanceOf(VerifyException.class)
-                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false\\}\\] present in filter predicate whose source is not a table scan.");
+                .hasMessageMatching("Dynamic filters \\[Descriptor\\{id=DF, input=\"ORDERS_OK\", operator=EQUAL, nullAllowed=false, timeout=null\\}\\] present in filter predicate whose source is not a table scan.");
     }
 
     private void validatePlan(PlanNode root)

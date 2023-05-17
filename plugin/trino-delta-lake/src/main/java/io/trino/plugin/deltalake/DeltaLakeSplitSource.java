@@ -45,6 +45,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -99,9 +100,10 @@ public class DeltaLakeSplitSource
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
-        long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
+        CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+        long timeLeft = max(dynamicFilteringWaitTimeoutMillis, dynamicFilter.getPreferredDynamicFilterTimeout()) - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
         if (dynamicFilter.isAwaitable() && timeLeft > 0) {
-            return dynamicFilter.isBlocked()
+            return blocked
                     .thenApply(ignored -> EMPTY_BATCH)
                     .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
         }

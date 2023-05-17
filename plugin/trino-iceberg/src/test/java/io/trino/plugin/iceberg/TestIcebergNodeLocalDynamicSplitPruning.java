@@ -266,6 +266,12 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             {
                 return tupleDomain;
             }
+
+            @Override
+            public long getPreferredDynamicFilterTimeout()
+            {
+                return 0;
+            }
         };
     }
 }

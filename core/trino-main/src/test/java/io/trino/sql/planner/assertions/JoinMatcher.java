@@ -31,6 +31,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NotExpression;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -157,7 +158,9 @@ public final class JoinMatcher
                 .filter(descriptor -> dynamicFilterIds.contains(descriptor.getId()))
                 .collect(toImmutableList());
 
-        Set<Expression> actual = new HashSet<>();
+        Set<Expression> actualExpressions = new HashSet<>();
+        Map<Expression, Optional<Long>> actualTimeouts = new HashMap<>();
+
         for (DynamicFilters.Descriptor descriptor : descriptors) {
             Expression probe = descriptor.getInput();
             Symbol build = idToBuildSymbolMap.get(descriptor.getId());
@@ -171,14 +174,27 @@ public final class JoinMatcher
             else {
                 expression = new ComparisonExpression(descriptor.getOperator(), probe, build.toSymbolReference());
             }
-            actual.add(expression);
+            actualExpressions.add(expression);
+            if (descriptor.getPreferredTimeout().isPresent()) {
+                actualTimeouts.put(expression, descriptor.getPreferredTimeout());
+            }
         }
 
-        Set<Expression> expected = expectedDynamicFilter.get().stream()
-                .map(pattern -> pattern.getExpression(symbolAliases))
+        Map<Expression, Optional<Long>> expectedTimeouts = new HashMap<>();
+        Set<Expression> expectedExpressions = expectedDynamicFilter.get().stream()
+                .map(pattern -> {
+                    Expression expression = pattern.getExpression(symbolAliases);
+                    if (pattern.getPreferredTimeout().isPresent()) {
+                        expectedTimeouts.put(expression, pattern.getPreferredTimeout());
+                    }
+                    return expression;
+                })
                 .collect(toImmutableSet());
 
-        return expected.equals(actual);
+        boolean timeoutsMatch = expectedTimeouts.entrySet().stream()
+                .allMatch(expectedTimeout -> expectedTimeout.getValue().equals(actualTimeouts.get(expectedTimeout.getKey())));
+
+        return expectedExpressions.equals(actualExpressions) && timeoutsMatch;
     }
 
     @Override
@@ -248,6 +264,14 @@ public final class JoinMatcher
         public Builder dynamicFilter(String key, String value)
         {
             this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(key, EQUAL, value)));
+
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public Builder dynamicFilter(String key, String value, long timeout)
+        {
+            this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(PlanBuilder.expression(key), EQUAL, value, false, Optional.of(timeout))));
 
             return this;
         }

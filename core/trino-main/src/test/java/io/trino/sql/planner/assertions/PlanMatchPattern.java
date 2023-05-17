@@ -1230,6 +1230,7 @@ public final class PlanMatchPattern
         private final ComparisonExpression.Operator operator;
         private final SymbolAlias build;
         private final boolean nullAllowed;
+        private final Optional<Long> preferredTimeout;
 
         public DynamicFilterPattern(String probeExpression, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
         {
@@ -1237,15 +1238,37 @@ public final class PlanMatchPattern
                     PlanBuilder.expression(probeExpression),
                     operator,
                     buildAlias,
-                    nullAllowed);
+                    nullAllowed,
+                    Optional.empty());
         }
 
         public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed)
+        {
+            this(
+                    probe,
+                    operator,
+                    buildAlias,
+                    nullAllowed,
+                    Optional.empty());
+        }
+
+        public DynamicFilterPattern(String probeExpression, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed, Optional<Long> preferredTimeout)
+        {
+            this(
+                    PlanBuilder.expression(probeExpression),
+                    operator,
+                    buildAlias,
+                    nullAllowed,
+                    preferredTimeout);
+        }
+
+        public DynamicFilterPattern(Expression probe, ComparisonExpression.Operator operator, String buildAlias, boolean nullAllowed, Optional<Long> preferredTimeout)
         {
             this.probe = requireNonNull(probe, "probe is null");
             this.operator = requireNonNull(operator, "operator is null");
             this.build = new SymbolAlias(requireNonNull(buildAlias, "buildAlias is null"));
             this.nullAllowed = nullAllowed;
+            this.preferredTimeout = requireNonNull(preferredTimeout, "minDynamicFilterTimeout is null");
         }
 
         public DynamicFilterPattern(String probeAlias, ComparisonExpression.Operator operator, String buildAlias)
@@ -1269,6 +1292,11 @@ public final class PlanMatchPattern
                     build.toSymbol(aliases).toSymbolReference());
         }
 
+        public Optional<Long> getPreferredTimeout()
+        {
+            return preferredTimeout;
+        }
+
         private static SymbolMapper symbolMapper(SymbolAliases symbolAliases)
         {
             return new SymbolMapper(symbol -> Symbol.from(symbolAliases.get(symbol.getName())));
@@ -1281,6 +1309,7 @@ public final class PlanMatchPattern
                     .add("probe", probe)
                     .add("operator", operator)
                     .add("build", build)
+                    .add("preferredTimeout", preferredTimeout)
                     .toString();
         }
     }
