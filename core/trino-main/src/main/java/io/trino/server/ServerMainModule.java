@@ -35,6 +35,7 @@ import io.trino.client.NodeVersion;
 import io.trino.connector.system.SystemConnectorModule;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.event.SplitMonitor;
+import io.trino.event.SplitMonitorConfig;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.FailureInjectionConfig;
@@ -83,6 +84,7 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.operator.DirectExchangeClientConfig;
 import io.trino.operator.DirectExchangeClientFactory;
 import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.operator.DriverStats;
 import io.trino.operator.ForExchange;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OperatorFactories;
@@ -425,6 +427,8 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
 
         // split monitor
+        jsonCodecBinder(binder).bindJsonCodec(DriverStats.class);
+        configBinder(binder).bindConfig(SplitMonitorConfig.class);
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
 
         // version and announcement
