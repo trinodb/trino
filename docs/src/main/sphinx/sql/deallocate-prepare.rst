@@ -24,4 +24,4 @@ Deallocate a statement with the name ``my_query``::
 
 See also
 --------
-:doc:`prepare`, :doc:`execute:, :doc:`execute-immediate`
+:doc:`prepare`, :doc:`execute`, :doc:`execute-immediate`
