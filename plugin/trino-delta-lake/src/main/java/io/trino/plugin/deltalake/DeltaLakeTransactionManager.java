@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.security.ConnectorIdentity;
@@ -50,6 +51,11 @@ public class DeltaLakeTransactionManager
         return transactions.get(transaction).get(identity);
     }
 
+    public HiveMetastore getHiveMetastore(ConnectorTransactionHandle transaction, ConnectorIdentity identity)
+    {
+        return transactions.get(transaction).getHiveMetastore(identity);
+    }
+
     public void commit(ConnectorTransactionHandle transaction)
     {
         MemoizedMetadata deltaLakeMetadata = transactions.remove(transaction);
@@ -70,6 +76,8 @@ public class DeltaLakeTransactionManager
     private class MemoizedMetadata
     {
         @GuardedBy("this")
+        private HiveMetastore hiveMetastore;
+        @GuardedBy("this")
         private DeltaLakeMetadata metadata;
 
         public synchronized Optional<DeltaLakeMetadata> optionalGet()
@@ -79,12 +87,25 @@ public class DeltaLakeTransactionManager
 
         public synchronized DeltaLakeMetadata get(ConnectorIdentity identity)
         {
+            createIfAbsent(identity);
+            return metadata;
+        }
+
+        public HiveMetastore getHiveMetastore(ConnectorIdentity identity)
+        {
+            createIfAbsent(identity);
+            return hiveMetastore;
+        }
+
+        private void createIfAbsent(ConnectorIdentity identity)
+        {
             if (metadata == null) {
                 try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-                    metadata = metadataFactory.create(identity);
+                    // create per-transaction cache over hive metastore interface
+                    hiveMetastore = metadataFactory.createHiveMetastore(identity);
+                    metadata = metadataFactory.create(hiveMetastore);
                 }
             }
-            return metadata;
         }
     }
 }

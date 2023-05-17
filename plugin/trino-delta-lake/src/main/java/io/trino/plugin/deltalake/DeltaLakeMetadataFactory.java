@@ -23,8 +23,8 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManag
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.spi.NodeManager;
 import io.trino.spi.security.ConnectorIdentity;
@@ -104,9 +104,19 @@ public class DeltaLakeMetadataFactory
     public DeltaLakeMetadata create(ConnectorIdentity identity)
     {
         // create per-transaction cache over hive metastore interface
-        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(
+        HiveMetastore cachingHiveMetastore = createHiveMetastore(identity);
+        return create(cachingHiveMetastore);
+    }
+
+    public HiveMetastore createHiveMetastore(ConnectorIdentity identity)
+    {
+        return memoizeMetastore(
                 hiveMetastoreFactory.createMetastore(Optional.of(identity)),
                 perTransactionMetastoreCacheMaximumSize);
+    }
+
+    public DeltaLakeMetadata create(HiveMetastore cachingHiveMetastore)
+    {
         AccessControlMetadata accessControlMetadata = accessControlMetadataFactory.create(cachingHiveMetastore);
         HiveMetastoreBackedDeltaLakeMetastore deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(cachingHiveMetastore);
         FileBasedTableStatisticsProvider tableStatisticsProvider = new FileBasedTableStatisticsProvider(
