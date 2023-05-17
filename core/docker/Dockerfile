@@ -11,16 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM eclipse-temurin:17-jdk AS builder
-
-RUN \
-    set -xeu && \
-    echo 'Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries && \
-    echo 'Acquire::http::Timeout "15";' > /etc/apt/apt.conf.d/80-timeouts && \
-    apt-get update -q && \
-    apt-get install -y -q git gcc make && \
-    git clone https://github.com/airlift/jvmkill /tmp/jvmkill && \
-    make -C /tmp/jvmkill
+FROM ghcr.io/airlift/jvmkill:latest AS jvmkill
 
 FROM eclipse-temurin:17-jdk
 
@@ -41,7 +32,7 @@ ARG TRINO_VERSION
 COPY --chown=trino:trino trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
 COPY --chown=trino:trino trino-server-${TRINO_VERSION} /usr/lib/trino
 COPY --chown=trino:trino default/etc /etc/trino
-COPY --chown=trino:trino --from=builder /tmp/jvmkill/libjvmkill.so /usr/lib/trino/bin
+COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
 
 EXPOSE 8080
 USER trino:trino
