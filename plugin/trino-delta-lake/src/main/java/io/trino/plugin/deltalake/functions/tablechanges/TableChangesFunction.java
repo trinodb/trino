@@ -27,7 +27,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
-import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.ptf.AbstractConnectorTableFunction;
 import io.trino.spi.ptf.Argument;
 import io.trino.spi.ptf.Descriptor;
@@ -56,7 +55,6 @@ public class TableChangesFunction
 {
     private static final String SCHEMA_NAME = "system";
     private static final String NAME = "table_changes";
-    public static final SchemaFunctionName TABLE_CHANGES_NAME = new SchemaFunctionName(SCHEMA_NAME, NAME);
     public static final String SCHEMA_NAME_ARGUMENT = "SCHEMA_NAME";
     private static final String TABLE_NAME_ARGUMENT = "TABLE_NAME";
     private static final String SINCE_VERSION_ARGUMENT = "SINCE_VERSION";

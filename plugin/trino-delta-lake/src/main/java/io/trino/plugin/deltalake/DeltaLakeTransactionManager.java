@@ -30,8 +30,8 @@ import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeTransactionManager
 {
-    private final DeltaLakeMetadataFactory metadataFactory;
     private final Map<ConnectorTransactionHandle, MemoizedMetadata> transactions = new ConcurrentHashMap<>();
+    private final DeltaLakeMetadataFactory metadataFactory;
 
     @Inject
     public DeltaLakeTransactionManager(DeltaLakeMetadataFactory metadataFactory)
