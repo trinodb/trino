@@ -17,7 +17,7 @@ local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["cr_returning_addr_sk"])
                                                         partial aggregation over (cr_returning_addr_sk, cr_returning_customer_sk)
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (["cr_returned_date_sk", "cr_returning_customer_sk"])
+                                                                dynamic filter (["cr_returning_customer_sk"], await ["cr_returned_date_sk"])
                                                                     scan catalog_returns
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
@@ -48,7 +48,7 @@ local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPARTITION, HASH, ["cr_returning_addr_sk_34"])
                                                                             partial aggregation over (cr_returning_addr_sk_34, cr_returning_customer_sk_31)
                                                                                 join (INNER, REPLICATED):
-                                                                                    dynamic filter (["cr_returned_date_sk_51"])
+                                                                                    dynamic filter (await ["cr_returned_date_sk_51"])
                                                                                         scan catalog_returns
                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                         remote exchange (REPLICATE, BROADCAST, [])

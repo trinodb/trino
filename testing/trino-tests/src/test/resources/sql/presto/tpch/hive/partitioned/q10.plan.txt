@@ -15,7 +15,7 @@ local exchange (GATHER, SINGLE, [])
                                             join (INNER, REPLICATED):
                                                 join (INNER, PARTITIONED):
                                                     remote exchange (REPARTITION, HASH, ["custkey_6"])
-                                                        dynamic filter (["custkey_6", "nationkey"])
+                                                        dynamic filter (["custkey_6"], await ["nationkey"])
                                                             scan customer
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["custkey"])

@@ -9,7 +9,7 @@ cross join:
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            dynamic filter (["ss_customer_sk", "ss_item_sk", "ss_promo_sk", "ss_sold_date_sk", "ss_store_sk"])
+                                            dynamic filter (["ss_customer_sk", "ss_item_sk"], await ["ss_promo_sk", "ss_sold_date_sk", "ss_store_sk"])
                                                 scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -40,7 +40,7 @@ cross join:
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        dynamic filter (["ss_customer_sk_15", "ss_item_sk_14", "ss_sold_date_sk_12", "ss_store_sk_19"])
+                                        dynamic filter (["ss_customer_sk_15", "ss_item_sk_14"], await ["ss_sold_date_sk_12", "ss_store_sk_19"])
                                             scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

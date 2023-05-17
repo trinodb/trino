@@ -15,7 +15,7 @@ local exchange (GATHER, SINGLE, [])
                                                         partial aggregation over (ca_state, cr_returning_customer_sk)
                                                             join (INNER, REPLICATED):
                                                                 join (INNER, REPLICATED):
-                                                                    dynamic filter (["cr_returned_date_sk", "cr_returning_addr_sk", "cr_returning_customer_sk"])
+                                                                    dynamic filter (["cr_returning_addr_sk", "cr_returning_customer_sk"], await ["cr_returned_date_sk"])
                                                                         scan catalog_returns
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -40,7 +40,7 @@ local exchange (GATHER, SINGLE, [])
                                                     partial aggregation over (ca_state_88, cr_returning_customer_sk_28)
                                                         join (INNER, REPLICATED):
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (["cr_returned_date_sk_21", "cr_returning_addr_sk_31"])
+                                                                dynamic filter (["cr_returning_addr_sk_31"], await ["cr_returned_date_sk_21"])
                                                                     scan catalog_returns
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])

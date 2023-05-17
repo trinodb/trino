@@ -9,7 +9,7 @@ remote exchange (GATHER, SINGLE, [])
                                 partial aggregation over (cd_education_status, cd_marital_status, cr_call_center_sk)
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            dynamic filter (["cr_call_center_sk", "cr_returned_date_sk", "cr_returning_customer_sk"])
+                                            dynamic filter (["cr_returning_customer_sk"], await ["cr_call_center_sk", "cr_returned_date_sk"])
                                                 scan catalog_returns
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -21,7 +21,7 @@ remote exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["c_current_addr_sk"])
                                                                 join (INNER, REPLICATED):
                                                                     join (INNER, REPLICATED):
-                                                                        dynamic filter (["c_current_cdemo_sk", "c_current_hdemo_sk"])
+                                                                        dynamic filter (["c_current_cdemo_sk"], await ["c_current_hdemo_sk"])
                                                                             scan customer
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])

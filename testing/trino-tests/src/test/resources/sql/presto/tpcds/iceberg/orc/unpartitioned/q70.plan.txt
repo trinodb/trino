@@ -12,7 +12,7 @@ local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["s_state"])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (["ss_sold_date_sk", "ss_store_sk"])
+                                                        dynamic filter (await ["ss_sold_date_sk", "ss_store_sk"])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -29,7 +29,7 @@ local exchange (GATHER, SINGLE, [])
                                                                 join (INNER, REPLICATED):
                                                                     partial aggregation over (ss_store_sk_11)
                                                                         join (INNER, REPLICATED):
-                                                                            dynamic filter (["ss_sold_date_sk_4", "ss_store_sk_11"])
+                                                                            dynamic filter (await ["ss_sold_date_sk_4", "ss_store_sk_11"])
                                                                                 scan store_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])

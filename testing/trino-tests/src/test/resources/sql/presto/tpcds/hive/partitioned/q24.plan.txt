@@ -26,7 +26,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
                                                                                 join (INNER, REPLICATED):
                                                                                     join (INNER, REPLICATED):
-                                                                                        dynamic filter (["ss_item_sk", "ss_store_sk"])
+                                                                                        dynamic filter (["ss_item_sk"], await ["ss_store_sk"])
                                                                                             scan store_sales
                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -56,7 +56,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                             join (INNER, PARTITIONED):
                                                                                 remote exchange (REPARTITION, HASH, ["ss_item_sk_18", "ss_ticket_number_25"])
                                                                                     join (INNER, REPLICATED):
-                                                                                        dynamic filter (["ss_customer_sk_19", "ss_item_sk_18", "ss_item_sk_18", "ss_store_sk_23", "ss_ticket_number_25"])
+                                                                                        dynamic filter (["ss_customer_sk_19", "ss_item_sk_18", "ss_item_sk_18", "ss_ticket_number_25"], await ["ss_store_sk_23"])
                                                                                             scan store_sales
                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                             remote exchange (REPLICATE, BROADCAST, [])

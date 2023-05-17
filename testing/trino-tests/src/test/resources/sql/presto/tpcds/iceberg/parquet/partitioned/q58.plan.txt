@@ -24,7 +24,7 @@ local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPARTITION, HASH, ["d_date_6"])
                                                                                 partial aggregation over (d_date_6)
                                                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                                                        dynamic filter (["d_week_seq_8"])
+                                                                                        dynamic filter (await ["d_week_seq_8"])
                                                                                             scan date_dim
                                                                                         local exchange (GATHER, SINGLE, [])
                                                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -57,7 +57,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPARTITION, HASH, ["d_date_126"])
                                                                                     partial aggregation over (d_date_126)
                                                                                         join (INNER, REPLICATED, can skip output duplicates):
-                                                                                            dynamic filter (["d_week_seq_128"])
+                                                                                            dynamic filter (await ["d_week_seq_128"])
                                                                                                 scan date_dim
                                                                                             local exchange (GATHER, SINGLE, [])
                                                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -90,7 +90,7 @@ local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPARTITION, HASH, ["d_date_248"])
                                                                                         partial aggregation over (d_date_248)
                                                                                             join (INNER, REPLICATED, can skip output duplicates):
-                                                                                                dynamic filter (["d_week_seq_250"])
+                                                                                                dynamic filter (await ["d_week_seq_250"])
                                                                                                     scan date_dim
                                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                                     remote exchange (REPLICATE, BROADCAST, [])

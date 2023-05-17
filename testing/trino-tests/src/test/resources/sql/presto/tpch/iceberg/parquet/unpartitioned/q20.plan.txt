@@ -32,7 +32,7 @@ remote exchange (GATHER, SINGLE, [])
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["suppkey"])
                         join (INNER, REPLICATED):
-                            dynamic filter (["nationkey"])
+                            dynamic filter (await ["nationkey"])
                                 scan supplier
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])

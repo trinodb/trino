@@ -19,7 +19,7 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk"])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (["cs_sold_date_sk"])
+                                                            dynamic filter (await ["cs_sold_date_sk"])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])

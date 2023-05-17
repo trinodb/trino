@@ -20,12 +20,12 @@ remote exchange (GATHER, SINGLE, [])
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPARTITION, HASH, ["custkey"])
                                                             join (INNER, REPLICATED):
-                                                                dynamic filter (["nationkey", "nationkey"])
+                                                                dynamic filter (["nationkey"], await ["nationkey"])
                                                                     scan customer
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         join (INNER, REPLICATED):
-                                                                            dynamic filter (["nationkey_17", "regionkey"])
+                                                                            dynamic filter (["nationkey_17"], await ["regionkey"])
                                                                                 scan nation
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])

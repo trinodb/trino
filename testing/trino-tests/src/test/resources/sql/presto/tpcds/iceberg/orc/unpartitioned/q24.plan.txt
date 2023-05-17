@@ -30,7 +30,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPARTITION, HASH, ["ss_item_sk", "ss_ticket_number"])
                                                                                     join (INNER, REPLICATED):
                                                                                         join (INNER, REPLICATED):
-                                                                                            dynamic filter (["ss_item_sk", "ss_store_sk"])
+                                                                                            dynamic filter (["ss_item_sk"], await ["ss_store_sk"])
                                                                                                 scan store_sales
                                                                                             local exchange (GATHER, SINGLE, [])
                                                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -56,7 +56,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                             join (INNER, REPLICATED):
                                                                                 join (INNER, PARTITIONED):
                                                                                     remote exchange (REPARTITION, HASH, ["ss_item_sk_13", "ss_ticket_number_20"])
-                                                                                        dynamic filter (["ss_customer_sk_14", "ss_item_sk_13", "ss_item_sk_13", "ss_store_sk_18", "ss_ticket_number_20"])
+                                                                                        dynamic filter (["ss_customer_sk_14", "ss_item_sk_13", "ss_item_sk_13", "ss_ticket_number_20"], await ["ss_store_sk_18"])
                                                                                             scan store_sales
                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                         remote exchange (REPARTITION, HASH, ["sr_item_sk_38", "sr_ticket_number_45"])

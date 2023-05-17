@@ -13,7 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["sr_item_sk", "sr_ticket_number"])
-                                                dynamic filter (["sr_reason_sk"])
+                                                dynamic filter (await ["sr_reason_sk"])
                                                     scan store_returns
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPLICATE, BROADCAST, [])

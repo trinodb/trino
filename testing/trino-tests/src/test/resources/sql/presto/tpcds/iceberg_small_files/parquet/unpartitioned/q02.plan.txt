@@ -13,13 +13,13 @@ remote exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (d_day_name, d_week_seq)
                                                     join (INNER, REPLICATED):
                                                         local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                            dynamic filter (["ws_sold_date_sk"])
+                                                            dynamic filter (await ["ws_sold_date_sk"])
                                                                 scan web_sales
-                                                            dynamic filter (["cs_sold_date_sk"])
+                                                            dynamic filter (await ["cs_sold_date_sk"])
                                                                 scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                                dynamic filter (["d_week_seq", "d_week_seq"])
+                                                                dynamic filter (["d_week_seq"], await ["d_week_seq"])
                                                                     scan date_dim
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["d_week_seq_20"])
@@ -38,13 +38,13 @@ remote exchange (GATHER, SINGLE, [])
                                                         partial aggregation over (d_day_name_134, d_week_seq_124)
                                                             join (INNER, REPLICATED):
                                                                 local exchange (REPARTITION, ROUND_ROBIN, [])
-                                                                    dynamic filter (["ws_sold_date_sk_48"])
+                                                                    dynamic filter (await ["ws_sold_date_sk_48"])
                                                                         scan web_sales
-                                                                    dynamic filter (["cs_sold_date_sk_84"])
+                                                                    dynamic filter (await ["cs_sold_date_sk_84"])
                                                                         scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        dynamic filter (["d_week_seq_124"])
+                                                                        dynamic filter (await ["d_week_seq_124"])
                                                                             scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["d_week_seq_169"])

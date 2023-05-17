@@ -13,7 +13,7 @@ local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (cs_bill_customer_sk_870, d_year_909)
                                                     remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk_870"])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (["cs_bill_customer_sk_870", "cs_sold_date_sk_867"])
+                                                            dynamic filter (["cs_bill_customer_sk_870"], await ["cs_sold_date_sk_867"])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -30,7 +30,7 @@ local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (d_year_1606, ws_bill_customer_sk_1568)
                                                     remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_1568"])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (["ws_bill_customer_sk_1568", "ws_sold_date_sk_1564"])
+                                                            dynamic filter (["ws_bill_customer_sk_1568"], await ["ws_sold_date_sk_1564"])
                                                                 scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -48,7 +48,7 @@ local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (cs_bill_customer_sk_570, d_year_609)
                                                     remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk_570"])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (["cs_bill_customer_sk_570", "cs_sold_date_sk_567"])
+                                                            dynamic filter (["cs_bill_customer_sk_570"], await ["cs_sold_date_sk_567"])
                                                                 scan catalog_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -65,7 +65,7 @@ local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (d_year_1306, ws_bill_customer_sk_1268)
                                                     remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk_1268"])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (["ws_bill_customer_sk_1268", "ws_sold_date_sk_1264"])
+                                                            dynamic filter (["ws_bill_customer_sk_1268"], await ["ws_sold_date_sk_1264"])
                                                                 scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -83,7 +83,7 @@ local exchange (GATHER, SINGLE, [])
                                             partial aggregation over (d_year_212, ss_customer_sk_184)
                                                 remote exchange (REPARTITION, HASH, ["ss_customer_sk_184"])
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (["ss_customer_sk_184", "ss_sold_date_sk_181"])
+                                                        dynamic filter (["ss_customer_sk_184"], await ["ss_sold_date_sk_181"])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -100,7 +100,7 @@ local exchange (GATHER, SINGLE, [])
                                             partial aggregation over (d_year, ss_customer_sk)
                                                 remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
                                                     join (INNER, REPLICATED):
-                                                        dynamic filter (["ss_customer_sk", "ss_sold_date_sk"])
+                                                        dynamic filter (["ss_customer_sk"], await ["ss_sold_date_sk"])
                                                             scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

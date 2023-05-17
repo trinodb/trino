@@ -23,7 +23,7 @@ local exchange (GATHER, SINGLE, [])
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["wr_returning_addr_sk"])
                                                         join (INNER, REPLICATED):
-                                                            dynamic filter (["wr_returned_date_sk"])
+                                                            dynamic filter (await ["wr_returned_date_sk"])
                                                                 scan web_returns
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -45,7 +45,7 @@ local exchange (GATHER, SINGLE, [])
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPARTITION, HASH, ["wr_returning_addr_sk_34"])
                                                                             join (INNER, REPLICATED):
-                                                                                dynamic filter (["wr_returned_date_sk_48"])
+                                                                                dynamic filter (await ["wr_returned_date_sk_48"])
                                                                                     scan web_returns
                                                                                 local exchange (GATHER, SINGLE, [])
                                                                                     remote exchange (REPLICATE, BROADCAST, [])

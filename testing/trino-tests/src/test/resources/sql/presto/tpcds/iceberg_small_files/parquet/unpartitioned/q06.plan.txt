@@ -22,11 +22,11 @@ local exchange (GATHER, SINGLE, [])
                                                                         scan customer_address
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
-                                                                dynamic filter (["ss_item_sk", "ss_sold_date_sk"])
+                                                                dynamic filter (["ss_item_sk"], await ["ss_sold_date_sk"])
                                                                     scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
-                                                            dynamic filter (["d_month_seq"])
+                                                            dynamic filter (await ["d_month_seq"])
                                                                 scan date_dim
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])

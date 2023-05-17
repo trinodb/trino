@@ -1382,7 +1382,8 @@ public class PlanPrinter
         private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
         {
             return filters.stream()
-                    .map(filter -> anonymizer.anonymize(filter.getInput()) + " " + filter.getOperator().getValue() + " #" + filter.getId())
+                    .map(filter -> anonymizer.anonymize(filter.getInput()) + " " + filter.getOperator().getValue() + " #" + filter.getId() +
+                            (filter.getPreferredTimeout().isPresent() ? " await" : ""))
                     .collect(Collectors.joining(", ", "{", "}"));
         }
 

@@ -13,7 +13,7 @@ remote exchange (GATHER, SINGLE, [])
                                                 intermediate aggregation over (d_qoy_43, d_year_39, ss_addr_sk_11)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_addr_sk_11, ss_sold_date_sk_28)
-                                                            dynamic filter (["ss_addr_sk_11", "ss_sold_date_sk_28"])
+                                                            dynamic filter (["ss_addr_sk_11"], await ["ss_sold_date_sk_28"])
                                                                 scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -31,7 +31,7 @@ remote exchange (GATHER, SINGLE, [])
                                                 intermediate aggregation over (d_qoy_121, d_year_117, ss_addr_sk_89)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ss_addr_sk_89, ss_sold_date_sk_106)
-                                                            dynamic filter (["ss_addr_sk_89", "ss_sold_date_sk_106"])
+                                                            dynamic filter (["ss_addr_sk_89"], await ["ss_sold_date_sk_106"])
                                                                 scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
@@ -54,7 +54,7 @@ remote exchange (GATHER, SINGLE, [])
                                                     intermediate aggregation over (d_qoy_265, d_year_261, ws_bill_addr_sk_223)
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (ws_bill_addr_sk_223, ws_sold_date_sk_250)
-                                                                dynamic filter (["ws_sold_date_sk_250"])
+                                                                dynamic filter (await ["ws_sold_date_sk_250"])
                                                                     scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -72,7 +72,7 @@ remote exchange (GATHER, SINGLE, [])
                                                     intermediate aggregation over (d_qoy_354, d_year_350, ws_bill_addr_sk_312)
                                                         join (INNER, REPLICATED):
                                                             partial aggregation over (ws_bill_addr_sk_312, ws_sold_date_sk_339)
-                                                                dynamic filter (["ws_sold_date_sk_339"])
+                                                                dynamic filter (await ["ws_sold_date_sk_339"])
                                                                     scan web_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -87,7 +87,7 @@ remote exchange (GATHER, SINGLE, [])
                                             intermediate aggregation over (d_qoy, d_year, ss_addr_sk)
                                                 join (INNER, REPLICATED):
                                                     partial aggregation over (ss_addr_sk, ss_sold_date_sk)
-                                                        dynamic filter (["ss_addr_sk", "ss_sold_date_sk"])
+                                                        dynamic filter (["ss_addr_sk"], await ["ss_sold_date_sk"])
                                                             scan store_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -109,7 +109,7 @@ remote exchange (GATHER, SINGLE, [])
                                                 intermediate aggregation over (d_qoy_176, d_year_172, ws_bill_addr_sk)
                                                     join (INNER, REPLICATED):
                                                         partial aggregation over (ws_bill_addr_sk, ws_sold_date_sk)
-                                                            dynamic filter (["ws_sold_date_sk"])
+                                                            dynamic filter (await ["ws_sold_date_sk"])
                                                                 scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])

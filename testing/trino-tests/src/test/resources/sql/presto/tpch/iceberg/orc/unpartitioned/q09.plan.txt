@@ -21,7 +21,7 @@ remote exchange (GATHER, SINGLE, [])
                                                                     scan part
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["suppkey"])
-                                                        dynamic filter (["nationkey", "suppkey"])
+                                                        dynamic filter (["suppkey"], await ["nationkey"])
                                                             scan supplier
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["suppkey_10"])
