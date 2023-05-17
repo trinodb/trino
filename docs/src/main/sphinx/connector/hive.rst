@@ -1595,6 +1595,9 @@ with ORC files performed by the Hive connector.
     * - ``hive.orc.bloom-filters.enabled``
       - Enable bloom filters for predicate pushdown.
       - ``false``
+    * - ``hive.orc.read-legacy-short-zone-id``
+      - Allow reads on ORC files with short zone ID in the stripe footer.
+      - ``false``
 
 .. _hive-parquet-configuration:
 
