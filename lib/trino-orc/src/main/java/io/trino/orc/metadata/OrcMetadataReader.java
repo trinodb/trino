@@ -16,7 +16,6 @@ package io.trino.orc.metadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -227,7 +226,12 @@ public class OrcMetadataReader
                 builder.add(new BloomFilter(bits, orcBloomFilter.getNumHashFunctions()));
             }
             else {
-                builder.add(new BloomFilter(Longs.toArray(orcBloomFilter.getBitsetList()), orcBloomFilter.getNumHashFunctions()));
+                int length = orcBloomFilter.getBitsetCount();
+                long[] bits = new long[length];
+                for (int i = 0; i < length; i++) {
+                    bits[i] = orcBloomFilter.getBitset(i);
+                }
+                builder.add(new BloomFilter(bits, orcBloomFilter.getNumHashFunctions()));
             }
         }
         return builder.build();
