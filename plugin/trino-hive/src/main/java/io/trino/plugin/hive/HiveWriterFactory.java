@@ -362,7 +362,7 @@ public class HiveWriterFactory
                         // verify that the target directory for the partition does not already exist
                         Location writeInfoTargetPath = writeInfo.targetPath();
                         try {
-                            if (fileSystem.newInputFile(writeInfoTargetPath).exists()) {
+                            if (fileSystem.directoryExists(writeInfoTargetPath).orElse(false)) {
                                 throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(
                                         "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                         partitionName,
