@@ -126,7 +126,7 @@ public class OrcReader
     {
         this.options = requireNonNull(options, "options is null");
         this.orcDataSource = orcDataSource;
-        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader());
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader(options));
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
 

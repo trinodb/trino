@@ -28,6 +28,7 @@ public class OrcReaderOptions
     private static final DataSize DEFAULT_MAX_BLOCK_SIZE = DataSize.of(16, MEGABYTE);
     private static final boolean DEFAULT_LAZY_READ_SMALL_RANGES = true;
     private static final boolean DEFAULT_NESTED_LAZY = true;
+    private static final boolean DEFAULT_READ_LEGACY_SHORT_ZONE_ID = false;
 
     private final boolean bloomFiltersEnabled;
 
@@ -38,6 +39,7 @@ public class OrcReaderOptions
     private final DataSize maxBlockSize;
     private final boolean lazyReadSmallRanges;
     private final boolean nestedLazy;
+    private final boolean readLegacyShortZoneId;
 
     public OrcReaderOptions()
     {
@@ -49,7 +51,8 @@ public class OrcReaderOptions
                 DEFAULT_STREAM_BUFFER_SIZE,
                 DEFAULT_MAX_BLOCK_SIZE,
                 DEFAULT_LAZY_READ_SMALL_RANGES,
-                DEFAULT_NESTED_LAZY);
+                DEFAULT_NESTED_LAZY,
+                DEFAULT_READ_LEGACY_SHORT_ZONE_ID);
     }
 
     private OrcReaderOptions(
@@ -60,7 +63,8 @@ public class OrcReaderOptions
             DataSize streamBufferSize,
             DataSize maxBlockSize,
             boolean lazyReadSmallRanges,
-            boolean nestedLazy)
+            boolean nestedLazy,
+            boolean readLegacyShortZoneId)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
@@ -70,6 +74,7 @@ public class OrcReaderOptions
         this.lazyReadSmallRanges = lazyReadSmallRanges;
         this.bloomFiltersEnabled = bloomFiltersEnabled;
         this.nestedLazy = nestedLazy;
+        this.readLegacyShortZoneId = readLegacyShortZoneId;
     }
 
     public boolean isBloomFiltersEnabled()
@@ -110,6 +115,11 @@ public class OrcReaderOptions
     public boolean isNestedLazy()
     {
         return nestedLazy;
+    }
+
+    public boolean isReadLegacyShortZoneId()
+    {
+        return readLegacyShortZoneId;
     }
 
     public OrcReaderOptions withBloomFiltersEnabled(boolean bloomFiltersEnabled)
@@ -172,6 +182,14 @@ public class OrcReaderOptions
                 .build();
     }
 
+    @Deprecated
+    public OrcReaderOptions withReadLegacyShortZoneId(boolean readLegacyShortZoneId)
+    {
+        return new Builder(this)
+                .withReadLegacyShortZoneId(readLegacyShortZoneId)
+                .build();
+    }
+
     private static class Builder
     {
         private boolean bloomFiltersEnabled;
@@ -182,6 +200,7 @@ public class OrcReaderOptions
         private DataSize maxBlockSize;
         private boolean lazyReadSmallRanges;
         private boolean nestedLazy;
+        private boolean readLegacyShortZoneId;
 
         private Builder(OrcReaderOptions orcReaderOptions)
         {
@@ -194,6 +213,7 @@ public class OrcReaderOptions
             this.maxBlockSize = orcReaderOptions.maxBlockSize;
             this.lazyReadSmallRanges = orcReaderOptions.lazyReadSmallRanges;
             this.nestedLazy = orcReaderOptions.nestedLazy;
+            this.readLegacyShortZoneId = orcReaderOptions.readLegacyShortZoneId;
         }
 
         public Builder withBloomFiltersEnabled(boolean bloomFiltersEnabled)
@@ -244,6 +264,12 @@ public class OrcReaderOptions
             return this;
         }
 
+        public Builder withReadLegacyShortZoneId(boolean shortZoneIdEnabled)
+        {
+            this.readLegacyShortZoneId = shortZoneIdEnabled;
+            return this;
+        }
+
         private OrcReaderOptions build()
         {
             return new OrcReaderOptions(
@@ -254,7 +280,8 @@ public class OrcReaderOptions
                     streamBufferSize,
                     maxBlockSize,
                     lazyReadSmallRanges,
-                    nestedLazy);
+                    nestedLazy,
+                    readLegacyShortZoneId);
         }
     }
 }

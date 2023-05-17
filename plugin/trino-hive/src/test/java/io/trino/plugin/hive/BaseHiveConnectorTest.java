@@ -165,6 +165,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.containers.TestContainers.getPathFromClassPathResource;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -8541,6 +8542,21 @@ public abstract class BaseHiveConnectorTest
                 .hasMessageContaining("Multiple entries with same key: one=one and one=one");
 
         assertUpdate("DROP TABLE %s".formatted(tableName));
+    }
+
+    @Test
+    public void testSelectWithShortZoneId()
+    {
+        String resourceLocation = getPathFromClassPathResource("with_short_zone_id/data");
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_select_with_short_zone_id_",
+                "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (external_location = '%s')".formatted(resourceLocation))) {
+            assertThatThrownBy(() -> query("SELECT * FROM %s".formatted(testTable.getName())))
+                    .hasMessageMatching(".*Failed to read ORC file: .*")
+                    .hasStackTraceContaining("Unknown time-zone ID: EST");
+        }
     }
 
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
