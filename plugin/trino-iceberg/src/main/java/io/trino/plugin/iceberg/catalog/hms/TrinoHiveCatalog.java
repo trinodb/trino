@@ -198,7 +198,7 @@ public class TrinoHiveCatalog
                 case LOCATION_PROPERTY -> {
                     String location = (String) value;
                     try {
-                        fileSystemFactory.create(session).newInputFile(Location.of(location)).exists();
+                        fileSystemFactory.create(session).directoryExists(Location.of(location));
                     }
                     catch (IOException | IllegalArgumentException e) {
                         throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + location, e);
