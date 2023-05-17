@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -69,12 +70,11 @@ public class MetaDirStatisticsAccess
         try {
             Location statisticsPath = tableLocation.appendPath(statisticsDirectory).appendPath(statisticsFile);
             TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(statisticsPath);
-            if (!inputFile.exists()) {
-                return Optional.empty();
-            }
-
             try (InputStream inputStream = inputFile.newStream()) {
                 return Optional.of(statisticsCodec.fromJson(inputStream.readAllBytes()));
+            }
+            catch (FileNotFoundException e) {
+                return Optional.empty();
             }
         }
         catch (IOException e) {
