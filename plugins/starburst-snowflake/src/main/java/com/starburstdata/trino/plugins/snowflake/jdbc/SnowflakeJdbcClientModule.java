@@ -151,6 +151,14 @@ public class SnowflakeJdbcClientModule
             CredentialProvider credentialProvider,
             SnowflakeConfig snowflakeConfig)
     {
+        return getDriverConnectionFactory(config, credentialProvider, snowflakeConfig);
+    }
+
+    protected ConnectionFactory getDriverConnectionFactory(
+            BaseJdbcConfig config,
+            CredentialProvider credentialProvider,
+            SnowflakeConfig snowflakeConfig)
+    {
         return new WarehouseAwareDriverConnectionFactory(
                 new SnowflakeDriver(),
                 config.getConnectionUrl(),

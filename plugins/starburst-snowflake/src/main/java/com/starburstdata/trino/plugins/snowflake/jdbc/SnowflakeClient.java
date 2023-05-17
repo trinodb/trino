@@ -192,15 +192,16 @@ public class SnowflakeClient
     public static final String IDENTIFIER_QUOTE = "\"";
 
     public static final String DATABASE_SEPARATOR = ".";
+
+    public static final int SNOWFLAKE_MAX_TIMESTAMP_PRECISION = 9;
+    public static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
     private static final DateTimeFormatter SNOWFLAKE_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
     // TODO https://starburstdata.atlassian.net/browse/SEP-9994
     // TODO https://starburstdata.atlassian.net/browse/SEP-10002
     // below formatters use `y` for years. `u` has to be used eventually.
-    private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
+    public static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
+    public static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_READ_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSX");
     private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSS");
-    private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_READ_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSX");
-    private static final int SNOWFLAKE_MAX_TIMESTAMP_PRECISION = 9;
-    public static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
 
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BooleanType.BOOLEAN, WriteMapping.booleanMapping("boolean", booleanWriteFunction()))
@@ -714,6 +715,24 @@ public class SnowflakeClient
         super.addColumn(session, connection, table, column);
     }
 
+    public PreparedQuery prepareQuery(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            List<JdbcColumnHandle> columns,
+            Optional<JdbcSplit> split)
+            throws SQLException
+    {
+        return prepareQuery(
+                session,
+                connection,
+                table,
+                Optional.empty(),
+                columns,
+                ImmutableMap.of(),
+                split);
+    }
+
     public static void checkColumnsForInvalidCharacters(List<ColumnMetadata> columns)
     {
         columns.forEach(columnMetadata -> {
@@ -861,7 +880,7 @@ public class SnowflakeClient
         return LocalDateTime.parse(string, SNOWFLAKE_TIMESTAMP_READ_FORMATTER);
     }
 
-    private static long toPrestoTime(Time sqlTime)
+    public static long toPrestoTime(Time sqlTime)
     {
         return PICOSECONDS_PER_MILLISECOND * sqlTime.getTime();
     }

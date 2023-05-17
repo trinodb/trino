@@ -30,8 +30,8 @@ public class WarehouseAwareDriverConnectionFactory
 {
     private final Driver driver;
     private final String connectionUrl;
-    private final Properties connectionProperties;
-    private final CredentialPropertiesProvider<String, String> credentialPropertiesProvider;
+    protected final Properties connectionProperties;
+    protected final CredentialPropertiesProvider<String, String> credentialPropertiesProvider;
 
     public WarehouseAwareDriverConnectionFactory(Driver driver, String connectionUrl, Properties connectionProperties, CredentialProvider credentialProvider)
     {
@@ -57,7 +57,7 @@ public class WarehouseAwareDriverConnectionFactory
         return connection;
     }
 
-    private Properties getConnectionProperties(ConnectorSession session)
+    protected Properties getConnectionProperties(ConnectorSession session)
     {
         ConnectorIdentity identity = session.getIdentity();
         Properties properties = new Properties();
