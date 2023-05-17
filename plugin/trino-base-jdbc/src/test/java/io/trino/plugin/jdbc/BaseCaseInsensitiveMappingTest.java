@@ -36,7 +36,6 @@ import static io.trino.plugin.jdbc.mapping.RuleBasedIdentifierMappingUtils.updat
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 // Tests are using JSON based identifier mapping which is one for all tests
 @Test(singleThreaded = true)
@@ -90,11 +89,9 @@ public abstract class BaseCaseInsensitiveMappingTest
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertEquals(
-                    computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
-                            .map(row -> row.getField(0))
-                            .collect(toImmutableSet()),
-                    ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
+            assertThat(computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
+                    .map(row -> row.getField(0))
+                    .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
 
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.
 

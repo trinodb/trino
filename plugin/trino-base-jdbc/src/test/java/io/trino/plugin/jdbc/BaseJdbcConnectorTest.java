@@ -111,7 +111,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
 
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
@@ -1796,17 +1795,17 @@ public abstract class BaseJdbcConnectorTest
     public void testNativeQueryCreateStatement()
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
     @Test
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
                 .hasMessageContaining("Failed to get table handle for prepared query");
     }

@@ -30,8 +30,8 @@ import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestBaseJdbcConfig
 {
@@ -74,7 +74,7 @@ public class TestBaseJdbcConfig
 
         assertFullMapping(properties, expected);
 
-        assertEquals(expected.getJdbcTypesMappedToVarchar(), ImmutableSet.of("mytype", "struct_type1"));
+        assertThat(expected.getJdbcTypesMappedToVarchar()).isEqualTo(ImmutableSet.of("mytype", "struct_type1"));
     }
 
     @Test

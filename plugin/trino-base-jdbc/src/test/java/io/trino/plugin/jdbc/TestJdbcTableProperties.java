@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 // Single-threaded because of shared mutable state, e.g. onGetTableProperties
 @Test(singleThreaded = true)
@@ -62,7 +62,8 @@ public class TestJdbcTableProperties
     @Test
     public void testGetTablePropertiesIsNotCalledForSelect()
     {
-        onGetTableProperties = () -> { fail("Unexpected call of: getTableProperties"); };
+        onGetTableProperties = () -> {
+            fail("Unexpected call of: getTableProperties"); };
         assertUpdate("CREATE TABLE copy_of_nation AS SELECT * FROM nation", 25);
         assertQuerySucceeds("SELECT * FROM copy_of_nation");
         assertQuerySucceeds("SELECT nationkey FROM copy_of_nation");
