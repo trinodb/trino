@@ -876,8 +876,8 @@ jobs:
               config: default
             - suite: suite-azure
               ignore exclusion if: >-
-                ${{ secrets.AZURE_ABFS_CONTAINER != '' &&
-                    secrets.AZURE_ABFS_ACCOUNT != '' &&
+                ${{ secrets.AZURE_ABFS_CONTAINER != '' ||
+                    secrets.AZURE_ABFS_ACCOUNT != '' ||
                     secrets.AZURE_ABFS_ACCESSKEY != '' }}
 
             - suite: suite-gcs
