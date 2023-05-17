@@ -41,14 +41,15 @@ public class OrcReaderOptions
 
     public OrcReaderOptions()
     {
-        bloomFiltersEnabled = DEFAULT_BLOOM_FILTERS_ENABLED;
-        maxMergeDistance = DEFAULT_MAX_MERGE_DISTANCE;
-        maxBufferSize = DEFAULT_MAX_BUFFER_SIZE;
-        tinyStripeThreshold = DEFAULT_TINY_STRIPE_THRESHOLD;
-        streamBufferSize = DEFAULT_STREAM_BUFFER_SIZE;
-        maxBlockSize = DEFAULT_MAX_BLOCK_SIZE;
-        lazyReadSmallRanges = DEFAULT_LAZY_READ_SMALL_RANGES;
-        nestedLazy = DEFAULT_NESTED_LAZY;
+        this(
+                DEFAULT_BLOOM_FILTERS_ENABLED,
+                DEFAULT_MAX_MERGE_DISTANCE,
+                DEFAULT_MAX_BUFFER_SIZE,
+                DEFAULT_TINY_STRIPE_THRESHOLD,
+                DEFAULT_STREAM_BUFFER_SIZE,
+                DEFAULT_MAX_BLOCK_SIZE,
+                DEFAULT_LAZY_READ_SMALL_RANGES,
+                DEFAULT_NESTED_LAZY);
     }
 
     private OrcReaderOptions(
@@ -113,109 +114,147 @@ public class OrcReaderOptions
 
     public OrcReaderOptions withBloomFiltersEnabled(boolean bloomFiltersEnabled)
     {
-        return new OrcReaderOptions(
-                bloomFiltersEnabled,
-                maxMergeDistance,
-                maxBufferSize,
-                tinyStripeThreshold,
-                streamBufferSize,
-                maxBlockSize,
-                lazyReadSmallRanges,
-                nestedLazy);
+        return new Builder(this)
+                .withBloomFiltersEnabled(bloomFiltersEnabled)
+                .build();
     }
 
     public OrcReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
     {
-        return new OrcReaderOptions(
-                bloomFiltersEnabled,
-                maxMergeDistance,
-                maxBufferSize,
-                tinyStripeThreshold,
-                streamBufferSize,
-                maxBlockSize,
-                lazyReadSmallRanges,
-                nestedLazy);
+        return new Builder(this)
+                .withMaxMergeDistance(maxMergeDistance)
+                .build();
     }
 
     public OrcReaderOptions withMaxBufferSize(DataSize maxBufferSize)
     {
-        return new OrcReaderOptions(
-                bloomFiltersEnabled,
-                maxMergeDistance,
-                maxBufferSize,
-                tinyStripeThreshold,
-                streamBufferSize,
-                maxBlockSize,
-                lazyReadSmallRanges,
-                nestedLazy);
+        return new Builder(this)
+                .withMaxBufferSize(maxBufferSize)
+                .build();
     }
 
     public OrcReaderOptions withTinyStripeThreshold(DataSize tinyStripeThreshold)
     {
-        return new OrcReaderOptions(
-                bloomFiltersEnabled,
-                maxMergeDistance,
-                maxBufferSize,
-                tinyStripeThreshold,
-                streamBufferSize,
-                maxBlockSize,
-                lazyReadSmallRanges,
-                nestedLazy);
+        return new Builder(this)
+                .withTinyStripeThreshold(tinyStripeThreshold)
+                .build();
     }
 
     public OrcReaderOptions withStreamBufferSize(DataSize streamBufferSize)
     {
-        return new OrcReaderOptions(
-                bloomFiltersEnabled,
-                maxMergeDistance,
-                maxBufferSize,
-                tinyStripeThreshold,
-                streamBufferSize,
-                maxBlockSize,
-                lazyReadSmallRanges,
-                nestedLazy);
+        return new Builder(this)
+                .withStreamBufferSize(streamBufferSize)
+                .build();
     }
 
     public OrcReaderOptions withMaxReadBlockSize(DataSize maxBlockSize)
     {
-        return new OrcReaderOptions(
-                bloomFiltersEnabled,
-                maxMergeDistance,
-                maxBufferSize,
-                tinyStripeThreshold,
-                streamBufferSize,
-                maxBlockSize,
-                lazyReadSmallRanges,
-                nestedLazy);
+        return new Builder(this)
+                .withMaxBlockSize(maxBlockSize)
+                .build();
     }
 
     // TODO remove config option once efficacy is proven
     @Deprecated
     public OrcReaderOptions withLazyReadSmallRanges(boolean lazyReadSmallRanges)
     {
-        return new OrcReaderOptions(
-                bloomFiltersEnabled,
-                maxMergeDistance,
-                maxBufferSize,
-                tinyStripeThreshold,
-                streamBufferSize,
-                maxBlockSize,
-                lazyReadSmallRanges,
-                nestedLazy);
+        return new Builder(this)
+                .withLazyReadSmallRanges(lazyReadSmallRanges)
+                .build();
     }
 
     // TODO remove config option once efficacy is proven
     @Deprecated
     public OrcReaderOptions withNestedLazy(boolean nestedLazy)
     {
-        return new OrcReaderOptions(
-                bloomFiltersEnabled,
-                maxMergeDistance,
-                maxBufferSize,
-                tinyStripeThreshold,
-                streamBufferSize,
-                maxBlockSize,
-                lazyReadSmallRanges,
-                nestedLazy);
+        return new Builder(this)
+                .withNestedLazy(nestedLazy)
+                .build();
+    }
+
+    private static class Builder
+    {
+        private boolean bloomFiltersEnabled;
+        private DataSize maxMergeDistance;
+        private DataSize maxBufferSize;
+        private DataSize tinyStripeThreshold;
+        private DataSize streamBufferSize;
+        private DataSize maxBlockSize;
+        private boolean lazyReadSmallRanges;
+        private boolean nestedLazy;
+
+        private Builder(OrcReaderOptions orcReaderOptions)
+        {
+            requireNonNull(orcReaderOptions, "orcReaderOptions is null");
+            this.bloomFiltersEnabled = orcReaderOptions.bloomFiltersEnabled;
+            this.maxMergeDistance = orcReaderOptions.maxMergeDistance;
+            this.maxBufferSize = orcReaderOptions.maxBufferSize;
+            this.tinyStripeThreshold = orcReaderOptions.tinyStripeThreshold;
+            this.streamBufferSize = orcReaderOptions.streamBufferSize;
+            this.maxBlockSize = orcReaderOptions.maxBlockSize;
+            this.lazyReadSmallRanges = orcReaderOptions.lazyReadSmallRanges;
+            this.nestedLazy = orcReaderOptions.nestedLazy;
+        }
+
+        public Builder withBloomFiltersEnabled(boolean bloomFiltersEnabled)
+        {
+            this.bloomFiltersEnabled = bloomFiltersEnabled;
+            return this;
+        }
+
+        public Builder withMaxMergeDistance(DataSize maxMergeDistance)
+        {
+            this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
+            return this;
+        }
+
+        public Builder withMaxBufferSize(DataSize maxBufferSize)
+        {
+            this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
+            return this;
+        }
+
+        public Builder withTinyStripeThreshold(DataSize tinyStripeThreshold)
+        {
+            this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
+            return this;
+        }
+
+        public Builder withStreamBufferSize(DataSize streamBufferSize)
+        {
+            this.streamBufferSize = requireNonNull(streamBufferSize, "streamBufferSize is null");
+            return this;
+        }
+
+        public Builder withMaxBlockSize(DataSize maxBlockSize)
+        {
+            this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
+            return this;
+        }
+
+        public Builder withLazyReadSmallRanges(boolean lazyReadSmallRanges)
+        {
+            this.lazyReadSmallRanges = lazyReadSmallRanges;
+            return this;
+        }
+
+        public Builder withNestedLazy(boolean nestedLazy)
+        {
+            this.nestedLazy = nestedLazy;
+            return this;
+        }
+
+        private OrcReaderOptions build()
+        {
+            return new OrcReaderOptions(
+                    bloomFiltersEnabled,
+                    maxMergeDistance,
+                    maxBufferSize,
+                    tinyStripeThreshold,
+                    streamBufferSize,
+                    maxBlockSize,
+                    lazyReadSmallRanges,
+                    nestedLazy);
+        }
     }
 }
