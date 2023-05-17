@@ -397,7 +397,7 @@ Specific properties can be used to further configure the
 Thrift metastore configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In order to use a Hive Thrisft metastore, you must configure the metastore with
+In order to use a Hive Thrift metastore, you must configure the metastore with
 ``hive.metastore=thrift`` and provide further details with the following
 properties:
 
