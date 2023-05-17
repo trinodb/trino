@@ -37,6 +37,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/drop-table
     sql/drop-view
     sql/execute
+    sql/execute-immediate
     sql/explain
     sql/explain-analyze
     sql/grant

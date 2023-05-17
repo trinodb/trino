@@ -38,6 +38,7 @@ any connector:
 * :doc:`/sql/describe-input`
 * :doc:`/sql/describe-output`
 * :doc:`/sql/execute`
+* :doc:`/sql/execute-immediate`
 * :doc:`/sql/explain`
 * :doc:`/sql/explain-analyze`
 * :doc:`/sql/prepare`
