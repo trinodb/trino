@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.snowflake.faulttolerant;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
+import com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeServer;
 import com.starburstdata.trino.plugins.snowflake.TestDatabase;
 import io.trino.operator.RetryPolicy;
@@ -58,7 +59,7 @@ public abstract class BaseSnowflakeFailureRecoveryTest
         snowflakeServer = new SnowflakeServer();
         closer = Closer.create();
         testDB = closer.register(snowflakeServer.createTestDatabase());
-        return jdbcBuilder()
+        return getBuilder()
                 .withServer(snowflakeServer)
                 .withExtraProperties(configProperties)
                 .withConnectorProperties(impersonationDisabled())
@@ -73,5 +74,10 @@ public abstract class BaseSnowflakeFailureRecoveryTest
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 })
                 .build();
+    }
+
+    protected SnowflakeQueryRunner.Builder getBuilder()
+    {
+        return jdbcBuilder();
     }
 }

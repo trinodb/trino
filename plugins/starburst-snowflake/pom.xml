@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>417-SNAPSHOT</version>
+        <version>418-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -161,6 +161,19 @@
             <groupId>net.snowflake</groupId>
             <artifactId>snowflake-jdbc</artifactId>
             <version>3.13.21</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <exclusions>
+                <!-- commons-logging:commons-logging:1.2 conflicts with io.trino:trino-base-jdbc     -->
+                <!-- > io.trino:trino-base-jdbc > org.slf4j:jcl-over-slf4j:2.0.7 (duplicate classes) -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -470,6 +483,10 @@
                                 <exclude>**/TestDistributedSnowflakeLargeScan.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeTypeMapping.java</exclude>
                                 <exclude>**/TestSnowflakeJmxStats.java</exclude>
+                                <exclude>**/TestParallelSnowflakeConnectorTest.java</exclude>
+                                <exclude>**/TestParallelSnowflakeTypeMapping.java</exclude>
+                                <exclude>**/TestParallelSnowflakeQueryFailureRecoveryTest.java</exclude>
+                                <exclude>**/TestParallelSnowflakeTaskFailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -489,6 +506,25 @@
                                 <include>**/TestJdbcSnowflakeTypeMapping.java</include>
                                 <include>**/TestJdbcSnowflakeQueryFailureRecoveryTest.java</include>
                                 <include>**/TestJdbcSnowflakeTaskFailureRecoveryTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>parallel-integration-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestParallelSnowflakeConnectorTest.java</include>
+                                <include>**/TestParallelSnowflakeTypeMapping.java</include>
+                                <include>**/TestParallelSnowflakeQueryFailureRecoveryTest.java</include>
+                                <include>**/TestParallelSnowflakeTaskFailureRecoveryTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

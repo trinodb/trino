@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.starburstdata.trino.plugins.snowflake.SnowflakePlugin.SNOWFLAKE_JDBC;
+import static com.starburstdata.trino.plugins.snowflake.SnowflakePlugin.SNOWFLAKE_PARALLEL;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.JDBC_URL;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.PASSWORD;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.ROLE;
@@ -66,6 +67,11 @@ public class SnowflakeQueryRunner
     public static Builder jdbcBuilder()
     {
         return new Builder(SNOWFLAKE_JDBC);
+    }
+
+    public static Builder parallelBuilder()
+    {
+        return new Builder(SNOWFLAKE_PARALLEL);
     }
 
     private static DistributedQueryRunner createSnowflakeQueryRunner(

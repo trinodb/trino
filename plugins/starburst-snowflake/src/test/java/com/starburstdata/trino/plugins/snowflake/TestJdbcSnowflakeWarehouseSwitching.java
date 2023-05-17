@@ -47,13 +47,18 @@ public class TestJdbcSnowflakeWarehouseSwitching
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return jdbcBuilder()
+        return createBuilder()
                 .withServer(server)
                 .withDatabase(Optional.of(testDB.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 .withTpchTables(ImmutableList.of(NATION))
                 .build();
+    }
+
+    protected SnowflakeQueryRunner.Builder createBuilder()
+    {
+        return jdbcBuilder();
     }
 
     @BeforeClass

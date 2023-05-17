@@ -31,12 +31,17 @@ public class TestJdbcSnowflakeTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return jdbcBuilder()
+        return createBuilder()
                 .withServer(server)
                 .withDatabase(Optional.of(testDatabase.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 .build();
+    }
+
+    protected SnowflakeQueryRunner.Builder createBuilder()
+    {
+        return jdbcBuilder();
     }
 
     @Deprecated // TODO https://starburstdata.atlassian.net/browse/SEP-10002

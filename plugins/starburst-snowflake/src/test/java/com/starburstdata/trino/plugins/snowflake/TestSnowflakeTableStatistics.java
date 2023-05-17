@@ -39,12 +39,17 @@ public class TestSnowflakeTableStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return jdbcBuilder()
+        return createBuilder()
                 .withConnectorProperties(impersonationDisabled())
                 .withServer(server)
                 .withDatabase(Optional.of(testDatabase.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .build();
+    }
+
+    protected SnowflakeQueryRunner.Builder createBuilder()
+    {
+        return jdbcBuilder();
     }
 
     @AfterClass(alwaysRun = true)

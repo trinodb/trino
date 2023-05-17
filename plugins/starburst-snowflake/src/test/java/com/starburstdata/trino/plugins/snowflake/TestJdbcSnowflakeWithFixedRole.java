@@ -43,13 +43,18 @@ public class TestJdbcSnowflakeWithFixedRole
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return jdbcBuilder()
+        return createBuilder()
                 .withServer(server)
                 .withConnectorProperties(impersonationDisabled())
                 .withDatabase(Optional.of(testDB.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withCreateUserContextView()
                 .build();
+    }
+
+    protected SnowflakeQueryRunner.Builder createBuilder()
+    {
+        return jdbcBuilder();
     }
 
     @AfterClass(alwaysRun = true)

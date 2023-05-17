@@ -27,7 +27,7 @@ public class TestSnowflakePlugin
     {
         Plugin plugin = new TestingSnowflakePlugin();
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
-        assertEquals(connectorFactories.size(), 2);
+        assertEquals(connectorFactories.size(), 3);
 
         connectorFactories.get(0).create("test",
                 ImmutableMap.of(
@@ -44,6 +44,16 @@ public class TestSnowflakePlugin
                         "connection-url", "jdbc:snowflake:test",
                         "snowflake.database", "test",
                         "snowflake.stage-schema", "test",
+                        "snowflake.warehouse", "test"),
+                new TestingConnectorContext())
+                .shutdown();
+
+        connectorFactories.get(2).create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:snowflake:test",
+                        "snowflake.role", "test",
+                        "snowflake.database", "test",
                         "snowflake.warehouse", "test"),
                 new TestingConnectorContext())
                 .shutdown();

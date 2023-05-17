@@ -48,12 +48,17 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
         testDatabase = closeAfterClass(server.createTestDatabase());
         normalizedDatabaseName = testDatabase.getName().toLowerCase(ENGLISH);
 
-        return jdbcBuilder()
+        return createBuilder()
                 .withServer(server)
                 .withConnectorProperties(ImmutableMap.of(
                         "snowflake.database-prefix-for-schema.enabled", "true",
                         "snowflake.role", "test_role"))
                 .build();
+    }
+
+    protected SnowflakeQueryRunner.Builder createBuilder()
+    {
+        return jdbcBuilder();
     }
 
     @AfterClass(alwaysRun = true)

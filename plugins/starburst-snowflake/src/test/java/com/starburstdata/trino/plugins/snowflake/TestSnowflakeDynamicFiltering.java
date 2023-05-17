@@ -39,13 +39,18 @@ public class TestSnowflakeDynamicFiltering
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return distributedBuilder()
+        return createBuilder()
                 .withServer(server)
                 .withDatabase(Optional.of(testDatabase.getName()))
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 .withTpchTables(ImmutableList.of(ORDERS))
                 .build();
+    }
+
+    protected SnowflakeQueryRunner.Builder createBuilder()
+    {
+        return distributedBuilder();
     }
 
     // In the distributed SF connector, the page source on worker will accept and use dynamic filter
