@@ -24,10 +24,12 @@ import io.trino.execution.TaskId;
 import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
+import io.trino.spi.connector.ConnectorAlternativePageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -77,6 +79,8 @@ public class DriverContext
 
     private final List<OperatorContext> operatorContexts = new CopyOnWriteArrayList<>();
     private final long splitWeight;
+
+    private final AtomicReference<Optional<AlternativePlanContext>> alternativePlanContext = new AtomicReference<>(Optional.empty());
 
     public DriverContext(
             PipelineContext pipelineContext,
@@ -447,9 +451,39 @@ public class DriverContext
         return yieldExecutor;
     }
 
+    public Optional<ConnectorAlternativePageSourceProvider> getConnectorAlternativePageSourceProvider()
+    {
+        return alternativePlanContext.get().map(AlternativePlanContext::connectorAlternativePageSourceProvider);
+    }
+
+    public Optional<Integer> getAlternativeId()
+    {
+        return alternativePlanContext.get().map(AlternativePlanContext::alternativeId);
+    }
+
+    public DriverContext setAlternativePlanContext(ConnectorAlternativePageSourceProvider connectorAlternativePageSourceProvider, int alternativeId)
+    {
+        if (!alternativePlanContext.compareAndSet(
+                Optional.empty(),
+                Optional.of(new AlternativePlanContext(connectorAlternativePageSourceProvider, alternativeId)))) {
+            throw new IllegalStateException("alternativePlanContext was already set to " + alternativePlanContext.get());
+        }
+
+        return this;
+    }
+
     private static long nanosBetween(long start, long end)
     {
         return max(0, end - start);
+    }
+
+    private record AlternativePlanContext(ConnectorAlternativePageSourceProvider connectorAlternativePageSourceProvider, int alternativeId)
+    {
+        private AlternativePlanContext(ConnectorAlternativePageSourceProvider connectorAlternativePageSourceProvider, int alternativeId)
+        {
+            this.connectorAlternativePageSourceProvider = requireNonNull(connectorAlternativePageSourceProvider, "connectorAlternativePageSourceProvider is null");
+            this.alternativeId = alternativeId;
+        }
     }
 
     private class BlockedMonitor

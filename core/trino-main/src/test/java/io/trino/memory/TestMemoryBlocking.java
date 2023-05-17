@@ -25,6 +25,7 @@ import io.trino.execution.TaskId;
 import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
+import io.trino.operator.OperatorContext;
 import io.trino.operator.TableScanOperator;
 import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
@@ -32,6 +33,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.Type;
+import io.trino.split.TableAwarePageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.PageConsumerOperator;
@@ -99,16 +101,19 @@ public class TestMemoryBlocking
     {
         PlanNodeId sourceId = new PlanNodeId("source");
         List<Type> types = ImmutableList.of(VARCHAR);
-        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
+        OperatorContext operatorContext = driverContext.addOperatorContext(1, new PlanNodeId("test"), "values");
+        TableScanOperator source = new TableScanOperator(operatorContext,
                 sourceId,
-                (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .addSequencePage(10, 1)
-                        .build()),
-                TEST_TABLE_HANDLE,
+                TableAwarePageSourceProvider.create(
+                        operatorContext,
+                        TEST_TABLE_HANDLE,
+                        (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
+                                .addSequencePage(10, 1)
+                                .addSequencePage(10, 1)
+                                .addSequencePage(10, 1)
+                                .addSequencePage(10, 1)
+                                .addSequencePage(10, 1)
+                                .build())),
                 ImmutableList.of(),
                 DynamicFilter.EMPTY);
         PageConsumerOperator sink = createSinkOperator(types);

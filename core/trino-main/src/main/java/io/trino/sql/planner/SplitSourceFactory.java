@@ -32,6 +32,7 @@ import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -326,6 +327,19 @@ public class SplitSourceFactory
             }
 
             return node.getSource().orElseThrow().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitChooseAlternativeNode(ChooseAlternativeNode node, Void context)
+        {
+            SplitSource splitSource = createSplitSource(
+                    node.getOriginalTableScan().tableHandle(),
+                    node.getOriginalTableScan().assignments(),
+                    node.getOriginalTableScan().filterPredicate());
+
+            splitSources.add(splitSource);
+
+            return ImmutableMap.of(node.getId(), splitSource);
         }
 
         @Override

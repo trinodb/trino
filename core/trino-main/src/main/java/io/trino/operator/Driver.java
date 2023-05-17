@@ -202,9 +202,6 @@ public class Driver
     public void updateSplitAssignment(SplitAssignment splitAssignment)
     {
         checkLockNotHeld("Cannot update assignments while holding the driver lock");
-        checkArgument(
-                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(splitAssignment.getPlanNodeId()),
-                "splitAssignment is for a plan node that is different from this Driver's source node");
 
         // stage the new updates
         pendingSplitAssignmentUpdates.updateAndGet(current -> current == null ? splitAssignment : current.update(splitAssignment));

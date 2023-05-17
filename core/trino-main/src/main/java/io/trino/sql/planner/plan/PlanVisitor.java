@@ -249,6 +249,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitChooseAlternativeNode(ChooseAlternativeNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitTableFunction(TableFunctionNode node, C context)
     {
         return visitPlan(node, context);

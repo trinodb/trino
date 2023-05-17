@@ -28,6 +28,18 @@ public final class TestingOperatorContext
 {
     public static OperatorContext create(ScheduledExecutorService scheduledExecutor)
     {
+        DriverContext driverContext = createDriverContext(scheduledExecutor);
+
+        OperatorContext operatorContext = driverContext.addOperatorContext(
+                1,
+                new PlanNodeId("test"),
+                "operator type");
+
+        return operatorContext;
+    }
+
+    public static DriverContext createDriverContext(ScheduledExecutorService scheduledExecutor)
+    {
         Executor executor = MoreExecutors.directExecutor();
 
         TaskContext taskContext = TestingTaskContext.createTaskContext(
@@ -53,13 +65,7 @@ public final class TestingOperatorContext
                 scheduledExecutor,
                 pipelineMemoryContext,
                 0L);
-
-        OperatorContext operatorContext = driverContext.addOperatorContext(
-                1,
-                new PlanNodeId("test"),
-                "operator type");
-
-        return operatorContext;
+        return driverContext;
     }
 
     private TestingOperatorContext() {}

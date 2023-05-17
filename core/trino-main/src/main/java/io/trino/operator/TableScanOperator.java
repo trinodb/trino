@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -28,6 +29,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
+import io.trino.split.TableAwarePageSourceProvider;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
@@ -88,8 +90,7 @@ public class TableScanOperator
             return new TableScanOperator(
                     operatorContext,
                     sourceId,
-                    pageSourceProvider,
-                    table,
+                    TableAwarePageSourceProvider.create(operatorContext, table, pageSourceProvider),
                     columns,
                     dynamicFilter);
         }
@@ -103,8 +104,7 @@ public class TableScanOperator
 
     private final OperatorContext operatorContext;
     private final PlanNodeId sourceId;
-    private final PageSourceProvider pageSourceProvider;
-    private final TableHandle table;
+    private final TableAwarePageSourceProvider pageSourceProvider;
     private final List<ColumnHandle> columns;
     private final DynamicFilter dynamicFilter;
     private final LocalMemoryContext memoryContext;
@@ -121,7 +121,8 @@ public class TableScanOperator
     private long completedPositions;
     private long readTimeNanos;
 
-    public TableScanOperator(
+    @VisibleForTesting
+    TableScanOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
             PageSourceProvider pageSourceProvider,
@@ -129,10 +130,23 @@ public class TableScanOperator
             Iterable<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        this(operatorContext,
+                sourceId,
+                TableAwarePageSourceProvider.create(operatorContext, table, pageSourceProvider),
+                columns,
+                dynamicFilter);
+    }
+
+    public TableScanOperator(
+            OperatorContext operatorContext,
+            PlanNodeId sourceId,
+            TableAwarePageSourceProvider pageSourceProvider,
+            Iterable<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "planNodeId is null");
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        this.table = requireNonNull(table, "table is null");
+        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceFactory is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.memoryContext = operatorContext.newLocalUserMemoryContext(TableScanOperator.class.getSimpleName());
@@ -195,15 +209,20 @@ public class TableScanOperator
         finished = true;
         blocked.set(null);
 
-        if (source != null) {
-            try {
-                source.close();
+        try {
+            if (source != null) {
+                try {
+                    source.close();
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                memoryContext.setBytes(source.getMemoryUsage());
+                operatorContext.setLatestConnectorMetrics(source.getMetrics());
             }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-            memoryContext.setBytes(source.getMemoryUsage());
-            operatorContext.setLatestConnectorMetrics(source.getMetrics());
+        }
+        finally {
+            pageSourceProvider.close();
         }
     }
 
@@ -260,7 +279,7 @@ public class TableScanOperator
             if (!dynamicFilter.getCurrentPredicate().isAll()) {
                 operatorContext.recordDynamicFilterSplitProcessed(1L);
             }
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns, dynamicFilter);
         }
 
         Page page = source.getNextPage();

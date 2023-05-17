@@ -61,8 +61,6 @@ public class SplitAssignment
 
     public SplitAssignment update(SplitAssignment assignment)
     {
-        checkArgument(planNodeId.equals(assignment.getPlanNodeId()), "Expected assignment for node %s, but got assignment for node %s", planNodeId, assignment.getPlanNodeId());
-
         if (isNewer(assignment)) {
             // assure the new assignment is properly formed
             // we know that either the new assignment one has new splits and/or it is marking the assignment as closed

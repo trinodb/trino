@@ -15,6 +15,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;
@@ -44,6 +45,13 @@ public final class SchedulingOrderVisitor
         public Visitor(Consumer<PlanNodeId> schedulingOrder)
         {
             this.schedulingOrder = requireNonNull(schedulingOrder, "schedulingOrder is null");
+        }
+
+        @Override
+        public Void visitChooseAlternativeNode(ChooseAlternativeNode node, Void context)
+        {
+            schedulingOrder.accept(node.getId());
+            return null;
         }
 
         @Override

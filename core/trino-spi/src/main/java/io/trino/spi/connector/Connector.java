@@ -105,6 +105,14 @@ public interface Connector
     }
 
     /**
+     * @throws UnsupportedOperationException if this connector does not support sub-plan alternatives
+     */
+    default ConnectorAlternativeChooser getAlternativeChooser()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * @throws UnsupportedOperationException if this connector does not support writing tables page at a time
      */
     default ConnectorPageSinkProvider getPageSinkProvider()
