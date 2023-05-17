@@ -72,7 +72,7 @@ public class TestSliceDictionaryColumnReader
                 footer.getRowsInRowGroup(),
                 OrcPredicate.TRUE,
                 ORIGINAL,
-                new OrcMetadataReader(),
+                new OrcMetadataReader(new OrcReaderOptions()),
                 Optional.empty());
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
         SliceDictionaryColumnReader columnReader = new SliceDictionaryColumnReader(columns.get(0), memoryContext.newLocalMemoryContext(TestSliceDictionaryColumnReader.class.getSimpleName()), -1, false);

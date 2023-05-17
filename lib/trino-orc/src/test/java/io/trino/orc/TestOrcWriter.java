@@ -117,7 +117,7 @@ public class TestOrcWriter
                 // read the footer
                 Slice tailBuffer = orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), toIntExact(stripe.getFooterLength()));
                 try (InputStream inputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), tailBuffer, Optional.empty(), newSimpleAggregatedMemoryContext()))) {
-                    StripeFooter stripeFooter = new OrcMetadataReader().readStripeFooter(footer.getTypes(), inputStream, ZoneId.of("UTC"));
+                    StripeFooter stripeFooter = new OrcMetadataReader(new OrcReaderOptions()).readStripeFooter(footer.getTypes(), inputStream, ZoneId.of("UTC"));
 
                     int size = 0;
                     boolean dataStreamStarted = false;
