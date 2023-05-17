@@ -27,7 +27,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * {@link SplitDriverFactory} that has predefined list of {@link OperatorFactory}ies that does not depend on a particular split.
+ */
 public class DriverFactory
+        implements SplitDriverFactory
 {
     private final int pipelineId;
     private final boolean inputDriver;
@@ -58,16 +62,19 @@ public class DriverFactory
         this.sourceId = sourceIds.isEmpty() ? Optional.empty() : Optional.of(sourceIds.get(0));
     }
 
+    @Override
     public int getPipelineId()
     {
         return pipelineId;
     }
 
+    @Override
     public boolean isInputDriver()
     {
         return inputDriver;
     }
 
+    @Override
     public boolean isOutputDriver()
     {
         return outputDriver;
@@ -78,21 +85,19 @@ public class DriverFactory
      * A DriverFactory doesn't always have source node.
      * For example, ValuesNode is not a source node.
      */
+    @Override
     public Optional<PlanNodeId> getSourceId()
     {
         return sourceId;
     }
 
+    @Override
     public OptionalInt getDriverInstances()
     {
         return driverInstances;
     }
 
-    public List<OperatorFactory> getOperatorFactories()
-    {
-        return operatorFactories;
-    }
-
+    @Override
     public Driver createDriver(DriverContext driverContext)
     {
         requireNonNull(driverContext, "driverContext is null");
@@ -135,6 +140,7 @@ public class DriverFactory
         }
     }
 
+    @Override
     public synchronized void noMoreDrivers()
     {
         if (noMoreDrivers) {
@@ -148,8 +154,19 @@ public class DriverFactory
 
     // no need to synchronize when just checking the boolean flag
     @SuppressWarnings("GuardedBy")
+    @Override
     public boolean isNoMoreDrivers()
     {
         return noMoreDrivers;
+    }
+
+    @Override
+    public void localPlannerComplete()
+    {
+        operatorFactories
+                .stream()
+                .filter(LocalPlannerAware.class::isInstance)
+                .map(LocalPlannerAware.class::cast)
+                .forEach(LocalPlannerAware::localPlannerComplete);
     }
 }

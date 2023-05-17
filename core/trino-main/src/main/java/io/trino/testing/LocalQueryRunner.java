@@ -113,12 +113,12 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
-import io.trino.operator.DriverFactory;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
+import io.trino.operator.SplitDriverFactory;
 import io.trino.operator.TaskContext;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.scalar.json.JsonExistsFunction;
@@ -1054,8 +1054,8 @@ public class LocalQueryRunner
 
         // create drivers
         List<Driver> drivers = new ArrayList<>();
-        Map<PlanNodeId, DriverFactory> driverFactoriesBySource = new HashMap<>();
-        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+        Map<PlanNodeId, SplitDriverFactory> driverFactoriesBySource = new HashMap<>();
+        for (SplitDriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             for (int i = 0; i < driverFactory.getDriverInstances().orElse(1); i++) {
                 if (driverFactory.getSourceId().isPresent()) {
                     checkState(driverFactoriesBySource.put(driverFactory.getSourceId().get(), driverFactory) == null);
@@ -1071,7 +1071,7 @@ public class LocalQueryRunner
         // add split assignments to the drivers
         ImmutableSet<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
         for (SplitAssignment splitAssignment : splitAssignments) {
-            DriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
+            SplitDriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
             checkState(driverFactory != null);
             boolean partitioned = partitionedSources.contains(driverFactory.getSourceId().get());
             for (ScheduledSplit split : splitAssignment.getSplits()) {
@@ -1082,7 +1082,7 @@ public class LocalQueryRunner
             }
         }
 
-        for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+        for (SplitDriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
             driverFactory.noMoreDrivers();
         }
 
