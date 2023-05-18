@@ -18,12 +18,14 @@ import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -45,6 +47,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumn
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getColumnCommentOnTrino;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnDelta;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableCommentOnTrino;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.testng.Assert.assertEquals;
@@ -361,7 +364,19 @@ public class TestDeltaLakeColumnMappingMode
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testColumnMappingModeAddColumn(String mode)
+    public void testTrinoColumnMappingModeAddColumn(String mode)
+    {
+        testColumnMappingModeAddColumn(mode, tableName -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN another_varchar VARCHAR"));
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDeltaColumnMappingModeAddColumn(String mode)
+    {
+        testColumnMappingModeAddColumn(mode, tableName -> onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN another_varchar STRING"));
+    }
+
+    private void testColumnMappingModeAddColumn(String mode, Consumer<String> addColumn)
     {
         String tableName = "test_dl_column_mapping_mode_add_column_" + randomNameSuffix();
 
@@ -384,7 +399,7 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(expectedRows);
 
             // Verify the connector can read added columns correctly
-            onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN another_varchar STRING");
+            addColumn.accept(tableName);
             assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
                     .containsOnly(
                             row("a_number", "integer", "", ""),
@@ -412,6 +427,74 @@ public class TestDeltaLakeColumnMappingMode
                     .containsOnly(row(3, "new column"));
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName + " WHERE another_varchar IS NULL"))
                     .containsOnly(row(1, null), row(2, null));
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTrinoColumnMappingModeAddComplexColumn(String mode)
+    {
+        testColumnMappingModeAddComplexColumn(
+                mode,
+                tableName -> {
+                    onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN a_array array(integer)");
+                    onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN a_map map(varchar, integer)");
+                    onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN a_row row(x integer)");
+                });
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDeltaColumnMappingModeAddComplexColumn(String mode)
+    {
+        testColumnMappingModeAddComplexColumn(
+                mode,
+                tableName -> {
+                    onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN a_array array<integer>");
+                    onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN a_map map<string, integer>");
+                    onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN a_row struct<x integer>");
+                });
+    }
+
+    private void testColumnMappingModeAddComplexColumn(String mode, Consumer<String> addColumns)
+    {
+        String tableName = "test_dl_column_mapping_mode_add_complex_column_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (a_number INT)" +
+                " USING delta " +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES (" +
+                " 'delta.columnMapping.mode' = '" + mode + "'" +
+                ")");
+
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES 1");
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).containsOnly(row(1));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).containsOnly(row(1));
+
+            addColumns.accept(tableName);
+
+            assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
+                    .containsOnly(
+                            row("a_number", "integer", "", ""),
+                            row("a_array", "array(integer)", "", ""),
+                            row("a_map", "map(varchar, integer)", "", ""),
+                            row("a_row", "row(x integer)", "", ""));
+
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (2, array(3), map('key', 4), named_struct('x', 5))");
+
+            List<Row> expectedRows = ImmutableList.of(row(1, null, null, null), row(2, 3, 4, 5));
+            assertThat(onDelta().executeQuery("SELECT a_number, a_array[0], a_map['key'], a_row.x FROM default." + tableName)).containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT a_number, a_array[1], a_map['key'], a_row.x FROM delta.default." + tableName)).containsOnly(expectedRows);
+
+            // 5 comes from 1 (a_number) + 1 (a_array) + 1 (a_map) + 2 (column & field of a_row)
+            Assertions.assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
+                    .isEqualTo("5");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
@@ -522,7 +605,19 @@ public class TestDeltaLakeColumnMappingMode
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testDropAndAddColumnShowStatsForColumnMappingMode(String mode)
+    public void testTrinoDropAndAddColumnShowStatsForColumnMappingMode(String mode)
+    {
+        testDropAndAddColumnShowStatsForColumnMappingMode(mode, tableName -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN b_number INT"));
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testDeltaDropAndAddColumnShowStatsForColumnMappingMode(String mode)
+    {
+        testDropAndAddColumnShowStatsForColumnMappingMode(mode, tableName -> onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN b_number INT"));
+    }
+
+    private void testDropAndAddColumnShowStatsForColumnMappingMode(String mode, Consumer<String> addColumn)
     {
         String tableName = "test_dl_drop_add_column_show_stats_for_column_mapping_mode_" + randomNameSuffix();
 
@@ -545,7 +640,7 @@ public class TestDeltaLakeColumnMappingMode
 
             // Ensure SHOW STATS doesn't return stats for the restored column
             onDelta().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMN b_number");
-            onDelta().executeQuery("ALTER TABLE default." + tableName + " ADD COLUMN b_number INT");
+            addColumn.accept(tableName);
             assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
                     .containsOnly(ImmutableList.of(
                             row("a_number", null, 2.0, 0.33333333333, null, "1", "2"),
@@ -724,8 +819,6 @@ public class TestDeltaLakeColumnMappingMode
         try {
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " EXECUTE OPTIMIZE"))
                     .hasMessageContaining("Executing 'optimize' procedure with column mapping %s is not supported".formatted(mode));
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_col varchar"))
-                    .hasMessageContaining("Adding a column with column mapping %s is not supported".formatted(mode));
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN a_number TO renamed_column"))
                     .hasMessageContaining("This connector does not support renaming columns");
             assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " DROP COLUMN a_number"))

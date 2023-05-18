@@ -38,6 +38,7 @@ public class DeltaLakeOutputTableHandle
     private final boolean external;
     private final Optional<String> comment;
     private final Optional<Boolean> changeDataFeedEnabled;
+    private final String schemaString;
     private final ProtocolEntry protocolEntry;
 
     @JsonCreator
@@ -50,6 +51,7 @@ public class DeltaLakeOutputTableHandle
             @JsonProperty("external") boolean external,
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("changeDataFeedEnabled") Optional<Boolean> changeDataFeedEnabled,
+            @JsonProperty("schemaString") String schemaString,
             @JsonProperty("protocolEntry") ProtocolEntry protocolEntry)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -60,6 +62,7 @@ public class DeltaLakeOutputTableHandle
         this.external = external;
         this.comment = requireNonNull(comment, "comment is null");
         this.changeDataFeedEnabled = requireNonNull(changeDataFeedEnabled, "changeDataFeedEnabled is null");
+        this.schemaString = requireNonNull(schemaString, "schemaString is null");
         this.protocolEntry = requireNonNull(protocolEntry, "protocolEntry is null");
     }
 
@@ -118,6 +121,12 @@ public class DeltaLakeOutputTableHandle
     public Optional<Boolean> getChangeDataFeedEnabled()
     {
         return changeDataFeedEnabled;
+    }
+
+    @JsonProperty
+    public String getSchemaString()
+    {
+        return schemaString;
     }
 
     @JsonProperty

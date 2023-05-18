@@ -13,27 +13,44 @@
  */
 package io.trino.plugin.deltalake;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.io.Resources;
+import io.airlift.json.ObjectMapperProvider;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.assertj.core.api.Assertions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.Iterators.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -43,9 +60,14 @@ import static org.testng.Assert.assertFalse;
 public class TestDeltaLakeBasic
         extends AbstractTestQueryFramework
 {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+
     private static final List<String> PERSON_TABLES = ImmutableList.of(
             "person", "person_without_last_checkpoint", "person_without_old_jsons", "person_without_checkpoints");
     private static final List<String> OTHER_TABLES = ImmutableList.of("no_column_stats");
+
+    // The col-{uuid} pattern for delta.columnMapping.physicalName
+    private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -115,6 +137,84 @@ public class TestDeltaLakeBasic
         // AS
         // SELECT 42 AS c_int, 'foo' AS c_str
         assertQuery("SELECT c_str FROM no_column_stats WHERE c_int = 42", "VALUES 'foo'");
+    }
+
+    /**
+     * @see deltalake.column_mapping_mode_id
+     * @see deltalake.column_mapping_mode_name
+     */
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testAddNestedColumnWithColumnMappingMode(String columnMappingMode)
+            throws Exception
+    {
+        // The table contains 'x' column with column mapping mode
+        String tableName = "test_add_column_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("DESCRIBE " + tableName)).projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
+        MetadataEntry metadata = loadMetadataEntry(1, tableLocation);
+        Assertions.assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
+                .isEqualTo("6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
+
+        JsonNode schema = OBJECT_MAPPER.readTree(metadata.getSchemaString());
+        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
+        Assertions.assertThat(fields).hasSize(2);
+        JsonNode columnX = fields.get(0);
+        JsonNode columnY = fields.get(1);
+
+        List<JsonNode> rowFields = ImmutableList.copyOf(columnY.get("type").get("fields").elements());
+        Assertions.assertThat(rowFields).hasSize(3);
+        JsonNode nestedArray = rowFields.get(0);
+        JsonNode nestedMap = rowFields.get(1);
+        JsonNode nestedRow = rowFields.get(2);
+
+        // Verify delta.columnMapping.id and delta.columnMapping.physicalName values
+        Assertions.assertThat(columnX.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(1);
+        Assertions.assertThat(columnX.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        Assertions.assertThat(columnY.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(6);
+        Assertions.assertThat(columnY.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+
+        Assertions.assertThat(nestedArray.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(2);
+        Assertions.assertThat(nestedArray.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+
+        Assertions.assertThat(nestedMap.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(3);
+        Assertions.assertThat(nestedMap.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+
+        Assertions.assertThat(nestedRow.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(5);
+        Assertions.assertThat(nestedRow.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        Assertions.assertThat(getOnlyElement(nestedRow.get("type").get("fields").elements()).get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(4);
+        Assertions.assertThat(getOnlyElement(nestedRow.get("type").get("fields").elements()).get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+
+        // Repeat adding a new column and verify the existing fields are preserved
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN third_col row(a array(integer), b map(integer, integer), c row(field integer))");
+        MetadataEntry thirdMetadata = loadMetadataEntry(2, tableLocation);
+        JsonNode latestSchema = OBJECT_MAPPER.readTree(thirdMetadata.getSchemaString());
+        List<JsonNode> latestFields = ImmutableList.copyOf(latestSchema.get("fields").elements());
+        Assertions.assertThat(latestFields).hasSize(3);
+        JsonNode latestColumnX = latestFields.get(0);
+        JsonNode latestColumnY = latestFields.get(1);
+        Assertions.assertThat(latestColumnX).isEqualTo(columnX);
+        Assertions.assertThat(latestColumnY).isEqualTo(columnY);
+
+        Assertions.assertThat(thirdMetadata.getConfiguration())
+                .containsEntry("delta.columnMapping.maxColumnId", "11");
+        Assertions.assertThat(thirdMetadata.getSchemaString())
+                .containsPattern("(delta\\.columnMapping\\.id.*?){11}")
+                .containsPattern("(delta\\.columnMapping\\.physicalName.*?){11}");
+    }
+
+    @DataProvider
+    public Object[][] columnMappingModeDataProvider()
+    {
+        return new Object[][] {
+                {"id"},
+                {"name"},
+        };
     }
 
     @Test
@@ -194,6 +294,16 @@ public class TestDeltaLakeBasic
         else {
             assertThat(tableLocation.toFile()).exists().as("Table location should exist");
         }
+    }
+
+    private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)
+            throws IOException
+    {
+        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+        DeltaLakeTransactionLogEntry transactionLog = getEntriesFromJson(entryNumber, tableLocation.resolve("_delta_log").toString(), fileSystem).orElseThrow().stream()
+                .filter(log -> log.getMetaData() != null)
+                .collect(onlyElement());
+        return transactionLog.getMetaData();
     }
 
     private void copyDirectoryContents(Path source, Path destination)
