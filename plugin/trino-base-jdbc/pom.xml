@@ -262,6 +262,20 @@
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules combine.children="append">
+                        <RestrictImports>
+                            <reason>Use AssertJ assertions instead of TestNG</reason>
+                            <bannedImport>org.testng.Assert.*</bannedImport>
+                            <bannedImport>org.testng.AssertJUnit.*</bannedImport>
+                            <bannedImport>org.testng.asserts.**</bannedImport>
+                        </RestrictImports>
+                    </rules>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

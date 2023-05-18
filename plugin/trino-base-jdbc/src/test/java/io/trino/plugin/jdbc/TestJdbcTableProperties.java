@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 // Single-threaded because of shared mutable state, e.g. onGetTableProperties
 @Test(singleThreaded = true)

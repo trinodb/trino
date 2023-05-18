@@ -89,7 +89,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestDefaultJdbcQueryBuilder
@@ -251,7 +250,7 @@ public class TestDefaultJdbcQueryBuilder
                     builder.add((Long) resultSet.getObject("col_0"));
                 }
             }
-            assertEquals(builder.build(), ImmutableSet.of(68L, 180L, 196L));
+            assertThat(builder.build()).containsOnly(68L, 180L, 196L);
         }
     }
 
@@ -298,7 +297,7 @@ public class TestDefaultJdbcQueryBuilder
                     builder.add((Long) resultSet.getObject("col_0"));
                 }
             }
-            assertEquals(builder.build(), LongStream.range(980, 1000).boxed().collect(toImmutableList()));
+            assertThat(builder.build()).containsExactlyElementsOf(LongStream.range(980, 1000).boxed().collect(toImmutableList()));
         }
     }
 
@@ -331,8 +330,8 @@ public class TestDefaultJdbcQueryBuilder
                     floatBuilder.add((Float) resultSet.getObject("col_10"));
                 }
             }
-            assertEquals(longBuilder.build(), ImmutableSet.of(0L, 14L));
-            assertEquals(floatBuilder.build(), ImmutableSet.of(100.0f, 114.0f));
+            assertThat(longBuilder.build()).containsOnly(0L, 14L);
+            assertThat(floatBuilder.build()).containsOnly(100.0f, 114.0f);
         }
     }
 
@@ -363,7 +362,7 @@ public class TestDefaultJdbcQueryBuilder
                     builder.add((String) resultSet.getObject("col_3"));
                 }
             }
-            assertEquals(builder.build(), ImmutableSet.of("test_str_700", "test_str_701", "test_str_180", "test_str_196"));
+            assertThat(builder.build()).containsOnly("test_str_700", "test_str_701", "test_str_180", "test_str_196");
 
             assertContains(preparedStatement.toString(), "\"col_3\" >= ?");
             assertContains(preparedStatement.toString(), "\"col_3\" < ?");
@@ -447,8 +446,14 @@ public class TestDefaultJdbcQueryBuilder
                     timeBuilder.add((Time) resultSet.getObject("col_5"));
                 }
             }
-            assertEquals(dateBuilder.build(), ImmutableSet.of(toDate(2016, 6, 7), toDate(2016, 6, 13), toDate(2016, 10, 21)));
-            assertEquals(timeBuilder.build(), ImmutableSet.of(toTime(8, 23, 37), toTime(20, 23, 37)));
+            assertThat(dateBuilder.build()).containsOnly(
+                    toDate(2016, 6, 7),
+                    toDate(2016, 6, 13),
+                    toDate(2016, 10, 21));
+
+            assertThat(timeBuilder.build()).containsOnly(
+                    toTime(8, 23, 37),
+                    toTime(20, 23, 37));
 
             assertContains(preparedStatement.toString(), "\"col_4\" >= ?");
             assertContains(preparedStatement.toString(), "\"col_4\" < ?");
@@ -486,11 +491,11 @@ public class TestDefaultJdbcQueryBuilder
                     builder.add((Timestamp) resultSet.getObject("col_6"));
                 }
             }
-            assertEquals(builder.build(), ImmutableSet.of(
+            assertThat(builder.build()).containsOnly(
                     toTimestamp(2016, 6, 3, 0, 23, 37),
                     toTimestamp(2016, 6, 8, 10, 23, 37),
                     toTimestamp(2016, 6, 9, 12, 23, 37),
-                    toTimestamp(2016, 10, 19, 16, 23, 37)));
+                    toTimestamp(2016, 10, 19, 16, 23, 37));
 
             assertContains(preparedStatement.toString(), "\"col_6\" > ?");
             assertContains(preparedStatement.toString(), "\"col_6\" <= ?");
@@ -527,7 +532,7 @@ public class TestDefaultJdbcQueryBuilder
                     count++;
                 }
             }
-            assertEquals(count, 8);
+            assertThat(count).isEqualTo(8);
         }
     }
 
@@ -552,7 +557,7 @@ public class TestDefaultJdbcQueryBuilder
                     count++;
                 }
             }
-            assertEquals(count, 10);
+            assertThat(count).isEqualTo(10);
         }
     }
 
@@ -574,7 +579,7 @@ public class TestDefaultJdbcQueryBuilder
                     "FROM \"test_table\" " +
                     "WHERE \"col_1\" IS NULL");
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                assertEquals(resultSet.next(), false);
+                assertThat(resultSet.next()).isFalse();
             }
         }
     }
