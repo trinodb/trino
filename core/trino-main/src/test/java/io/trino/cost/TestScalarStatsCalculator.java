@@ -296,7 +296,7 @@ public class TestScalarStatsCalculator
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return SymbolStatsAssertion.assertThat(calculator.calculate(scalarExpression, inputStatistics, transactionSession, types));
+                    return SymbolStatsAssertion.assertSymbolStats(calculator.calculate(scalarExpression, inputStatistics, transactionSession, types));
                 });
     }
 

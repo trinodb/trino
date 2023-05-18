@@ -30,7 +30,7 @@ public class SymbolStatsAssertion
         this.statistics = requireNonNull(statistics, "statistics is null");
     }
 
-    public static SymbolStatsAssertion assertThat(SymbolStatsEstimate actual)
+    public static SymbolStatsAssertion assertSymbolStats(SymbolStatsEstimate actual)
     {
         return new SymbolStatsAssertion(actual);
     }

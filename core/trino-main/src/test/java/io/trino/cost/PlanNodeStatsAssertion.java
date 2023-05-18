@@ -56,7 +56,7 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion symbolStats(Symbol symbol, Consumer<SymbolStatsAssertion> columnAssertionConsumer)
     {
-        SymbolStatsAssertion columnAssertion = SymbolStatsAssertion.assertThat(actual.getSymbolStatistics(symbol));
+        SymbolStatsAssertion columnAssertion = SymbolStatsAssertion.assertSymbolStats(actual.getSymbolStatistics(symbol));
         columnAssertionConsumer.accept(columnAssertion);
         return this;
     }
