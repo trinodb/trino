@@ -49,7 +49,6 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -63,7 +62,6 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 public class TypeOperators
 {
-    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(RETURN_NULL_ON_NULL);
     private final BiFunction<Object, Supplier<Object>, Object> cache;
 
     public TypeOperators()
@@ -173,18 +171,16 @@ public class TypeOperators
     private OperatorAdaptor getOperatorAdaptor(Type type, Optional<SortOrder> sortOrder, InvocationConvention callingConvention, OperatorType operatorType)
     {
         OperatorConvention operatorConvention = new OperatorConvention(type, operatorType, sortOrder, callingConvention);
-        return (OperatorAdaptor) cache.apply(operatorConvention, () -> new OperatorAdaptor(functionAdapter, operatorConvention));
+        return (OperatorAdaptor) cache.apply(operatorConvention, () -> new OperatorAdaptor(operatorConvention));
     }
 
     private class OperatorAdaptor
     {
-        private final ScalarFunctionAdapter functionAdapter;
         private final OperatorConvention operatorConvention;
         private MethodHandle adapted;
 
-        public OperatorAdaptor(ScalarFunctionAdapter functionAdapter, OperatorConvention operatorConvention)
+        public OperatorAdaptor(OperatorConvention operatorConvention)
         {
-            this.functionAdapter = functionAdapter;
             this.operatorConvention = operatorConvention;
         }
 
@@ -205,7 +201,7 @@ public class TypeOperators
 
         private MethodHandle adaptOperator(OperatorConvention operatorConvention, OperatorMethodHandle operatorMethodHandle)
         {
-            return functionAdapter.adapt(
+            return ScalarFunctionAdapter.adapt(
                     operatorMethodHandle.getMethodHandle(),
                     getOperatorArgumentTypes(operatorConvention),
                     operatorMethodHandle.getCallingConvention(),
@@ -219,7 +215,7 @@ public class TypeOperators
                     .collect(toUnmodifiableList());
 
             for (OperatorMethodHandle operatorMethodHandle : operatorMethodHandles) {
-                if (functionAdapter.canAdapt(operatorMethodHandle.getCallingConvention(), operatorConvention.getCallingConvention())) {
+                if (ScalarFunctionAdapter.canAdapt(operatorMethodHandle.getCallingConvention(), operatorConvention.getCallingConvention())) {
                     return operatorMethodHandle;
                 }
             }

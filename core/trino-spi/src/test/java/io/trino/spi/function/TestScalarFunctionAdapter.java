@@ -23,7 +23,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
-import io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.LongTimestamp;
@@ -52,10 +51,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.THROW_ON_NULL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNDEFINED_VALUE_FOR_NULL;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -91,10 +86,7 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         String methodName = "neverNull";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_NULL_ON_NULL, ARGUMENT_TYPES);
-        verifyAllAdaptations(actualConvention, methodName, UNDEFINED_VALUE_FOR_NULL, ARGUMENT_TYPES);
-        verifyAllAdaptations(actualConvention, methodName, THROW_ON_NULL, ARGUMENT_TYPES);
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, ARGUMENT_TYPES);
     }
 
     @Test
@@ -107,80 +99,23 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         String methodName = "neverNullObjects";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_NULL_ON_NULL, OBJECTS_ARGUMENT_TYPES);
-        verifyAllAdaptations(actualConvention, methodName, UNDEFINED_VALUE_FOR_NULL, OBJECTS_ARGUMENT_TYPES);
-        verifyAllAdaptations(actualConvention, methodName, THROW_ON_NULL, OBJECTS_ARGUMENT_TYPES);
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, OBJECTS_ARGUMENT_TYPES);
-    }
-
-    @Test
-    public void testAdaptFromBoxedNull()
-            throws Throwable
-    {
-        InvocationConvention actualConvention = new InvocationConvention(
-                nCopies(ARGUMENT_TYPES.size(), BOXED_NULLABLE),
-                FAIL_ON_NULL,
-                false,
-                true);
-        String methodName = "boxedNull";
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, ARGUMENT_TYPES);
-    }
-
-    @Test
-    public void testAdaptFromBoxedNullObjects()
-            throws Throwable
-    {
-        InvocationConvention actualConvention = new InvocationConvention(
-                nCopies(OBJECTS_ARGUMENT_TYPES.size(), BOXED_NULLABLE),
-                FAIL_ON_NULL,
-                false,
-                true);
-        String methodName = "boxedNullObjects";
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, OBJECTS_ARGUMENT_TYPES);
-    }
-
-    @Test
-    public void testAdaptFromNullFlag()
-            throws Throwable
-    {
-        InvocationConvention actualConvention = new InvocationConvention(
-                nCopies(ARGUMENT_TYPES.size(), NULL_FLAG),
-                FAIL_ON_NULL,
-                false,
-                true);
-        String methodName = "nullFlag";
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, ARGUMENT_TYPES);
-    }
-
-    @Test
-    public void testAdaptFromNullFlagObjects()
-            throws Throwable
-    {
-        InvocationConvention actualConvention = new InvocationConvention(
-                nCopies(OBJECTS_ARGUMENT_TYPES.size(), NULL_FLAG),
-                FAIL_ON_NULL,
-                false,
-                true);
-        String methodName = "nullFlagObjects";
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, OBJECTS_ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, OBJECTS_ARGUMENT_TYPES);
     }
 
     private static void verifyAllAdaptations(
             InvocationConvention actualConvention,
             String methodName,
-            NullAdaptationPolicy nullAdaptationPolicy,
             List<Type> argumentTypes)
             throws Throwable
     {
         MethodType type = methodType(actualConvention.getReturnConvention() == FAIL_ON_NULL ? boolean.class : Boolean.class, toCallArgumentTypes(actualConvention, argumentTypes));
         MethodHandle methodHandle = lookup().findVirtual(Target.class, methodName, type);
-        verifyAllAdaptations(actualConvention, methodHandle, nullAdaptationPolicy, argumentTypes);
+        verifyAllAdaptations(actualConvention, methodHandle, argumentTypes);
     }
 
     private static void verifyAllAdaptations(
             InvocationConvention actualConvention,
             MethodHandle methodHandle,
-            NullAdaptationPolicy nullAdaptationPolicy,
             List<Type> argumentTypes)
             throws Throwable
     {
@@ -194,7 +129,7 @@ public class TestScalarFunctionAdapter
                         methodHandle,
                         actualConvention,
                         expectedConvention,
-                        nullAdaptationPolicy, argumentTypes);
+                        argumentTypes);
             }
         }
     }
@@ -203,26 +138,21 @@ public class TestScalarFunctionAdapter
             MethodHandle methodHandle,
             InvocationConvention actualConvention,
             InvocationConvention expectedConvention,
-            NullAdaptationPolicy nullAdaptationPolicy,
             List<Type> argumentTypes)
             throws Throwable
     {
-        ScalarFunctionAdapter scalarFunctionAdapter = new ScalarFunctionAdapter(nullAdaptationPolicy);
         MethodHandle adaptedMethodHandle = null;
         try {
-            adaptedMethodHandle = scalarFunctionAdapter.adapt(
+            adaptedMethodHandle = ScalarFunctionAdapter.adapt(
                     methodHandle,
                     argumentTypes,
                     actualConvention,
                     expectedConvention);
-            assertTrue(scalarFunctionAdapter.canAdapt(actualConvention, expectedConvention));
+            assertTrue(ScalarFunctionAdapter.canAdapt(actualConvention, expectedConvention));
         }
         catch (IllegalArgumentException e) {
-            assertFalse(scalarFunctionAdapter.canAdapt(actualConvention, expectedConvention));
-            if (nullAdaptationPolicy != RETURN_NULL_ON_NULL && expectedConvention.getReturnConvention() == DEFAULT_ON_NULL) {
-                return;
-            }
-            assertTrue(nullAdaptationPolicy == UNSUPPORTED || (nullAdaptationPolicy == RETURN_NULL_ON_NULL && expectedConvention.getReturnConvention() == FAIL_ON_NULL));
+            assertFalse(ScalarFunctionAdapter.canAdapt(actualConvention, expectedConvention));
+            assertTrue((expectedConvention.getReturnConvention() == FAIL_ON_NULL));
             if (hasNullableToNoNullableAdaptation(actualConvention, expectedConvention)) {
                 return;
             }
@@ -250,24 +180,14 @@ public class TestScalarFunctionAdapter
             List<Object> argumentValues = toCallArgumentValues(newCallingConvention, nullArguments, target, argumentTypes);
             try {
                 Boolean result = (Boolean) exactInvoker.invokeWithArguments(argumentValues);
-                if (result == null) {
-                    assertEquals(nullAdaptationPolicy, RETURN_NULL_ON_NULL);
-                }
-                else {
+                if (result != null) {
                     assertTrue(result);
                 }
             }
             catch (TrinoException trinoException) {
-                if (nullAdaptationPolicy == UNSUPPORTED) {
-                    // never null is allowed to be converted to block and position, but will throw if value is null
-                    assertTrue(hasNullBlockAndPositionToNeverNullArgument(actualConvention, expectedConvention, nullArguments));
-                }
-                else {
-                    assertTrue(nullAdaptationPolicy == THROW_ON_NULL || nullAdaptationPolicy == RETURN_NULL_ON_NULL);
-                }
                 assertEquals(trinoException.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
             }
-            target.verify(actualConvention, expectedConvention, nullArguments, nullAdaptationPolicy, argumentTypes);
+            target.verify(actualConvention, expectedConvention, nullArguments, argumentTypes);
         }
     }
 
@@ -296,18 +216,6 @@ public class TestScalarFunctionAdapter
             }
         }
         return true;
-    }
-
-    private static boolean hasNullBlockAndPositionToNeverNullArgument(InvocationConvention actualConvention, InvocationConvention expectedConvention, BitSet nullArguments)
-    {
-        for (int i = 0; i < actualConvention.getArgumentConventions().size(); i++) {
-            InvocationArgumentConvention argumentConvention = actualConvention.getArgumentConvention(i);
-            InvocationArgumentConvention expectedArgumentConvention = expectedConvention.getArgumentConvention(i);
-            if (nullArguments.get(i) && argumentConvention == NEVER_NULL && (expectedArgumentConvention == BLOCK_POSITION || expectedArgumentConvention == IN_OUT)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static List<Class<?>> toCallArgumentTypes(InvocationConvention callingConvention, List<Type> argumentTypes)
@@ -459,6 +367,7 @@ public class TestScalarFunctionAdapter
         private Object objectCharValue;
         private Object objectTimestampValue;
 
+        @SuppressWarnings("unused")
         public boolean neverNull(boolean booleanValue, long longValue, double doubleValue, Slice sliceValue, Block blockValue)
         {
             checkState(!invoked, "Already invoked");
@@ -473,6 +382,7 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
+        @SuppressWarnings("unused")
         public boolean neverNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
         {
             checkState(!invoked, "Already invoked");
@@ -486,6 +396,7 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
+        @SuppressWarnings("unused")
         public boolean boxedNull(Boolean booleanValue, Long longValue, Double doubleValue, Slice sliceValue, Block blockValue)
         {
             checkState(!invoked, "Already invoked");
@@ -500,6 +411,7 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
+        @SuppressWarnings("unused")
         public boolean boxedNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
         {
             checkState(!invoked, "Already invoked");
@@ -513,6 +425,7 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
+        @SuppressWarnings("unused")
         public boolean nullFlag(
                 boolean booleanValue, boolean booleanNull,
                 long longValue, boolean longNull,
@@ -566,6 +479,7 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
+        @SuppressWarnings("unused")
         public boolean nullFlagObjects(
                 Slice sliceValue, boolean sliceNull,
                 Block blockValue, boolean blockNull,
@@ -614,10 +528,9 @@ public class TestScalarFunctionAdapter
                 InvocationConvention actualConvention,
                 InvocationConvention expectedConvention,
                 BitSet nullArguments,
-                NullAdaptationPolicy nullAdaptationPolicy,
                 List<Type> argumentTypes)
         {
-            if (shouldFunctionBeInvoked(actualConvention, expectedConvention, nullArguments, nullAdaptationPolicy)) {
+            if (shouldFunctionBeInvoked(actualConvention, expectedConvention, nullArguments)) {
                 assertTrue(invoked, "function not invoked");
                 if (!objectsMethod) {
                     assertArgumentValue(this.booleanValue, 0, actualConvention, nullArguments, argumentTypes);
@@ -634,7 +547,7 @@ public class TestScalarFunctionAdapter
                 }
             }
             else {
-                assertFalse(invoked, "Function should not be invoked when null is passed to a NEVER_NULL argument and adaptation is " + nullAdaptationPolicy);
+                assertFalse(invoked, "Function should not be invoked when null is passed to a NEVER_NULL argument");
                 assertNull(this.booleanValue);
                 assertNull(this.longValue);
                 assertNull(this.doubleValue);
@@ -655,9 +568,9 @@ public class TestScalarFunctionAdapter
             this.objectTimestampValue = null;
         }
 
-        private static boolean shouldFunctionBeInvoked(InvocationConvention actualConvention, InvocationConvention expectedConvention, BitSet nullArguments, NullAdaptationPolicy nullAdaptationPolicy)
+        private static boolean shouldFunctionBeInvoked(InvocationConvention actualConvention, InvocationConvention expectedConvention, BitSet nullArguments)
         {
-            if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL || expectedConvention.getReturnConvention() == DEFAULT_ON_NULL) {
+            if (expectedConvention.getReturnConvention() == DEFAULT_ON_NULL) {
                 return true;
             }
 
