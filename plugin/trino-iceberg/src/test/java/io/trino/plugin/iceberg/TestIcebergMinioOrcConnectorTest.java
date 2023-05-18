@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicHdfsConfiguration;
@@ -106,7 +105,8 @@ public class TestIcebergMinioOrcConnectorTest
                 .setS3AwsSecretKey(MINIO_SECRET_KEY));
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
-        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()), new TrinoHdfsFileSystemStats());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
+        fileSystem = new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()).create(SESSION);
     }
 
     @Override
@@ -125,7 +125,7 @@ public class TestIcebergMinioOrcConnectorTest
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
     {
-        return checkOrcFileSorting(fileSystemFactory, Location.of(path), sortColumnName);
+        return checkOrcFileSorting(fileSystem, Location.of(path), sortColumnName);
     }
 
     @Test
@@ -148,7 +148,6 @@ public class TestIcebergMinioOrcConnectorTest
         checkArgument(expectedValue != 0);
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_read_as_integer", "(\"_col0\") AS VALUES 0, NULL")) {
             String orcFilePath = (String) computeScalar(format("SELECT DISTINCT file_path FROM \"%s$files\"", table.getName()));
-            TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
             try (OutputStream outputStream = fileSystem.newOutputFile(Location.of(orcFilePath)).createOrOverwrite()) {
                 Files.copy(new File(getResource(orcFileResourceName).toURI()).toPath(), outputStream);
             }

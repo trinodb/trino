@@ -27,7 +27,6 @@ import java.nio.file.Path;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static java.lang.String.format;
@@ -111,6 +110,6 @@ public class TestIcebergConnectorSmokeTest
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
-        return checkOrcFileSorting(HDFS_FILE_SYSTEM_FACTORY, path, sortColumnName);
+        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 }

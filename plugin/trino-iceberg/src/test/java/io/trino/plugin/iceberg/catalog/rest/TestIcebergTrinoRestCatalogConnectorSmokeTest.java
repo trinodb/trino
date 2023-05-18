@@ -38,6 +38,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.catalog.rest.RestCatalogTestUtils.backendCatalog;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -262,7 +263,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
-        return checkOrcFileSorting(HDFS_FILE_SYSTEM_FACTORY, path, sortColumnName);
+        return checkOrcFileSorting(HDFS_FILE_SYSTEM_FACTORY.create(SESSION), path, sortColumnName);
     }
 
     @Override

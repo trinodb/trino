@@ -16,6 +16,8 @@ package io.trino.plugin.iceberg.catalog.nessie;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -23,6 +25,7 @@ import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.containers.NessieContainer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.TestingConnectorSession;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -35,7 +38,8 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -45,10 +49,12 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
 {
     private static NessieContainer nessieContainer;
     private static Path tempDir;
+    private final TrinoFileSystem fileSystem;
 
     public TestIcebergNessieCatalogConnectorSmokeTest()
     {
         super(new IcebergConfig().getFileFormat().toIceberg());
+        this.fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(TestingConnectorSession.SESSION);
     }
 
     @BeforeClass
@@ -258,7 +264,7 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
-        return checkOrcFileSorting(HDFS_FILE_SYSTEM_FACTORY, path, sortColumnName);
+        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 
     @Override

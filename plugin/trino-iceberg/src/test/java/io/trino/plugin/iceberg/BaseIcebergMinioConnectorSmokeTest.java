@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.minio.messages.Event;
 import io.trino.Session;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicHdfsConfiguration;
@@ -46,6 +46,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
@@ -56,14 +57,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseIcebergMinioConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    protected final TrinoFileSystemFactory fileSystemFactory;
+    protected final TrinoFileSystem fileSystem;
 
     private final String schemaName;
     private final String bucketName;
 
     private HiveMinioDataLake hiveMinioDataLake;
 
-    public BaseIcebergMinioConnectorSmokeTest(FileFormat format)
+    protected BaseIcebergMinioConnectorSmokeTest(FileFormat format)
     {
         super(format);
         this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
@@ -74,7 +75,8 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 .setS3AwsSecretKey(MINIO_SECRET_KEY));
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
-        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()), new TrinoHdfsFileSystemStats());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
+        this.fileSystem = new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()).create(SESSION);
     }
 
     @Override

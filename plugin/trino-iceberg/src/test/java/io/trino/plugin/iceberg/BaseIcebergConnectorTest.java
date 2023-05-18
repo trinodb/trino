@@ -21,7 +21,6 @@ import io.trino.Session;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsContext;
 import io.trino.metadata.Metadata;
@@ -163,7 +162,7 @@ public abstract class BaseIcebergConnectorTest
 
     protected final IcebergFileFormat format;
 
-    protected TrinoFileSystemFactory fileSystemFactory;
+    protected TrinoFileSystem fileSystem;
     protected TimeUnit storageTimePrecision;
 
     protected BaseIcebergConnectorTest(IcebergFileFormat format)
@@ -193,7 +192,7 @@ public abstract class BaseIcebergConnectorTest
     @BeforeClass
     public void initFileSystemFactory()
     {
-        this.fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
+        this.fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
     }
 
     @BeforeClass
@@ -4196,7 +4195,7 @@ public abstract class BaseIcebergConnectorTest
             throws IOException
     {
         Path tempFile = getDistributedQueryRunner().getCoordinator().getBaseDataDir().resolve(randomUUID() + "-manifest-copy");
-        try (InputStream inputStream = fileSystemFactory.create(SESSION).newInputFile(Location.of(location)).newStream()) {
+        try (InputStream inputStream = fileSystem.newInputFile(Location.of(location)).newStream()) {
             Files.copy(inputStream, tempFile);
         }
         return new DataFileReader<>(tempFile.toFile(), new GenericDatumReader<>());
@@ -6619,18 +6618,17 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_drop_table_with_missing_metadata_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
         String tableLocation = getTableLocation(tableName);
-        Location metadataLocation = Location.of(getLatestMetadataLocation(trinoFileSystem, tableLocation));
+        Location metadataLocation = Location.of(getLatestMetadataLocation(fileSystem, tableLocation));
 
         // Delete current metadata file
-        trinoFileSystem.deleteFile(metadataLocation);
-        assertFalse(trinoFileSystem.newInputFile(metadataLocation).exists(), "Current metadata file should not exist");
+        fileSystem.deleteFile(metadataLocation);
+        assertFalse(fileSystem.newInputFile(metadataLocation).exists(), "Current metadata file should not exist");
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(trinoFileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
+        assertFalse(fileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
     }
 
     @Test
@@ -6640,20 +6638,19 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_drop_table_with_missing_snapshot_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
         String tableLocation = getTableLocation(tableName);
-        String metadataLocation = getLatestMetadataLocation(trinoFileSystem, tableLocation);
-        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(trinoFileSystem), metadataLocation);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
         Location currentSnapshotFile = Location.of(tableMetadata.currentSnapshot().manifestListLocation());
 
         // Delete current snapshot file
-        trinoFileSystem.deleteFile(currentSnapshotFile);
-        assertFalse(trinoFileSystem.newInputFile(currentSnapshotFile).exists(), "Current snapshot file should not exist");
+        fileSystem.deleteFile(currentSnapshotFile);
+        assertFalse(fileSystem.newInputFile(currentSnapshotFile).exists(), "Current snapshot file should not exist");
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(trinoFileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
+        assertFalse(fileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
     }
 
     @Test
@@ -6663,21 +6660,20 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_drop_table_with_missing_manifest_list_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
         String tableLocation = getTableLocation(tableName);
-        String metadataLocation = getLatestMetadataLocation(trinoFileSystem, tableLocation);
-        FileIO fileIo = new ForwardingFileIo(trinoFileSystem);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+        FileIO fileIo = new ForwardingFileIo(fileSystem);
         TableMetadata tableMetadata = TableMetadataParser.read(fileIo, metadataLocation);
         Location manifestListFile = Location.of(tableMetadata.currentSnapshot().allManifests(fileIo).get(0).path());
 
         // Delete Manifest List file
-        trinoFileSystem.deleteFile(manifestListFile);
-        assertFalse(trinoFileSystem.newInputFile(manifestListFile).exists(), "Manifest list file should not exist");
+        fileSystem.deleteFile(manifestListFile);
+        assertFalse(fileSystem.newInputFile(manifestListFile).exists(), "Manifest list file should not exist");
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(trinoFileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
+        assertFalse(fileSystem.listFiles(Location.of(tableLocation)).hasNext(), "Table location should not exist");
     }
 
     @Test
@@ -6688,21 +6684,20 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'POLAND')", 1);
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
         Location tableLocation = Location.of(getTableLocation(tableName));
         Location tableDataPath = tableLocation.appendPath("data");
-        FileIterator fileIterator = trinoFileSystem.listFiles(tableDataPath);
+        FileIterator fileIterator = fileSystem.listFiles(tableDataPath);
         assertTrue(fileIterator.hasNext());
         Location dataFile = fileIterator.next().location();
 
         // Delete data file
-        trinoFileSystem.deleteFile(dataFile);
-        assertFalse(trinoFileSystem.newInputFile(dataFile).exists(), "Data file should not exist");
+        fileSystem.deleteFile(dataFile);
+        assertFalse(fileSystem.newInputFile(dataFile).exists(), "Data file should not exist");
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(trinoFileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
     }
 
     @Test
@@ -6713,12 +6708,11 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'POLAND')", 1);
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
         Location tableLocation = Location.of(getTableLocation(tableName));
 
         // Delete table location
-        trinoFileSystem.deleteDirectory(tableLocation);
-        assertFalse(trinoFileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        fileSystem.deleteDirectory(tableLocation);
+        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
@@ -6734,13 +6728,12 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (id INT, country VARCHAR, independence ROW(month VARCHAR, year INT))");
         assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'INDIA', ROW ('Aug', 1947)), (2, 'POLAND', ROW ('Nov', 1918)), (3, 'USA', ROW ('Jul', 1776))", 3);
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
         Location tableLocation = Location.of(getTableLocation(tableName));
         Location metadataLocation = tableLocation.appendPath("metadata");
 
         // break the table by deleting all metadata files
-        trinoFileSystem.deleteDirectory(metadataLocation);
-        assertFalse(trinoFileSystem.listFiles(metadataLocation).hasNext(), "Metadata location should not exist");
+        fileSystem.deleteDirectory(metadataLocation);
+        assertFalse(fileSystem.listFiles(metadataLocation).hasNext(), "Metadata location should not exist");
 
         // Assert queries fail cleanly
         assertQueryFails("TABLE " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
@@ -6779,7 +6772,7 @@ public abstract class BaseIcebergConnectorTest
         // DROP TABLE should succeed so that users can remove their corrupted table
         assertQuerySucceeds("DROP TABLE " + tableName);
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(trinoFileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
     }
 
     @Test
@@ -6824,18 +6817,17 @@ public abstract class BaseIcebergConnectorTest
         assertThat(queryRunner.execute("TABLE " + hiveTableName))
                 .containsAll(queryRunner.execute("TABLE " + icebergTableName));
 
-        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
         Location tableLocation = Location.of((String) queryRunner.execute("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName).getOnlyValue());
         Location metadataLocation = tableLocation.appendPath("metadata");
 
         // break the table by deleting all metadata files
-        trinoFileSystem.deleteDirectory(metadataLocation);
-        assertFalse(trinoFileSystem.listFiles(metadataLocation).hasNext(), "Metadata location should not exist");
+        fileSystem.deleteDirectory(metadataLocation);
+        assertFalse(fileSystem.listFiles(metadataLocation).hasNext(), "Metadata location should not exist");
 
         // DROP TABLE should succeed using hive redirection
         queryRunner.execute("DROP TABLE " + hiveTableName);
         assertFalse(queryRunner.tableExists(getSession(), icebergTableName));
-        assertFalse(trinoFileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
     }
 
     @Override
@@ -6900,7 +6892,6 @@ public abstract class BaseIcebergConnectorTest
     protected List<String> listFiles(String directory)
             throws IOException
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
         ImmutableList.Builder<String> files = ImmutableList.builder();
         FileIterator listing = fileSystem.listFiles(Location.of(directory));
         while (listing.hasNext()) {
@@ -6916,14 +6907,12 @@ public abstract class BaseIcebergConnectorTest
     protected long fileSize(String location)
             throws IOException
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
         return fileSystem.newInputFile(Location.of(location)).length();
     }
 
     protected void createFile(String location)
             throws IOException
     {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
         fileSystem.newOutputFile(Location.of(location)).create().close();
     }
 
