@@ -222,7 +222,7 @@ public final class DeltaLakeQueryRunner
                 .build();
     }
 
-    private static String requiredNonEmptySystemProperty(String propertyName)
+    public static String requiredNonEmptySystemProperty(String propertyName)
     {
         String val = System.getProperty(propertyName);
         checkArgument(!isNullOrEmpty(val), format("System property %s must be non-empty", propertyName));
