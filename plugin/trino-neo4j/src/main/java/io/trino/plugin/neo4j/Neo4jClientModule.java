@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -44,11 +45,13 @@ public class Neo4jClientModule
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(Neo4jClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(Neo4jJdbcConfig.class);
+        configBinder(binder).bindConfig(BaseJdbcConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         // overwrite the DefaultJdbcMetadata binding with Neo4jMetadata binding
         OptionalBinder.newOptionalBinder(binder, JdbcMetadataFactory.class)
                 .setBinding().to(Neo4jJdbcMetadataFactory.class).in(Scopes.SINGLETON);
+        // overwrite the QueryBuilder binding
+        OptionalBinder.newOptionalBinder(binder, QueryBuilder.class).setBinding().to(Neo4jQueryBuilder.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }
 

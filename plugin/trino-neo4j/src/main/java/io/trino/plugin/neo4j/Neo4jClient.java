@@ -24,7 +24,6 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcQueryRelationHandle;
-import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -69,8 +68,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.ExecutionException;
@@ -417,7 +414,8 @@ public class Neo4jClient
                     resultSetInfo.setMetadata(mdRs.getMetaData());
                 }
                 else {
-                    ResultSetMetaData rsmd = BoltNeo4jResultSetMetaData.newInstance(false, new ArrayList<>(), new ArrayList<>());
+                    List<org.neo4j.driver.types.Type> types = new ArrayList<>();
+                    ResultSetMetaData rsmd = BoltNeo4jResultSetMetaData.newInstance(false, types, new ArrayList<>());
                     resultSetInfo.setMetadata(rsmd);
                 }
             }
@@ -441,38 +439,6 @@ public class Neo4jClient
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return null;
-    }
-
-    @Override
-    protected PreparedQuery prepareQuery(
-            ConnectorSession session,
-            Connection connection,
-            JdbcTableHandle table,
-            Optional<List<List<JdbcColumnHandle>>> groupingSets,
-            List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions,
-            Optional<JdbcSplit> split)
-    {
-        PreparedQuery query = applyQueryTransformations(table, queryBuilder.prepareSelectQuery(
-                this,
-                session,
-                connection,
-                table.getRelationHandle(),
-                groupingSets,
-                columns,
-                columnExpressions,
-                table.getConstraint(),
-                getAdditionalPredicate(table.getConstraintExpressions(), split.flatMap(JdbcSplit::getAdditionalPredicate))));
-
-        return query.transformQuery(sql -> {
-            if (sql.toLowerCase(Locale.getDefault()).startsWith("select")) {
-                int firstIndex = sql.toLowerCase(Locale.getDefault()).indexOf("from (");
-                int lastIndex = sql.lastIndexOf(")");
-                sql = sql.substring(firstIndex + 6, lastIndex);
-            }
-            log.debug("Neo4j Cypher sql query - " + sql);
-            return sql;
-        });
     }
 
     public Cache<PreparedQuery, Neo4jResultSetInfo> getCachedResultSetInfo()
