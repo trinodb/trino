@@ -60,33 +60,32 @@ public class TestIonSqlQueryBuilder
                 createBaseColumn("n_regionkey", 2, HIVE_INT, INTEGER, REGULAR, Optional.empty()));
 
         // CSV
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.CSV);
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.CSV, Optional.empty());
         assertEquals(queryBuilder.buildSql(columns, TupleDomain.all()),
                 "SELECT s._1, s._2, s._3 FROM S3Object s");
 
         TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
                 columns.get(2), Domain.create(SortedRangeSet.copyOf(BIGINT, ImmutableList.of(Range.equal(BIGINT, 3L))), false)));
         assertEquals(queryBuilder.buildSql(columns, tupleDomain),
-                "SELECT s._1, s._2, s._3 FROM S3Object s WHERE (case s._3 when '' then null else CAST(s._3 AS INT) end = 3)");
+                "SELECT s._1, s._2, s._3 FROM S3Object s WHERE (s._3 != '' AND CAST(s._3 AS INT) = 3)");
 
         // JSON
-        queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.JSON);
+        queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.JSON, Optional.empty());
         assertEquals(queryBuilder.buildSql(columns, TupleDomain.all()),
                 "SELECT s.n_nationkey, s.n_name, s.n_regionkey FROM S3Object s");
         assertEquals(queryBuilder.buildSql(columns, tupleDomain),
-                "SELECT s.n_nationkey, s.n_name, s.n_regionkey FROM S3Object s " +
-                "WHERE (case s.n_regionkey when '' then null else CAST(s.n_regionkey AS INT) end = 3)");
+                "SELECT s.n_nationkey, s.n_name, s.n_regionkey FROM S3Object s WHERE (s.n_regionkey IS NOT NULL AND CAST(s.n_regionkey AS INT) = 3)");
     }
 
     @Test
     public void testEmptyColumns()
     {
         // CSV
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.CSV);
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.CSV, Optional.empty());
         assertEquals(queryBuilder.buildSql(ImmutableList.of(), TupleDomain.all()), "SELECT ' ' FROM S3Object s");
 
         // JSON
-        queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.JSON);
+        queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.JSON, Optional.empty());
         assertEquals(queryBuilder.buildSql(ImmutableList.of(), TupleDomain.all()), "SELECT ' ' FROM S3Object s");
     }
 
@@ -106,18 +105,20 @@ public class TestIonSqlQueryBuilder
                         columns.get(2), Domain.create(ofRanges(Range.range(decimalType, shortDecimal("0.0"), true, shortDecimal("0.02"), true)), false)));
 
         // CSV
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, S3SelectDataType.CSV);
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, S3SelectDataType.CSV, Optional.empty());
         assertEquals(queryBuilder.buildSql(columns, tupleDomain),
-                "SELECT s._1, s._2, s._3 FROM S3Object s WHERE ((case s._1 when '' then null else CAST(s._1 AS DECIMAL(20,0)) end < 50)) AND " +
-                "(case s._2 when '' then null else CAST(s._2 AS DECIMAL(20,2)) end = 0.05) AND ((case s._3 when '' then null else CAST(s._3 AS DECIMAL(10,2)) " +
-                "end >= 0.00 AND case s._3 when '' then null else CAST(s._3 AS DECIMAL(10,2)) end <= 0.02))");
+                "SELECT s._1, s._2, s._3 FROM S3Object s WHERE " +
+                        "(s._1 != '' AND s._1 < 50) AND " +
+                        "(s._2 != '' AND s._2 = 0.05) AND " +
+                        "((s._3 != '' AND s._3 >= 0.00 AND s._3 <= 0.02))");
 
         // JSON
-        queryBuilder = new IonSqlQueryBuilder(typeManager, S3SelectDataType.JSON);
+        queryBuilder = new IonSqlQueryBuilder(typeManager, S3SelectDataType.JSON, Optional.empty());
         assertEquals(queryBuilder.buildSql(columns, tupleDomain),
-                "SELECT s.quantity, s.extendedprice, s.discount FROM S3Object s WHERE ((case s.quantity when '' then null else CAST(s.quantity AS DECIMAL(20,0)) end < 50)) AND " +
-                "(case s.extendedprice when '' then null else CAST(s.extendedprice AS DECIMAL(20,2)) end = 0.05) AND ((case s.discount when '' then null else CAST(s.discount AS DECIMAL(10,2)) " +
-                "end >= 0.00 AND case s.discount when '' then null else CAST(s.discount AS DECIMAL(10,2)) end <= 0.02))");
+                "SELECT s.quantity, s.extendedprice, s.discount FROM S3Object s WHERE " +
+                        "(s.quantity IS NOT NULL AND s.quantity < 50) AND " +
+                        "(s.extendedprice IS NOT NULL AND s.extendedprice = 0.05) AND " +
+                        "((s.discount IS NOT NULL AND s.discount >= 0.00 AND s.discount <= 0.02))");
     }
 
     @Test
@@ -130,12 +131,12 @@ public class TestIonSqlQueryBuilder
                 columns.get(1), Domain.create(SortedRangeSet.copyOf(DATE, ImmutableList.of(Range.equal(DATE, (long) DateTimeUtils.parseDate("2001-08-22")))), false)));
 
         // CSV
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.CSV);
-        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s._1, s._2 FROM S3Object s WHERE (case s._2 when '' then null else CAST(s._2 AS TIMESTAMP) end = `2001-08-22`)");
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.CSV, Optional.empty());
+        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s._1, s._2 FROM S3Object s WHERE (s._2 != '' AND s._2 = '2001-08-22')");
 
         // JSON
-        queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.JSON);
-        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s.t1, s.t2 FROM S3Object s WHERE (case s.t2 when '' then null else CAST(s.t2 AS TIMESTAMP) end = `2001-08-22`)");
+        queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.JSON, Optional.empty());
+        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s.t1, s.t2 FROM S3Object s WHERE (s.t2 IS NOT NULL AND s.t2 = '2001-08-22')");
     }
 
     @Test
@@ -152,11 +153,11 @@ public class TestIonSqlQueryBuilder
                         columns.get(2), Domain.create(ofRanges(Range.range(DOUBLE, 0.0, true, 0.02, true)), false)));
 
         // CSV
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.CSV);
-        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s._1, s._2, s._3 FROM S3Object s WHERE ((case s._1 when '' then null else CAST(s._1 AS INT) end < 50))");
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.CSV, Optional.empty());
+        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s._1, s._2, s._3 FROM S3Object s WHERE (s._1 != '' AND CAST(s._1 AS INT) < 50)");
 
         // JSON
-        queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.JSON);
-        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s.quantity, s.extendedprice, s.discount FROM S3Object s WHERE ((case s.quantity when '' then null else CAST(s.quantity AS INT) end < 50))");
+        queryBuilder = new IonSqlQueryBuilder(TESTING_TYPE_MANAGER, S3SelectDataType.JSON, Optional.empty());
+        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s.quantity, s.extendedprice, s.discount FROM S3Object s WHERE (s.quantity IS NOT NULL AND CAST(s.quantity AS INT) < 50)");
     }
 }

@@ -21,6 +21,7 @@ import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
 import io.trino.plugin.hive.ReaderColumns;
+import io.trino.plugin.hive.s3select.csv.S3SelectCsvRecordReader;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -106,7 +107,11 @@ public class S3SelectRecordCursorProvider
         if (s3SelectDataTypeOptional.isPresent()) {
             S3SelectDataType s3SelectDataType = s3SelectDataTypeOptional.get();
 
-            IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType);
+            Optional<String> nullCharacterEncoding = Optional.empty();
+            if (s3SelectDataType == S3SelectDataType.CSV) {
+                nullCharacterEncoding = S3SelectCsvRecordReader.nullCharacterEncoding(schema);
+            }
+            IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, s3SelectDataType, nullCharacterEncoding);
             String ionSqlQuery = queryBuilder.buildSql(readerColumns, effectivePredicate);
             Optional<S3SelectLineRecordReader> recordReader = S3SelectLineRecordReaderProvider.get(configuration, path, start, length, schema,
                     ionSqlQuery, s3ClientFactory, s3SelectDataType);
